@@ -17,6 +17,8 @@ flutter run
 
 The community backend is exposed under `/api/community/v1` on the shared Hexora server.
 
+The current UI gaps and proposed backend contract are documented in [BACKEND_REQUIREMENTS.md](BACKEND_REQUIREMENTS.md).
+
 ## Facebook login configuration
 
 Create a Meta application with Android package `com.wicchu.wicchu` and iOS bundle ID `com.wicchu.wicchu`.

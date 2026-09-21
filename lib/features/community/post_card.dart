@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/wicchu_theme.dart';
+import '../../localization/app_language.dart';
 
 class PostCard extends StatelessWidget {
   const PostCard({
@@ -43,7 +44,7 @@ class PostCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$icon ${category.toUpperCase()} · $community',
+                '$icon ${context.tr(category).toUpperCase()} · $community',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: accent,
                   fontWeight: FontWeight.w800,
@@ -52,7 +53,7 @@ class PostCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '$author · $time',
+                '$author · ${context.tr(time)}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 14),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
+import '../../localization/app_language.dart';
 
 class CreatePostPage extends StatefulWidget {
   const CreatePostPage({
@@ -34,7 +35,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         ? [widget.initialCategory!]
         : widget.categories;
     return Scaffold(
-      appBar: AppBar(title: const Text('Create post')),
+      appBar: AppBar(title: Text(context.tr('Create post'))),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -45,22 +46,22 @@ class _CreatePostPageState extends State<CreatePostPage> {
           const SizedBox(height: 20),
           DropdownButtonFormField<CommunityCategory>(
             initialValue: _category,
-            decoration: const InputDecoration(labelText: 'Category'),
+            decoration: InputDecoration(labelText: context.tr('Category')),
             items: [
               for (final item in categories)
                 DropdownMenuItem(
                   value: item,
-                  child: Text('${item.icon} ${item.name}'),
+                  child: Text('${item.icon} ${context.tr(item.name)}'),
                 ),
             ],
             onChanged: (value) => setState(() => _category = value),
           ),
           const SizedBox(height: 20),
-          const TextField(
+          TextField(
             minLines: 6,
             maxLines: 10,
             decoration: InputDecoration(
-              hintText: 'What would you like to share?',
+              hintText: context.tr('What would you like to share?'),
             ),
           ),
           const SizedBox(height: 14),
@@ -69,17 +70,17 @@ class _CreatePostPageState extends State<CreatePostPage> {
               TextButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.photo_camera_outlined),
-                label: const Text('Photo'),
+                label: Text(context.tr('Photo')),
               ),
               TextButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.videocam_outlined),
-                label: const Text('Video'),
+                label: Text(context.tr('Video')),
               ),
               const Spacer(),
               FilledButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Publish'),
+                child: Text(context.tr('Publish')),
               ),
             ],
           ),

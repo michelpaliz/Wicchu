@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
+import '../../localization/app_language.dart';
 import '../admin/admin_dashboard_page.dart';
 import 'category_page.dart';
 import 'post_card.dart';
@@ -23,7 +24,7 @@ class CommunityPage extends StatelessWidget {
         title: Text(community.name),
         actions: [
           IconButton(
-            tooltip: 'Community management',
+            tooltip: context.tr('Community management'),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -66,28 +67,32 @@ class CommunityPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text('${community.memberCount} members'),
+                Text(
+                  context.tr('{count} members', {
+                    'count': '${community.memberCount}',
+                  }),
+                ),
                 const SizedBox(height: 6),
-                Text(community.description),
+                Text(context.tr(community.description)),
                 const SizedBox(height: 18),
                 Row(
                   children: [
                     FilledButton.tonalIcon(
                       onPressed: () {},
                       icon: const Icon(Icons.check),
-                      label: const Text('Joined'),
+                      label: Text(context.tr('Joined')),
                     ),
                     const SizedBox(width: 10),
                     OutlinedButton.icon(
                       onPressed: () {},
                       icon: const Icon(Icons.ios_share_outlined),
-                      label: const Text('Share'),
+                      label: Text(context.tr('Share')),
                     ),
                   ],
                 ),
                 const SizedBox(height: 28),
                 Text(
-                  'Categories',
+                  context.tr('Categories'),
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
@@ -133,7 +138,7 @@ class CommunityPage extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      category.name,
+                                      context.tr(category.name),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -149,7 +154,7 @@ class CommunityPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 30),
                 Text(
-                  'Latest posts',
+                  context.tr('Latest posts'),
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
@@ -161,8 +166,9 @@ class CommunityPage extends StatelessWidget {
                   community: community.name,
                   author: 'María P.',
                   time: '20 min',
-                  text:
-                      'Water will be unavailable in the northern area tomorrow morning.',
+                  text: context.tr(
+                    'Water will be unavailable in the northern area tomorrow morning.',
+                  ),
                   likes: 23,
                   comments: 8,
                 ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/auth_gateway.dart';
+import '../../localization/app_language.dart';
+import '../../theme/theme_menu.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -30,6 +32,11 @@ class _LoginPageState extends State<LoginPage> {
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
                 children: [
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [ThemeMenu(), LanguageMenu()],
+                  ),
+                  const SizedBox(height: 24),
                   Icon(
                     Icons.people_alt_rounded,
                     size: 76,
@@ -44,7 +51,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Tu comunidad, más cerca.',
+                    context.tr('Your community, closer.'),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 40),
@@ -63,12 +70,14 @@ class _LoginPageState extends State<LoginPage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.facebook),
-                      label: const Text('Continue with Facebook'),
+                      label: Text(context.tr('Continue with Facebook')),
                     ),
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    'By continuing, you agree to Wicchu’s Terms and Privacy Policy.',
+                    context.tr(
+                      'By continuing, you agree to Wicchu’s Terms and Privacy Policy.',
+                    ),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -95,7 +104,9 @@ class _LoginPageState extends State<LoginPage> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Facebook sign-in is unavailable.')),
+          SnackBar(
+            content: Text(context.tr('Facebook sign-in is unavailable.')),
+          ),
         );
       }
     } finally {

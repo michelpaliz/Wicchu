@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
+import '../../localization/app_language.dart';
 
 class AdminDashboardPage extends StatelessWidget {
   const AdminDashboardPage({
@@ -26,11 +27,13 @@ class AdminDashboardPage extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${community.memberCount} member${community.memberCount == 1 ? '' : 's'}',
+            context.tr('{count} members', {
+              'count': '${community.memberCount}',
+            }),
           ),
           const SizedBox(height: 28),
           Text(
-            'Needs your attention',
+            context.tr('Needs your attention'),
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
@@ -62,7 +65,10 @@ class AdminDashboardPage extends StatelessWidget {
             },
           ),
           const SizedBox(height: 28),
-          Text('Community', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            context.tr('Community'),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 8),
           const _MenuRow(icon: Icons.insights_outlined, label: 'Overview'),
           const _MenuRow(icon: Icons.folder_outlined, label: 'Categories'),
@@ -88,7 +94,7 @@ class _ActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     leading: Icon(icon),
-    title: Text(label),
+    title: Text(context.tr(label)),
     trailing: Badge(label: Text('$count'), isLabelVisible: count > 0),
   );
 }
@@ -101,7 +107,7 @@ class _MenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     leading: Icon(icon),
-    title: Text(label),
+    title: Text(context.tr(label)),
     trailing: const Icon(Icons.chevron_right),
   );
 }

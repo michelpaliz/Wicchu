@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
+import '../../localization/app_language.dart';
 import 'create_post_page.dart';
 import 'post_card.dart';
 
@@ -17,7 +18,7 @@ class CategoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(category.name)),
+      appBar: AppBar(title: Text(context.tr(category.name))),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
@@ -27,7 +28,9 @@ class CategoryPage extends StatelessWidget {
           ),
         ),
         icon: const Icon(Icons.add),
-        label: Text(category.name == 'Marketplace' ? 'Sell / Post' : 'Post'),
+        label: Text(
+          context.tr(category.name == 'Marketplace' ? 'Sell / Post' : 'Post'),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
@@ -35,9 +38,12 @@ class CategoryPage extends StatelessWidget {
           Text(community.name, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 18),
           SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'latest', label: Text('Latest')),
-              ButtonSegment(value: 'popular', label: Text('Popular')),
+            segments: [
+              ButtonSegment(value: 'latest', label: Text(context.tr('Latest'))),
+              ButtonSegment(
+                value: 'popular',
+                label: Text(context.tr('Popular')),
+              ),
             ],
             selected: const {'latest'},
             onSelectionChanged: (_) {},
@@ -49,9 +55,11 @@ class CategoryPage extends StatelessWidget {
             community: community.name,
             author: 'Carlos M.',
             time: '43 min',
-            text: category.name == 'Marketplace'
-                ? 'Mountain bike for sale'
-                : 'Latest update from our community',
+            text: context.tr(
+              category.name == 'Marketplace'
+                  ? 'Mountain bike for sale'
+                  : 'Latest update from our community',
+            ),
             price: category.name == 'Marketplace' ? r'$180' : null,
             likes: 7,
             comments: 12,

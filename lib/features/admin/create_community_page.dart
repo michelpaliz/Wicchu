@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
+import '../../localization/app_language.dart';
 
 class CreateCommunityPage extends StatefulWidget {
   const CreateCommunityPage({super.key, required this.repository});
@@ -44,7 +45,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create community')),
+      appBar: AppBar(title: Text(context.tr('Create community'))),
       body: FutureBuilder<List<Town>>(
         future: widget.repository.listTowns(),
         builder: (context, snapshot) {
@@ -63,45 +64,47 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 children: [
                   FilledButton(
                     onPressed: _saving ? null : details.onStepContinue,
-                    child: Text(_step == 3 ? 'Create community' : 'Continue'),
+                    child: Text(
+                      context.tr(_step == 3 ? 'Create community' : 'Continue'),
+                    ),
                   ),
                   if (_step > 0)
                     TextButton(
                       onPressed: _saving ? null : details.onStepCancel,
-                      child: const Text('Back'),
+                      child: Text(context.tr('Back')),
                     ),
                 ],
               ),
             ),
             steps: [
               Step(
-                title: const Text('Basics'),
+                title: Text(context.tr('Basics')),
                 isActive: _step >= 0,
                 content: Column(
                   children: [
                     TextField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Community name',
+                      decoration: InputDecoration(
+                        labelText: context.tr('Community name'),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _descriptionController,
                       maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Short description',
+                      decoration: InputDecoration(
+                        labelText: context.tr('Short description'),
                       ),
                     ),
                   ],
                 ),
               ),
               Step(
-                title: const Text('Location'),
+                title: Text(context.tr('Location')),
                 isActive: _step >= 1,
                 content: DropdownButtonFormField<Town>(
                   initialValue: _town,
-                  decoration: const InputDecoration(labelText: 'Town'),
+                  decoration: InputDecoration(labelText: context.tr('Town')),
                   items: [
                     for (final town in towns)
                       DropdownMenuItem(
@@ -113,14 +116,14 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 ),
               ),
               Step(
-                title: const Text('Categories'),
+                title: Text(context.tr('Categories')),
                 isActive: _step >= 2,
                 content: Wrap(
                   spacing: 8,
                   children: [
                     for (final category in _defaults)
                       FilterChip(
-                        label: Text(category),
+                        label: Text(context.tr(category)),
                         selected: _selectedCategories.contains(category),
                         onSelected: (selected) => setState(() {
                           selected
@@ -132,15 +135,17 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 ),
               ),
               Step(
-                title: const Text('Rules'),
+                title: Text(context.tr('Rules')),
                 isActive: _step >= 3,
                 content: Column(
                   children: [
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Approve posts before publishing'),
-                      subtitle: const Text(
-                        'You can change this later by category.',
+                      title: Text(
+                        context.tr('Approve posts before publishing'),
+                      ),
+                      subtitle: Text(
+                        context.tr('You can change this later by category.'),
                       ),
                       value: _approvalRequired,
                       onChanged: (value) =>
@@ -150,8 +155,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                       contentPadding: EdgeInsets.zero,
                       title: Text(_nameController.text.trim()),
                       subtitle: Text(
-                        '${_town?.name ?? ''} · ${_selectedCategories.length} categories\n'
-                        'Public community · You will be the owner',
+                        '${_town?.name ?? ''} · ${context.tr('{count} categories', {'count': '${_selectedCategories.length}'})}\n'
+                        '${context.tr('Public community · You will be the owner')}',
                       ),
                     ),
                   ],
@@ -166,20 +171,20 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
 
   Future<void> _continue(List<Town> towns) async {
     if (_step == 0 && _nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Add a community name.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Add a community name.'))),
+      );
       return;
     }
     if (_step == 1 && _town == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Choose a town.')));
+      ).showSnackBar(SnackBar(content: Text(context.tr('Choose a town.'))));
       return;
     }
     if (_step == 2 && _selectedCategories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose at least one category.')),
+        SnackBar(content: Text(context.tr('Choose at least one category.'))),
       );
       return;
     }
@@ -203,19 +208,21 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         icon: const Icon(Icons.celebration_outlined, size: 42),
-        title: const Text('Your community is ready!'),
-        content: const Text(
-          'Invite your first members and start the conversation.',
+        title: Text(dialogContext.tr('Your community is ready!')),
+        content: Text(
+          dialogContext.tr(
+            'Invite your first members and start the conversation.',
+          ),
         ),
         actions: [
           TextButton.icon(
             onPressed: () {},
             icon: const Icon(Icons.ios_share_outlined),
-            label: const Text('Share invitation'),
+            label: Text(dialogContext.tr('Share invitation')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Enter community'),
+            child: Text(dialogContext.tr('Enter community')),
           ),
         ],
       ),

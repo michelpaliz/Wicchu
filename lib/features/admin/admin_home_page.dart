@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
+import '../../localization/app_language.dart';
 import 'admin_dashboard_page.dart';
 import 'create_community_page.dart';
 
@@ -40,19 +41,21 @@ class _AdminHomePageState extends State<AdminHomePage> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Bring your community together',
+                context.tr('Bring your community together'),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Create an organized place for local news, jobs, events and conversations.',
+              Text(
+                context.tr(
+                  'Create an organized place for local news, jobs, events and conversations.',
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
                 icon: const Icon(Icons.add),
-                label: const Text('Create a community'),
+                label: Text(context.tr('Create a community')),
                 onPressed: _createCommunity,
               ),
             ],

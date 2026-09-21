@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 abstract final class WicchuColors {
   static const primary = Color(0xFF176B5B);
@@ -68,10 +69,20 @@ abstract final class WicchuTheme {
         foregroundColor: scheme.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,
+        systemOverlayStyle: isDark
+            ? SystemUiOverlayStyle.light
+            : SystemUiOverlayStyle.dark,
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: scheme.surface,
         indicatorColor: scheme.primaryContainer,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? scheme.onPrimaryContainer
+                : scheme.onSurface,
+          ),
+        ),
         height: 68,
       ),
       inputDecorationTheme: InputDecorationTheme(

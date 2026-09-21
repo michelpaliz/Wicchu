@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/auth_gateway.dart';
 import 'package:wicchu/main.dart';
@@ -24,6 +26,8 @@ class _FakeAuthGateway implements AuthGateway {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('shows the community-first home navigation', (tester) async {
     await tester.pumpWidget(
       WicchuApp(
@@ -67,5 +71,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Continue with Facebook'), findsOneWidget);
+  });
+
+  testWidgets('switches between Spanish and English across the home screen', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('EN').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Español'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tus comunidades'), findsOneWidget);
+    expect(find.text('Inicio'), findsOneWidget);
+    expect(find.text('Noticias'), findsOneWidget);
+
+    await tester.tap(find.text('ES').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+    expect(find.text('Your communities'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+  });
+
+  testWidgets('changes and saves the appearance setting', (tester) async {
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Appearance').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dark').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.dark,
+    );
+    expect(
+      (await SharedPreferences.getInstance()).getString('themeMode'),
+      'dark',
+    );
+
+    await tester.tap(find.byTooltip('Appearance').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Light').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.light,
+    );
   });
 }
