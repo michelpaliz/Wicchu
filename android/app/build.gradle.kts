@@ -28,7 +28,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        resValue("string", "facebook_app_id", providers.gradleProperty("FACEBOOK_APP_ID").orElse("0").get())
+        resValue("string", "facebook_app_id", providers.gradleProperty("FACEBOOK_APP_ID").orElse("1526807682821937").get())
         resValue("string", "facebook_client_token", providers.gradleProperty("FACEBOOK_CLIENT_TOKEN").orElse("not-configured").get())
     }
 
