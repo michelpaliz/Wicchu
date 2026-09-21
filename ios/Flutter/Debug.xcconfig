@@ -1,0 +1,4 @@
+#include "Generated.xcconfig"
+FACEBOOK_APP_ID=0
+FACEBOOK_CLIENT_TOKEN=not-configured
+FACEBOOK_URL_SCHEME=fb0

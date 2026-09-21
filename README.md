@@ -1,0 +1,30 @@
+# Wicchu
+
+Flutter client for the Wicchu local-community platform.
+
+## Targets
+
+- Android
+- iOS
+- Web
+
+## Development
+
+```bash
+flutter pub get
+flutter run
+```
+
+The community backend is exposed under `/api/community/v1` on the shared Hexora server.
+
+## Facebook login configuration
+
+Create a Meta application with Android package `com.wicchu.wicchu` and iOS bundle ID `com.wicchu.wicchu`.
+
+- Backend: set `FACEBOOK_APP_ID` and `FACEBOOK_APP_SECRET`.
+- Android: set `FACEBOOK_APP_ID` and `FACEBOOK_CLIENT_TOKEN` in the user or CI Gradle properties.
+- iOS: replace the placeholder Facebook values in `ios/Flutter/Debug.xcconfig` and `Release.xcconfig` through deployment configuration.
+- Web: build with `--dart-define=FACEBOOK_APP_ID=... --dart-define=FACEBOOK_GRAPH_VERSION=...`.
+- All clients: set the backend origin with `--dart-define=API_BASE_URL=https://your-api.example` when it differs from `https://hexora.dev`.
+
+Never put `FACEBOOK_APP_SECRET` in the Flutter application.
