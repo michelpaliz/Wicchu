@@ -52,7 +52,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text(snapshot.error.toString()));
+            return Center(child: Text(context.trError(snapshot.error!)));
           }
           final posts = snapshot.data ?? const [];
           if (posts.isEmpty) {
@@ -75,7 +75,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                         post.authorName,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      Text(formatPostTime(post.createdAt)),
+                      Text(formatPostTime(context, post.createdAt)),
                       const SizedBox(height: 14),
                       Text(post.text),
                       const SizedBox(height: 14),
@@ -135,7 +135,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
       setState(() => _saving.remove(post.id));
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
     }
   }
 }

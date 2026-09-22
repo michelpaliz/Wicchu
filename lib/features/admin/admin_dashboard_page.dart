@@ -49,9 +49,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            context.tr('{count} members', {
-              'count': '${community.memberCount}',
-            }),
+            context.trCount(
+              community.memberCount,
+              singular: '{count} member',
+              plural: '{count} members',
+            ),
           ),
           const SizedBox(height: 28),
           Text(

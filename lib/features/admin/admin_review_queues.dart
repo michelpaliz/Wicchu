@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
+import '../../localization/app_language.dart';
 
 class ReportsQueuePage extends StatefulWidget {
   const ReportsQueuePage({
@@ -21,15 +22,18 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
   void reload() => items = widget.repository.listReports(widget.community.id);
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Reports')),
+    appBar: AppBar(title: Text(context.tr('Reports'))),
     body: FutureBuilder<List<CommunityReport>>(
       future: items,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (snapshot.hasError) {
+          return Center(child: Text(context.trError(snapshot.error!)));
+        }
         if (snapshot.data!.isEmpty) {
-          return const Center(child: Text('No open reports'));
+          return Center(child: Text(context.tr('No open reports')));
         }
         return ListView(
           children: [
@@ -37,16 +41,18 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
               Card(
                 child: ListTile(
                   title: Text(item.reason),
-                  subtitle: Text('Post ${item.targetId}'),
+                  subtitle: Text(
+                    context.tr('Post {id}', {'id': item.targetId}),
+                  ),
                   trailing: Wrap(
                     children: [
                       TextButton(
                         onPressed: () => decide(item, false),
-                        child: const Text('Dismiss'),
+                        child: Text(context.tr('Dismiss')),
                       ),
                       FilledButton(
                         onPressed: () => decide(item, true),
-                        child: const Text('Remove post'),
+                        child: Text(context.tr('Remove post')),
                       ),
                     ],
                   ),
@@ -58,12 +64,20 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
     ),
   );
   Future<void> decide(CommunityReport item, bool resolve) async {
-    await widget.repository.decideReport(
-      widget.community.id,
-      item.id,
-      resolve: resolve,
-    );
-    if (mounted) setState(reload);
+    try {
+      await widget.repository.decideReport(
+        widget.community.id,
+        item.id,
+        resolve: resolve,
+      );
+      if (mounted) setState(reload);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
   }
 }
 
@@ -86,15 +100,18 @@ class _MembershipRequestsPageState extends State<MembershipRequestsPage> {
       items = widget.repository.listMembershipRequests(widget.community.id);
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Membership requests')),
+    appBar: AppBar(title: Text(context.tr('Membership requests'))),
     body: FutureBuilder<List<MembershipRequest>>(
       future: items,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (snapshot.hasError) {
+          return Center(child: Text(context.trError(snapshot.error!)));
+        }
         if (snapshot.data!.isEmpty) {
-          return const Center(child: Text('No membership requests'));
+          return Center(child: Text(context.tr('No membership requests')));
         }
         return ListView(
           children: [
@@ -106,11 +123,11 @@ class _MembershipRequestsPageState extends State<MembershipRequestsPage> {
                   children: [
                     TextButton(
                       onPressed: () => decide(item, false),
-                      child: const Text('Reject'),
+                      child: Text(context.tr('Reject')),
                     ),
                     FilledButton(
                       onPressed: () => decide(item, true),
-                      child: const Text('Approve'),
+                      child: Text(context.tr('Approve')),
                     ),
                   ],
                 ),
@@ -121,11 +138,19 @@ class _MembershipRequestsPageState extends State<MembershipRequestsPage> {
     ),
   );
   Future<void> decide(MembershipRequest item, bool approve) async {
-    await widget.repository.decideMembershipRequest(
-      widget.community.id,
-      item.userId,
-      approve: approve,
-    );
-    if (mounted) setState(reload);
+    try {
+      await widget.repository.decideMembershipRequest(
+        widget.community.id,
+        item.userId,
+        approve: approve,
+      );
+      if (mounted) setState(reload);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
   }
 }

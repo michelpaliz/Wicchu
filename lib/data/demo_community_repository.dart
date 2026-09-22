@@ -73,8 +73,20 @@ class DemoCommunityRepository implements CommunityRepository {
       List.unmodifiable(_communities);
 
   @override
-  Future<List<Community>> listCommunities() async =>
-      List.unmodifiable(_communities);
+  Future<List<Community>> listCommunities({String? query}) async =>
+      List.unmodifiable(
+        _communities.where(
+          (community) =>
+              query == null ||
+              query.trim().isEmpty ||
+              community.name.toLowerCase().contains(
+                query.trim().toLowerCase(),
+              ) ||
+              community.town.name.toLowerCase().contains(
+                query.trim().toLowerCase(),
+              ),
+        ),
+      );
 
   @override
   Future<List<Community>> listJoinedCommunities() async =>
@@ -133,14 +145,21 @@ class DemoCommunityRepository implements CommunityRepository {
     String communityId, {
     String? categoryId,
     String? query,
-  }) async => List.unmodifiable(
-    (_posts[communityId] ?? const []).where(
-      (post) =>
-          (categoryId == null || post.categoryId == categoryId) &&
-          (query == null ||
-              post.text.toLowerCase().contains(query.toLowerCase())),
-    ),
-  );
+    String? sort,
+  }) async {
+    final posts = (_posts[communityId] ?? const <CommunityPost>[])
+        .where(
+          (post) =>
+              (categoryId == null || post.categoryId == categoryId) &&
+              (query == null ||
+                  post.text.toLowerCase().contains(query.toLowerCase())),
+        )
+        .toList();
+    if (sort == 'popular') {
+      posts.sort((a, b) => b.reactionCount.compareTo(a.reactionCount));
+    }
+    return List.unmodifiable(posts);
+  }
 
   @override
   Future<List<CommunityPost>> listFollowingPosts({String? query}) async =>
@@ -153,6 +172,11 @@ class DemoCommunityRepository implements CommunityRepository {
                   post.text.toLowerCase().contains(query.toLowerCase()),
             ),
       );
+
+  @override
+  Future<CommunityPost> getPost(String postId) async => _posts.values
+      .expand((posts) => posts)
+      .firstWhere((post) => post.id == postId);
 
   @override
   Future<CommunityPost> createPost(

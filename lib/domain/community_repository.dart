@@ -48,7 +48,7 @@ abstract interface class CommunityRepository {
   Future<NotificationFeed> listNotifications();
   Future<void> markNotificationRead(String notificationId);
   Future<void> markAllNotificationsRead();
-  Future<List<Community>> listCommunities();
+  Future<List<Community>> listCommunities({String? query});
   Future<List<Community>> listJoinedCommunities();
   Future<List<Community>> listManagedCommunities();
   Future<Community> createCommunity(CreateCommunityInput input);
@@ -59,8 +59,10 @@ abstract interface class CommunityRepository {
     String communityId, {
     String? categoryId,
     String? query,
+    String? sort,
   });
   Future<List<CommunityPost>> listFollowingPosts({String? query});
+  Future<CommunityPost> getPost(String postId);
   Future<CommunityPost> createPost(String communityId, CreatePostInput input);
   Future<PostMedia> uploadPostMedia({
     required List<int> bytes,

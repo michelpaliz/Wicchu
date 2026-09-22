@@ -34,6 +34,13 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   Town? _town;
   bool _saving = false;
   bool _approvalRequired = false;
+  late final Future<List<Town>> _towns;
+
+  @override
+  void initState() {
+    super.initState();
+    _towns = widget.repository.listTowns();
+  }
 
   @override
   void dispose() {
@@ -47,12 +54,18 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('Create community'))),
       body: FutureBuilder<List<Town>>(
-        future: widget.repository.listTowns(),
+        future: _towns,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final towns = snapshot.data!;
+          if (snapshot.hasError) {
+            return Center(child: Text(context.trError(snapshot.error!)));
+          }
+          final towns = snapshot.data ?? const <Town>[];
+          if (towns.isEmpty) {
+            return Center(child: Text(context.tr('No towns found')));
+          }
           _town ??= towns.firstOrNull;
           return Stepper(
             currentStep: _step,
@@ -155,7 +168,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                       contentPadding: EdgeInsets.zero,
                       title: Text(_nameController.text.trim()),
                       subtitle: Text(
-                        '${_town?.name ?? ''} · ${context.tr('{count} categories', {'count': '${_selectedCategories.length}'})}\n'
+                        '${_town?.name ?? ''} · ${context.trCount(_selectedCategories.length, singular: '{count} category', plural: '{count} categories')}\n'
                         '${context.tr('Public community · You will be the owner')}',
                       ),
                     ),
@@ -210,7 +223,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       setState(() => _saving = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       return;
     }
     if (!mounted) return;
@@ -226,11 +239,6 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           ),
         ),
         actions: [
-          TextButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.ios_share_outlined),
-            label: Text(dialogContext.tr('Share invitation')),
-          ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: Text(dialogContext.tr('Enter community')),

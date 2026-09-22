@@ -4,13 +4,20 @@ import '../../domain/community_models.dart';
 import '../../theme/wicchu_theme.dart';
 import '../../localization/app_language.dart';
 
-String formatPostTime(DateTime createdAt) {
+String formatPostTime(BuildContext context, DateTime createdAt) {
   final difference = DateTime.now().difference(createdAt.toLocal());
-  if (difference.inMinutes < 1) return 'Now';
-  if (difference.inHours < 1) return '${difference.inMinutes} min';
-  if (difference.inDays < 1) return '${difference.inHours} h';
-  if (difference.inDays < 7) return '${difference.inDays} d';
-  return '${createdAt.toLocal().day}/${createdAt.toLocal().month}/${createdAt.toLocal().year}';
+  if (difference.inMinutes < 1) return context.tr('Now');
+  if (difference.inHours < 1) {
+    return context.tr('{count} min ago', {'count': '${difference.inMinutes}'});
+  }
+  if (difference.inDays < 1) {
+    return context.tr('{count} h ago', {'count': '${difference.inHours}'});
+  }
+  if (difference.inDays == 1) return context.tr('Yesterday');
+  if (difference.inDays < 7) {
+    return context.tr('{count} days ago', {'count': '${difference.inDays}'});
+  }
+  return MaterialLocalizations.of(context).formatShortDate(createdAt.toLocal());
 }
 
 class PostCard extends StatefulWidget {
@@ -98,7 +105,7 @@ class _PostCardState extends State<PostCard> {
               ),
               const SizedBox(height: 10),
               Text(
-                '${widget.author} · ${context.tr(widget.time)}',
+                '${widget.author} · ${widget.time}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 14),
@@ -229,7 +236,7 @@ class _PostCardState extends State<PostCard> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     } finally {
       if (mounted) setState(() => _savingReaction = false);
@@ -251,7 +258,7 @@ class _PostCardState extends State<PostCard> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     } finally {
       if (mounted) setState(() => _savingPost = false);
@@ -295,7 +302,7 @@ class _PostCardState extends State<PostCard> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     }
   }

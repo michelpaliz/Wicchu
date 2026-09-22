@@ -33,6 +33,18 @@ extension AppTranslation on BuildContext {
     }
     return result;
   }
+
+  String trError(Object error) {
+    final message = error.toString();
+    if (!isSpanish) return message;
+    return _spanish[message] ?? tr('Something went wrong. Please try again.');
+  }
+
+  String trCount(
+    int count, {
+    required String singular,
+    required String plural,
+  }) => tr(count == 1 ? singular : plural, {'count': '$count'});
 }
 
 class LanguageMenu extends StatelessWidget {
@@ -88,6 +100,8 @@ const _spanish = <String, String>{
   'You': 'Tú',
   'Close search': 'Cerrar búsqueda',
   'Search posts': 'Buscar publicaciones',
+  'Search communities': 'Buscar comunidades',
+  'Retry': 'Reintentar',
   'New post': 'Nueva publicación',
   'Your town': 'Tu ciudad',
   'YOUR NEIGHBORHOOD': 'TU VECINDARIO',
@@ -98,6 +112,7 @@ const _spanish = <String, String>{
   'Join a community to see local updates here.':
       'Únete a una comunidad para ver novedades locales aquí.',
   '{count} neighbors': '{count} vecinos',
+  '{count} neighbor': '{count} vecino',
   'Neighborhood feed': 'Noticias de tu barrio',
   'Updates and finds from around you': 'Novedades y hallazgos cerca de ti',
   'Search local posts': 'Buscar publicaciones locales',
@@ -114,6 +129,66 @@ const _spanish = <String, String>{
   'Lost & Found': 'Objetos perdidos',
   'Category': 'Categoría',
   'No posts found': 'No se encontraron publicaciones',
+  'Post unavailable': 'Publicación no disponible',
+  'No categories found': 'No se encontraron categorías',
+  'No communities found': 'No se encontraron comunidades',
+  'No activity yet': 'Todavía no hay actividad',
+  'Mark all read': 'Marcar todo como leído',
+  'Log out': 'Cerrar sesión',
+  '{communities} Communities · {posts} Posts':
+      '{communities} comunidades · {posts} publicaciones',
+  '{count} community': '{count} comunidad',
+  '{count} communities': '{count} comunidades',
+  '{count} post': '{count} publicación',
+  '{count} posts': '{count} publicaciones',
+  'Owner': 'Propietario',
+  'Save post': 'Guardar publicación',
+  'Unsave post': 'Quitar de guardados',
+  'Report post': 'Denunciar publicación',
+  'Report submitted': 'Denuncia enviada',
+  'Reason': 'Motivo',
+  'Report': 'Denunciar',
+  'Cancel': 'Cancelar',
+  'Comments': 'Comentarios',
+  'No comments yet': 'Todavía no hay comentarios',
+  'Write a comment': 'Escribe un comentario',
+  'Choose a category and add text.':
+      'Elige una categoría y escribe el contenido.',
+  'Post submitted for approval': 'Publicación enviada para aprobación',
+  'A community moderator will review it before publication.':
+      'Un moderador de la comunidad la revisará antes de publicarla.',
+  'Done': 'Listo',
+  'A post supports up to 10 files.':
+      'Una publicación admite hasta 10 archivos.',
+  'The file must be under 25 MB.': 'El archivo debe ocupar menos de 25 MB.',
+  'No posts need approval': 'No hay publicaciones pendientes de aprobación',
+  'Reject': 'Rechazar',
+  'Approve': 'Aprobar',
+  'No open reports': 'No hay denuncias abiertas',
+  'Post {id}': 'Publicación {id}',
+  'Dismiss': 'Descartar',
+  'Remove post': 'Eliminar publicación',
+  'No membership requests': 'No hay solicitudes de ingreso',
+  'Now': 'Ahora',
+  '{count} min ago': 'Hace {count} min',
+  '{count} h ago': 'Hace {count} h',
+  '{count} days ago': 'Hace {count} días',
+  'Something went wrong. Please try again.':
+      'Ha ocurrido un error. Inténtalo de nuevo.',
+  'Please sign in again.': 'Vuelve a iniciar sesión.',
+  'Media upload failed.': 'No se pudo subir el archivo.',
+  'The server returned an invalid response.':
+      'El servidor devolvió una respuesta no válida.',
+  'The server could not complete the request.':
+      'El servidor no pudo completar la solicitud.',
+  'Community town data is missing.':
+      'Faltan los datos de la ciudad de la comunidad.',
+  'Facebook web login is not configured.':
+      'El inicio de sesión de Facebook para web no está configurado.',
+  'Facebook sign-in was cancelled.':
+      'Se canceló el inicio de sesión con Facebook.',
+  'Facebook sign-in failed.': 'Falló el inicio de sesión con Facebook.',
+  'Unable to sign in to Wicchu.': 'No se pudo iniciar sesión en Wicchu.',
   'Try another search or category.': 'Prueba otra búsqueda o categoría.',
   'Water will be unavailable in the northern area tomorrow morning.':
       'Mañana por la mañana se cortará el agua en la zona norte.',
@@ -154,6 +229,7 @@ const _spanish = <String, String>{
   'Facebook sign-in is unavailable.':
       'El inicio de sesión con Facebook no está disponible.',
   '{count} members': '{count} miembros',
+  '{count} member': '{count} miembro',
   'Community management': 'Administrar comunidad',
   'Share': 'Compartir',
   'Categories': 'Categorías',
@@ -193,10 +269,12 @@ const _spanish = <String, String>{
   'You can change this later by category.':
       'Puedes cambiarlo más adelante por categoría.',
   '{count} categories': '{count} categorías',
+  '{count} category': '{count} categoría',
   'Public community · You will be the owner':
       'Comunidad pública · Serás el propietario',
   'Add a community name.': 'Añade un nombre para la comunidad.',
   'Choose a town.': 'Elige una ciudad.',
+  'No towns found': 'No se encontraron ciudades',
   'Choose at least one category.': 'Elige al menos una categoría.',
   'Your community is ready!': '¡Tu comunidad está lista!',
   'Invite your first members and start the conversation.':

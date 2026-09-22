@@ -1,8 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val releaseKeystoreProperties = Properties()
+val releaseKeystoreFile = rootProject.file("key.properties")
+if (releaseKeystoreFile.exists()) {
+    releaseKeystoreFile.inputStream().use(releaseKeystoreProperties::load)
 }
 
 android {
@@ -32,11 +40,26 @@ android {
         resValue("string", "facebook_client_token", providers.gradleProperty("FACEBOOK_CLIENT_TOKEN").orElse("391b03713866b79cc92759b742a32825").get())
     }
 
+    signingConfigs {
+        if (releaseKeystoreFile.exists()) {
+            create("release") {
+                fun requiredProperty(name: String): String =
+                    requireNotNull(releaseKeystoreProperties.getProperty(name)) {
+                        "Missing $name in android/key.properties"
+                    }
+
+                keyAlias = requiredProperty("keyAlias")
+                keyPassword = requiredProperty("keyPassword")
+                storeFile = file(requiredProperty("storeFile"))
+                storePassword = requiredProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Local preview builds use the debug key until a release key is configured.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 }

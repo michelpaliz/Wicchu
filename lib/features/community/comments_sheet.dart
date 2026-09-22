@@ -78,7 +78,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  if (snapshot.hasError) return Text(snapshot.error.toString());
+                  if (snapshot.hasError) {
+                    return Text(context.trError(snapshot.error!));
+                  }
                   final comments = snapshot.data ?? const [];
                   _count = comments.length;
                   if (comments.isEmpty) {
@@ -95,7 +97,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                         ),
                         title: Text(comment.authorName),
                         subtitle: Text(comment.text),
-                        trailing: Text(formatPostTime(comment.createdAt)),
+                        trailing: Text(
+                          formatPostTime(context, comment.createdAt),
+                        ),
                       );
                     },
                   );
@@ -143,7 +147,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       setState(() => _saving = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
     }
   }
 }

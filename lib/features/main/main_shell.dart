@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -5,11 +7,13 @@ import '../../domain/community_repository.dart';
 import '../../domain/auth_gateway.dart';
 import '../../localization/app_language.dart';
 import '../../theme/theme_menu.dart';
+import '../admin/create_community_page.dart';
 import '../community/community_page.dart';
 import '../community/comments_sheet.dart';
 import '../community/create_post_page.dart';
 import '../community/post_card.dart';
 import '../community/post_collection_page.dart';
+import '../community/post_detail_page.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -28,24 +32,54 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  int _homeRevision = 0;
+  int _exploreRevision = 0;
+  int _profileRevision = 0;
+  int _activityRevision = 0;
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      _HomeTab(repository: widget.repository),
-      _ExploreTab(repository: widget.repository),
-      _ActivityTab(repository: widget.repository),
+      _HomeTab(
+        key: ValueKey('home-$_homeRevision'),
+        repository: widget.repository,
+        onCommunitiesChanged: () => setState(() {
+          _exploreRevision++;
+          _profileRevision++;
+        }),
+      ),
+      _ExploreTab(
+        key: ValueKey('explore-$_exploreRevision'),
+        repository: widget.repository,
+        onCommunitiesChanged: () => setState(() {
+          _homeRevision++;
+          _profileRevision++;
+        }),
+      ),
+      _ActivityTab(
+        key: ValueKey('activity-$_activityRevision'),
+        repository: widget.repository,
+      ),
       _ProfileTab(
         repository: widget.repository,
         authGateway: widget.authGateway,
         onSignedOut: widget.onSignedOut,
+        refreshVersion: _profileRevision,
+        onCommunityCreated: () => setState(() {
+          _homeRevision++;
+          _exploreRevision++;
+        }),
       ),
     ];
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (value) => setState(() => _index = value),
+        onDestinationSelected: (value) => setState(() {
+          _index = value;
+          if (value == 2) _activityRevision++;
+          if (value == 3) _profileRevision++;
+        }),
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.home_outlined),
@@ -74,8 +108,13 @@ class _MainShellState extends State<MainShell> {
 }
 
 class _HomeTab extends StatefulWidget {
-  const _HomeTab({required this.repository});
+  const _HomeTab({
+    super.key,
+    required this.repository,
+    required this.onCommunitiesChanged,
+  });
   final CommunityRepository repository;
+  final VoidCallback onCommunitiesChanged;
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -95,6 +134,7 @@ class _HomeFeedData {
 
 class _HomeTabState extends State<_HomeTab> {
   late Future<_HomeFeedData> _data;
+  Timer? _searchDelay;
 
   String _category = 'All';
   String _query = '';
@@ -110,10 +150,24 @@ class _HomeTabState extends State<_HomeTab> {
     _data = _loadData();
   }
 
+  @override
+  void dispose() {
+    _searchDelay?.cancel();
+    super.dispose();
+  }
+
+  void _updateSearch(String value) {
+    setState(() => _query = value);
+    _searchDelay?.cancel();
+    _searchDelay = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) setState(_reload);
+    });
+  }
+
   Future<_HomeFeedData> _loadData() async {
     final communities = await widget.repository.listJoinedCommunities();
     final results = await Future.wait([
-      widget.repository.listFollowingPosts(),
+      widget.repository.listFollowingPosts(query: _query),
       ...communities.map(
         (community) => widget.repository.listCategories(community.id),
       ),
@@ -133,29 +187,46 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   Future<void> _createPost(Community community) async {
-    final categories = await widget.repository.listCategories(community.id);
-    if (!mounted) return;
-    final post = await Navigator.push<CommunityPost>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CreatePostPage(
-          community: community,
-          repository: widget.repository,
-          categories: categories,
+    try {
+      final categories = await widget.repository.listCategories(community.id);
+      if (!mounted) return;
+      if (categories.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('No categories found'))),
+        );
+        return;
+      }
+      final post = await Navigator.push<CommunityPost>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreatePostPage(
+            community: community,
+            repository: widget.repository,
+            categories: categories,
+          ),
         ),
-      ),
-    );
-    if (post != null && mounted) setState(_reload);
+      );
+      if (post != null && mounted) setState(_reload);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
   }
 
-  void _openCommunity(Community community) {
-    Navigator.push(
+  Future<void> _openCommunity(Community community) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) =>
             CommunityPage(community: community, repository: widget.repository),
       ),
     );
+    if (!mounted) return;
+    setState(_reload);
+    widget.onCommunitiesChanged();
   }
 
   @override
@@ -173,7 +244,11 @@ class _HomeTabState extends State<_HomeTab> {
             tooltip: context.tr(_showSearch ? 'Close search' : 'Search posts'),
             onPressed: () => setState(() {
               _showSearch = !_showSearch;
-              if (!_showSearch) _query = '';
+              if (!_showSearch) {
+                _searchDelay?.cancel();
+                _query = '';
+                _reload();
+              }
             }),
             icon: Icon(_showSearch ? Icons.close : Icons.search_rounded),
           ),
@@ -197,14 +272,24 @@ class _HomeTabState extends State<_HomeTab> {
       body: FutureBuilder<_HomeFeedData>(
         future: _data,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _LoadError(
+              error: snapshot.error!,
+              onRetry: () => setState(_reload),
+            );
           }
           final data = snapshot.data!;
           final communities = data.communities;
           final town =
               communities.firstOrNull?.town.name ?? context.tr('Your town');
           final normalizedQuery = _query.trim().toLowerCase();
+          final categoryNames = [
+            'All',
+            ...data.categories.values.map((category) => category.name).toSet(),
+          ];
           final communityById = {
             for (final community in communities) community.id: community,
           };
@@ -221,231 +306,254 @@ class _HomeTabState extends State<_HomeTab> {
             return matchesCategory && matchesQuery;
           }).toList();
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 108),
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    size: 18,
-                    color: scheme.primary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    context.tr('YOUR NEIGHBORHOOD'),
-                    style: textTheme.labelSmall?.copyWith(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                context.tr('Good things happen nearby.'),
-                style: textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                context.tr('The latest from {town} and your communities.', {
-                  'town': town,
-                }),
-                style: textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 28),
-              Text(
-                context.tr('Your communities'),
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (communities.isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Text(
-                      context.tr('Join a community to see local updates here.'),
-                      style: textTheme.bodyMedium,
-                    ),
-                  ),
-                )
-              else
-                for (final community in communities) ...[
-                  Card(
-                    color: scheme.primaryContainer,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => _openCommunity(community),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 18,
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 26,
-                              backgroundColor: scheme.surface,
-                              child: Icon(
-                                Icons.location_city_rounded,
-                                color: scheme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    community.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      color: scheme.onPrimaryContainer,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    context.tr('{count} neighbors', {
-                                      'count': '${community.memberCount}',
-                                    }),
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: scheme.onPrimaryContainer,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 17,
-                              color: scheme.onPrimaryContainer,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-              const SizedBox(height: 18),
-              Text(
-                context.tr('Neighborhood feed'),
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                context.tr('Updates and finds from around you'),
-                style: textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              if (_showSearch) ...[
-                const SizedBox(height: 16),
-                TextField(
-                  autofocus: true,
-                  onChanged: (value) => setState(() => _query = value),
-                  decoration: InputDecoration(
-                    hintText: context.tr('Search local posts'),
-                    prefixIcon: const Icon(Icons.search_rounded),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+          return RefreshIndicator(
+            onRefresh: () async {
+              setState(_reload);
+              try {
+                await _data;
+              } catch (_) {}
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 108),
+              children: [
+                Row(
                   children: [
-                    for (final category in const [
-                      'All',
-                      'News',
-                      'Marketplace',
-                    ]) ...[
-                      ChoiceChip(
-                        label: Text(context.tr(category)),
-                        selected: _category == category,
-                        showCheckmark: false,
-                        selectedColor: scheme.primaryContainer,
-                        labelStyle: TextStyle(
-                          color: _category == category
-                              ? scheme.onPrimaryContainer
-                              : scheme.onSurface,
-                        ),
-                        onSelected: (_) => setState(() => _category = category),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 18,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      context.tr('YOUR NEIGHBORHOOD'),
+                      style: textTheme.labelSmall?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
                       ),
-                      const SizedBox(width: 8),
-                    ],
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              for (final post in filteredPosts) ...[
-                PostCard(
-                  category: data.categories[post.categoryId]?.name ?? 'Post',
-                  icon: data.categories[post.categoryId]?.icon ?? '💬',
-                  community: communityById[post.communityId]?.name ?? 'Wicchu',
-                  author: post.authorName,
-                  time: formatPostTime(post.createdAt),
-                  text: post.text,
-                  likes: post.reactionCount,
-                  comments: post.commentCount,
-                  media: post.media,
-                  reacted: post.reactedByMe,
-                  onReaction: (reacted) => widget.repository.setPostReaction(
-                    post.id,
-                    reacted: reacted,
+                const SizedBox(height: 4),
+                Text(
+                  context.tr('Good things happen nearby.'),
+                  style: textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
                   ),
-                  onComments: () =>
-                      showPostComments(context, widget.repository, post),
-                  saved: post.savedByMe,
-                  onSaved: (saved) =>
-                      widget.repository.setPostSaved(post.id, saved: saved),
-                  onReport: (reason) =>
-                      widget.repository.reportPost(post.id, reason),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  context.tr('The latest from {town} and your communities.', {
+                    'town': town,
+                  }),
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  context.tr('Your communities'),
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 12),
-              ],
-              if (filteredPosts.isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.search_off_rounded,
-                          size: 32,
-                          color: scheme.primary,
+                if (communities.isEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        context.tr(
+                          'Join a community to see local updates here.',
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          context.tr('No posts found'),
-                          style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          context.tr('Try another search or category.'),
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+                        style: textTheme.bodyMedium,
+                      ),
                     ),
+                  )
+                else
+                  for (final community in communities) ...[
+                    Card(
+                      color: scheme.primaryContainer,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => _openCommunity(community),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 18,
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 26,
+                                backgroundColor: scheme.surface,
+                                child: Icon(
+                                  Icons.location_city_rounded,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      community.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                        color: scheme.onPrimaryContainer,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      context.trCount(
+                                        community.memberCount,
+                                        singular: '{count} neighbor',
+                                        plural: '{count} neighbors',
+                                      ),
+                                      style: textTheme.bodySmall?.copyWith(
+                                        color: scheme.onPrimaryContainer,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 17,
+                                color: scheme.onPrimaryContainer,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                const SizedBox(height: 18),
+                Text(
+                  context.tr('Neighborhood feed'),
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  context.tr('Updates and finds from around you'),
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                if (_showSearch) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    autofocus: true,
+                    onChanged: _updateSearch,
+                    decoration: InputDecoration(
+                      hintText: context.tr('Search local posts'),
+                      prefixIcon: const Icon(Icons.search_rounded),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final category in categoryNames) ...[
+                        ChoiceChip(
+                          label: Text(context.tr(category)),
+                          selected: _category == category,
+                          showCheckmark: false,
+                          selectedColor: scheme.primaryContainer,
+                          labelStyle: TextStyle(
+                            color: _category == category
+                                ? scheme.onPrimaryContainer
+                                : scheme.onSurface,
+                          ),
+                          onSelected: (_) =>
+                              setState(() => _category = category),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                for (final post in filteredPosts) ...[
+                  PostCard(
+                    onTap: () =>
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PostDetailPage(
+                              postId: post.id,
+                              repository: widget.repository,
+                            ),
+                          ),
+                        ).then((_) {
+                          if (mounted) setState(_reload);
+                        }),
+                    category: data.categories[post.categoryId]?.name ?? 'Post',
+                    icon: data.categories[post.categoryId]?.icon ?? '💬',
+                    community:
+                        communityById[post.communityId]?.name ?? 'Wicchu',
+                    author: post.authorName,
+                    time: formatPostTime(context, post.createdAt),
+                    text: post.text,
+                    likes: post.reactionCount,
+                    comments: post.commentCount,
+                    media: post.media,
+                    reacted: post.reactedByMe,
+                    onReaction: (reacted) => widget.repository.setPostReaction(
+                      post.id,
+                      reacted: reacted,
+                    ),
+                    onComments: () =>
+                        showPostComments(context, widget.repository, post),
+                    saved: post.savedByMe,
+                    onSaved: (saved) =>
+                        widget.repository.setPostSaved(post.id, saved: saved),
+                    onReport: (reason) =>
+                        widget.repository.reportPost(post.id, reason),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (filteredPosts.isEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.search_off_rounded,
+                            size: 32,
+                            color: scheme.primary,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            context.tr('No posts found'),
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            context.tr('Try another search or category.'),
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           );
         },
       ),
@@ -454,8 +562,13 @@ class _HomeTabState extends State<_HomeTab> {
 }
 
 class _ExploreTab extends StatefulWidget {
-  const _ExploreTab({required this.repository});
+  const _ExploreTab({
+    super.key,
+    required this.repository,
+    required this.onCommunitiesChanged,
+  });
   final CommunityRepository repository;
+  final VoidCallback onCommunitiesChanged;
 
   @override
   State<_ExploreTab> createState() => _ExploreTabState();
@@ -464,6 +577,9 @@ class _ExploreTab extends StatefulWidget {
 class _ExploreTabState extends State<_ExploreTab> {
   late Future<List<Community>> _communities;
   final _saving = <String>{};
+  Timer? _searchDelay;
+  bool _showSearch = false;
+  String _query = '';
 
   @override
   void initState() {
@@ -472,105 +588,153 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   void _reload() {
-    _communities = widget.repository.listCommunities();
+    _communities = widget.repository.listCommunities(query: _query);
+  }
+
+  Future<void> _refresh() async {
+    setState(_reload);
+    try {
+      await _communities;
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _searchDelay?.cancel();
+    super.dispose();
+  }
+
+  void _search(String value) {
+    _searchDelay?.cancel();
+    _searchDelay = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _query = value;
+        _reload();
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(context.tr('Explore')),
-      actions: [IconButton(onPressed: () {}, icon: const Icon(Icons.search))],
-    ),
-    body: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(
-          '📍 ${context.tr('Near you')}',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 14),
-        FutureBuilder<List<Community>>(
-          future: _communities,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+      actions: [
+        IconButton(
+          tooltip: context.tr(
+            _showSearch ? 'Close search' : 'Search communities',
+          ),
+          onPressed: () => setState(() {
+            _showSearch = !_showSearch;
+            if (!_showSearch) {
+              _searchDelay?.cancel();
+              _query = '';
+              _reload();
             }
-            if (snapshot.hasError) return Text(snapshot.error.toString());
-            final communities = snapshot.data ?? const <Community>[];
-            if (communities.isEmpty) {
-              return Text(context.tr('No communities found'));
-            }
-            return Column(
-              children: [
-                for (final community in communities)
-                  Card(
-                    child: ListTile(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CommunityPage(
-                            community: community,
-                            repository: widget.repository,
-                          ),
-                        ),
-                      ).then((_) => setState(_reload)),
-                      leading: const CircleAvatar(child: Text('🏘')),
-                      title: Text(community.name),
-                      subtitle: Text(
-                        context.tr('{count} members', {
-                          'count': '${community.memberCount}',
-                        }),
-                      ),
-                      trailing: FilledButton.tonal(
-                        onPressed:
-                            _saving.contains(community.id) ||
-                                community.myRole == CommunityRole.owner
-                            ? null
-                            : () => _toggleMembership(community),
-                        child: _saving.contains(community.id)
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                context.tr(
-                                  community.myRole == CommunityRole.owner
-                                      ? 'Owner'
-                                      : community.isJoined
-                                      ? 'Joined'
-                                      : 'Join',
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 28),
-        Text(
-          context.tr('Popular near you'),
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            Chip(label: Text('🐕 ${context.tr('Animal Lovers')}')),
-            Chip(label: Text('⚽ ${context.tr('Football')}')),
-            Chip(label: Text('🎓 ${context.tr('Students')}')),
-            Chip(label: Text('🚴 ${context.tr('Cycling')}')),
-          ],
+          }),
+          icon: Icon(_showSearch ? Icons.close : Icons.search),
         ),
       ],
+    ),
+    body: RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (_showSearch) ...[
+            TextField(
+              autofocus: true,
+              onChanged: _search,
+              decoration: InputDecoration(
+                hintText: context.tr('Search communities'),
+                prefixIcon: const Icon(Icons.search),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+          Text(
+            '📍 ${context.tr('Near you')}',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 14),
+          FutureBuilder<List<Community>>(
+            future: _communities,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return _LoadError(
+                  error: snapshot.error!,
+                  onRetry: () => setState(_reload),
+                );
+              }
+              final communities = snapshot.data ?? const <Community>[];
+              if (communities.isEmpty) {
+                return Text(context.tr('No communities found'));
+              }
+              return Column(
+                children: [
+                  for (final community in communities)
+                    Card(
+                      child: ListTile(
+                        onTap: () =>
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CommunityPage(
+                                  community: community,
+                                  repository: widget.repository,
+                                ),
+                              ),
+                            ).then((_) {
+                              if (!mounted) return;
+                              setState(_reload);
+                              widget.onCommunitiesChanged();
+                            }),
+                        leading: const CircleAvatar(child: Text('🏘')),
+                        title: Text(community.name),
+                        subtitle: Text(
+                          context.trCount(
+                            community.memberCount,
+                            singular: '{count} member',
+                            plural: '{count} members',
+                          ),
+                        ),
+                        trailing: FilledButton.tonal(
+                          onPressed:
+                              _saving.contains(community.id) ||
+                                  community.myRole == CommunityRole.owner
+                              ? null
+                              : () => _toggleMembership(community),
+                          child: _saving.contains(community.id)
+                              ? const SizedBox.square(
+                                  dimension: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  context.tr(
+                                    community.myRole == CommunityRole.owner
+                                        ? 'Owner'
+                                        : community.isJoined
+                                        ? 'Joined'
+                                        : 'Join',
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     ),
   );
 
@@ -582,12 +746,15 @@ class _ExploreTabState extends State<_ExploreTab> {
       } else {
         await widget.repository.joinCommunity(community.id);
       }
-      if (mounted) setState(_reload);
+      if (mounted) {
+        setState(_reload);
+        widget.onCommunitiesChanged();
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     } finally {
       if (mounted) setState(() => _saving.remove(community.id));
@@ -596,7 +763,7 @@ class _ExploreTabState extends State<_ExploreTab> {
 }
 
 class _ActivityTab extends StatefulWidget {
-  const _ActivityTab({required this.repository});
+  const _ActivityTab({super.key, required this.repository});
 
   final CommunityRepository repository;
 
@@ -611,14 +778,26 @@ class _ActivityTabState extends State<_ActivityTab> {
     _feed = widget.repository.listNotifications();
   }
 
+  Future<void> _refresh() async {
+    setState(_reload);
+    try {
+      await _feed;
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(context.tr('Activity')),
       actions: [
-        TextButton(
-          onPressed: _markAllRead,
-          child: Text(context.tr('Mark all read')),
+        FutureBuilder<NotificationFeed>(
+          future: _feed,
+          builder: (context, snapshot) => TextButton(
+            onPressed: (snapshot.data?.unreadCount ?? 0) > 0
+                ? _markAllRead
+                : null,
+            child: Text(context.tr('Mark all read')),
+          ),
         ),
       ],
     ),
@@ -629,15 +808,30 @@ class _ActivityTabState extends State<_ActivityTab> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text(snapshot.error.toString()));
+          return _LoadError(
+            error: snapshot.error!,
+            onRetry: () => setState(_reload),
+          );
         }
         final notifications = snapshot.data?.items ?? const [];
         if (notifications.isEmpty) {
-          return Center(child: Text(context.tr('No activity yet')));
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(child: Text(context.tr('No activity yet'))),
+                ),
+              ],
+            ),
+          );
         }
         return RefreshIndicator(
-          onRefresh: () async => setState(_reload),
+          onRefresh: _refresh,
           child: ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             itemCount: notifications.length,
             separatorBuilder: (_, _) => const Divider(),
@@ -665,13 +859,11 @@ class _ActivityTabState extends State<_ActivityTab> {
                 title: Text(
                   '${notification.actorName} ${context.tr(notification.message)}',
                 ),
-                subtitle: Text(formatPostTime(notification.createdAt)),
+                subtitle: Text(formatPostTime(context, notification.createdAt)),
                 trailing: notification.isRead
                     ? null
                     : const Icon(Icons.circle, size: 10),
-                onTap: notification.isRead
-                    ? null
-                    : () => _markRead(notification.id),
+                onTap: () => _openNotification(notification),
               );
             },
           ),
@@ -688,9 +880,32 @@ class _ActivityTabState extends State<_ActivityTab> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     }
+  }
+
+  Future<void> _openNotification(CommunityNotification notification) async {
+    if (!notification.isRead) {
+      await _markRead(notification.id);
+    }
+    if (!mounted) return;
+    if (notification.postId.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.tr('Post unavailable'))));
+      return;
+    }
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PostDetailPage(
+          postId: notification.postId,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (mounted) setState(_reload);
   }
 
   Future<void> _markAllRead() async {
@@ -701,7 +916,7 @@ class _ActivityTabState extends State<_ActivityTab> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     }
   }
@@ -712,112 +927,145 @@ class _ProfileTab extends StatefulWidget {
     required this.repository,
     required this.authGateway,
     required this.onSignedOut,
+    required this.onCommunityCreated,
+    required this.refreshVersion,
   });
   final CommunityRepository repository;
   final AuthGateway authGateway;
   final VoidCallback onSignedOut;
+  final VoidCallback onCommunityCreated;
+  final int refreshVersion;
 
   @override
   State<_ProfileTab> createState() => _ProfileTabState();
 }
 
 class _ProfileTabState extends State<_ProfileTab> {
-  late final Future<WicchuProfile> _profile = widget.repository.getProfile();
+  late Future<WicchuProfile> _profile = widget.repository.getProfile();
+
+  Future<void> _refreshProfile() async {
+    setState(() {
+      _profile = widget.repository.getProfile();
+    });
+    try {
+      await _profile;
+    } catch (_) {}
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProfileTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshVersion != widget.refreshVersion) {
+      _profile = widget.repository.getProfile();
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(context.tr('You'))),
-    body: ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        FutureBuilder<WicchuProfile>(
-          future: _profile,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) return Text(snapshot.error.toString());
-            final profile = snapshot.data!;
-            return Column(
-              children: [
-                CircleAvatar(
-                  radius: 42,
-                  backgroundImage: profile.avatarUrl == null
-                      ? null
-                      : NetworkImage(profile.avatarUrl!),
-                  child: profile.avatarUrl == null
-                      ? const Icon(Icons.person, size: 40)
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  profile.name,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text('@${profile.userName}'),
-                const SizedBox(height: 8),
-                Text(
-                  context.tr('{communities} Communities · {posts} Posts', {
-                    'communities': '${profile.communityCount}',
-                    'posts': '${profile.postCount}',
+    body: RefreshIndicator(
+      onRefresh: _refreshProfile,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        children: [
+          FutureBuilder<WicchuProfile>(
+            future: _profile,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return _LoadError(
+                  error: snapshot.error!,
+                  onRetry: () => setState(() {
+                    _profile = widget.repository.getProfile();
                   }),
-                ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 28),
-        _ProfileRow(
-          icon: Icons.groups_outlined,
-          label: 'My communities',
-          onTap: () => _openCommunities(
-            'My communities',
-            widget.repository.listJoinedCommunities,
+                );
+              }
+              final profile = snapshot.data!;
+              return Column(
+                children: [
+                  CircleAvatar(
+                    radius: 42,
+                    backgroundImage: profile.avatarUrl == null
+                        ? null
+                        : NetworkImage(profile.avatarUrl!),
+                    child: profile.avatarUrl == null
+                        ? const Icon(Icons.person, size: 40)
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    profile.name,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text('@${profile.userName}'),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${context.trCount(profile.communityCount, singular: '{count} community', plural: '{count} communities')} · '
+                    '${context.trCount(profile.postCount, singular: '{count} post', plural: '{count} posts')}',
+                  ),
+                ],
+              );
+            },
           ),
-        ),
-        _ProfileRow(
-          icon: Icons.article_outlined,
-          label: 'My posts',
-          onTap: () => _openPosts('My posts', widget.repository.listMyPosts),
-        ),
-        _ProfileRow(
-          icon: Icons.bookmark_border,
-          label: 'Saved posts',
-          onTap: () =>
-              _openPosts('Saved posts', widget.repository.listSavedPosts),
-        ),
-        const Divider(height: 28),
-        _ProfileRow(
-          icon: Icons.shield_outlined,
-          label: 'Communities I manage',
-          onTap: () => _openCommunities(
-            'Communities I manage',
-            widget.repository.listManagedCommunities,
+          const SizedBox(height: 28),
+          _ProfileRow(
+            icon: Icons.groups_outlined,
+            label: 'My communities',
+            onTap: () => _openCommunities(
+              'My communities',
+              widget.repository.listJoinedCommunities,
+            ),
           ),
-        ),
-        const _ProfileRow(icon: Icons.settings_outlined, label: 'Settings'),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.language_rounded),
-          title: Text(context.tr('Language')),
-          trailing: const LanguageMenu(),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.brightness_6_outlined),
-          title: Text(context.tr('Appearance')),
-          trailing: const ThemeMenu(showLabel: true),
-        ),
-        const _ProfileRow(icon: Icons.help_outline, label: 'Help'),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.logout),
-          title: Text(context.tr('Log out')),
-          onTap: _logout,
-        ),
-      ],
+          _ProfileRow(
+            icon: Icons.article_outlined,
+            label: 'My posts',
+            onTap: () => _openPosts('My posts', widget.repository.listMyPosts),
+          ),
+          _ProfileRow(
+            icon: Icons.bookmark_border,
+            label: 'Saved posts',
+            onTap: () =>
+                _openPosts('Saved posts', widget.repository.listSavedPosts),
+          ),
+          const Divider(height: 28),
+          _ProfileRow(
+            icon: Icons.shield_outlined,
+            label: 'Communities I manage',
+            onTap: () => _openCommunities(
+              'Communities I manage',
+              widget.repository.listManagedCommunities,
+            ),
+          ),
+          _ProfileRow(
+            icon: Icons.add_circle_outline,
+            label: 'Create a community',
+            onTap: _createCommunity,
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.language_rounded),
+            title: Text(context.tr('Language')),
+            trailing: const LanguageMenu(),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.brightness_6_outlined),
+            title: Text(context.tr('Appearance')),
+            trailing: const ThemeMenu(showLabel: true),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.logout),
+            title: Text(context.tr('Log out')),
+            onTap: _logout,
+          ),
+        ],
+      ),
     ),
   );
 
@@ -830,6 +1078,27 @@ class _ProfileTabState extends State<_ProfileTab> {
           repository: widget.repository,
           loadPosts: loader,
         ),
+      ),
+    );
+  }
+
+  Future<void> _createCommunity() async {
+    final community = await Navigator.push<Community>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateCommunityPage(repository: widget.repository),
+      ),
+    );
+    if (!mounted || community == null) return;
+    setState(() {
+      _profile = widget.repository.getProfile();
+    });
+    widget.onCommunityCreated();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            CommunityPage(community: community, repository: widget.repository),
       ),
     );
   }
@@ -856,7 +1125,7 @@ class _ProfileTabState extends State<_ProfileTab> {
   }
 }
 
-class _CommunityCollectionPage extends StatelessWidget {
+class _CommunityCollectionPage extends StatefulWidget {
   const _CommunityCollectionPage({
     required this.title,
     required this.repository,
@@ -868,48 +1137,74 @@ class _CommunityCollectionPage extends StatelessWidget {
   final Future<List<Community>> Function() loadCommunities;
 
   @override
+  State<_CommunityCollectionPage> createState() =>
+      _CommunityCollectionPageState();
+}
+
+class _CommunityCollectionPageState extends State<_CommunityCollectionPage> {
+  late Future<List<Community>> _communities = widget.loadCommunities();
+
+  Future<void> _refresh() async {
+    setState(() {
+      _communities = widget.loadCommunities();
+    });
+    try {
+      await _communities;
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr(title))),
+    appBar: AppBar(title: Text(context.tr(widget.title))),
     body: FutureBuilder<List<Community>>(
-      future: loadCommunities(),
+      future: _communities,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text(snapshot.error.toString()));
+          return _LoadError(error: snapshot.error!, onRetry: _refresh);
         }
         final communities = snapshot.data ?? const [];
         if (communities.isEmpty) {
           return Center(child: Text(context.tr('No communities found')));
         }
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: communities.length,
-          itemBuilder: (context, index) {
-            final community = communities[index];
-            return Card(
-              child: ListTile(
-                leading: const CircleAvatar(child: Text('🏘')),
-                title: Text(community.name),
-                subtitle: Text(
-                  context.tr('{count} members', {
-                    'count': '${community.memberCount}',
-                  }),
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CommunityPage(
-                      community: community,
-                      repository: repository,
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: communities.length,
+            itemBuilder: (context, index) {
+              final community = communities[index];
+              return Card(
+                child: ListTile(
+                  leading: const CircleAvatar(child: Text('🏘')),
+                  title: Text(community.name),
+                  subtitle: Text(
+                    context.trCount(
+                      community.memberCount,
+                      singular: '{count} member',
+                      plural: '{count} members',
                     ),
                   ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () =>
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CommunityPage(
+                            community: community,
+                            repository: widget.repository,
+                          ),
+                        ),
+                      ).then((_) {
+                        if (mounted) _refresh();
+                      }),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     ),
@@ -928,5 +1223,31 @@ class _ProfileRow extends StatelessWidget {
     title: Text(context.tr(label)),
     trailing: const Icon(Icons.chevron_right),
     onTap: onTap,
+  );
+}
+
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(context.trError(error), textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: Text(context.tr('Retry')),
+          ),
+        ],
+      ),
+    ),
   );
 }

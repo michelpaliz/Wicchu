@@ -62,7 +62,11 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<List<Community>> listCommunities() => _listCommunities('');
+  Future<List<Community>> listCommunities({String? query}) => _listCommunities(
+    query == null || query.trim().isEmpty
+        ? ''
+        : '?q=${Uri.encodeQueryComponent(query.trim())}',
+  );
 
   @override
   Future<List<Community>> listJoinedCommunities() =>
@@ -124,10 +128,12 @@ class HttpCommunityRepository implements CommunityRepository {
     String communityId, {
     String? categoryId,
     String? query,
+    String? sort,
   }) async {
     final parameters = <String, String>{
       'categoryId': ?categoryId,
       if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+      if (sort != null && sort.isNotEmpty) 'sort': sort,
     };
     final uri = Uri(
       path: '/api/community/v1/communities/$communityId/posts',
@@ -147,6 +153,12 @@ class HttpCommunityRepository implements CommunityRepository {
     );
     final body = await _api.get(uri.toString());
     return _list(body, 'posts').map(_postFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<CommunityPost> getPost(String postId) async {
+    final body = await _api.get('/api/community/v1/posts/$postId');
+    return _postFromJson(_object(body, 'post'));
   }
 
   @override
@@ -448,7 +460,7 @@ class HttpCommunityRepository implements CommunityRepository {
           )
           .toList(growable: false),
       status: switch (json['status']) {
-        'pending_approval' => PostStatus.pendingApproval,
+        'pending_approval' || 'pendingApproval' => PostStatus.pendingApproval,
         'removed' => PostStatus.removed,
         _ => PostStatus.published,
       },
@@ -491,7 +503,7 @@ class HttpCommunityRepository implements CommunityRepository {
       id: _id(json),
       actorName: actorJson['name'] as String? ?? 'Wicchu member',
       actorAvatarUrl: actorJson['avatarUrl'] as String?,
-      type: json['type'] == 'post_comment'
+      type: json['type'] == 'post_comment' || json['type'] == 'postComment'
           ? CommunityNotificationType.postComment
           : CommunityNotificationType.postReaction,
       postId: json['postId']?.toString() ?? '',
@@ -499,7 +511,7 @@ class HttpCommunityRepository implements CommunityRepository {
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-      isRead: json['readAt'] != null,
+      isRead: json['readAt'] != null || json['isRead'] == true,
     );
   }
 

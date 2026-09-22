@@ -209,7 +209,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       setState(() => _saving = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
     }
   }
 
@@ -249,7 +249,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     } finally {
       if (mounted) setState(() => _uploading = false);

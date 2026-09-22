@@ -5,6 +5,7 @@ import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'comments_sheet.dart';
 import 'post_card.dart';
+import 'post_detail_page.dart';
 
 class PostCollectionPage extends StatefulWidget {
   const PostCollectionPage({
@@ -25,6 +26,15 @@ class PostCollectionPage extends StatefulWidget {
 class _PostCollectionPageState extends State<PostCollectionPage> {
   late Future<List<CommunityPost>> _posts = widget.loadPosts();
 
+  Future<void> _refresh() async {
+    setState(() {
+      _posts = widget.loadPosts();
+    });
+    try {
+      await _posts;
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(context.tr(widget.title))),
@@ -35,26 +45,39 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text(snapshot.error.toString()));
+          return Center(child: Text(context.trError(snapshot.error!)));
         }
         final posts = snapshot.data ?? const [];
         if (posts.isEmpty) {
           return Center(child: Text(context.tr('No posts found')));
         }
         return RefreshIndicator(
-          onRefresh: () async => setState(() => _posts = widget.loadPosts()),
+          onRefresh: _refresh,
           child: ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             itemCount: posts.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final post = posts[index];
               return PostCard(
+                onTap: () =>
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PostDetailPage(
+                          postId: post.id,
+                          repository: widget.repository,
+                        ),
+                      ),
+                    ).then((_) {
+                      if (mounted) setState(() => _posts = widget.loadPosts());
+                    }),
                 category: 'Post',
                 icon: '💬',
                 community: 'Wicchu',
                 author: post.authorName,
-                time: formatPostTime(post.createdAt),
+                time: formatPostTime(context, post.createdAt),
                 text: post.text,
                 likes: post.reactionCount,
                 comments: post.commentCount,
