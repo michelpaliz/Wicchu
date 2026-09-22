@@ -6,6 +6,7 @@ import '../../localization/app_language.dart';
 import 'comments_sheet.dart';
 import 'post_card.dart';
 import 'post_detail_page.dart';
+import 'post_share.dart';
 
 class PostCollectionPage extends StatefulWidget {
   const PostCollectionPage({
@@ -99,6 +100,7 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                 },
                 onReport: (reason) =>
                     widget.repository.reportPost(post.id, reason),
+                onShare: () => sharePost(widget.repository, post),
               );
             },
           ),

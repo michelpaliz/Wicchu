@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +11,7 @@ import 'domain/auth_gateway.dart';
 import 'domain/community_repository.dart';
 import 'features/auth/login_page.dart';
 import 'features/main/main_shell.dart';
+import 'features/community/shared_post_page.dart';
 import 'localization/app_language.dart';
 import 'theme/theme_menu.dart';
 import 'theme/wicchu_theme.dart';
@@ -36,6 +40,9 @@ class WicchuApp extends StatefulWidget {
 }
 
 class _WicchuAppState extends State<WicchuApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  StreamSubscription<Uri>? _linkSubscription;
+  String? _pendingPostId;
   late Future<bool> _hasSession;
   String _languageCode = 'en';
   bool _languageChangedByUser = false;
@@ -47,6 +54,61 @@ class _WicchuAppState extends State<WicchuApp> {
     super.initState();
     _hasSession = widget.authGateway.hasSession();
     _loadPreferences();
+    _listenForLinks();
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _listenForLinks() async {
+    try {
+      final links = AppLinks();
+      final initial = await links.getInitialLink();
+      if (initial != null) _queueLink(initial);
+      _linkSubscription = links.uriLinkStream.listen(_queueLink);
+    } catch (_) {
+      // Deep links are unavailable on unsupported platforms and in widget tests.
+    }
+  }
+
+  void _queueLink(Uri uri) {
+    final postId = _postIdFromUri(uri);
+    if (postId == null || !mounted) return;
+    setState(() => _pendingPostId = postId);
+  }
+
+  String? _postIdFromUri(Uri uri) {
+    if (uri.scheme == 'wicchu' &&
+        uri.host == 'posts' &&
+        uri.pathSegments.isNotEmpty) {
+      return uri.pathSegments.first;
+    }
+    final segments = uri.pathSegments;
+    if ((uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host == 'hexora.dev' &&
+        segments.length >= 3 &&
+        segments[0] == 'wicchu' &&
+        segments[1] == 'posts') {
+      return segments[2];
+    }
+    return null;
+  }
+
+  void _openPendingPost() {
+    final postId = _pendingPostId;
+    if (postId == null) return;
+    _pendingPostId = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) =>
+              SharedPostPage(postId: postId, repository: widget.repository),
+        ),
+      );
+    });
   }
 
   Future<void> _loadPreferences() async {
@@ -105,6 +167,7 @@ class _WicchuAppState extends State<WicchuApp> {
         languageCode: _languageCode,
         onLanguageChanged: _setLanguage,
         child: MaterialApp(
+          navigatorKey: _navigatorKey,
           title: 'Wicchu',
           debugShowCheckedModeBanner: false,
           theme: WicchuTheme.light,
@@ -126,6 +189,7 @@ class _WicchuAppState extends State<WicchuApp> {
                 );
               }
               if (snapshot.data!) {
+                _openPendingPost();
                 return MainShell(
                   repository: widget.repository,
                   authGateway: widget.authGateway,

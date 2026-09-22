@@ -5,6 +5,7 @@ import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'comments_sheet.dart';
 import 'post_card.dart';
+import 'post_share.dart';
 
 class PostDetailPage extends StatefulWidget {
   const PostDetailPage({
@@ -100,6 +101,11 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     widget.repository.setPostSaved(post.id, saved: saved),
                 onReport: (reason) =>
                     widget.repository.reportPost(post.id, reason),
+                onShare: () => sharePost(
+                  widget.repository,
+                  post,
+                  communityName: widget.community,
+                ),
               ),
               const SizedBox(height: 12),
               FilledButton.icon(

@@ -10,6 +10,8 @@ import 'create_post_page.dart';
 import 'post_card.dart';
 import 'post_detail_page.dart';
 import 'community_share.dart';
+import 'community_avatar.dart';
+import 'post_share.dart';
 
 class CommunityPage extends StatefulWidget {
   const CommunityPage({
@@ -127,11 +129,26 @@ class _CommunityPageState extends State<CommunityPage> {
                 borderRadius: BorderRadius.circular(20),
                 color: Theme.of(context).colorScheme.primaryContainer,
               ),
-              child: Icon(
-                Icons.landscape_outlined,
-                size: 64,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              child: community.imageUrl == null
+                  ? Icon(
+                      Icons.landscape_outlined,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.primary,
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.network(
+                        community.imageUrl!,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Center(
+                          child: CommunityAvatar(
+                            community: community,
+                            radius: 48,
+                          ),
+                        ),
+                      ),
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.all(20),
@@ -299,6 +316,11 @@ class _CommunityPageState extends State<CommunityPage> {
                               ),
                               onReport: (reason) =>
                                   repository.reportPost(post.id, reason),
+                              onShare: () => sharePost(
+                                repository,
+                                post,
+                                communityName: community.name,
+                              ),
                             ),
                             const SizedBox(height: 12),
                           ],

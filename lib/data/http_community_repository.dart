@@ -254,6 +254,8 @@ class HttpCommunityRepository implements CommunityRepository {
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
+    String? imageUrl,
+    String? imageBlobName,
   }) async {
     final body = await _api.patch(
       '/api/community/v1/communities/${community.id}',
@@ -262,6 +264,7 @@ class HttpCommunityRepository implements CommunityRepository {
         'description': description,
         'visibility': visibility.name,
         'approvalRequired': approvalRequired,
+        'imageBlobName': ?imageBlobName,
       },
     );
     return _communityFromJson({
@@ -308,6 +311,40 @@ class HttpCommunityRepository implements CommunityRepository {
   Future<CommunityPost> getPost(String postId) async {
     final body = await _api.get('/api/community/v1/posts/$postId');
     return _postFromJson(_object(body, 'post'));
+  }
+
+  @override
+  Future<SharedPostPreview> getSharedPost(String postId) async {
+    final body = await _api.get('/wicchu/api/posts/$postId');
+    final postJson = _object(body, 'post');
+    final community = _object(body, 'community');
+    final category = _object(body, 'category');
+    final author = _object(body, 'author');
+    return SharedPostPreview(
+      post: _postFromJson({
+        ...postJson,
+        'communityId': community['id'],
+        'categoryId': category['id'],
+        'author': {'name': author['name']},
+        'media': postJson['imageUrl'] == null
+            ? const []
+            : [
+                {'type': 'image', 'url': postJson['imageUrl']},
+              ],
+        'status': 'published',
+      }),
+      communityId: community['id']?.toString() ?? '',
+      communityName: community['name'] as String? ?? 'Wicchu',
+      communityDescription: community['description'] as String? ?? '',
+      communityImageUrl: community['imageUrl'] as String?,
+      categoryName: category['name'] as String? ?? 'Post',
+      categoryIcon: category['icon'] as String? ?? '💬',
+    );
+  }
+
+  @override
+  Future<void> recordPostShare(String postId) async {
+    await _api.post('/api/community/v1/posts/$postId/share');
   }
 
   @override

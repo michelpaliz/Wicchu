@@ -6,6 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import 'post_format_toolbar.dart';
+import 'post_markdown.dart';
+import 'post_share.dart';
 
 class CreatePostPage extends StatefulWidget {
   const CreatePostPage({
@@ -73,6 +76,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             onChanged: (value) => setState(() => _category = value),
           ),
           const SizedBox(height: 20),
+          PostFormatToolbar(controller: _textController),
           TextField(
             controller: _textController,
             minLines: 6,
@@ -80,6 +84,23 @@ class _CreatePostPageState extends State<CreatePostPage> {
             decoration: InputDecoration(
               hintText: context.tr('What would you like to share?'),
             ),
+          ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _textController,
+            builder: (context, value, _) {
+              if (value.text.trim().isEmpty) return const SizedBox.shrink();
+              return ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('Preview'),
+                childrenPadding: const EdgeInsets.only(bottom: 12),
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: PostMarkdown(data: value.text),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 14),
           Row(
@@ -198,6 +219,36 @@ class _CreatePostPageState extends State<CreatePostPage> {
               FilledButton(
                 onPressed: () => Navigator.pop(dialogContext),
                 child: Text(dialogContext.tr('Done')),
+              ),
+            ],
+          ),
+        );
+      } else {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            icon: const Icon(Icons.check_circle_outline, size: 44),
+            title: const Text('Post published ✓'),
+            content: const Text(
+              'Share with your community elsewhere?\n\n'
+              'Facebook · WhatsApp · Messenger · More',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Not now'),
+              ),
+              FilledButton.icon(
+                onPressed: () async {
+                  await sharePost(
+                    widget.repository,
+                    post,
+                    communityName: widget.community.name,
+                  );
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                },
+                icon: const Icon(Icons.ios_share_outlined),
+                label: const Text('Share post'),
               ),
             ],
           ),

@@ -88,6 +88,8 @@ abstract interface class CommunityRepository {
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
+    String? imageUrl,
+    String? imageBlobName,
   });
   Future<List<CommunityPost>> listPosts(
     String communityId, {
@@ -97,6 +99,8 @@ abstract interface class CommunityRepository {
   });
   Future<List<CommunityPost>> listFollowingPosts({String? query});
   Future<CommunityPost> getPost(String postId);
+  Future<SharedPostPreview> getSharedPost(String postId);
+  Future<void> recordPostShare(String postId);
   Future<CommunityPost> createPost(String communityId, CreatePostInput input);
   Future<PostMedia> uploadPostMedia({
     required List<int> bytes,

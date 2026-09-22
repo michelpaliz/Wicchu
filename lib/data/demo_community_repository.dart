@@ -222,6 +222,8 @@ class DemoCommunityRepository implements CommunityRepository {
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
+    String? imageUrl,
+    String? imageBlobName,
   }) async {
     final updated = Community(
       id: community.id,
@@ -231,7 +233,7 @@ class DemoCommunityRepository implements CommunityRepository {
       visibility: visibility,
       createdBy: community.createdBy,
       createdAt: community.createdAt,
-      imageUrl: community.imageUrl,
+      imageUrl: imageBlobName == null ? community.imageUrl : imageUrl,
       memberCount: community.memberCount,
       myRole: community.myRole,
       approvalRequired: approvalRequired,
@@ -278,6 +280,29 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<CommunityPost> getPost(String postId) async => _posts.values
       .expand((posts) => posts)
       .firstWhere((post) => post.id == postId);
+
+  @override
+  Future<SharedPostPreview> getSharedPost(String postId) async {
+    final post = await getPost(postId);
+    final community = _communities.firstWhere(
+      (item) => item.id == post.communityId,
+    );
+    final category = (_categories[community.id] ?? const []).firstWhere(
+      (item) => item.id == post.categoryId,
+    );
+    return SharedPostPreview(
+      post: post,
+      communityId: community.id,
+      communityName: community.name,
+      communityDescription: community.description,
+      communityImageUrl: community.imageUrl,
+      categoryName: category.name,
+      categoryIcon: category.icon,
+    );
+  }
+
+  @override
+  Future<void> recordPostShare(String postId) async {}
 
   @override
   Future<CommunityPost> createPost(

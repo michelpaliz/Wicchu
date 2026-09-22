@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
@@ -284,7 +285,10 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   );
   late CommunityVisibility _visibility = widget.community.visibility;
   late bool _approvalRequired = widget.community.approvalRequired;
+  late String? _imageUrl = widget.community.imageUrl;
+  String? _imageBlobName;
   bool _saving = false;
+  bool _uploadingImage = false;
 
   @override
   void dispose() {
@@ -299,6 +303,56 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     body: ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        Center(
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ClipOval(
+                child: SizedBox.square(
+                  dimension: 112,
+                  child: _imageUrl == null
+                      ? ColoredBox(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          child: const Icon(Icons.groups_outlined, size: 48),
+                        )
+                      : Image.network(
+                          _imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => ColoredBox(
+                            color: Theme.of(context).colorScheme.errorContainer,
+                            child: const Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                ),
+              ),
+              Positioned(
+                right: -8,
+                bottom: -8,
+                child: IconButton.filled(
+                  tooltip: 'Change community photo',
+                  onPressed: _uploadingImage ? null : _pickImage,
+                  icon: _uploadingImage
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.photo_camera_outlined),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_imageUrl != null)
+          TextButton(
+            onPressed: _uploadingImage
+                ? null
+                : () => setState(() {
+                    _imageUrl = null;
+                    _imageBlobName = '';
+                  }),
+            child: const Text('Remove photo'),
+          ),
+        const SizedBox(height: 20),
         TextField(
           controller: _name,
           decoration: InputDecoration(labelText: context.tr('Name')),
@@ -332,7 +386,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         ),
         const SizedBox(height: 24),
         FilledButton.icon(
-          onPressed: _saving ? null : _save,
+          onPressed: _saving || _uploadingImage ? null : _save,
           icon: _saving
               ? const SizedBox.square(
                   dimension: 18,
@@ -355,6 +409,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         description: _description.text.trim(),
         visibility: _visibility,
         approvalRequired: _approvalRequired,
+        imageUrl: _imageUrl,
+        imageBlobName: _imageBlobName,
       );
       if (mounted) Navigator.pop(context, updated);
     } catch (error) {
@@ -366,5 +422,57 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _pickImage() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 88,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
+    if (file == null || !mounted) return;
+    final bytes = await file.readAsBytes();
+    if (bytes.length > 10 * 1024 * 1024) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('The community photo must be under 10 MB.'),
+          ),
+        );
+      }
+      return;
+    }
+    setState(() => _uploadingImage = true);
+    try {
+      final media = await widget.repository.uploadPostMedia(
+        bytes: bytes,
+        filename: file.name,
+        mimeType: file.mimeType ?? _imageMimeType(file.name),
+      );
+      if (media.type != 'image') {
+        throw Exception('Choose a supported image file.');
+      }
+      if (!mounted) return;
+      setState(() {
+        _imageUrl = media.url;
+        _imageBlobName = media.blobName;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$error')));
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
+  }
+
+  String _imageMimeType(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 }

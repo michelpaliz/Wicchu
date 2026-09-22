@@ -4,6 +4,7 @@ import '../../domain/community_models.dart';
 import '../../theme/wicchu_theme.dart';
 import '../../localization/app_language.dart';
 import 'post_media_gallery.dart';
+import 'post_markdown.dart';
 
 String formatPostTime(BuildContext context, DateTime createdAt) {
   final difference = DateTime.now().difference(createdAt.toLocal());
@@ -42,6 +43,7 @@ class PostCard extends StatefulWidget {
     this.onSaved,
     this.media = const [],
     this.onReport,
+    this.onShare,
   });
 
   final String category;
@@ -62,6 +64,7 @@ class PostCard extends StatefulWidget {
   final Future<void> Function(bool saved)? onSaved;
   final List<PostMedia> media;
   final Future<void> Function(String reason)? onReport;
+  final Future<void> Function()? onShare;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -110,7 +113,7 @@ class _PostCardState extends State<PostCard> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 14),
-              Text(widget.text, style: Theme.of(context).textTheme.titleMedium),
+              PostMarkdown(data: widget.text),
               if (widget.price != null) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -153,6 +156,12 @@ class _PostCardState extends State<PostCard> {
                     icon: Icons.chat_bubble_outline,
                     value: '$_comments',
                     onTap: widget.onComments == null ? null : _openComments,
+                  ),
+                  const SizedBox(width: 18),
+                  _PostAction(
+                    icon: Icons.ios_share_outlined,
+                    value: context.tr('Share'),
+                    onTap: widget.onShare,
                   ),
                   const Spacer(),
                   IconButton(

@@ -193,6 +193,26 @@ class CommunityPost {
   final bool savedByMe;
 }
 
+class SharedPostPreview {
+  const SharedPostPreview({
+    required this.post,
+    required this.communityId,
+    required this.communityName,
+    required this.communityDescription,
+    required this.categoryName,
+    required this.categoryIcon,
+    this.communityImageUrl,
+  });
+
+  final CommunityPost post;
+  final String communityId;
+  final String communityName;
+  final String communityDescription;
+  final String? communityImageUrl;
+  final String categoryName;
+  final String categoryIcon;
+}
+
 class Comment {
   const Comment({
     required this.id,

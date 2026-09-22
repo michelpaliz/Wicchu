@@ -7,6 +7,7 @@ import 'create_post_page.dart';
 import 'comments_sheet.dart';
 import 'post_card.dart';
 import 'post_detail_page.dart';
+import 'post_share.dart';
 
 class CategoryPage extends StatefulWidget {
   const CategoryPage({
@@ -163,6 +164,11 @@ class _CategoryPageState extends State<CategoryPage> {
                         ),
                         onReport: (reason) =>
                             widget.repository.reportPost(post.id, reason),
+                        onShare: () => sharePost(
+                          widget.repository,
+                          post,
+                          communityName: widget.community.name,
+                        ),
                       ),
                       const SizedBox(height: 12),
                     ],

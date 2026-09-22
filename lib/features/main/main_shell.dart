@@ -11,11 +11,13 @@ import '../../localization/app_language.dart';
 import '../../theme/theme_menu.dart';
 import '../admin/create_community_page.dart';
 import '../community/community_page.dart';
+import '../community/community_avatar.dart';
 import '../community/comments_sheet.dart';
 import '../community/create_post_page.dart';
 import '../community/post_card.dart';
 import '../community/post_collection_page.dart';
 import '../community/post_detail_page.dart';
+import '../community/post_share.dart';
 import '../settings/account_settings_page.dart';
 
 class MainShell extends StatefulWidget {
@@ -389,14 +391,7 @@ class _HomeTabState extends State<_HomeTab> {
                           ),
                           child: Row(
                             children: [
-                              CircleAvatar(
-                                radius: 26,
-                                backgroundColor: scheme.surface,
-                                child: Icon(
-                                  Icons.location_city_rounded,
-                                  color: scheme.primary,
-                                ),
-                              ),
+                              CommunityAvatar(community: community, radius: 26),
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
@@ -533,6 +528,12 @@ class _HomeTabState extends State<_HomeTab> {
                         widget.repository.setPostSaved(post.id, saved: saved),
                     onReport: (reason) =>
                         widget.repository.reportPost(post.id, reason),
+                    onShare: () => sharePost(
+                      widget.repository,
+                      post,
+                      communityName:
+                          communityById[post.communityId]?.name ?? 'Wicchu',
+                    ),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -756,7 +757,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                               setState(_reload);
                               widget.onCommunitiesChanged();
                             }),
-                        leading: const CircleAvatar(child: Text('🏘')),
+                        leading: CommunityAvatar(community: community),
                         title: Text(community.name),
                         subtitle: Text(
                           '${context.trCount(community.memberCount, singular: '{count} member', plural: '{count} members')}${community.distanceKm == null ? '' : ' · ${community.distanceKm!.toStringAsFixed(1)} km'}',
@@ -1252,7 +1253,7 @@ class _CommunityCollectionPageState extends State<_CommunityCollectionPage> {
               final community = communities[index];
               return Card(
                 child: ListTile(
-                  leading: const CircleAvatar(child: Text('🏘')),
+                  leading: CommunityAvatar(community: community),
                   title: Text(community.name),
                   subtitle: Text(
                     context.trCount(
