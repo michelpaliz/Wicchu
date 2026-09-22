@@ -5,6 +5,7 @@ import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/auth_gateway.dart';
 import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/domain/community_repository.dart';
+import 'package:wicchu/features/admin/create_community_page.dart';
 import 'package:wicchu/features/community/post_card.dart';
 import 'package:wicchu/localization/app_language.dart';
 import 'package:wicchu/main.dart';
@@ -133,6 +134,18 @@ void main() {
     expect(find.text('Create community'), findsOneWidget);
     expect(find.text('Community name'), findsOneWidget);
 
+    final repository = DemoCommunityRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CreateCommunityPage(
+          repository: repository,
+          locateCurrentTown: () async =>
+              const Town(id: 'town-1', name: 'Town X', countryCode: 'EC'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
     await tester.enterText(
       find.widgetWithText(TextField, 'Community name'),
       'Riverside',
@@ -148,7 +161,12 @@ void main() {
     expect(find.text('Your community is ready!'), findsOneWidget);
     await tester.tap(find.text('Enter community'));
     await tester.pumpAndSettle();
-    expect(find.text('Riverside'), findsWidgets);
+    expect(
+      (await repository.listCommunities()).any(
+        (item) => item.name == 'Riverside',
+      ),
+      isTrue,
+    );
   });
 
   testWidgets('searches communities in Explore', (tester) async {

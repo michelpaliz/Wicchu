@@ -44,6 +44,10 @@ class CreatePostInput {
 
 abstract interface class CommunityRepository {
   Future<List<Town>> listTowns();
+  Future<Town> locateTown({
+    required double latitude,
+    required double longitude,
+  });
   Future<WicchuProfile> getProfile();
   Future<NotificationFeed> listNotifications();
   Future<void> markNotificationRead(String notificationId);
@@ -51,10 +55,40 @@ abstract interface class CommunityRepository {
   Future<List<Community>> listCommunities({String? query});
   Future<List<Community>> listJoinedCommunities();
   Future<List<Community>> listManagedCommunities();
+  Future<List<Community>> listNearbyCommunities({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 25,
+  });
   Future<Community> createCommunity(CreateCommunityInput input);
   Future<void> joinCommunity(String communityId);
   Future<void> leaveCommunity(String communityId);
   Future<List<CommunityCategory>> listCategories(String communityId);
+  Future<CommunityCategory> createCategory(
+    String communityId, {
+    required String name,
+    String description,
+  });
+  Future<CommunityCategory> updateCategory(
+    String communityId,
+    CommunityCategory category, {
+    required String name,
+    required String description,
+  });
+  Future<void> deleteCategory(String communityId, String categoryId);
+  Future<List<CommunityMember>> listMembers(String communityId);
+  Future<void> setMemberRole(
+    String communityId,
+    String userId,
+    CommunityRole role,
+  );
+  Future<Community> updateCommunity(
+    Community community, {
+    required String name,
+    required String description,
+    required CommunityVisibility visibility,
+    required bool approvalRequired,
+  });
   Future<List<CommunityPost>> listPosts(
     String communityId, {
     String? categoryId,

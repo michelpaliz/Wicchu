@@ -37,7 +37,9 @@ extension AppTranslation on BuildContext {
   String trError(Object error) {
     final message = error.toString();
     if (!isSpanish) return message;
-    return _spanish[message] ?? tr('Something went wrong. Please try again.');
+    final normalized = message.replaceFirst(RegExp(r'^Exception: '), '');
+    return _spanish[normalized] ??
+        tr('Something went wrong. Please try again.');
   }
 
   String trCount(
@@ -281,4 +283,78 @@ const _spanish = <String, String>{
       'Invita a los primeros miembros y empieza la conversación.',
   'Share invitation': 'Compartir invitación',
   'Enter community': 'Entrar en la comunidad',
+  'Finding your current town…': 'Buscando tu ciudad actual…',
+  'Wicchu needs your location to find your town and nearby communities.':
+      'Wicchu necesita tu ubicación para encontrar tu ciudad y comunidades cercanas.',
+  'Update my location': 'Actualizar mi ubicación',
+  'Use my current location': 'Usar mi ubicación actual',
+  'Confirm your current location to continue.':
+      'Confirma tu ubicación actual para continuar.',
+  'Turn on location services and try again.':
+      'Activa los servicios de ubicación e inténtalo de nuevo.',
+  'Location permission is blocked. Enable it in your device settings.':
+      'El permiso de ubicación está bloqueado. Actívalo en los ajustes del dispositivo.',
+  'Location permission is required to create a community.':
+      'Se necesita permiso de ubicación para crear una comunidad.',
+  'Enable nearby discovery in Settings first.':
+      'Activa el descubrimiento cercano en Ajustes primero.',
+  'Enable location services to discover nearby communities.':
+      'Activa los servicios de ubicación para descubrir comunidades cercanas.',
+  'Location permission is required for nearby discovery.':
+      'Se necesita permiso de ubicación para descubrir comunidades cercanas.',
+  'Show all communities': 'Mostrar todas las comunidades',
+  'Use my location': 'Usar mi ubicación',
+  'Join {community} on Wicchu': 'Únete a {community} en Wicchu',
+  'Join {community} on Wicchu:': 'Únete a {community} en Wicchu:',
+  'Notifications': 'Notificaciones',
+  'Post activity': 'Actividad de publicaciones',
+  'Reactions and comments on your posts':
+      'Reacciones y comentarios en tus publicaciones',
+  'Community activity': 'Actividad de comunidades',
+  'Membership and moderation updates': 'Novedades sobre miembros y moderación',
+  'Privacy': 'Privacidad',
+  'Nearby discovery': 'Descubrimiento cercano',
+  'Allow location use when you request nearby communities':
+      'Permitir el uso de la ubicación al buscar comunidades cercanas',
+  'Account security': 'Seguridad de la cuenta',
+  'Authentication credentials are stored securely on this device.':
+      'Las credenciales de acceso se guardan de forma segura en este dispositivo.',
+  'Data deletion': 'Eliminación de datos',
+  'Visit hexora.dev/wicchu/data-deletion to request deletion.':
+      'Visita hexora.dev/wicchu/data-deletion para solicitar la eliminación.',
+  'How do I join a community?': '¿Cómo me uno a una comunidad?',
+  'Open Explore, select a community, and tap Join. Private communities require administrator approval.':
+      'Abre Explorar, selecciona una comunidad y toca Unirme. Las comunidades privadas requieren la aprobación de un administrador.',
+  'How do I report a post?': '¿Cómo denuncio una publicación?',
+  'Tap the flag on a post, enter a reason, and submit it to the community moderators.':
+      'Toca la bandera de una publicación, escribe el motivo y envíalo a los moderadores de la comunidad.',
+  'How is my location used?': '¿Cómo se usa mi ubicación?',
+  'Location is requested only when you choose nearby discovery and is sent to the server to find communities within the selected radius.':
+      'La ubicación se solicita solo cuando eliges el descubrimiento cercano y se envía al servidor para buscar comunidades dentro del radio seleccionado.',
+  'Support': 'Soporte',
+  'Contact the Wicchu support team through hexora.dev.':
+      'Contacta con el equipo de soporte de Wicchu a través de hexora.dev.',
+  'Add category': 'Añadir categoría',
+  'Edit category': 'Editar categoría',
+  'No categories': 'No hay categorías',
+  'Delete': 'Eliminar',
+  'Delete category?': '¿Eliminar categoría?',
+  'Existing posts in {category} will remain, but the category will no longer be available.':
+      'Las publicaciones existentes en {category} permanecerán, pero la categoría dejará de estar disponible.',
+  'Name': 'Nombre',
+  'Description': 'Descripción',
+  'Save': 'Guardar',
+  'Community settings': 'Ajustes de la comunidad',
+  'Visibility': 'Visibilidad',
+  'Require post approval': 'Requerir aprobación de publicaciones',
+  'Post approval': 'Aprobación de publicaciones',
+  'Open comments': 'Abrir comentarios',
+  'Required': 'Obligatoria',
+  'Automatic': 'Automática',
+  'Save changes': 'Guardar cambios',
+  'public': 'Pública',
+  'private': 'Privada',
+  'admin': 'Administrador',
+  'moderator': 'Moderador',
+  'member': 'Miembro',
 };

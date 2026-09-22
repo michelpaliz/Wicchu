@@ -133,6 +133,10 @@ class _CategoryPageState extends State<CategoryPage> {
                                 builder: (_) => PostDetailPage(
                                   postId: post.id,
                                   repository: widget.repository,
+                                  initialPost: post,
+                                  category: widget.category.name,
+                                  icon: widget.category.icon,
+                                  community: widget.community.name,
                                 ),
                               ),
                             ).then((_) {

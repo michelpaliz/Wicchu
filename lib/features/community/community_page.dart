@@ -9,6 +9,7 @@ import 'comments_sheet.dart';
 import 'create_post_page.dart';
 import 'post_card.dart';
 import 'post_detail_page.dart';
+import 'community_share.dart';
 
 class CommunityPage extends StatefulWidget {
   const CommunityPage({
@@ -94,6 +95,11 @@ class _CommunityPageState extends State<CommunityPage> {
               ),
               icon: const Icon(Icons.admin_panel_settings_outlined),
             ),
+          IconButton(
+            tooltip: context.tr('Share'),
+            onPressed: () => shareCommunity(context, community),
+            icon: const Icon(Icons.ios_share_outlined),
+          ),
         ],
       ),
       floatingActionButton: _isJoined
@@ -265,6 +271,8 @@ class _CommunityPageState extends State<CommunityPage> {
                                       builder: (_) => PostDetailPage(
                                         postId: post.id,
                                         repository: repository,
+                                        initialPost: post,
+                                        community: community.name,
                                       ),
                                     ),
                                   ).then((_) {

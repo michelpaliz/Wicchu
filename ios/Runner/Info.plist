@@ -48,6 +48,8 @@
 	<string>Wicchu uses your photo library when you choose images or videos for a community post.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Wicchu uses your location to show nearby communities.</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>

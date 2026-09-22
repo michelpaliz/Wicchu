@@ -11,10 +11,18 @@ class PostDetailPage extends StatefulWidget {
     super.key,
     required this.postId,
     required this.repository,
+    this.initialPost,
+    this.category = 'Post',
+    this.icon = '💬',
+    this.community = 'Wicchu',
   });
 
   final String postId;
   final CommunityRepository repository;
+  final CommunityPost? initialPost;
+  final String category;
+  final String icon;
+  final String community;
 
   @override
   State<PostDetailPage> createState() => _PostDetailPageState();
@@ -35,8 +43,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
     appBar: AppBar(title: Text(context.tr('Post'))),
     body: FutureBuilder<CommunityPost>(
       future: _post,
+      initialData: widget.initialPost,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
@@ -69,9 +79,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
             padding: const EdgeInsets.all(16),
             children: [
               PostCard(
-                category: 'Post',
-                icon: '💬',
-                community: 'Wicchu',
+                category: widget.category,
+                icon: widget.icon,
+                community: widget.community,
                 author: post.authorName,
                 time: formatPostTime(context, post.createdAt),
                 text: post.text,
@@ -90,6 +100,13 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     widget.repository.setPostSaved(post.id, saved: saved),
                 onReport: (reason) =>
                     widget.repository.reportPost(post.id, reason),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () =>
+                    showPostComments(context, widget.repository, post),
+                icon: const Icon(Icons.forum_outlined),
+                label: Text(context.tr('Open comments')),
               ),
             ],
           ),

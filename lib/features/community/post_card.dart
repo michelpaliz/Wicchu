@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../theme/wicchu_theme.dart';
 import '../../localization/app_language.dart';
+import 'post_media_gallery.dart';
 
 String formatPostTime(BuildContext context, DateTime createdAt) {
   final difference = DateTime.now().difference(createdAt.toLocal());
@@ -121,47 +122,7 @@ class _PostCardState extends State<PostCard> {
               ],
               if (widget.media.isNotEmpty) ...[
                 const SizedBox(height: 14),
-                SizedBox(
-                  height: 170,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: widget.media.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final media = widget.media[index];
-                      if (media.type == 'video') {
-                        return Container(
-                          width: 240,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer,
-                          ),
-                          child: const Icon(
-                            Icons.play_circle_outline,
-                            size: 54,
-                          ),
-                        );
-                      }
-                      return ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.network(
-                          media.url,
-                          width: 240,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            width: 240,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer,
-                            child: const Icon(Icons.broken_image_outlined),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                PostMediaGallery(media: widget.media),
               ] else if (widget.showImage) ...[
                 const SizedBox(height: 14),
                 Container(

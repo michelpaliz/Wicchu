@@ -68,6 +68,7 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                         builder: (_) => PostDetailPage(
                           postId: post.id,
                           repository: widget.repository,
+                          initialPost: post,
                         ),
                       ),
                     ).then((_) {
