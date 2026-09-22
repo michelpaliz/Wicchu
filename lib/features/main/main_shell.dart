@@ -21,6 +21,7 @@ import '../community/post_detail_page.dart';
 import '../community/post_share.dart';
 import '../settings/account_settings_page.dart';
 import '../promotions/promotions_page.dart';
+import '../profile/member_profile_page.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -529,6 +530,9 @@ class _HomeTabState extends State<_HomeTab> {
                         communityById[post.communityId]?.name ?? 'Wicchu',
                     author: post.authorName,
                     authorAvatarUrl: post.authorAvatarUrl,
+                    onAuthorTap: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
+                    )),
                     time: formatPostTime(context, post.createdAt),
                     text: post.text,
                     likes: post.reactionCount,

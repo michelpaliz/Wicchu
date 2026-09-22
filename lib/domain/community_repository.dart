@@ -53,6 +53,14 @@ abstract interface class CommunityRepository {
     required double longitude,
   });
   Future<WicchuProfile> getProfile();
+  Future<PublicMemberProfile> getMemberProfile(String userId);
+  Future<List<CommunityPost>> listMemberPosts(
+    String userId, {
+    String kind = 'all',
+    String sort = 'newest',
+  });
+  Future<SocialLinks> getMySocialLinks();
+  Future<SocialLinks> updateMySocialLinks(SocialLinks links);
   Future<NotificationFeed> listNotifications();
   Future<void> markNotificationRead(String notificationId);
   Future<void> markAllNotificationsRead();

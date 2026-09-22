@@ -5,6 +5,7 @@ import '../../domain/community_repository.dart';
 import 'community_avatar.dart';
 import 'comments_sheet.dart';
 import 'post_card.dart';
+import '../profile/member_profile_page.dart';
 import 'post_share.dart';
 
 class SharedPostPage extends StatefulWidget {
@@ -88,6 +89,9 @@ class _SharedPostPageState extends State<SharedPostPage> {
               community: preview.communityName,
               author: post.authorName,
               authorAvatarUrl: post.authorAvatarUrl,
+              onAuthorTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
+              )),
               time: formatPostTime(context, post.createdAt),
               text: post.text,
               media: post.media,

@@ -391,6 +391,19 @@ const _spanish = <String, String>{
   'Add at least two unique poll options.':
       'Añade al menos dos opciones únicas para la votación.',
   '{count} votes': '{count} votos',
+  'Member profile': 'Perfil del miembro',
+  'All posts': 'Todas las publicaciones',
+  'Media': 'Multimedia',
+  'Polls': 'Votaciones',
+  'Newest': 'Más recientes',
+  'Oldest': 'Más antiguas',
+  '{posts} posts · {communities} communities':
+      '{posts} publicaciones · {communities} comunidades',
+  'Social and contact links': 'Redes sociales y contacto',
+  'WhatsApp, Facebook, Instagram and email':
+      'WhatsApp, Facebook, Instagram y correo electrónico',
+  'Profile links saved': 'Enlaces del perfil guardados',
+  'Unable to open link': 'No se pudo abrir el enlace',
   'Privacy': 'Privacidad',
   'Nearby discovery': 'Descubrimiento cercano',
   'Allow location use when you request nearby communities':

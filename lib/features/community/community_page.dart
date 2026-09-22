@@ -12,6 +12,7 @@ import 'post_detail_page.dart';
 import 'community_share.dart';
 import 'community_avatar.dart';
 import 'post_share.dart';
+import '../profile/member_profile_page.dart';
 
 class CommunityPage extends StatefulWidget {
   const CommunityPage({
@@ -366,6 +367,9 @@ class _CommunityPageState extends State<CommunityPage> {
                               community: community.name,
                               author: post.authorName,
                               authorAvatarUrl: post.authorAvatarUrl,
+                              onAuthorTap: () => Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => MemberProfilePage(userId: post.authorId, repository: repository),
+                              )),
                               time: formatPostTime(context, post.createdAt),
                               text: post.text,
                               likes: post.reactionCount,

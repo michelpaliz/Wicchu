@@ -53,6 +53,7 @@ class PostCard extends StatefulWidget {
     this.onPromotionClick,
     this.poll,
     this.onPollVote,
+    this.onAuthorTap,
   });
 
   final String category;
@@ -80,6 +81,7 @@ class PostCard extends StatefulWidget {
   final Future<void> Function()? onPromotionClick;
   final PostPoll? poll;
   final Future<PostPoll> Function(String optionId)? onPollVote;
+  final VoidCallback? onAuthorTap;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -166,24 +168,31 @@ class _PostCardState extends State<PostCard> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  UserAvatar(
-                    name: context.tr(widget.author),
-                    imageUrl: widget.authorAvatarUrl,
-                    radius: 21,
-                    backgroundColor: accent.withValues(alpha: .14),
-                    foregroundColor: accent,
+                  InkWell(
+                    onTap: widget.onAuthorTap,
+                    customBorder: const CircleBorder(),
+                    child: UserAvatar(
+                      name: context.tr(widget.author),
+                      imageUrl: widget.authorAvatarUrl,
+                      radius: 21,
+                      backgroundColor: accent.withValues(alpha: .14),
+                      foregroundColor: accent,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          context.tr(widget.author),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
+                        InkWell(
+                          onTap: widget.onAuthorTap,
+                          child: Text(
+                            context.tr(widget.author),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 2),

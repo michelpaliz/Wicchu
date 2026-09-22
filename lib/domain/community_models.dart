@@ -78,6 +78,39 @@ class WicchuProfile {
   final int savedPostCount;
 }
 
+class PublicMemberProfile {
+  const PublicMemberProfile({
+    required this.id,
+    required this.name,
+    required this.userName,
+    required this.postCount,
+    required this.communityCount,
+    this.avatarUrl,
+    this.socialLinks = const SocialLinks(),
+  });
+  final String id;
+  final String name;
+  final String userName;
+  final String? avatarUrl;
+  final int postCount;
+  final int communityCount;
+  final SocialLinks socialLinks;
+}
+
+class SocialLinks {
+  const SocialLinks({
+    this.whatsapp = '',
+    this.facebook = '',
+    this.instagram = '',
+    this.email = '',
+  });
+  final String whatsapp;
+  final String facebook;
+  final String instagram;
+  final String email;
+  bool get isEmpty => whatsapp.isEmpty && facebook.isEmpty && instagram.isEmpty && email.isEmpty;
+}
+
 class CommunityNotification {
   const CommunityNotification({
     required this.id,

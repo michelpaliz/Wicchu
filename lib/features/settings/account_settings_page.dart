@@ -114,6 +114,14 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   _set('promotions', value);
                 },
               ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.alternate_email),
+                title: Text(context.tr('Social and contact links')),
+                subtitle: Text(context.tr('WhatsApp, Facebook, Instagram and email')),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _editSocialLinks,
+              ),
               const Divider(height: 32),
               Text(
                 context.tr('Privacy'),
@@ -156,6 +164,55 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
             ],
           ),
   );
+
+  Future<void> _editSocialLinks() async {
+    try {
+      final current = await widget.repository.getMySocialLinks();
+      if (!mounted) return;
+      final whatsapp = TextEditingController(text: current.whatsapp);
+      final facebook = TextEditingController(text: current.facebook);
+      final instagram = TextEditingController(text: current.instagram);
+      final email = TextEditingController(text: current.email);
+      final links = await showDialog<SocialLinks>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(dialogContext.tr('Social and contact links')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: whatsapp, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'WhatsApp')),
+                TextField(controller: facebook, decoration: const InputDecoration(labelText: 'Facebook')),
+                TextField(controller: instagram, decoration: const InputDecoration(labelText: 'Instagram')),
+                TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(dialogContext.tr('Cancel'))),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, SocialLinks(
+                whatsapp: whatsapp.text.trim(),
+                facebook: facebook.text.trim(),
+                instagram: instagram.text.trim(),
+                email: email.text.trim(),
+              )),
+              child: Text(dialogContext.tr('Save')),
+            ),
+          ],
+        ),
+      );
+      whatsapp.dispose();
+      facebook.dispose();
+      instagram.dispose();
+      email.dispose();
+      if (links == null) return;
+      await widget.repository.updateMySocialLinks(links);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('Profile links saved'))));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
 }
 
 class HelpPage extends StatelessWidget {

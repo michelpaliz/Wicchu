@@ -8,6 +8,7 @@ import 'comments_sheet.dart';
 import 'post_card.dart';
 import 'post_detail_page.dart';
 import 'post_share.dart';
+import '../profile/member_profile_page.dart';
 
 class CategoryPage extends StatefulWidget {
   const CategoryPage({
@@ -148,6 +149,9 @@ class _CategoryPageState extends State<CategoryPage> {
                         community: widget.community.name,
                         author: post.authorName,
                         authorAvatarUrl: post.authorAvatarUrl,
+                        onAuthorTap: () => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
+                        )),
                         time: formatPostTime(context, post.createdAt),
                         text: post.text,
                         likes: post.reactionCount,
