@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../localization/app_language.dart';
+
 class PostFormatToolbar extends StatelessWidget {
   const PostFormatToolbar({super.key, required this.controller});
 
@@ -11,27 +13,31 @@ class PostFormatToolbar extends StatelessWidget {
     child: Row(
       children: [
         IconButton(
-          tooltip: 'Bold',
-          onPressed: () => _wrap('**', '**', 'bold text'),
+          tooltip: context.tr('Bold'),
+          onPressed: () => _wrap('**', '**', context.tr('bold text')),
           icon: const Icon(Icons.format_bold),
         ),
         IconButton(
-          tooltip: 'Italic',
-          onPressed: () => _wrap('*', '*', 'italic text'),
+          tooltip: context.tr('Italic'),
+          onPressed: () => _wrap('*', '*', context.tr('italic text')),
           icon: const Icon(Icons.format_italic),
         ),
         IconButton(
-          tooltip: 'Bulleted list',
-          onPressed: () => _prefixLines((_) => '- '),
+          tooltip: context.tr('Bulleted list'),
+          onPressed: () =>
+              _prefixLines((_) => '- ', placeholder: context.tr('List item')),
           icon: const Icon(Icons.format_list_bulleted),
         ),
         IconButton(
-          tooltip: 'Numbered list',
-          onPressed: () => _prefixLines((index) => '${index + 1}. '),
+          tooltip: context.tr('Numbered list'),
+          onPressed: () => _prefixLines(
+            (index) => '${index + 1}. ',
+            placeholder: context.tr('List item'),
+          ),
           icon: const Icon(Icons.format_list_numbered),
         ),
         IconButton(
-          tooltip: 'Link',
+          tooltip: context.tr('Link'),
           onPressed: () => _insertLink(context),
           icon: const Icon(Icons.link),
         ),
@@ -63,10 +69,13 @@ class PostFormatToolbar extends StatelessWidget {
         );
   }
 
-  void _prefixLines(String Function(int index) prefix) {
+  void _prefixLines(
+    String Function(int index) prefix, {
+    required String placeholder,
+  }) {
     final selection = _selection;
     final selected = selection.isCollapsed
-        ? 'List item'
+        ? placeholder
         : controller.text.substring(selection.start, selection.end);
     final replacement = selected
         .split('\n')
@@ -84,24 +93,25 @@ class PostFormatToolbar extends StatelessWidget {
 
   Future<void> _insertLink(BuildContext context) async {
     final url = TextEditingController(text: 'https://');
+    final defaultLinkText = context.tr('link text');
     final href = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add link'),
+        title: Text(context.tr('Add link')),
         content: TextField(
           controller: url,
           keyboardType: TextInputType.url,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Web address'),
+          decoration: InputDecoration(labelText: context.tr('Web address')),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.tr('Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, url.text.trim()),
-            child: const Text('Add'),
+            child: Text(context.tr('Add')),
           ),
         ],
       ),
@@ -111,7 +121,7 @@ class PostFormatToolbar extends StatelessWidget {
     if (uri == null || !{'http', 'https'}.contains(uri.scheme)) return;
     final selection = _selection;
     final label = selection.isCollapsed
-        ? 'link text'
+        ? defaultLinkText
         : controller.text.substring(selection.start, selection.end);
     final replacement = '[$label]($uri)';
     controller.value = controller.value

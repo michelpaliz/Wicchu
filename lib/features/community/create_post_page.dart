@@ -61,16 +61,67 @@ class _CreatePostPageState extends State<CreatePostPage> {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('Create post'))),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         children: [
-          Text(
-            widget.community.name,
-            style: Theme.of(context).textTheme.titleMedium,
+          Semantics(
+            container: true,
+            label: '${context.tr('Posting to')} ${widget.community.name}',
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.groups_2_outlined,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.tr('Posting to'),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                              ),
+                        ),
+                        Text(
+                          widget.community.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
+          Text(
+            context.tr('Post details'),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
           DropdownButtonFormField<CommunityCategory>(
             initialValue: _category,
-            decoration: InputDecoration(labelText: context.tr('Category')),
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: context.tr('Category'),
+              prefixIcon: const Icon(Icons.category_outlined),
+            ),
             items: [
               for (final item in categories)
                 DropdownMenuItem(
@@ -80,14 +131,40 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ],
             onChanged: (value) => setState(() => _category = value),
           ),
-          const SizedBox(height: 20),
-          PostFormatToolbar(controller: _textController),
-          TextField(
-            controller: _textController,
-            minLines: 6,
-            maxLines: 10,
-            decoration: InputDecoration(
-              hintText: context.tr('What would you like to share?'),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+            ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 0),
+                  child: PostFormatToolbar(controller: _textController),
+                ),
+                Divider(
+                  height: 1,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+                TextField(
+                  controller: _textController,
+                  minLines: 5,
+                  maxLines: 10,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: context.tr('What would you like to share?'),
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.all(18),
+                  ),
+                ),
+              ],
             ),
           ),
           ValueListenableBuilder<TextEditingValue>(
@@ -96,7 +173,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               if (value.text.trim().isEmpty) return const SizedBox.shrink();
               return ExpansionTile(
                 tilePadding: EdgeInsets.zero,
-                title: const Text('Preview'),
+                title: Text(context.tr('Preview')),
                 childrenPadding: const EdgeInsets.only(bottom: 12),
                 children: [
                   Align(
@@ -108,70 +185,137 @@ class _CreatePostPageState extends State<CreatePostPage> {
             },
           ),
           const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => setState(() => _hasPoll = !_hasPoll),
-              icon: const Icon(Icons.poll_outlined),
-              label: Text(context.tr(_hasPoll ? 'Remove poll' : 'Add poll')),
-            ),
+          OutlinedButton.icon(
+            onPressed: () => setState(() => _hasPoll = !_hasPoll),
+            icon: Icon(_hasPoll ? Icons.close : Icons.poll_outlined),
+            label: Text(context.tr(_hasPoll ? 'Remove poll' : 'Add poll')),
           ),
           if (_hasPoll) ...[
-            for (final (index, controller) in _pollControllers.indexed)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: TextField(
-                  controller: controller,
-                  maxLength: 120,
-                  decoration: InputDecoration(
-                    labelText: context.tr('Option {number}', {
-                      'number': '${index + 1}',
-                    }),
-                    suffixIcon: _pollControllers.length > 2
-                        ? IconButton(
-                            onPressed: () => setState(() {
-                              _pollControllers.removeAt(index).dispose();
-                            }),
-                            icon: const Icon(Icons.close),
-                          )
-                        : null,
-                  ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
                 ),
               ),
-            if (_pollControllers.length < 10)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: () => setState(
-                    () => _pollControllers.add(TextEditingController()),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.how_to_vote_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          context.tr('Poll'),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      Text(
+                        '${_pollControllers.length}/10',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.add),
-                  label: Text(context.tr('Add option')),
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                    context.tr(
+                      'Ask your community a question and let members vote.',
+                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  for (final (index, controller) in _pollControllers.indexed)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: TextField(
+                        controller: controller,
+                        maxLength: 120,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          labelText: context.tr('Option {number}', {
+                            'number': '${index + 1}',
+                          }),
+                          counterText: '',
+                          prefixIcon: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: CircleAvatar(
+                              radius: 14,
+                              child: Text('${index + 1}'),
+                            ),
+                          ),
+                          suffixIcon: _pollControllers.length > 2
+                              ? IconButton(
+                                  tooltip: context.tr('Remove option'),
+                                  onPressed: () => setState(() {
+                                    _pollControllers.removeAt(index).dispose();
+                                  }),
+                                  icon: const Icon(Icons.close),
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          context.tr('At least 2 options'),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ),
+                      if (_pollControllers.length < 10)
+                        TextButton.icon(
+                          onPressed: () => setState(
+                            () => _pollControllers.add(TextEditingController()),
+                          ),
+                          icon: const Icon(Icons.add),
+                          label: Text(context.tr('Add option')),
+                        ),
+                    ],
+                  ),
+                ],
               ),
+            ),
             const SizedBox(height: 12),
           ],
-          Row(
+          const SizedBox(height: 8),
+          Text(
+            context.tr('Add to your post'),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              TextButton.icon(
+              OutlinedButton.icon(
                 onPressed: _uploading ? null : () => _pickMedia(video: false),
                 icon: const Icon(Icons.photo_camera_outlined),
                 label: Text(context.tr('Photo')),
               ),
-              TextButton.icon(
+              OutlinedButton.icon(
                 onPressed: _uploading ? null : () => _pickMedia(video: true),
                 icon: const Icon(Icons.videocam_outlined),
                 label: Text(context.tr('Video')),
-              ),
-              const Spacer(),
-              FilledButton(
-                onPressed: _saving ? null : _publish,
-                child: _saving
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(context.tr('Publish')),
               ),
             ],
           ),
@@ -228,6 +372,23 @@ class _CreatePostPageState extends State<CreatePostPage> {
               ),
             ),
           ],
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _saving ? null : _publish,
+              icon: _saving
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send_rounded),
+              label: Text(context.tr(_saving ? 'Publishing…' : 'Publish')),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -290,15 +451,16 @@ class _CreatePostPageState extends State<CreatePostPage> {
           context: context,
           builder: (dialogContext) => AlertDialog(
             icon: const Icon(Icons.check_circle_outline, size: 44),
-            title: const Text('Post published ✓'),
-            content: const Text(
-              'Share with your community elsewhere?\n\n'
-              'Facebook · WhatsApp · Messenger · More',
+            title: Text(dialogContext.tr('Post published')),
+            content: Text(
+              dialogContext.tr(
+                'Your post is live. Share it with your community elsewhere?',
+              ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Not now'),
+                child: Text(dialogContext.tr('Not now')),
               ),
               FilledButton.icon(
                 onPressed: () async {
@@ -310,7 +472,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   if (dialogContext.mounted) Navigator.pop(dialogContext);
                 },
                 icon: const Icon(Icons.ios_share_outlined),
-                label: const Text('Share post'),
+                label: Text(dialogContext.tr('Share post')),
               ),
             ],
           ),
