@@ -27,6 +27,9 @@ class _FakeAuthGateway implements AuthGateway {
   );
 
   @override
+  Future<AuthSession> signInWithGoogle() => signInWithFacebook();
+
+  @override
   Future<void> signOut() async {}
 }
 
@@ -244,7 +247,9 @@ void main() {
     expect(find.text('Meeting tonight'), findsOneWidget);
   });
 
-  testWidgets('offers Facebook registration when signed out', (tester) async {
+  testWidgets('offers Facebook and Google registration when signed out', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       WicchuApp(
         repository: DemoCommunityRepository(),
@@ -254,6 +259,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Continue with Facebook'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
   });
 
   testWidgets('switches between Spanish and English across the home screen', (

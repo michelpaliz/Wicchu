@@ -225,11 +225,14 @@ const _spanish = <String, String>{
   'Settings': 'Ajustes',
   'Help': 'Ayuda',
   'Continue with Facebook': 'Continuar con Facebook',
+  'Continue with Google': 'Continuar con Google',
   'Your community, closer.': 'Tu comunidad, más cerca.',
   'By continuing, you agree to Wicchu’s Terms and Privacy Policy.':
       'Al continuar, aceptas los Términos y la Política de privacidad de Wicchu.',
   'Facebook sign-in is unavailable.':
       'El inicio de sesión con Facebook no está disponible.',
+  'Google sign-in is unavailable.':
+      'El inicio de sesión con Google no está disponible.',
   '{count} members': '{count} miembros',
   '{count} member': '{count} miembro',
   'Community management': 'Administrar comunidad',

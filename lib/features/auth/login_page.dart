@@ -20,7 +20,7 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  bool _loading = false;
+  String? _loadingProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -60,14 +60,40 @@ class _LoginPageState extends State<LoginPage> {
                         backgroundColor: const Color(0xFF1877F2),
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: _loading ? null : _signIn,
-                      icon: _loading
+                      onPressed: _loadingProvider != null
+                          ? null
+                          : _signInFacebook,
+                      icon: _loadingProvider == 'facebook'
                           ? const SizedBox.square(
                               dimension: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.facebook),
                       label: Text(context.tr('Continue with Facebook')),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton.icon(
+                      onPressed: _loadingProvider != null
+                          ? null
+                          : _signInGoogle,
+                      icon: _loadingProvider == 'google'
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text(
+                              'G',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF4285F4),
+                              ),
+                            ),
+                      label: Text(context.tr('Continue with Google')),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -87,10 +113,26 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Future<void> _signIn() async {
-    setState(() => _loading = true);
+  Future<void> _signInFacebook() => _signIn(
+    provider: 'facebook',
+    action: widget.authGateway.signInWithFacebook,
+    unavailableMessage: 'Facebook sign-in is unavailable.',
+  );
+
+  Future<void> _signInGoogle() => _signIn(
+    provider: 'google',
+    action: widget.authGateway.signInWithGoogle,
+    unavailableMessage: 'Google sign-in is unavailable.',
+  );
+
+  Future<void> _signIn({
+    required String provider,
+    required Future<AuthSession> Function() action,
+    required String unavailableMessage,
+  }) async {
+    setState(() => _loadingProvider = provider);
     try {
-      await widget.authGateway.signInWithFacebook();
+      await action();
       widget.onSignedIn();
     } on AuthException catch (error) {
       if (mounted) {
@@ -100,14 +142,12 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.tr('Facebook sign-in is unavailable.')),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.tr(unavailableMessage))));
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _loadingProvider = null);
     }
   }
 }
