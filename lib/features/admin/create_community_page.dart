@@ -193,15 +193,26 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       return;
     }
     setState(() => _saving = true);
-    final community = await widget.repository.createCommunity(
-      CreateCommunityInput(
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim(),
-        town: _town!,
-        visibility: CommunityVisibility.public,
-        categoryNames: _selectedCategories.toList(),
-      ),
-    );
+    late final Community community;
+    try {
+      community = await widget.repository.createCommunity(
+        CreateCommunityInput(
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim(),
+          town: _town!,
+          visibility: CommunityVisibility.public,
+          categoryNames: _selectedCategories.toList(),
+          approvalRequired: _approvalRequired,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      return;
+    }
     if (!mounted) return;
     await showDialog<void>(
       context: context,

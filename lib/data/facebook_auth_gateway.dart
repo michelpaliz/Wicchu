@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 import '../domain/auth_gateway.dart';
+import 'authenticated_api_client.dart';
 
 class FacebookAuthGateway implements AuthGateway {
   FacebookAuthGateway({
@@ -23,16 +24,16 @@ class FacebookAuthGateway implements AuthGateway {
              defaultValue: 'https://hexora.dev',
            );
 
-  static const _accessTokenKey = 'wicchu_access_token';
-  static const _refreshTokenKey = 'wicchu_refresh_token';
-
   final http.Client _client;
   final FlutterSecureStorage _storage;
   final String _apiBaseUrl;
 
   @override
   Future<bool> hasSession() async =>
-      (await _storage.read(key: _refreshTokenKey))?.isNotEmpty == true;
+      (await _storage.read(
+        key: AuthenticatedApiClient.refreshTokenKey,
+      ))?.isNotEmpty ==
+      true;
 
   @override
   Future<AuthSession> signInWithFacebook() async {
@@ -86,8 +87,14 @@ class FacebookAuthGateway implements AuthGateway {
       isNewUser: body['isNewUser'] as bool? ?? false,
     );
     await Future.wait([
-      _storage.write(key: _accessTokenKey, value: session.accessToken),
-      _storage.write(key: _refreshTokenKey, value: session.refreshToken),
+      _storage.write(
+        key: AuthenticatedApiClient.accessTokenKey,
+        value: session.accessToken,
+      ),
+      _storage.write(
+        key: AuthenticatedApiClient.refreshTokenKey,
+        value: session.refreshToken,
+      ),
     ]);
     return session;
   }
@@ -96,8 +103,8 @@ class FacebookAuthGateway implements AuthGateway {
   Future<void> signOut() async {
     await Future.wait([
       FacebookAuth.instance.logOut(),
-      _storage.delete(key: _accessTokenKey),
-      _storage.delete(key: _refreshTokenKey),
+      _storage.delete(key: AuthenticatedApiClient.accessTokenKey),
+      _storage.delete(key: AuthenticatedApiClient.refreshTokenKey),
     ]);
   }
 

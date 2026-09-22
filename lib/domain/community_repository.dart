@@ -7,6 +7,7 @@ class CreateCommunityInput {
     required this.town,
     required this.visibility,
     required this.categoryNames,
+    this.approvalRequired = false,
   });
 
   final String name;
@@ -14,6 +15,7 @@ class CreateCommunityInput {
   final Town town;
   final CommunityVisibility visibility;
   final List<String> categoryNames;
+  final bool approvalRequired;
 }
 
 class AdminAttentionSummary {
@@ -28,10 +30,68 @@ class AdminAttentionSummary {
   final int membershipRequests;
 }
 
+class CreatePostInput {
+  const CreatePostInput({
+    required this.categoryId,
+    required this.text,
+    this.media = const [],
+  });
+
+  final String categoryId;
+  final String text;
+  final List<PostMedia> media;
+}
+
 abstract interface class CommunityRepository {
   Future<List<Town>> listTowns();
+  Future<WicchuProfile> getProfile();
+  Future<NotificationFeed> listNotifications();
+  Future<void> markNotificationRead(String notificationId);
+  Future<void> markAllNotificationsRead();
+  Future<List<Community>> listCommunities();
+  Future<List<Community>> listJoinedCommunities();
   Future<List<Community>> listManagedCommunities();
   Future<Community> createCommunity(CreateCommunityInput input);
+  Future<void> joinCommunity(String communityId);
+  Future<void> leaveCommunity(String communityId);
   Future<List<CommunityCategory>> listCategories(String communityId);
+  Future<List<CommunityPost>> listPosts(
+    String communityId, {
+    String? categoryId,
+    String? query,
+  });
+  Future<List<CommunityPost>> listFollowingPosts({String? query});
+  Future<CommunityPost> createPost(String communityId, CreatePostInput input);
+  Future<PostMedia> uploadPostMedia({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  });
+  Future<int> setPostReaction(String postId, {required bool reacted});
+  Future<List<Comment>> listComments(String postId);
+  Future<Comment> createComment(String postId, String text);
+  Future<List<CommunityPost>> listMyPosts();
+  Future<List<CommunityPost>> listSavedPosts();
+  Future<void> setPostSaved(String postId, {required bool saved});
+  Future<void> reportPost(String postId, String reason);
   Future<AdminAttentionSummary> getAdminAttention(String communityId);
+  Future<List<CommunityReport>> listReports(String communityId);
+  Future<void> decideReport(
+    String communityId,
+    String reportId, {
+    required bool resolve,
+  });
+  Future<List<MembershipRequest>> listMembershipRequests(String communityId);
+  Future<void> decideMembershipRequest(
+    String communityId,
+    String userId, {
+    required bool approve,
+  });
+  Future<List<CommunityPost>> listPendingPosts(String communityId);
+  Future<void> moderatePost(
+    String communityId,
+    String postId, {
+    required bool approve,
+    String? reason,
+  });
 }

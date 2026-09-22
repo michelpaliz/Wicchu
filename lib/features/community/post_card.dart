@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/community_models.dart';
 import '../../theme/wicchu_theme.dart';
 import '../../localization/app_language.dart';
 
-class PostCard extends StatelessWidget {
+String formatPostTime(DateTime createdAt) {
+  final difference = DateTime.now().difference(createdAt.toLocal());
+  if (difference.inMinutes < 1) return 'Now';
+  if (difference.inHours < 1) return '${difference.inMinutes} min';
+  if (difference.inDays < 1) return '${difference.inHours} h';
+  if (difference.inDays < 7) return '${difference.inDays} d';
+  return '${createdAt.toLocal().day}/${createdAt.toLocal().month}/${createdAt.toLocal().year}';
+}
+
+class PostCard extends StatefulWidget {
   const PostCard({
     super.key,
     required this.category,
@@ -17,6 +27,13 @@ class PostCard extends StatelessWidget {
     this.comments = 0,
     this.showImage = false,
     this.onTap,
+    this.reacted = false,
+    this.onReaction,
+    this.onComments,
+    this.saved = false,
+    this.onSaved,
+    this.media = const [],
+    this.onReport,
   });
 
   final String category;
@@ -30,21 +47,49 @@ class PostCard extends StatelessWidget {
   final int comments;
   final bool showImage;
   final VoidCallback? onTap;
+  final bool reacted;
+  final Future<int> Function(bool reacted)? onReaction;
+  final Future<int?> Function()? onComments;
+  final bool saved;
+  final Future<void> Function(bool saved)? onSaved;
+  final List<PostMedia> media;
+  final Future<void> Function(String reason)? onReport;
+
+  @override
+  State<PostCard> createState() => _PostCardState();
+}
+
+class _PostCardState extends State<PostCard> {
+  late int _likes = widget.likes;
+  late int _comments = widget.comments;
+  late bool _reacted = widget.reacted;
+  late bool _saved = widget.saved;
+  bool _savingReaction = false;
+  bool _savingPost = false;
+
+  @override
+  void didUpdateWidget(covariant PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.likes != widget.likes) _likes = widget.likes;
+    if (oldWidget.comments != widget.comments) _comments = widget.comments;
+    if (oldWidget.reacted != widget.reacted) _reacted = widget.reacted;
+    if (oldWidget.saved != widget.saved) _saved = widget.saved;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final accent = categoryColor(category, context);
+    final accent = categoryColor(widget.category, context);
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$icon ${context.tr(category).toUpperCase()} · $community',
+                '${widget.icon} ${context.tr(widget.category).toUpperCase()} · ${widget.community}',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: accent,
                   fontWeight: FontWeight.w800,
@@ -53,21 +98,64 @@ class PostCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '$author · ${context.tr(time)}',
+                '${widget.author} · ${context.tr(widget.time)}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 14),
-              Text(text, style: Theme.of(context).textTheme.titleMedium),
-              if (price != null) ...[
+              Text(widget.text, style: Theme.of(context).textTheme.titleMedium),
+              if (widget.price != null) ...[
                 const SizedBox(height: 6),
                 Text(
-                  price!,
+                  widget.price!,
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ],
-              if (showImage) ...[
+              if (widget.media.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: 170,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: widget.media.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final media = widget.media[index];
+                      if (media.type == 'video') {
+                        return Container(
+                          width: 240,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
+                          ),
+                          child: const Icon(
+                            Icons.play_circle_outline,
+                            size: 54,
+                          ),
+                        );
+                      }
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.network(
+                          media.url,
+                          width: 240,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            width: 240,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
+                            child: const Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ] else if (widget.showImage) ...[
                 const SizedBox(height: 14),
                 Container(
                   height: 170,
@@ -82,14 +170,41 @@ class PostCard extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  _PostAction(icon: Icons.favorite_border, value: '$likes'),
+                  _PostAction(
+                    icon: _reacted ? Icons.favorite : Icons.favorite_border,
+                    value: '$_likes',
+                    color: _reacted
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                    onTap: widget.onReaction == null || _savingReaction
+                        ? null
+                        : _toggleReaction,
+                  ),
                   const SizedBox(width: 22),
                   _PostAction(
                     icon: Icons.chat_bubble_outline,
-                    value: '$comments',
+                    value: '$_comments',
+                    onTap: widget.onComments == null ? null : _openComments,
                   ),
                   const Spacer(),
-                  const Icon(Icons.ios_share_outlined, size: 21),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: context.tr(_saved ? 'Unsave post' : 'Save post'),
+                    onPressed: widget.onSaved == null || _savingPost
+                        ? null
+                        : _toggleSaved,
+                    icon: Icon(
+                      _saved ? Icons.bookmark : Icons.bookmark_border,
+                      size: 21,
+                    ),
+                  ),
+                  if (widget.onReport != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: context.tr('Report post'),
+                      onPressed: _report,
+                      icon: const Icon(Icons.flag_outlined, size: 21),
+                    ),
                 ],
               ),
             ],
@@ -98,15 +213,119 @@ class PostCard extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _toggleReaction() async {
+    final next = !_reacted;
+    setState(() => _savingReaction = true);
+    try {
+      final count = await widget.onReaction!(next);
+      if (mounted) {
+        setState(() {
+          _reacted = next;
+          _likes = count;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _savingReaction = false);
+    }
+  }
+
+  Future<void> _openComments() async {
+    final count = await widget.onComments!();
+    if (mounted && count != null) setState(() => _comments = count);
+  }
+
+  Future<void> _toggleSaved() async {
+    final next = !_saved;
+    setState(() => _savingPost = true);
+    try {
+      await widget.onSaved!(next);
+      if (mounted) setState(() => _saved = next);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _savingPost = false);
+    }
+  }
+
+  Future<void> _report() async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.tr('Report post')),
+        content: TextField(
+          controller: controller,
+          maxLength: 1000,
+          decoration: InputDecoration(hintText: dialogContext.tr('Reason')),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(dialogContext.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: Text(dialogContext.tr('Report')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason == null || reason.isEmpty || !mounted) return;
+    try {
+      await widget.onReport!(reason);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.tr('Report submitted'))));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
 }
 
 class _PostAction extends StatelessWidget {
-  const _PostAction({required this.icon, required this.value});
+  const _PostAction({
+    required this.icon,
+    required this.value,
+    this.color,
+    this.onTap,
+  });
   final IconData icon;
   final String value;
+  final Color? color;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [Icon(icon, size: 20), const SizedBox(width: 6), Text(value)],
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(20),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 6),
+          Text(value),
+        ],
+      ),
+    ),
   );
 }

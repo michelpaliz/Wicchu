@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'data/demo_community_repository.dart';
 import 'data/facebook_auth_gateway.dart';
+import 'data/http_community_repository.dart';
 import 'domain/auth_gateway.dart';
 import 'domain/community_repository.dart';
 import 'features/auth/login_page.dart';
@@ -15,7 +15,7 @@ import 'theme/wicchu_theme.dart';
 void main() {
   runApp(
     WicchuApp(
-      repository: DemoCommunityRepository(),
+      repository: HttpCommunityRepository(),
       authGateway: FacebookAuthGateway(),
     ),
   );
@@ -126,7 +126,12 @@ class _WicchuAppState extends State<WicchuApp> {
                 );
               }
               if (snapshot.data!) {
-                return MainShell(repository: widget.repository);
+                return MainShell(
+                  repository: widget.repository,
+                  authGateway: widget.authGateway,
+                  onSignedOut: () =>
+                      setState(() => _hasSession = Future.value(false)),
+                );
               }
               return LoginPage(
                 authGateway: widget.authGateway,

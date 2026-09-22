@@ -10,6 +10,8 @@ enum ReportStatus { open, reviewing, resolved, dismissed }
 
 enum ModerationTargetType { post, comment, member }
 
+enum CommunityNotificationType { postReaction, postComment }
+
 class WicchuUser {
   const WicchuUser({
     required this.id,
@@ -22,6 +24,57 @@ class WicchuUser {
   final String name;
   final String? avatarUrl;
   final String? location;
+}
+
+class WicchuProfile {
+  const WicchuProfile({
+    required this.id,
+    required this.name,
+    required this.userName,
+    required this.communityCount,
+    required this.postCount,
+    required this.savedPostCount,
+    this.avatarUrl,
+    this.location,
+  });
+
+  final String id;
+  final String name;
+  final String userName;
+  final String? avatarUrl;
+  final String? location;
+  final int communityCount;
+  final int postCount;
+  final int savedPostCount;
+}
+
+class CommunityNotification {
+  const CommunityNotification({
+    required this.id,
+    required this.actorName,
+    required this.type,
+    required this.postId,
+    required this.message,
+    required this.createdAt,
+    required this.isRead,
+    this.actorAvatarUrl,
+  });
+
+  final String id;
+  final String actorName;
+  final String? actorAvatarUrl;
+  final CommunityNotificationType type;
+  final String postId;
+  final String message;
+  final DateTime createdAt;
+  final bool isRead;
+}
+
+class NotificationFeed {
+  const NotificationFeed({required this.items, required this.unreadCount});
+
+  final List<CommunityNotification> items;
+  final int unreadCount;
 }
 
 class Town {
@@ -43,6 +96,7 @@ class Community {
     required this.createdAt,
     this.imageUrl,
     this.memberCount = 0,
+    this.myRole,
   });
 
   final String id;
@@ -54,6 +108,9 @@ class Community {
   final String createdBy;
   final DateTime createdAt;
   final int memberCount;
+  final CommunityRole? myRole;
+
+  bool get isJoined => myRole != null;
 }
 
 class CommunityMember {
@@ -91,10 +148,11 @@ class CommunityCategory {
 }
 
 class PostMedia {
-  const PostMedia({required this.url, required this.type});
+  const PostMedia({required this.url, required this.type, this.blobName});
 
   final String url;
   final String type;
+  final String? blobName;
 }
 
 class CommunityPost {
@@ -107,6 +165,11 @@ class CommunityPost {
     required this.status,
     required this.createdAt,
     this.media = const [],
+    this.authorName = 'Wicchu member',
+    this.reactionCount = 0,
+    this.commentCount = 0,
+    this.reactedByMe = false,
+    this.savedByMe = false,
   });
 
   final String id;
@@ -117,6 +180,11 @@ class CommunityPost {
   final List<PostMedia> media;
   final PostStatus status;
   final DateTime createdAt;
+  final String authorName;
+  final int reactionCount;
+  final int commentCount;
+  final bool reactedByMe;
+  final bool savedByMe;
 }
 
 class Comment {
@@ -126,6 +194,7 @@ class Comment {
     required this.authorId,
     required this.text,
     required this.createdAt,
+    this.authorName = 'Wicchu member',
   });
 
   final String id;
@@ -133,6 +202,7 @@ class Comment {
   final String authorId;
   final String text;
   final DateTime createdAt;
+  final String authorName;
 }
 
 class Reaction {
@@ -186,5 +256,17 @@ class ModerationAction {
   final String action;
   final String targetId;
   final String reason;
+  final DateTime createdAt;
+}
+
+class MembershipRequest {
+  const MembershipRequest({
+    required this.userId,
+    required this.userName,
+    required this.createdAt,
+  });
+
+  final String userId;
+  final String userName;
   final DateTime createdAt;
 }
