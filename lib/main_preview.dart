@@ -22,5 +22,9 @@ class _PreviewAuthGateway implements AuthGateway {
       throw UnimplementedError('Facebook login is unavailable in the preview.');
 
   @override
+  Future<AuthSession> signInWithGoogle() =>
+      throw UnimplementedError('Google login is unavailable in the preview.');
+
+  @override
   Future<void> signOut() async {}
 }

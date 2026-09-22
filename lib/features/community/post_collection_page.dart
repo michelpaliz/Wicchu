@@ -85,6 +85,9 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                 likes: post.reactionCount,
                 comments: post.commentCount,
                 media: post.media,
+                poll: post.poll,
+                onPollVote: (optionId) =>
+                    widget.repository.voteOnPost(post.id, optionId),
                 promotion: post.promotion,
                 onPromotionImpression: post.promotion == null
                     ? null

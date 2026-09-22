@@ -17,6 +17,7 @@ class AuthSession {
 abstract interface class AuthGateway {
   Future<bool> hasSession();
   Future<AuthSession> signInWithFacebook();
+  Future<AuthSession> signInWithGoogle();
   Future<void> signOut();
 }
 

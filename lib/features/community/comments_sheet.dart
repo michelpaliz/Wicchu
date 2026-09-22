@@ -47,9 +47,11 @@ class _CommentsSheet extends StatefulWidget {
 
 class _CommentsSheetState extends State<_CommentsSheet> {
   final _controller = TextEditingController();
+  final _savingReactions = <String>{};
   late Future<List<Comment>> _comments;
   late int _count = widget.post.commentCount;
   bool _saving = false;
+  Comment? _replyingTo;
 
   @override
   void initState() {
@@ -138,14 +140,50 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 }
                 final comments = snapshot.data ?? const [];
                 if (comments.isEmpty) return const _EmptyComments();
+                final ids = comments.map((comment) => comment.id).toSet();
+                final roots = comments
+                    .where(
+                      (comment) =>
+                          comment.parentCommentId == null ||
+                          !ids.contains(comment.parentCommentId),
+                    )
+                    .toList(growable: false);
                 return ListView.separated(
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                  itemCount: comments.length,
+                  itemCount: roots.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) =>
-                      _CommentItem(comment: comments[index]),
+                  itemBuilder: (context, index) {
+                    final root = roots[index];
+                    final replies = comments
+                        .where((comment) => comment.parentCommentId == root.id)
+                        .toList(growable: false);
+                    return Column(
+                      children: [
+                        _CommentItem(
+                          comment: root,
+                          canReply: true,
+                          savingReaction: _savingReactions.contains(root.id),
+                          onReaction: () => _toggleReaction(root),
+                          onReply: () => setState(() => _replyingTo = root),
+                        ),
+                        for (final reply in replies) ...[
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 34),
+                            child: _CommentItem(
+                              comment: reply,
+                              savingReaction: _savingReactions.contains(
+                                reply.id,
+                              ),
+                              onReaction: () => _toggleReaction(reply),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
                 );
               },
             ),
@@ -156,41 +194,86 @@ class _CommentsSheetState extends State<_CommentsSheet> {
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 16,
-                12,
+                _replyingTo == null ? 12 : 6,
                 16,
                 12 + MediaQuery.viewInsetsOf(context).bottom,
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      enabled: !_saving,
-                      minLines: 1,
-                      maxLines: 4,
-                      maxLength: 5000,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: context.tr('Write a comment'),
-                        counterText: '',
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                  if (_replyingTo != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.only(left: 12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer.withValues(
+                          alpha: .55,
                         ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.reply_rounded, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              context.tr('Replying to {name}', {
+                                'name': _replyingTo!.authorName,
+                              }),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelLarge,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: MaterialLocalizations.of(
+                              context,
+                            ).closeButtonTooltip,
+                            onPressed: () => setState(() => _replyingTo = null),
+                            icon: const Icon(Icons.close, size: 18),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  IconButton.filled(
-                    tooltip: context.tr('Send comment'),
-                    onPressed: _saving ? null : _submit,
-                    icon: _saving
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send_rounded),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          enabled: !_saving,
+                          minLines: 1,
+                          maxLines: 4,
+                          maxLength: 5000,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            hintText: context.tr(
+                              _replyingTo == null
+                                  ? 'Write a comment'
+                                  : 'Write a reply',
+                            ),
+                            counterText: '',
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      IconButton.filled(
+                        tooltip: context.tr('Send comment'),
+                        onPressed: _saving ? null : _submit,
+                        icon: _saving
+                            ? const SizedBox.square(
+                                dimension: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.send_rounded),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -201,18 +284,44 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     );
   }
 
+  Future<void> _toggleReaction(Comment comment) async {
+    setState(() => _savingReactions.add(comment.id));
+    try {
+      await widget.repository.setCommentReaction(
+        comment.id,
+        reacted: !comment.reactedByMe,
+      );
+      if (!mounted) return;
+      setState(() {
+        _savingReactions.remove(comment.id);
+        _comments = _loadComments();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _savingReactions.remove(comment.id));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
+
   Future<void> _submit() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     FocusScope.of(context).unfocus();
     setState(() => _saving = true);
     try {
-      await widget.repository.createComment(widget.post.id, text);
+      await widget.repository.createComment(
+        widget.post.id,
+        text,
+        parentCommentId: _replyingTo?.id,
+      );
       _controller.clear();
       _count++;
       widget.onCountChanged(_count);
       if (!mounted) return;
       setState(() {
+        _replyingTo = null;
         _comments = _loadComments();
         _saving = false;
       });
@@ -227,9 +336,19 @@ class _CommentsSheetState extends State<_CommentsSheet> {
 }
 
 class _CommentItem extends StatelessWidget {
-  const _CommentItem({required this.comment});
+  const _CommentItem({
+    required this.comment,
+    required this.savingReaction,
+    required this.onReaction,
+    this.canReply = false,
+    this.onReply,
+  });
 
   final Comment comment;
+  final bool savingReaction;
+  final VoidCallback onReaction;
+  final bool canReply;
+  final VoidCallback? onReply;
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +366,7 @@ class _CommentItem extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest,
               borderRadius: const BorderRadius.only(
@@ -282,6 +401,37 @@ class _CommentItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(comment.text, style: theme.textTheme.bodyMedium),
+                Row(
+                  children: [
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      onPressed: savingReaction ? null : onReaction,
+                      icon: Icon(
+                        comment.reactedByMe
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        size: 17,
+                      ),
+                      label: Text(
+                        comment.reactionCount == 0
+                            ? context.tr('Like')
+                            : '${comment.reactionCount}',
+                      ),
+                    ),
+                    if (canReply)
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        onPressed: onReply,
+                        child: Text(context.tr('Reply')),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),

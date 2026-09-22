@@ -51,6 +51,8 @@ class PostCard extends StatefulWidget {
     this.promotion,
     this.onPromotionImpression,
     this.onPromotionClick,
+    this.poll,
+    this.onPollVote,
   });
 
   final String category;
@@ -76,6 +78,8 @@ class PostCard extends StatefulWidget {
   final PostPromotion? promotion;
   final Future<void> Function()? onPromotionImpression;
   final Future<void> Function()? onPromotionClick;
+  final PostPoll? poll;
+  final Future<PostPoll> Function(String optionId)? onPollVote;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -89,6 +93,8 @@ class _PostCardState extends State<PostCard> {
   bool _savingReaction = false;
   bool _savingPost = false;
   bool _impressionSent = false;
+  late PostPoll? _poll = widget.poll;
+  bool _savingVote = false;
 
   @override
   void initState() {
@@ -107,6 +113,7 @@ class _PostCardState extends State<PostCard> {
       _impressionSent = false;
       _recordImpression();
     }
+    if (oldWidget.poll != widget.poll) _poll = widget.poll;
   }
 
   void _recordImpression() {
@@ -244,6 +251,14 @@ class _PostCardState extends State<PostCard> {
                   child: Icon(Icons.image_outlined, size: 54, color: accent),
                 ),
               ],
+              if (_poll != null) ...[
+                const SizedBox(height: 14),
+                _PollView(
+                  poll: _poll!,
+                  enabled: widget.onPollVote != null && !_savingVote,
+                  onSelected: _vote,
+                ),
+              ],
               const SizedBox(height: 14),
               Divider(height: 1, color: theme.dividerColor),
               const SizedBox(height: 6),
@@ -283,6 +298,23 @@ class _PostCardState extends State<PostCard> {
         ),
       ),
     );
+  }
+
+  Future<void> _vote(String optionId) async {
+    if (widget.onPollVote == null) return;
+    setState(() => _savingVote = true);
+    try {
+      final poll = await widget.onPollVote!(optionId);
+      if (mounted) setState(() => _poll = poll);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _savingVote = false);
+    }
   }
 
   Future<void> _toggleReaction() async {
@@ -369,6 +401,72 @@ class _PostCardState extends State<PostCard> {
         ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     }
+  }
+}
+
+class _PollView extends StatelessWidget {
+  const _PollView({
+    required this.poll,
+    required this.enabled,
+    required this.onSelected,
+  });
+  final PostPoll poll;
+  final bool enabled;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = poll.totalVotes;
+    return RadioGroup<String>(
+      groupValue: poll.selectedOptionId,
+      onChanged: (value) {
+        if (enabled && value != null) onSelected(value);
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final option in poll.options) ...[
+            InkWell(
+              onTap: enabled ? () => onSelected(option.id) : null,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Radio<String>(value: option.id, enabled: enabled),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(child: Text(option.text)),
+                              Text(
+                                total == 0
+                                    ? '0%'
+                                    : '${(option.voteCount * 100 / total).round()}%',
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          LinearProgressIndicator(
+                            value: total == 0 ? 0 : option.voteCount / total,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          Text(
+            context.tr('{count} votes', {'count': '$total'}),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
   }
 }
 

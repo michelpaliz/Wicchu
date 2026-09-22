@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../localization/app_language.dart';
+import '../../domain/community_repository.dart';
+import '../../domain/community_models.dart';
 
 class AccountSettingsPage extends StatefulWidget {
-  const AccountSettingsPage({super.key});
+  const AccountSettingsPage({super.key, required this.repository});
+  final CommunityRepository repository;
 
   @override
   State<AccountSettingsPage> createState() => _AccountSettingsPageState();
@@ -12,6 +15,7 @@ class AccountSettingsPage extends StatefulWidget {
 class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool _postNotifications = true;
   bool _communityNotifications = true;
+  bool _promotionNotifications = true;
   bool _locationDiscovery = true;
   bool _loaded = false;
 
@@ -22,20 +26,48 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   }
 
   Future<void> _load() async {
-    final preferences = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _postNotifications = preferences.getBool('post_notifications') ?? true;
-      _communityNotifications =
-          preferences.getBool('community_notifications') ?? true;
-      _locationDiscovery = preferences.getBool('location_discovery') ?? true;
-      _loaded = true;
-    });
+    try {
+      final results = await Future.wait([
+        SharedPreferences.getInstance(),
+        widget.repository.getNotificationPreferences(),
+      ]);
+      final preferences = results[0] as SharedPreferences;
+      final notifications = results[1] as NotificationPreferences;
+      if (!mounted) return;
+      setState(() {
+        _postNotifications = notifications.postActivity;
+        _communityNotifications = notifications.communityActivity;
+        _promotionNotifications = notifications.promotions;
+        _locationDiscovery = preferences.getBool('location_discovery') ?? true;
+        _loaded = true;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loaded = true);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
   }
 
   Future<void> _set(String key, bool value) async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool(key, value);
+    try {
+      await widget.repository.updateNotificationPreferences(
+        postActivity: key == 'postActivity' ? value : null,
+        communityActivity: key == 'communityActivity' ? value : null,
+        promotions: key == 'promotions' ? value : null,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        if (key == 'postActivity') _postNotifications = !value;
+        if (key == 'communityActivity') _communityNotifications = !value;
+        if (key == 'promotions') _promotionNotifications = !value;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
   }
 
   @override
@@ -59,7 +91,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 value: _postNotifications,
                 onChanged: (value) {
                   setState(() => _postNotifications = value);
-                  _set('post_notifications', value);
+                  _set('postActivity', value);
                 },
               ),
               SwitchListTile(
@@ -69,7 +101,17 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 value: _communityNotifications,
                 onChanged: (value) {
                   setState(() => _communityNotifications = value);
-                  _set('community_notifications', value);
+                  _set('communityActivity', value);
+                },
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(context.tr('Promotions')),
+                subtitle: Text(context.tr('Promotion approval updates')),
+                value: _promotionNotifications,
+                onChanged: (value) {
+                  setState(() => _promotionNotifications = value);
+                  _set('promotions', value);
                 },
               ),
               const Divider(height: 32),

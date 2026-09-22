@@ -37,11 +37,13 @@ class CreatePostInput {
     required this.categoryId,
     required this.text,
     this.media = const [],
+    this.pollOptions = const [],
   });
 
   final String categoryId;
   final String text;
   final List<PostMedia> media;
+  final List<String> pollOptions;
 }
 
 abstract interface class CommunityRepository {
@@ -54,6 +56,14 @@ abstract interface class CommunityRepository {
   Future<NotificationFeed> listNotifications();
   Future<void> markNotificationRead(String notificationId);
   Future<void> markAllNotificationsRead();
+  Future<NotificationPreferences> getNotificationPreferences();
+  Future<NotificationPreferences> updateNotificationPreferences({
+    bool? postActivity,
+    bool? communityActivity,
+    bool? promotions,
+  });
+  Future<void> registerDeviceToken(String token, {required String platform});
+  Future<void> unregisterDeviceToken(String token);
   Future<List<Community>> listCommunities({String? query});
   Future<List<Community>> listJoinedCommunities();
   Future<List<Community>> listManagedCommunities();
@@ -110,8 +120,14 @@ abstract interface class CommunityRepository {
     required String mimeType,
   });
   Future<int> setPostReaction(String postId, {required bool reacted});
+  Future<PostPoll> voteOnPost(String postId, String optionId);
   Future<List<Comment>> listComments(String postId);
-  Future<Comment> createComment(String postId, String text);
+  Future<Comment> createComment(
+    String postId,
+    String text, {
+    String? parentCommentId,
+  });
+  Future<int> setCommentReaction(String commentId, {required bool reacted});
   Future<List<CommunityPost>> listMyPosts();
   Future<List<CommunityPost>> listSavedPosts();
   Future<void> setPostSaved(String postId, {required bool saved});

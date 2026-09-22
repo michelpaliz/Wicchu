@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
 import '../domain/auth_gateway.dart';
@@ -27,6 +28,13 @@ class FacebookAuthGateway implements AuthGateway {
   final http.Client _client;
   final FlutterSecureStorage _storage;
   final String _apiBaseUrl;
+  Future<void>? _googleInitialization;
+
+  static const _googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+    defaultValue:
+        '109878335777-b5ifpb5bl635974b2f8p0hhovtuq18dc.apps.googleusercontent.com',
+  );
 
   @override
   Future<bool> hasSession() async =>
@@ -79,6 +87,45 @@ class FacebookAuthGateway implements AuthGateway {
       );
     }
 
+    return _saveSession(body);
+  }
+
+  @override
+  Future<AuthSession> signInWithGoogle() async {
+    if (_googleWebClientId.isEmpty) {
+      throw const AuthException('Google sign-in is not configured.');
+    }
+    final signIn = GoogleSignIn.instance;
+    _googleInitialization ??= signIn.initialize(
+      clientId: kIsWeb ? _googleWebClientId : null,
+      serverClientId: _googleWebClientId,
+    );
+    await _googleInitialization;
+    if (!signIn.supportsAuthenticate()) {
+      throw const AuthException(
+        'Google sign-in is not available on this platform.',
+      );
+    }
+    final account = await signIn.authenticate();
+    final idToken = account.authentication.idToken;
+    if (idToken == null || idToken.isEmpty) {
+      throw const AuthException('Google did not return an identity token.');
+    }
+    final response = await _client.post(
+      Uri.parse('$_apiBaseUrl/api/auth/google'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'idToken': idToken}),
+    );
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AuthException(
+        body['message'] as String? ?? 'Unable to sign in with Google.',
+      );
+    }
+    return _saveSession(body);
+  }
+
+  Future<AuthSession> _saveSession(Map<String, dynamic> body) async {
     final session = AuthSession(
       accessToken: body['accessToken'] as String,
       refreshToken: body['refreshToken'] as String,
@@ -103,6 +150,7 @@ class FacebookAuthGateway implements AuthGateway {
   Future<void> signOut() async {
     await Future.wait([
       FacebookAuth.instance.logOut(),
+      GoogleSignIn.instance.signOut(),
       _storage.delete(key: AuthenticatedApiClient.accessTokenKey),
       _storage.delete(key: AuthenticatedApiClient.refreshTokenKey),
     ]);

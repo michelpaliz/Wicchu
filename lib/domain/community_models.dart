@@ -10,7 +10,37 @@ enum ReportStatus { open, reviewing, resolved, dismissed }
 
 enum ModerationTargetType { post, comment, member }
 
-enum CommunityNotificationType { postReaction, postComment }
+enum CommunityNotificationType {
+  postReaction,
+  commentReaction,
+  postComment,
+  commentReply,
+  postApproved,
+  postRejected,
+  postRemoved,
+  postRestored,
+  commentApproved,
+  commentRejected,
+  commentRemoved,
+  memberBanned,
+  memberUnbanned,
+  membershipApproved,
+  membershipRejected,
+  promotionApproved,
+  promotionRejected,
+}
+
+class NotificationPreferences {
+  const NotificationPreferences({
+    this.postActivity = true,
+    this.communityActivity = true,
+    this.promotions = true,
+  });
+
+  final bool postActivity;
+  final bool communityActivity;
+  final bool promotions;
+}
 
 class WicchuUser {
   const WicchuUser({
@@ -58,6 +88,8 @@ class CommunityNotification {
     required this.createdAt,
     required this.isRead,
     this.actorAvatarUrl,
+    this.communityId = '',
+    this.promotionId = '',
   });
 
   final String id;
@@ -68,6 +100,8 @@ class CommunityNotification {
   final String message;
   final DateTime createdAt;
   final bool isRead;
+  final String communityId;
+  final String promotionId;
 }
 
 class NotificationFeed {
@@ -173,6 +207,25 @@ class PostPromotion {
   final DateTime endsAt;
 }
 
+class PollOption {
+  const PollOption({
+    required this.id,
+    required this.text,
+    required this.voteCount,
+  });
+  final String id;
+  final String text;
+  final int voteCount;
+}
+
+class PostPoll {
+  const PostPoll({required this.options, this.selectedOptionId});
+  final List<PollOption> options;
+  final String? selectedOptionId;
+  int get totalVotes =>
+      options.fold(0, (total, option) => total + option.voteCount);
+}
+
 class CommunityPost {
   const CommunityPost({
     required this.id,
@@ -190,6 +243,7 @@ class CommunityPost {
     this.reactedByMe = false,
     this.savedByMe = false,
     this.promotion,
+    this.poll,
   });
 
   final String id;
@@ -207,6 +261,7 @@ class CommunityPost {
   final bool reactedByMe;
   final bool savedByMe;
   final PostPromotion? promotion;
+  final PostPoll? poll;
 }
 
 enum PromotionStatus { pending, active, rejected, completed, cancelled }
@@ -290,6 +345,9 @@ class Comment {
     required this.createdAt,
     this.authorName = 'Wicchu member',
     this.authorAvatarUrl,
+    this.parentCommentId,
+    this.reactionCount = 0,
+    this.reactedByMe = false,
   });
 
   final String id;
@@ -299,6 +357,9 @@ class Comment {
   final DateTime createdAt;
   final String authorName;
   final String? authorAvatarUrl;
+  final String? parentCommentId;
+  final int reactionCount;
+  final bool reactedByMe;
 }
 
 class Reaction {

@@ -34,3 +34,17 @@ Create a Meta application with Android package `com.wicchu.wicchu` and iOS bundl
 Never put `FACEBOOK_APP_SECRET` in the Flutter application.
 
 For Android signing certificates and Meta key hashes, see [FACEBOOK_LOGIN_REQUIREMENTS.md](FACEBOOK_LOGIN_REQUIREMENTS.md).
+
+## Push notifications
+
+Push notifications are optional and remain disabled when Firebase values are absent. Configure a Firebase project, then build with:
+
+```bash
+flutter run \
+  --dart-define=FIREBASE_API_KEY=... \
+  --dart-define=FIREBASE_APP_ID=... \
+  --dart-define=FIREBASE_MESSAGING_SENDER_ID=... \
+  --dart-define=FIREBASE_PROJECT_ID=...
+```
+
+The server needs the same project's service-account JSON encoded as base64 in `FIREBASE_SERVICE_ACCOUNT_BASE64`. Never commit the service account or place it in the Flutter app. Run `flutter pub get` after pulling dependency changes.
