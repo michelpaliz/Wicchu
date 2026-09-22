@@ -5,6 +5,7 @@ import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'pending_posts_page.dart';
 import 'admin_review_queues.dart';
+import 'admin_management_pages.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({
@@ -22,8 +23,9 @@ class AdminDashboardPage extends StatefulWidget {
 
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   late Future<AdminAttentionSummary> _summary;
+  late Community _community = widget.community;
 
-  Community get community => widget.community;
+  Community get community => _community;
   CommunityRepository get repository => widget.repository;
 
   @override
@@ -105,11 +107,43 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
-          const _MenuRow(icon: Icons.insights_outlined, label: 'Overview'),
-          const _MenuRow(icon: Icons.folder_outlined, label: 'Categories'),
-          const _MenuRow(icon: Icons.group_outlined, label: 'Members'),
-          const _MenuRow(icon: Icons.shield_outlined, label: 'Moderation'),
-          const _MenuRow(icon: Icons.settings_outlined, label: 'Settings'),
+          _MenuRow(
+            icon: Icons.insights_outlined,
+            label: 'Overview',
+            onTap: () => _openQueue(AdminOverviewPage(community: community)),
+          ),
+          _MenuRow(
+            icon: Icons.folder_outlined,
+            label: 'Categories',
+            onTap: () => _openQueue(
+              CategoryManagementPage(
+                community: community,
+                repository: repository,
+              ),
+            ),
+          ),
+          _MenuRow(
+            icon: Icons.group_outlined,
+            label: 'Members',
+            onTap: () => _openQueue(
+              MemberManagementPage(
+                community: community,
+                repository: repository,
+              ),
+            ),
+          ),
+          _MenuRow(
+            icon: Icons.shield_outlined,
+            label: 'Moderation',
+            onTap: () => _openQueue(
+              ReportsQueuePage(community: community, repository: repository),
+            ),
+          ),
+          _MenuRow(
+            icon: Icons.settings_outlined,
+            label: 'Settings',
+            onTap: _openSettings,
+          ),
         ],
       ),
     );
@@ -130,6 +164,52 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
     if (mounted) setState(_reload);
   }
+
+  Future<void> _openSettings() async {
+    final updated = await Navigator.push<Community>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            CommunitySettingsPage(community: community, repository: repository),
+      ),
+    );
+    if (updated != null && mounted) setState(() => _community = updated);
+  }
+}
+
+class AdminOverviewPage extends StatelessWidget {
+  const AdminOverviewPage({super.key, required this.community});
+  final Community community;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Overview')),
+    body: ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        ListTile(
+          leading: const Icon(Icons.group_outlined),
+          title: const Text('Members'),
+          trailing: Text('${community.memberCount}'),
+        ),
+        ListTile(
+          leading: const Icon(Icons.location_on_outlined),
+          title: const Text('Town'),
+          trailing: Text(community.town.name),
+        ),
+        ListTile(
+          leading: const Icon(Icons.visibility_outlined),
+          title: const Text('Visibility'),
+          trailing: Text(community.visibility.name),
+        ),
+        ListTile(
+          leading: const Icon(Icons.approval_outlined),
+          title: const Text('Post approval'),
+          trailing: Text(community.approvalRequired ? 'Required' : 'Automatic'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ActionRow extends StatelessWidget {
@@ -154,14 +234,16 @@ class _ActionRow extends StatelessWidget {
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.icon, required this.label});
+  const _MenuRow({required this.icon, required this.label, this.onTap});
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => ListTile(
     leading: Icon(icon),
     title: Text(context.tr(label)),
     trailing: const Icon(Icons.chevron_right),
+    onTap: onTap,
   );
 }

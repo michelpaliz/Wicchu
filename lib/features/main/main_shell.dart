@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
@@ -9,7 +11,9 @@ import '../community/community_page.dart';
 import '../community/comments_sheet.dart';
 import '../community/create_post_page.dart';
 import '../community/post_card.dart';
+import '../community/post_detail_page.dart';
 import '../community/post_collection_page.dart';
+import '../settings/account_settings_page.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -395,6 +399,15 @@ class _HomeTabState extends State<_HomeTab> {
                   category: data.categories[post.categoryId]?.name ?? 'Post',
                   icon: data.categories[post.categoryId]?.icon ?? '💬',
                   community: communityById[post.communityId]?.name ?? 'Wicchu',
+                  onTap: () => openPostDetail(
+                    context,
+                    repository: widget.repository,
+                    post: post,
+                    category: data.categories[post.categoryId]?.name ?? 'Post',
+                    icon: data.categories[post.categoryId]?.icon ?? '💬',
+                    community:
+                        communityById[post.communityId]?.name ?? 'Wicchu',
+                  ),
                   author: post.authorName,
                   time: formatPostTime(post.createdAt),
                   text: post.text,
@@ -464,6 +477,7 @@ class _ExploreTab extends StatefulWidget {
 class _ExploreTabState extends State<_ExploreTab> {
   late Future<List<Community>> _communities;
   final _saving = <String>{};
+  bool _usingLocation = false;
 
   @override
   void initState() {
@@ -473,13 +487,59 @@ class _ExploreTabState extends State<_ExploreTab> {
 
   void _reload() {
     _communities = widget.repository.listCommunities();
+    _usingLocation = false;
+  }
+
+  Future<void> _findNearby() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      if (!(preferences.getBool('location_discovery') ?? true)) {
+        throw Exception('Enable nearby discovery in Settings first.');
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception(
+          'Enable location services to discover nearby communities.',
+        );
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception(
+          'Location permission is required for nearby discovery.',
+        );
+      }
+      final position = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      setState(() {
+        _usingLocation = true;
+        _communities = widget.repository.listNearbyCommunities(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        );
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$error')));
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(context.tr('Explore')),
-      actions: [IconButton(onPressed: () {}, icon: const Icon(Icons.search))],
+      actions: [
+        IconButton(
+          tooltip: _usingLocation ? 'Show all communities' : 'Use my location',
+          onPressed: _usingLocation ? () => setState(_reload) : _findNearby,
+          icon: Icon(_usingLocation ? Icons.location_on : Icons.my_location),
+        ),
+      ],
     ),
     body: ListView(
       padding: const EdgeInsets.all(16),
@@ -519,9 +579,8 @@ class _ExploreTabState extends State<_ExploreTab> {
                       leading: const CircleAvatar(child: Text('🏘')),
                       title: Text(community.name),
                       subtitle: Text(
-                        context.tr('{count} members', {
-                          'count': '${community.memberCount}',
-                        }),
+                        '${context.tr('{count} members', {'count': '${community.memberCount}'})}'
+                        '${community.distanceKm == null ? '' : ' · ${community.distanceKm!.toStringAsFixed(1)} km'}',
                       ),
                       trailing: FilledButton.tonal(
                         onPressed:
@@ -797,7 +856,14 @@ class _ProfileTabState extends State<_ProfileTab> {
             widget.repository.listManagedCommunities,
           ),
         ),
-        const _ProfileRow(icon: Icons.settings_outlined, label: 'Settings'),
+        _ProfileRow(
+          icon: Icons.settings_outlined,
+          label: 'Settings',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AccountSettingsPage()),
+          ),
+        ),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.language_rounded),
@@ -810,7 +876,14 @@ class _ProfileTabState extends State<_ProfileTab> {
           title: Text(context.tr('Appearance')),
           trailing: const ThemeMenu(showLabel: true),
         ),
-        const _ProfileRow(icon: Icons.help_outline, label: 'Help'),
+        _ProfileRow(
+          icon: Icons.help_outline,
+          label: 'Help',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const HelpPage()),
+          ),
+        ),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.logout),

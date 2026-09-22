@@ -5,6 +5,7 @@ import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'comments_sheet.dart';
 import 'post_card.dart';
+import 'post_detail_page.dart';
 
 class PostCollectionPage extends StatefulWidget {
   const PostCollectionPage({
@@ -53,6 +54,14 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                 category: 'Post',
                 icon: '💬',
                 community: 'Wicchu',
+                onTap: () => openPostDetail(
+                  context,
+                  repository: widget.repository,
+                  post: post,
+                  category: 'Post',
+                  icon: '💬',
+                  community: 'Wicchu',
+                ),
                 author: post.authorName,
                 time: formatPostTime(post.createdAt),
                 text: post.text,

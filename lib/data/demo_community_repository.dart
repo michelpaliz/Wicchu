@@ -69,6 +69,12 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<List<Town>> listTowns() async => _towns;
 
   @override
+  Future<Town> locateTown({
+    required double latitude,
+    required double longitude,
+  }) async => _towns.first;
+
+  @override
   Future<List<Community>> listManagedCommunities() async =>
       List.unmodifiable(_communities);
 
@@ -79,6 +85,13 @@ class DemoCommunityRepository implements CommunityRepository {
   @override
   Future<List<Community>> listJoinedCommunities() async =>
       List.unmodifiable(_communities);
+
+  @override
+  Future<List<Community>> listNearbyCommunities({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 25,
+  }) async => List.unmodifiable(_communities);
 
   @override
   Future<Community> createCommunity(CreateCommunityInput input) async {
@@ -129,6 +142,94 @@ class DemoCommunityRepository implements CommunityRepository {
       List.unmodifiable(_categories[communityId] ?? const []);
 
   @override
+  Future<CommunityCategory> createCategory(
+    String communityId, {
+    required String name,
+    String description = '',
+  }) async {
+    final category = CommunityCategory(
+      id: 'category-${DateTime.now().microsecondsSinceEpoch}',
+      communityId: communityId,
+      name: name,
+      description: description,
+      icon: _iconFor(name),
+    );
+    _categories.putIfAbsent(communityId, () => []).add(category);
+    return category;
+  }
+
+  @override
+  Future<CommunityCategory> updateCategory(
+    String communityId,
+    CommunityCategory category, {
+    required String name,
+    required String description,
+  }) async {
+    final updated = CommunityCategory(
+      id: category.id,
+      communityId: communityId,
+      name: name,
+      description: description,
+      icon: category.icon,
+      rules: category.rules,
+    );
+    final items = _categories[communityId] ?? [];
+    final index = items.indexWhere((item) => item.id == category.id);
+    if (index >= 0) items[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<void> deleteCategory(String communityId, String categoryId) async {
+    _categories[communityId]?.removeWhere((item) => item.id == categoryId);
+  }
+
+  @override
+  Future<List<CommunityMember>> listMembers(String communityId) async => [
+    CommunityMember(
+      userId: 'current-user',
+      communityId: communityId,
+      name: 'You',
+      role: CommunityRole.owner,
+      status: MembershipStatus.active,
+      joinedAt: DateTime(2026),
+    ),
+  ];
+
+  @override
+  Future<void> setMemberRole(
+    String communityId,
+    String userId,
+    CommunityRole role,
+  ) async {}
+
+  @override
+  Future<Community> updateCommunity(
+    Community community, {
+    required String name,
+    required String description,
+    required CommunityVisibility visibility,
+    required bool approvalRequired,
+  }) async {
+    final updated = Community(
+      id: community.id,
+      name: name,
+      description: description,
+      town: community.town,
+      visibility: visibility,
+      createdBy: community.createdBy,
+      createdAt: community.createdAt,
+      imageUrl: community.imageUrl,
+      memberCount: community.memberCount,
+      myRole: community.myRole,
+      approvalRequired: approvalRequired,
+    );
+    final index = _communities.indexWhere((item) => item.id == community.id);
+    if (index >= 0) _communities[index] = updated;
+    return updated;
+  }
+
+  @override
   Future<List<CommunityPost>> listPosts(
     String communityId, {
     String? categoryId,
@@ -153,6 +254,11 @@ class DemoCommunityRepository implements CommunityRepository {
                   post.text.toLowerCase().contains(query.toLowerCase()),
             ),
       );
+
+  @override
+  Future<CommunityPost> getPost(String postId) async => _posts.values
+      .expand((posts) => posts)
+      .firstWhere((post) => post.id == postId);
 
   @override
   Future<CommunityPost> createPost(

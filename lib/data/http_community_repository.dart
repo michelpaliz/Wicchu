@@ -53,6 +53,31 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<Town> locateTown({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final uri = Uri(
+      path: '/api/community/v1/towns/reverse-geocode',
+      queryParameters: {'latitude': '$latitude', 'longitude': '$longitude'},
+    );
+    final body = await _api.get(uri.toString());
+    final value = body['town'];
+    if (value is! Map<String, dynamic>) {
+      final location = body['location'];
+      final name = location is Map<String, dynamic>
+          ? location['name']?.toString()
+          : null;
+      throw ApiException(
+        name == null
+            ? 'No supported town was found near your location.'
+            : 'Wicchu is not available in $name yet.',
+      );
+    }
+    return _townFromJson(value);
+  }
+
+  @override
   Future<List<Community>> listManagedCommunities() async {
     final body = await _api.get('/api/community/v1/communities?managed=true');
     return _list(
@@ -67,6 +92,27 @@ class HttpCommunityRepository implements CommunityRepository {
   @override
   Future<List<Community>> listJoinedCommunities() =>
       _listCommunities('?joined=true');
+
+  @override
+  Future<List<Community>> listNearbyCommunities({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 25,
+  }) async {
+    final uri = Uri(
+      path: '/api/community/v1/communities/nearby',
+      queryParameters: {
+        'latitude': '$latitude',
+        'longitude': '$longitude',
+        'radiusKm': '$radiusKm',
+      },
+    );
+    final body = await _api.get(uri.toString());
+    return _list(
+      body,
+      'communities',
+    ).map(_communityFromJson).toList(growable: false);
+  }
 
   Future<List<Community>> _listCommunities(String query) async {
     final body = await _api.get('/api/community/v1/communities$query');
@@ -120,6 +166,109 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<CommunityCategory> createCategory(
+    String communityId, {
+    required String name,
+    String description = '',
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/$communityId/categories',
+      body: {'name': name, 'description': description},
+    );
+    return _categoryFromJson(_object(body, 'category'));
+  }
+
+  @override
+  Future<CommunityCategory> updateCategory(
+    String communityId,
+    CommunityCategory category, {
+    required String name,
+    required String description,
+  }) async {
+    final body = await _api.patch(
+      '/api/community/v1/communities/$communityId/categories/${category.id}',
+      body: {'name': name, 'description': description},
+    );
+    return _categoryFromJson(_object(body, 'category'));
+  }
+
+  @override
+  Future<void> deleteCategory(String communityId, String categoryId) async {
+    await _api.delete(
+      '/api/community/v1/communities/$communityId/categories/$categoryId',
+    );
+  }
+
+  @override
+  Future<List<CommunityMember>> listMembers(String communityId) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/members',
+    );
+    return _list(body, 'members')
+        .map((json) {
+          final user = json['user'];
+          final userJson = user is Map<String, dynamic>
+              ? user
+              : const <String, dynamic>{};
+          return CommunityMember(
+            userId: json['userId']?.toString() ?? '',
+            communityId: json['communityId']?.toString() ?? communityId,
+            name:
+                userJson['name'] as String? ??
+                json['userName'] as String? ??
+                'Member ${json['userId']?.toString().substring(0, 6) ?? ''}',
+            role: _roleFromJson(json['role']) ?? CommunityRole.member,
+            status: switch (json['status']) {
+              'pending' => MembershipStatus.pending,
+              'banned' => MembershipStatus.banned,
+              _ => MembershipStatus.active,
+            },
+            joinedAt:
+                DateTime.tryParse(json['joinedAt']?.toString() ?? '') ??
+                DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+          );
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> setMemberRole(
+    String communityId,
+    String userId,
+    CommunityRole role,
+  ) async {
+    await _api.patch(
+      '/api/community/v1/communities/$communityId/members/$userId/role',
+      body: {'role': role.name},
+    );
+  }
+
+  @override
+  Future<Community> updateCommunity(
+    Community community, {
+    required String name,
+    required String description,
+    required CommunityVisibility visibility,
+    required bool approvalRequired,
+  }) async {
+    final body = await _api.patch(
+      '/api/community/v1/communities/${community.id}',
+      body: {
+        'name': name,
+        'description': description,
+        'visibility': visibility.name,
+        'approvalRequired': approvalRequired,
+      },
+    );
+    return _communityFromJson({
+      ..._object(body, 'community'),
+      'town': _townToJson(community.town),
+      'memberCount': community.memberCount,
+      'myRole': community.myRole?.name,
+    });
+  }
+
+  @override
   Future<List<CommunityPost>> listPosts(
     String communityId, {
     String? categoryId,
@@ -147,6 +296,12 @@ class HttpCommunityRepository implements CommunityRepository {
     );
     final body = await _api.get(uri.toString());
     return _list(body, 'posts').map(_postFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<CommunityPost> getPost(String postId) async {
+    final body = await _api.get('/api/community/v1/posts/$postId');
+    return _postFromJson(_object(body, 'post'));
   }
 
   @override
@@ -407,6 +562,8 @@ class HttpCommunityRepository implements CommunityRepository {
         'member' => CommunityRole.member,
         _ => null,
       },
+      approvalRequired: json['approvalRequired'] as bool? ?? false,
+      distanceKm: (json['distanceKm'] as num?)?.toDouble(),
     );
   }
 
@@ -505,4 +662,12 @@ class HttpCommunityRepository implements CommunityRepository {
 
   static String _id(Map<String, dynamic> json) =>
       (json['_id'] ?? json['id'])?.toString() ?? '';
+
+  static CommunityRole? _roleFromJson(Object? value) => switch (value) {
+    'owner' => CommunityRole.owner,
+    'admin' => CommunityRole.admin,
+    'moderator' => CommunityRole.moderator,
+    'member' => CommunityRole.member,
+    _ => null,
+  };
 }

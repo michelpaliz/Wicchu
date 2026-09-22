@@ -7,6 +7,8 @@ import '../admin/admin_dashboard_page.dart';
 import 'category_page.dart';
 import 'comments_sheet.dart';
 import 'post_card.dart';
+import 'post_detail_page.dart';
+import 'community_share.dart';
 
 class CommunityPage extends StatelessWidget {
   const CommunityPage({
@@ -39,7 +41,11 @@ class CommunityPage extends StatelessWidget {
               ),
               icon: const Icon(Icons.admin_panel_settings_outlined),
             ),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert)),
+          IconButton(
+            tooltip: context.tr('Share'),
+            onPressed: () => shareCommunity(community),
+            icon: const Icon(Icons.ios_share_outlined),
+          ),
         ],
       ),
       body: ListView(
@@ -86,7 +92,7 @@ class CommunityPage extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     OutlinedButton.icon(
-                      onPressed: () {},
+                      onPressed: () => shareCommunity(community),
                       icon: const Icon(Icons.ios_share_outlined),
                       label: Text(context.tr('Share')),
                     ),
@@ -183,6 +189,14 @@ class CommunityPage extends StatelessWidget {
                             category: 'Post',
                             icon: '💬',
                             community: community.name,
+                            onTap: () => openPostDetail(
+                              context,
+                              repository: repository,
+                              post: post,
+                              category: 'Post',
+                              icon: '💬',
+                              community: community.name,
+                            ),
                             author: post.authorName,
                             time: formatPostTime(post.createdAt),
                             text: post.text,

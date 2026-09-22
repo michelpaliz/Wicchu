@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../community/community_share.dart';
 
 class CreateCommunityPage extends StatefulWidget {
   const CreateCommunityPage({super.key, required this.repository});
@@ -34,6 +36,9 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   Town? _town;
   bool _saving = false;
   bool _approvalRequired = false;
+  bool _detectingLocation = false;
+  bool _locationVerified = false;
+  String? _locationError;
 
   @override
   void dispose() {
@@ -52,11 +57,9 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          final towns = snapshot.data!;
-          _town ??= towns.firstOrNull;
           return Stepper(
             currentStep: _step,
-            onStepContinue: () => _continue(towns),
+            onStepContinue: _continue,
             onStepCancel: _step == 0 ? null : () => setState(() => _step--),
             controlsBuilder: (context, details) => Padding(
               padding: const EdgeInsets.only(top: 20),
@@ -102,17 +105,64 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
               Step(
                 title: Text(context.tr('Location')),
                 isActive: _step >= 1,
-                content: DropdownButtonFormField<Town>(
-                  initialValue: _town,
-                  decoration: InputDecoration(labelText: context.tr('Town')),
-                  items: [
-                    for (final town in towns)
-                      DropdownMenuItem(
-                        value: town,
-                        child: Text('${town.name}, ${town.countryCode}'),
+                content: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_detectingLocation)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Row(
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(width: 16),
+                              Expanded(
+                                child: Text('Finding your current town…'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (_locationVerified && _town != null)
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.location_on),
+                          title: Text(_town!.name),
+                          subtitle: Text(_town!.countryCode),
+                          trailing: const Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                          ),
+                        ),
+                      )
+                    else
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              const Icon(Icons.location_off_outlined, size: 38),
+                              const SizedBox(height: 8),
+                              Text(
+                                _locationError ??
+                                    'Wicchu needs your location to find your town and nearby communities.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _detectingLocation ? null : _detectLocation,
+                      icon: const Icon(Icons.my_location),
+                      label: Text(
+                        _locationVerified
+                            ? 'Update my location'
+                            : 'Use my current location',
+                      ),
+                    ),
                   ],
-                  onChanged: (value) => setState(() => _town = value),
                 ),
               ),
               Step(
@@ -169,17 +219,19 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     );
   }
 
-  Future<void> _continue(List<Town> towns) async {
+  Future<void> _continue() async {
     if (_step == 0 && _nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.tr('Add a community name.'))),
       );
       return;
     }
-    if (_step == 1 && _town == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.tr('Choose a town.'))));
+    if (_step == 1 && (!_locationVerified || _town == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Confirm your current location to continue.'),
+        ),
+      );
       return;
     }
     if (_step == 2 && _selectedCategories.isEmpty) {
@@ -189,7 +241,9 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       return;
     }
     if (_step < 3) {
-      setState(() => _step++);
+      final nextStep = _step + 1;
+      setState(() => _step = nextStep);
+      if (nextStep == 1 && !_locationVerified) await _detectLocation();
       return;
     }
     setState(() => _saving = true);
@@ -227,7 +281,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         ),
         actions: [
           TextButton.icon(
-            onPressed: () {},
+            onPressed: () => shareCommunity(community),
             icon: const Icon(Icons.ios_share_outlined),
             label: Text(dialogContext.tr('Share invitation')),
           ),
@@ -239,5 +293,50 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       ),
     );
     if (mounted) Navigator.pop(context, community);
+  }
+
+  Future<void> _detectLocation() async {
+    setState(() {
+      _detectingLocation = true;
+      _locationError = null;
+      _locationVerified = false;
+      _town = null;
+    });
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception('Turn on location services and try again.');
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception(
+          'Location permission is blocked. Enable it in your device settings.',
+        );
+      }
+      if (permission == LocationPermission.denied) {
+        throw Exception(
+          'Location permission is required to create a community.',
+        );
+      }
+      final position = await Geolocator.getCurrentPosition();
+      final town = await widget.repository.locateTown(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+      if (!mounted) return;
+      setState(() {
+        _town = town;
+        _locationVerified = true;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _locationError = error.toString().replaceFirst('Exception: ', ''),
+      );
+    } finally {
+      if (mounted) setState(() => _detectingLocation = false);
+    }
   }
 }

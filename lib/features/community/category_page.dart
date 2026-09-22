@@ -6,6 +6,7 @@ import '../../localization/app_language.dart';
 import 'create_post_page.dart';
 import 'comments_sheet.dart';
 import 'post_card.dart';
+import 'post_detail_page.dart';
 
 class CategoryPage extends StatefulWidget {
   const CategoryPage({
@@ -104,6 +105,14 @@ class _CategoryPageState extends State<CategoryPage> {
                       category: widget.category.name,
                       icon: widget.category.icon,
                       community: widget.community.name,
+                      onTap: () => openPostDetail(
+                        context,
+                        repository: widget.repository,
+                        post: post,
+                        category: widget.category.name,
+                        icon: widget.category.icon,
+                        community: widget.community.name,
+                      ),
                       author: post.authorName,
                       time: formatPostTime(post.createdAt),
                       text: post.text,

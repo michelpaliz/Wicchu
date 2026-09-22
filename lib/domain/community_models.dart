@@ -97,6 +97,8 @@ class Community {
     this.imageUrl,
     this.memberCount = 0,
     this.myRole,
+    this.approvalRequired = false,
+    this.distanceKm,
   });
 
   final String id;
@@ -109,6 +111,8 @@ class Community {
   final DateTime createdAt;
   final int memberCount;
   final CommunityRole? myRole;
+  final bool approvalRequired;
+  final double? distanceKm;
 
   bool get isJoined => myRole != null;
 }
@@ -120,6 +124,7 @@ class CommunityMember {
     required this.role,
     required this.status,
     required this.joinedAt,
+    this.name = 'Wicchu member',
   });
 
   final String userId;
@@ -127,6 +132,7 @@ class CommunityMember {
   final CommunityRole role;
   final MembershipStatus status;
   final DateTime joinedAt;
+  final String name;
 }
 
 class CommunityCategory {
