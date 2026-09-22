@@ -61,6 +61,11 @@ Successful responses must contain:
 
 The frontend stores both Wicchu tokens in secure storage. It must never send the Facebook token to community endpoints.
 
+During a successful Facebook login, the backend must read the user's public
+profile name and profile picture, store or refresh the picture URL, and expose
+it as `avatarUrl` from `/api/community/v1/me`. A missing Facebook picture is
+represented as `null` so the client can display initials.
+
 ### Authenticated requests
 
 Every `/api/community/v1` request requires:
@@ -225,6 +230,22 @@ The user must have active membership. The category must belong to the community.
 | `POST` | `/api/community/v1/posts/{postId}/comments` | `{ "text": "Comment" }` |
 | `POST` | `/api/community/v1/posts/{postId}/reports` | `{ "reason": "Reason" }` |
 | `POST` | `/api/community/v1/posts/{postId}/share` | Record a share |
+
+Every post and comment response must include the same compact author summary:
+
+```json
+{
+  "author": {
+    "id": "USER_ID",
+    "name": "Display name",
+    "avatarUrl": "https://..."
+  }
+}
+```
+
+`avatarUrl` may be `null`. The backend should refresh Facebook profile details
+when the user signs in again instead of requiring each feed client to call the
+Facebook Graph API.
 
 ## 6. Media upload
 

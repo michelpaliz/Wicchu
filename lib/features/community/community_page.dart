@@ -30,10 +30,14 @@ class CommunityPage extends StatefulWidget {
 class _CommunityPageState extends State<CommunityPage> {
   late Future<List<CommunityCategory>> _categories;
   late Future<List<CommunityPost>> _posts;
+  late Community _community = widget.community;
   late bool _isJoined = widget.community.isJoined;
 
-  Community get community => widget.community;
+  Community get community => _community;
   CommunityRepository get repository => widget.repository;
+  bool get _canManage =>
+      community.myRole == CommunityRole.owner ||
+      community.myRole == CommunityRole.admin;
 
   @override
   void initState() {
@@ -76,27 +80,23 @@ class _CommunityPageState extends State<CommunityPage> {
     }
   }
 
+  Future<void> _openManagement() async {
+    final updated = await Navigator.push<Community>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            AdminDashboardPage(community: community, repository: repository),
+      ),
+    );
+    if (updated != null && mounted) setState(() => _community = updated);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(community.name),
+        title: Text(context.tr('Community')),
         actions: [
-          if (community.myRole == CommunityRole.owner ||
-              community.myRole == CommunityRole.admin)
-            IconButton(
-              tooltip: context.tr('Community management'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AdminDashboardPage(
-                    community: community,
-                    repository: repository,
-                  ),
-                ),
-              ),
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-            ),
           IconButton(
             tooltip: context.tr('Share'),
             onPressed: () => shareCommunity(context, community),
@@ -104,13 +104,6 @@ class _CommunityPageState extends State<CommunityPage> {
           ),
         ],
       ),
-      floatingActionButton: _isJoined
-          ? FloatingActionButton.extended(
-              onPressed: _createPost,
-              icon: const Icon(Icons.add),
-              label: Text(context.tr('New post')),
-            )
-          : null,
       body: RefreshIndicator(
         onRefresh: () async {
           setState(_reload);
@@ -120,68 +113,129 @@ class _CommunityPageState extends State<CommunityPage> {
         },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 30),
+          padding: const EdgeInsets.only(bottom: 40),
           children: [
             Container(
-              height: 180,
+              height: 156,
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                color: Theme.of(context).colorScheme.primaryContainer,
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primaryContainer,
+                    Theme.of(context).colorScheme.secondaryContainer,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
-              child: community.imageUrl == null
-                  ? Icon(
-                      Icons.landscape_outlined,
-                      size: 64,
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (community.imageUrl == null)
+                    Icon(
+                      Icons.groups_rounded,
+                      size: 68,
                       color: Theme.of(context).colorScheme.primary,
                     )
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Image.network(
-                        community.imageUrl!,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Center(
-                          child: CommunityAvatar(
-                            community: community,
-                            radius: 48,
-                          ),
+                  else
+                    Image.network(
+                      community.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Center(
+                        child: CommunityAvatar(
+                          community: community,
+                          radius: 42,
                         ),
                       ),
                     ),
+                  Positioned(
+                    left: 12,
+                    bottom: 12,
+                    child: _InfoChip(
+                      icon: Icons.location_on_outlined,
+                      label: community.town.name,
+                    ),
+                  ),
+                ],
+              ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     community.name,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    context.trCount(
-                      community.memberCount,
-                      singular: '{count} member',
-                      plural: '{count} members',
+                  if (community.description.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      community.description,
+                      style: Theme.of(context).textTheme.bodyLarge,
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(context.tr(community.description)),
-                  const SizedBox(height: 18),
-                  Row(
+                  ],
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      _MembershipButton(
+                      _InfoChip(
+                        icon: Icons.people_outline,
+                        label: context.trCount(
+                          community.memberCount,
+                          singular: '{count} member',
+                          plural: '{count} members',
+                        ),
+                      ),
+                      if (community.myRole != null)
+                        _InfoChip(
+                          icon: Icons.verified_user_outlined,
+                          label: context.tr(
+                            community.myRole == CommunityRole.owner
+                                ? 'Owner'
+                                : community.myRole!.name,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  if (community.myRole != CommunityRole.owner)
+                    SizedBox(
+                      width: double.infinity,
+                      child: _MembershipButton(
                         community: community,
                         repository: repository,
                         onChanged: (joined) =>
                             setState(() => _isJoined = joined),
                       ),
-                    ],
-                  ),
+                    ),
+                  if (community.myRole != CommunityRole.owner)
+                    const SizedBox(height: 10),
+                  if (_isJoined)
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _createPost,
+                        icon: const Icon(Icons.add_rounded),
+                        label: Text(context.tr('New post')),
+                      ),
+                    ),
+                  if (_canManage) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _openManagement,
+                        icon: const Icon(Icons.admin_panel_settings_outlined),
+                        label: Text(context.tr('Community management')),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 28),
                   Text(
                     context.tr('Categories'),
@@ -210,7 +264,7 @@ class _CommunityPageState extends State<CommunityPage> {
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
-                              childAspectRatio: 2.6,
+                              childAspectRatio: 2.75,
                               crossAxisSpacing: 10,
                               mainAxisSpacing: 10,
                             ),
@@ -218,6 +272,10 @@ class _CommunityPageState extends State<CommunityPage> {
                         itemBuilder: (context, index) {
                           final category = categories[index];
                           return Card(
+                            margin: EdgeInsets.zero,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerLow,
                             child: InkWell(
                               borderRadius: BorderRadius.circular(18),
                               onTap: () => Navigator.push(
@@ -243,9 +301,17 @@ class _CommunityPageState extends State<CommunityPage> {
                                     Expanded(
                                       child: Text(
                                         context.tr(category.name),
-                                        maxLines: 1,
+                                        maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
                                       ),
+                                    ),
+                                    const Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 18,
                                     ),
                                   ],
                                 ),
@@ -299,6 +365,7 @@ class _CommunityPageState extends State<CommunityPage> {
                               icon: '💬',
                               community: community.name,
                               author: post.authorName,
+                              authorAvatarUrl: post.authorAvatarUrl,
                               time: formatPostTime(context, post.createdAt),
                               text: post.text,
                               likes: post.reactionCount,
@@ -347,6 +414,31 @@ class _CommunityPageState extends State<CommunityPage> {
       ),
     );
   }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 17),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ],
+    ),
+  );
 }
 
 class _MembershipButton extends StatefulWidget {

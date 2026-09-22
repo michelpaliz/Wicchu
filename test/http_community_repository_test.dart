@@ -21,6 +21,9 @@ class _RecordingApiClient extends AuthenticatedApiClient {
         },
       };
     }
+    if (path.startsWith('/api/community/v1/communities/nearby?')) {
+      return {'communities': <Map<String, dynamic>>[]};
+    }
     if (path.startsWith('/api/community/v1/communities?')) {
       return {
         'communities': [
@@ -33,6 +36,23 @@ class _RecordingApiClient extends AuthenticatedApiClient {
         ],
       };
     }
+    if (path.endsWith('/posts/post-1/comments')) {
+      return {
+        'comments': [
+          {
+            'id': 'comment-1',
+            'postId': 'post-1',
+            'text': 'Count me in',
+            'createdAt': '2026-09-22T12:00:00.000Z',
+            'author': {
+              'id': 'user-1',
+              'name': 'Michael Paliz',
+              'avatarUrl': 'https://example.com/michael.jpg',
+            },
+          },
+        ],
+      };
+    }
     if (path.contains('/posts/')) {
       return {
         'post': {
@@ -41,6 +61,11 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'categoryId': 'category-1',
           'text': 'Community meeting',
           'status': 'pendingApproval',
+          'author': {
+            'id': 'user-1',
+            'name': 'Michael Paliz',
+            'avatarUrl': 'https://example.com/michael.jpg',
+          },
         },
       };
     }
@@ -84,6 +109,19 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 }
 
 void main() {
+  test('nearby discovery sends coordinates to the API', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.listNearbyCommunities(latitude: 40.5, longitude: -3.7);
+
+    final uri = Uri.parse(api.lastPath!);
+    expect(uri.path, '/api/community/v1/communities/nearby');
+    expect(uri.queryParameters['latitude'], '40.5');
+    expect(uri.queryParameters['longitude'], '-3.7');
+    expect(uri.queryParameters['radiusKm'], '25.0');
+  });
+
   test(
     'community search and category sort use the API query parameters',
     () async {
@@ -170,5 +208,17 @@ void main() {
 
     expect(api.lastPath, '/api/community/v1/posts/post-1');
     expect(post.status, PostStatus.pendingApproval);
+    expect(post.authorAvatarUrl, 'https://example.com/michael.jpg');
+  });
+
+  test('comments preserve the author profile image', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final comments = await repository.listComments('post-1');
+
+    expect(api.lastPath, '/api/community/v1/posts/post-1/comments');
+    expect(comments.single.authorName, 'Michael Paliz');
+    expect(comments.single.authorAvatarUrl, 'https://example.com/michael.jpg');
   });
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
@@ -76,6 +77,11 @@ class _NotificationsRepository extends DemoCommunityRepository {
   }
 }
 
+class _EmptyTownsRepository extends DemoCommunityRepository {
+  @override
+  Future<List<Town>> listTowns() async => const [];
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -96,6 +102,102 @@ void main() {
     expect(find.text('You'), findsOneWidget);
   });
 
+  testWidgets('logs out to the sign-in screen and can sign in again', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('You'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Log out'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Log out'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Continue with Facebook'), findsOneWidget);
+
+    await tester.tap(find.text('Continue with Facebook'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Your communities'), findsOneWidget);
+  });
+
+  testWidgets('home handles multiple towns and keeps post actions visible', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'language': 'es'});
+    final repository = DemoCommunityRepository();
+    final community = await repository.createCommunity(
+      const CreateCommunityInput(
+        name: 'Echeandía',
+        description: 'Comunidad local',
+        town: Town(id: 'town-2', name: 'Echeandía', countryCode: 'EC'),
+        visibility: CommunityVisibility.public,
+        categoryNames: ['General'],
+      ),
+    );
+    final category = (await repository.listCategories(community.id)).first;
+    await repository.createPost(
+      community.id,
+      CreatePostInput(categoryId: category.id, text: 'Jornada de limpieza'),
+    );
+
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: repository,
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lo último de tus comunidades.'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.text('Nueva publicación'), findsOneWidget);
+
+    await tester.tap(find.text('Nueva publicación'));
+    await tester.pumpAndSettle();
+    expect(find.text('Elige una comunidad'), findsOneWidget);
+    await tester.tap(find.text('Echeandía').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Crear publicación'), findsOneWidget);
+  });
+
+  testWidgets('translates the current user label on a post', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('es'),
+        supportedLocales: [Locale('en'), Locale('es')],
+        localizationsDelegates: [
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        home: Scaffold(
+          body: PostCard(
+            category: 'General',
+            icon: '💬',
+            community: 'Echeandía',
+            author: 'You',
+            time: 'Hace 3 min',
+            text: 'Jornada de limpieza',
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Tú'), findsOneWidget);
+    expect(find.text('Hace 3 min · Echeandía'), findsOneWidget);
+  });
+
   testWidgets('opens a community and its prominent categories', (tester) async {
     await tester.pumpWidget(
       WicchuApp(
@@ -110,9 +212,16 @@ void main() {
     expect(find.text('Categories'), findsOneWidget);
     expect(find.text('Marketplace'), findsOneWidget);
     expect(find.text('Latest posts'), findsOneWidget);
+    expect(find.text('Town X Community'), findsOneWidget);
+    expect(find.text('Owner'), findsOneWidget);
+    expect(find.text('New post'), findsOneWidget);
+    expect(find.text('Community management'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
   });
 
-  testWidgets('creates a community from the profile', (tester) async {
+  testWidgets('creates a community even when the town list is empty', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       WicchuApp(
         repository: DemoCommunityRepository(),
@@ -134,7 +243,7 @@ void main() {
     expect(find.text('Create community'), findsOneWidget);
     expect(find.text('Community name'), findsOneWidget);
 
-    final repository = DemoCommunityRepository();
+    final repository = _EmptyTownsRepository();
     await tester.pumpWidget(
       MaterialApp(
         home: CreateCommunityPage(
@@ -190,6 +299,8 @@ void main() {
 
     await tester.tap(find.text('Explore'));
     await tester.pumpAndSettle();
+    expect(find.text('📍 Explore communities'), findsOneWidget);
+    expect(find.byTooltip('Use my location'), findsOneWidget);
     await tester.tap(find.byTooltip('Search communities'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Riverside');
@@ -211,6 +322,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Town X Community').first);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('News').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('News').first);
     await tester.pumpAndSettle();
@@ -320,7 +433,7 @@ void main() {
 
     await tester.tap(find.text('Town X Community').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Administrar comunidad'));
+    await tester.tap(find.text('Administrar comunidad'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Denuncias'));
     await tester.pumpAndSettle();

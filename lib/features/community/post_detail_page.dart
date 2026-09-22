@@ -84,6 +84,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 icon: widget.icon,
                 community: widget.community,
                 author: post.authorName,
+                authorAvatarUrl: post.authorAvatarUrl,
                 time: formatPostTime(context, post.createdAt),
                 text: post.text,
                 likes: post.reactionCount,

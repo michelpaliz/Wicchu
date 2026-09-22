@@ -15,7 +15,11 @@ class PostMarkdown extends StatelessWidget {
       selectable: true,
       softLineBreak: true,
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-        p: theme.textTheme.titleMedium,
+        p: theme.textTheme.bodyLarge?.copyWith(height: 1.45),
+        strong: theme.textTheme.bodyLarge?.copyWith(
+          height: 1.45,
+          fontWeight: FontWeight.w700,
+        ),
         blockSpacing: 8,
         listIndent: 24,
       ),

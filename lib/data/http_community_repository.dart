@@ -708,6 +708,7 @@ class HttpCommunityRepository implements CommunityRepository {
       authorId:
           authorJson['id']?.toString() ?? json['authorId']?.toString() ?? '',
       authorName: authorJson['name'] as String? ?? 'Wicchu member',
+      authorAvatarUrl: authorJson['avatarUrl'] as String?,
       text: json['text'] as String? ?? '',
       media: (json['media'] as List? ?? const [])
           .whereType<Map<String, dynamic>>()
@@ -780,6 +781,7 @@ class HttpCommunityRepository implements CommunityRepository {
       authorId:
           authorJson['id']?.toString() ?? json['authorId']?.toString() ?? '',
       authorName: authorJson['name'] as String? ?? 'Wicchu member',
+      authorAvatarUrl: authorJson['avatarUrl'] as String?,
       text: json['text'] as String? ?? '',
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??

@@ -223,6 +223,39 @@ class _HomeTabState extends State<_HomeTab> {
     }
   }
 
+  Future<void> _startPost(List<Community> communities) async {
+    if (communities.isEmpty) return;
+    if (communities.length == 1) {
+      await _createPost(communities.first);
+      return;
+    }
+    final selected = await showModalBottomSheet<Community>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Text(
+                sheetContext.tr('Choose a community'),
+                style: Theme.of(sheetContext).textTheme.titleLarge,
+              ),
+            ),
+            for (final community in communities)
+              ListTile(
+                title: Text(community.name),
+                subtitle: Text(community.town.name),
+                onTap: () => Navigator.pop(sheetContext, community),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) await _createPost(selected);
+  }
+
   Future<void> _openCommunity(Community community) async {
     await Navigator.push(
       context,
@@ -261,18 +294,6 @@ class _HomeTabState extends State<_HomeTab> {
           const SizedBox(width: 8),
         ],
       ),
-      floatingActionButton: FutureBuilder<_HomeFeedData>(
-        future: _data,
-        builder: (context, snapshot) {
-          final community = snapshot.data?.communities.firstOrNull;
-          if (community == null) return const SizedBox.shrink();
-          return FloatingActionButton.extended(
-            onPressed: () => _createPost(community),
-            icon: const Icon(Icons.add),
-            label: Text(context.tr('New post')),
-          );
-        },
-      ),
       body: FutureBuilder<_HomeFeedData>(
         future: _data,
         builder: (context, snapshot) {
@@ -287,8 +308,8 @@ class _HomeTabState extends State<_HomeTab> {
           }
           final data = snapshot.data!;
           final communities = data.communities;
-          final town =
-              communities.firstOrNull?.town.name ?? context.tr('Your town');
+          final towns = communities.map((item) => item.town.id).toSet();
+          final town = communities.firstOrNull?.town.name;
           final normalizedQuery = _query.trim().toLowerCase();
           final categoryNames = [
             'All',
@@ -349,9 +370,12 @@ class _HomeTabState extends State<_HomeTab> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  context.tr('The latest from {town} and your communities.', {
-                    'town': town,
-                  }),
+                  towns.length == 1 && town != null
+                      ? context.tr(
+                          'The latest from {town} and your communities.',
+                          {'town': town},
+                        )
+                      : context.tr('The latest from your communities.'),
                   style: textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -385,13 +409,13 @@ class _HomeTabState extends State<_HomeTab> {
                         onTap: () => _openCommunity(community),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 18,
+                            horizontal: 14,
+                            vertical: 10,
                           ),
                           child: Row(
                             children: [
-                              CommunityAvatar(community: community, radius: 26),
-                              const SizedBox(width: 14),
+                              CommunityAvatar(community: community, radius: 20),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,7 +453,7 @@ class _HomeTabState extends State<_HomeTab> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 4),
                   ],
                 const SizedBox(height: 18),
                 Text(
@@ -445,6 +469,17 @@ class _HomeTabState extends State<_HomeTab> {
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
+                if (communities.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.icon(
+                      onPressed: () => _startPost(communities),
+                      icon: const Icon(Icons.add),
+                      label: Text(context.tr('New post')),
+                    ),
+                  ),
+                ],
                 if (_showSearch) ...[
                   const SizedBox(height: 16),
                   TextField(
@@ -457,28 +492,11 @@ class _HomeTabState extends State<_HomeTab> {
                   ),
                 ],
                 const SizedBox(height: 16),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final category in categoryNames) ...[
-                        ChoiceChip(
-                          label: Text(context.tr(category)),
-                          selected: _category == category,
-                          showCheckmark: false,
-                          selectedColor: scheme.primaryContainer,
-                          labelStyle: TextStyle(
-                            color: _category == category
-                                ? scheme.onPrimaryContainer
-                                : scheme.onSurface,
-                          ),
-                          onSelected: (_) =>
-                              setState(() => _category = category),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                    ],
-                  ),
+                _CategoryFilterStrip(
+                  categories: categoryNames,
+                  selected: _category,
+                  onSelected: (category) =>
+                      setState(() => _category = category),
                 ),
                 const SizedBox(height: 16),
                 for (final post in filteredPosts) ...[
@@ -510,6 +528,7 @@ class _HomeTabState extends State<_HomeTab> {
                     community:
                         communityById[post.communityId]?.name ?? 'Wicchu',
                     author: post.authorName,
+                    authorAvatarUrl: post.authorAvatarUrl,
                     time: formatPostTime(context, post.createdAt),
                     text: post.text,
                     likes: post.reactionCount,
@@ -585,6 +604,101 @@ class _HomeTabState extends State<_HomeTab> {
   }
 }
 
+class _CategoryFilterStrip extends StatefulWidget {
+  const _CategoryFilterStrip({
+    required this.categories,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> categories;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  State<_CategoryFilterStrip> createState() => _CategoryFilterStripState();
+}
+
+class _CategoryFilterStripState extends State<_CategoryFilterStrip> {
+  final _scrollController = ScrollController();
+  bool _canScrollNext = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_updateScrollHint);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _updateScrollHint() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final canScrollNext = position.maxScrollExtent - position.pixels > 4;
+    if (canScrollNext != _canScrollNext && mounted) {
+      setState(() => _canScrollNext = canScrollNext);
+    }
+  }
+
+  void _scrollNext() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    _scrollController.animateTo(
+      (position.pixels + position.viewportDimension * .75).clamp(
+        0.0,
+        position.maxScrollExtent,
+      ),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollHint());
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final category in widget.categories) ...[
+                  ChoiceChip(
+                    label: Text(context.tr(category)),
+                    selected: widget.selected == category,
+                    showCheckmark: false,
+                    selectedColor: scheme.primaryContainer,
+                    labelStyle: TextStyle(
+                      color: widget.selected == category
+                          ? scheme.onPrimaryContainer
+                          : scheme.onSurface,
+                    ),
+                    onSelected: (_) => widget.onSelected(category),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (widget.categories.length > 3)
+          IconButton(
+            tooltip: context.tr('More categories'),
+            onPressed: _canScrollNext ? _scrollNext : null,
+            icon: const Icon(Icons.chevron_right),
+          ),
+      ],
+    );
+  }
+}
+
 class _ExploreTab extends StatefulWidget {
   const _ExploreTab({
     super.key,
@@ -605,6 +719,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   bool _showSearch = false;
   String _query = '';
   bool _usingLocation = false;
+  bool _locating = false;
 
   @override
   void initState() {
@@ -618,45 +733,99 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   Future<void> _findNearby() async {
+    if (_locating) return;
+    setState(() => _locating = true);
     try {
       final preferences = await SharedPreferences.getInstance();
       if (!(preferences.getBool('location_discovery') ?? true)) {
-        throw Exception('Enable nearby discovery in Settings first.');
+        _showLocationIssue(
+          'Enable nearby discovery in Settings first.',
+          actionLabel: 'Settings',
+          onAction: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AccountSettingsPage()),
+          ),
+        );
+        return;
       }
       if (!await Geolocator.isLocationServiceEnabled()) {
-        throw Exception(
+        _showLocationIssue(
           'Enable location services to discover nearby communities.',
+          actionLabel: 'Open settings',
+          onAction: Geolocator.openLocationSettings,
         );
+        return;
       }
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        throw Exception(
+      if (permission == LocationPermission.deniedForever) {
+        _showLocationIssue(
+          'Location permission is required for nearby discovery.',
+          actionLabel: 'Open settings',
+          onAction: Geolocator.openAppSettings,
+        );
+        return;
+      }
+      if (permission == LocationPermission.denied) {
+        _showLocationIssue(
           'Location permission is required for nearby discovery.',
         );
+        return;
       }
-      final position = await Geolocator.getCurrentPosition();
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      if (!mounted) return;
+      final nearby = await widget.repository.listNearbyCommunities(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
       if (!mounted) return;
       setState(() {
         _usingLocation = true;
-        _communities = widget.repository.listNearbyCommunities(
-          latitude: position.latitude,
-          longitude: position.longitude,
-        );
+        _communities = Future.value(nearby);
       });
+    } on TimeoutException {
+      _showLocationIssue('Could not get your location. Try again.');
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
+    } finally {
+      if (mounted) setState(() => _locating = false);
     }
   }
 
+  void _showLocationIssue(
+    String message, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.tr(message)),
+        action: actionLabel == null || onAction == null
+            ? null
+            : SnackBarAction(
+                label: context.tr(actionLabel),
+                onPressed: onAction,
+              ),
+      ),
+    );
+  }
+
   Future<void> _refresh() async {
+    if (_usingLocation) {
+      await _findNearby();
+      return;
+    }
     setState(_reload);
     try {
       await _communities;
@@ -687,10 +856,23 @@ class _ExploreTabState extends State<_ExploreTab> {
       actions: [
         IconButton(
           tooltip: context.tr(
-            _usingLocation ? 'Show all communities' : 'Use my location',
+            _locating
+                ? 'Finding nearby communities…'
+                : _usingLocation
+                ? 'Show all communities'
+                : 'Use my location',
           ),
-          onPressed: _usingLocation ? () => setState(_reload) : _findNearby,
-          icon: Icon(_usingLocation ? Icons.location_on : Icons.my_location),
+          onPressed: _locating
+              ? null
+              : _usingLocation
+              ? () => setState(_reload)
+              : _findNearby,
+          icon: _locating
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(_usingLocation ? Icons.location_on : Icons.my_location),
         ),
         IconButton(
           tooltip: context.tr(
@@ -726,11 +908,29 @@ class _ExploreTabState extends State<_ExploreTab> {
             const SizedBox(height: 20),
           ],
           Text(
-            '📍 ${context.tr('Near you')}',
+            '📍 ${context.tr(_locating
+                ? 'Finding nearby communities…'
+                : _usingLocation
+                ? 'Nearby communities'
+                : 'Explore communities')}',
             style: Theme.of(
               context,
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
+          if (_usingLocation) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.location_on_outlined, size: 18),
+                const SizedBox(width: 4),
+                Expanded(child: Text(context.tr('Using your location'))),
+                TextButton(
+                  onPressed: () => setState(_reload),
+                  child: Text(context.tr('Show all')),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           FutureBuilder<List<Community>>(
             future: _communities,

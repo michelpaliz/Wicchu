@@ -79,6 +79,7 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                 icon: '💬',
                 community: 'Wicchu',
                 author: post.authorName,
+                authorAvatarUrl: post.authorAvatarUrl,
                 time: formatPostTime(context, post.createdAt),
                 text: post.text,
                 likes: post.reactionCount,

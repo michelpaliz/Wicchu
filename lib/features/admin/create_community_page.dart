@@ -44,13 +44,6 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   bool _detectingLocation = false;
   bool _locationVerified = false;
   String? _locationError;
-  late final Future<List<Town>> _towns;
-
-  @override
-  void initState() {
-    super.initState();
-    _towns = widget.repository.listTowns();
-  }
 
   @override
   void dispose() {
@@ -63,185 +56,167 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('Create community'))),
-      body: FutureBuilder<List<Town>>(
-        future: _towns,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text(context.trError(snapshot.error!)));
-          }
-          final towns = snapshot.data ?? const <Town>[];
-          if (towns.isEmpty) {
-            return Center(child: Text(context.tr('No towns found')));
-          }
-          _town ??= towns.firstOrNull;
-          return Stepper(
-            currentStep: _step,
-            onStepContinue: _continue,
-            onStepCancel: _step == 0 ? null : () => setState(() => _step--),
-            controlsBuilder: (context, details) => Padding(
-              padding: const EdgeInsets.only(top: 20),
-              child: Row(
-                children: [
-                  FilledButton(
-                    onPressed: _saving ? null : details.onStepContinue,
-                    child: Text(
-                      context.tr(_step == 3 ? 'Create community' : 'Continue'),
+      body: Stepper(
+        currentStep: _step,
+        onStepContinue: _continue,
+        onStepCancel: _step == 0 ? null : () => setState(() => _step--),
+        controlsBuilder: (context, details) => Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: Row(
+            children: [
+              FilledButton(
+                onPressed: _saving ? null : details.onStepContinue,
+                child: Text(
+                  context.tr(_step == 3 ? 'Create community' : 'Continue'),
+                ),
+              ),
+              if (_step > 0)
+                TextButton(
+                  onPressed: _saving ? null : details.onStepCancel,
+                  child: Text(context.tr('Back')),
+                ),
+            ],
+          ),
+        ),
+        steps: [
+          Step(
+            title: Text(context.tr('Basics')),
+            isActive: _step >= 0,
+            content: Column(
+              children: [
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: context.tr('Community name'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _descriptionController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: context.tr('Short description'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Step(
+            title: Text(context.tr('Location')),
+            isActive: _step >= 1,
+            content: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_detectingLocation)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              context.tr('Finding your current town…'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (_locationVerified && _town != null)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.location_on),
+                      title: Text(_town!.name),
+                      subtitle: Text(_town!.countryCode),
+                      trailing: const Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                      ),
+                    ),
+                  )
+                else
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.location_off_outlined, size: 38),
+                          const SizedBox(height: 8),
+                          Text(
+                            _locationError == null
+                                ? context.tr(
+                                    'Wicchu needs your location to find your town and nearby communities.',
+                                  )
+                                : context.tr(_locationError!),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  if (_step > 0)
-                    TextButton(
-                      onPressed: _saving ? null : details.onStepCancel,
-                      child: Text(context.tr('Back')),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _detectingLocation ? null : _detectLocation,
+                  icon: const Icon(Icons.my_location),
+                  label: Text(
+                    context.tr(
+                      _locationVerified
+                          ? 'Update my location'
+                          : 'Use my current location',
                     ),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
-            steps: [
-              Step(
-                title: Text(context.tr('Basics')),
-                isActive: _step >= 0,
-                content: Column(
-                  children: [
-                    TextField(
-                      controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: context.tr('Community name'),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _descriptionController,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        labelText: context.tr('Short description'),
-                      ),
-                    ),
-                  ],
+          ),
+          Step(
+            title: Text(context.tr('Categories')),
+            isActive: _step >= 2,
+            content: Wrap(
+              spacing: 8,
+              children: [
+                for (final category in _defaults)
+                  FilterChip(
+                    label: Text(context.tr(category)),
+                    selected: _selectedCategories.contains(category),
+                    onSelected: (selected) => setState(() {
+                      selected
+                          ? _selectedCategories.add(category)
+                          : _selectedCategories.remove(category);
+                    }),
+                  ),
+              ],
+            ),
+          ),
+          Step(
+            title: Text(context.tr('Rules')),
+            isActive: _step >= 3,
+            content: Column(
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.tr('Approve posts before publishing')),
+                  subtitle: Text(
+                    context.tr('You can change this later by category.'),
+                  ),
+                  value: _approvalRequired,
+                  onChanged: (value) =>
+                      setState(() => _approvalRequired = value),
                 ),
-              ),
-              Step(
-                title: Text(context.tr('Location')),
-                isActive: _step >= 1,
-                content: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_detectingLocation)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Row(
-                            children: [
-                              const CircularProgressIndicator(),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Text(
-                                  context.tr('Finding your current town…'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else if (_locationVerified && _town != null)
-                      Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.location_on),
-                          title: Text(_town!.name),
-                          subtitle: Text(_town!.countryCode),
-                          trailing: const Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                          ),
-                        ),
-                      )
-                    else
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              const Icon(Icons.location_off_outlined, size: 38),
-                              const SizedBox(height: 8),
-                              Text(
-                                _locationError == null
-                                    ? context.tr(
-                                        'Wicchu needs your location to find your town and nearby communities.',
-                                      )
-                                    : context.tr(_locationError!),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _detectingLocation ? null : _detectLocation,
-                      icon: const Icon(Icons.my_location),
-                      label: Text(
-                        context.tr(
-                          _locationVerified
-                              ? 'Update my location'
-                              : 'Use my current location',
-                        ),
-                      ),
-                    ),
-                  ],
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(_nameController.text.trim()),
+                  subtitle: Text(
+                    '${_town?.name ?? ''} · ${context.trCount(_selectedCategories.length, singular: '{count} category', plural: '{count} categories')}\n'
+                    '${context.tr('Public community · You will be the owner')}',
+                  ),
                 ),
-              ),
-              Step(
-                title: Text(context.tr('Categories')),
-                isActive: _step >= 2,
-                content: Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final category in _defaults)
-                      FilterChip(
-                        label: Text(context.tr(category)),
-                        selected: _selectedCategories.contains(category),
-                        onSelected: (selected) => setState(() {
-                          selected
-                              ? _selectedCategories.add(category)
-                              : _selectedCategories.remove(category);
-                        }),
-                      ),
-                  ],
-                ),
-              ),
-              Step(
-                title: Text(context.tr('Rules')),
-                isActive: _step >= 3,
-                content: Column(
-                  children: [
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        context.tr('Approve posts before publishing'),
-                      ),
-                      subtitle: Text(
-                        context.tr('You can change this later by category.'),
-                      ),
-                      value: _approvalRequired,
-                      onChanged: (value) =>
-                          setState(() => _approvalRequired = value),
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(_nameController.text.trim()),
-                      subtitle: Text(
-                        '${_town?.name ?? ''} · ${context.trCount(_selectedCategories.length, singular: '{count} category', plural: '{count} categories')}\n'
-                        '${context.tr('Public community · You will be the owner')}',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

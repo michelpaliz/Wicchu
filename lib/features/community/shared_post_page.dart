@@ -87,6 +87,7 @@ class _SharedPostPageState extends State<SharedPostPage> {
               icon: preview.categoryIcon,
               community: preview.communityName,
               author: post.authorName,
+              authorAvatarUrl: post.authorAvatarUrl,
               time: formatPostTime(context, post.createdAt),
               text: post.text,
               media: post.media,

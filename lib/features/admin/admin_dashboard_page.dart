@@ -43,7 +43,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const WicchuTitle()),
+      appBar: AppBar(
+        leading: BackButton(onPressed: () => Navigator.pop(context, community)),
+        title: const WicchuTitle(),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

@@ -184,6 +184,7 @@ class CommunityPost {
     required this.createdAt,
     this.media = const [],
     this.authorName = 'Wicchu member',
+    this.authorAvatarUrl,
     this.reactionCount = 0,
     this.commentCount = 0,
     this.reactedByMe = false,
@@ -200,6 +201,7 @@ class CommunityPost {
   final PostStatus status;
   final DateTime createdAt;
   final String authorName;
+  final String? authorAvatarUrl;
   final int reactionCount;
   final int commentCount;
   final bool reactedByMe;
@@ -287,6 +289,7 @@ class Comment {
     required this.text,
     required this.createdAt,
     this.authorName = 'Wicchu member',
+    this.authorAvatarUrl,
   });
 
   final String id;
@@ -295,6 +298,7 @@ class Comment {
   final String text;
   final DateTime createdAt;
   final String authorName;
+  final String? authorAvatarUrl;
 }
 
 class Reaction {

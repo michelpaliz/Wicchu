@@ -4,7 +4,7 @@ This document began as an inventory of unfinished UI flows. Some flows have sinc
 
 ## Current integration
 
-- `lib/main.dart` injects `HttpCommunityRepository`. Community creation loads towns from `GET /api/community/v1/towns` and submits `POST /api/community/v1/communities` with a bearer token. The profile screen now exposes the form. An unauthenticated request to each endpoint returned HTTP 401 on 2026-09-22; successful authenticated creation has not been verified.
+- `lib/main.dart` injects `HttpCommunityRepository`. Community creation resolves or registers the device's town through `POST /api/community/v1/towns/resolve`, then submits `POST /api/community/v1/communities` with the returned stable town ID. The form no longer depends on `GET /api/community/v1/towns` being populated. Authenticated creation still needs an end-to-end emulator verification.
 - `FacebookAuthGateway` calls `POST /api/auth/facebook` at `API_BASE_URL` (default `https://hexora.dev`). The backend implementation is not in this repository. Android signing requirements are in `FACEBOOK_LOGIN_REQUIREMENTS.md`; end-to-end login has not been verified here.
 - The README identifies `/api/community/v1` as the community API prefix. The app now calls routes for discovery, membership, feed, post detail, categories, reactions, comments, saves, reports, notifications, profile, and creation under that prefix. Authenticated server responses have not been verified in this workspace.
 - Language and Light/Dark/System appearance choices already work locally and persist in device preferences. They do not need backend endpoints.
@@ -60,7 +60,7 @@ Suggested request fields:
 - `POST /api/auth/facebook`: the client already sends `accessToken`, `tokenType`, and `nonce`. Its response parser requires `accessToken`, `refreshToken`, `userId`, `userName`, and optional `isNewUser`. Keep secrets on the server.
 - `POST /communities`: `name`, `description`, `townId`, `visibility`, `categoryNames` (or stable category template IDs), and `approvalRequired`. Return the created community with ID, owner role, category IDs, and member count.
 - `POST /communities/{id}/posts`: `categoryId`, `text`, optional `mediaIds`; return the created post and its moderation status. If approval is required, only moderators and the author should see a pending post.
-- Feed/post responses: `id`, `communityId`, `categoryId`, author summary, text, price if marketplace posts support pricing, media, `createdAt`, `status`, reaction/comment counts, and whether the current user reacted or saved it. The current `CommunityPost` model has no price/count fields, so the client model must grow with the API.
+- Feed, post, and comment responses: include an author summary with `id`, `name`, and nullable `avatarUrl`. Refresh the stored Facebook name and profile image during login, and return that same author shape everywhere. Feed/post responses also include `id`, `communityId`, `categoryId`, text, price if marketplace posts support pricing, media, `createdAt`, `status`, reaction/comment counts, and whether the current user reacted or saved it.
 
 ## Rules and completion criteria
 

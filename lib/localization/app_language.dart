@@ -110,6 +110,17 @@ const _spanish = <String, String>{
   'Good things happen nearby.': 'Lo bueno pasa cerca de ti.',
   'The latest from {town} and your communities.':
       'Lo último de {town} y tus comunidades.',
+  'The latest from your communities.': 'Lo último de tus comunidades.',
+  'Choose a community': 'Elige una comunidad',
+  'More categories': 'Más categorías',
+  'Explore communities': 'Explorar comunidades',
+  'Nearby communities': 'Comunidades cercanas',
+  'Finding nearby communities…': 'Buscando comunidades cercanas…',
+  'Using your location': 'Usando tu ubicación',
+  'Show all': 'Mostrar todas',
+  'Open settings': 'Abrir ajustes',
+  'Could not get your location. Try again.':
+      'No se pudo obtener tu ubicación. Inténtalo de nuevo.',
   'Your communities': 'Tus comunidades',
   'Join a community to see local updates here.':
       'Únete a una comunidad para ver novedades locales aquí.',
@@ -146,6 +157,9 @@ const _spanish = <String, String>{
   'Owner': 'Propietario',
   'Save post': 'Guardar publicación',
   'Unsave post': 'Quitar de guardados',
+  'More options': 'Más opciones',
+  'Like': 'Me gusta',
+  'Unlike': 'Ya no me gusta',
   'Report post': 'Denunciar publicación',
   'Report submitted': 'Denuncia enviada',
   'Reason': 'Motivo',
@@ -153,7 +167,10 @@ const _spanish = <String, String>{
   'Cancel': 'Cancelar',
   'Comments': 'Comentarios',
   'No comments yet': 'Todavía no hay comentarios',
+  'Be the first to start the conversation.':
+      'Sé la primera persona en iniciar la conversación.',
   'Write a comment': 'Escribe un comentario',
+  'Send comment': 'Enviar comentario',
   'Choose a category and add text.':
       'Elige una categoría y escribe el contenido.',
   'Post submitted for approval': 'Publicación enviada para aprobación',
