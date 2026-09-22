@@ -43,6 +43,7 @@ class DemoCommunityRepository implements CommunityRepository {
   final List<PromotionCampaign> _promotions = [];
   final Map<String, List<Comment>> _comments = {};
   final Set<String> _savedPostIds = {};
+  SocialLinks _socialLinks = const SocialLinks();
   NotificationPreferences _notificationPreferences =
       const NotificationPreferences();
 
@@ -57,6 +58,40 @@ class DemoCommunityRepository implements CommunityRepository {
     postCount: 0,
     savedPostCount: 0,
   );
+
+  @override
+  Future<PublicMemberProfile> getMemberProfile(String userId) async => PublicMemberProfile(
+    id: userId,
+    name: userId == 'current-user' ? 'Michael P.' : 'Wicchu member',
+    userName: '',
+    postCount: (await listMemberPosts(userId)).length,
+    communityCount: 1,
+    socialLinks: _socialLinks,
+  );
+
+  @override
+  Future<SocialLinks> getMySocialLinks() async => _socialLinks;
+
+  @override
+  Future<SocialLinks> updateMySocialLinks(SocialLinks links) async => _socialLinks = links;
+
+  @override
+  Future<List<CommunityPost>> listMemberPosts(
+    String userId, {
+    String kind = 'all',
+    String sort = 'newest',
+  }) async {
+    final posts = _posts.values.expand((items) => items).where((post) {
+      if (post.authorId != userId) return false;
+      if (kind == 'media') return post.media.isNotEmpty;
+      if (kind == 'polls') return post.poll != null;
+      return true;
+    }).toList();
+    posts.sort((a, b) => sort == 'oldest'
+        ? a.createdAt.compareTo(b.createdAt)
+        : b.createdAt.compareTo(a.createdAt));
+    return posts;
+  }
 
   @override
   Future<NotificationFeed> listNotifications() async =>

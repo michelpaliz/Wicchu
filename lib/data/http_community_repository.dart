@@ -25,6 +25,62 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<PublicMemberProfile> getMemberProfile(String userId) async {
+    final body = await _api.get('/api/community/v1/users/$userId');
+    final json = _object(body, 'user');
+    return PublicMemberProfile(
+      id: json['id']?.toString() ?? userId,
+      name: json['name']?.toString() ?? 'Wicchu member',
+      userName: json['userName']?.toString() ?? '',
+      avatarUrl: json['avatarUrl'] as String?,
+      postCount: (json['postCount'] as num?)?.toInt() ?? 0,
+      communityCount: (json['communityCount'] as num?)?.toInt() ?? 0,
+      socialLinks: _socialLinksFromJson(json['socialLinks']),
+    );
+  }
+
+  @override
+  Future<SocialLinks> getMySocialLinks() async {
+    final body = await _api.get('/api/community/v1/me/social-links');
+    return _socialLinksFromJson(body['socialLinks']);
+  }
+
+  @override
+  Future<SocialLinks> updateMySocialLinks(SocialLinks links) async {
+    final body = await _api.patch('/api/community/v1/me/social-links', body: {
+      'whatsapp': links.whatsapp,
+      'facebook': links.facebook,
+      'instagram': links.instagram,
+      'email': links.email,
+    });
+    return _socialLinksFromJson(body['socialLinks']);
+  }
+
+  static SocialLinks _socialLinksFromJson(Object? value) {
+    final json = value is Map<String, dynamic> ? value : const <String, dynamic>{};
+    return SocialLinks(
+      whatsapp: json['whatsapp']?.toString() ?? '',
+      facebook: json['facebook']?.toString() ?? '',
+      instagram: json['instagram']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+    );
+  }
+
+  @override
+  Future<List<CommunityPost>> listMemberPosts(
+    String userId, {
+    String kind = 'all',
+    String sort = 'newest',
+  }) async {
+    final uri = Uri(
+      path: '/api/community/v1/users/$userId/posts',
+      queryParameters: {'kind': kind, 'sort': sort},
+    );
+    final body = await _api.get(uri.toString());
+    return _list(body, 'posts').map(_postFromJson).toList(growable: false);
+  }
+
+  @override
   Future<NotificationFeed> listNotifications() async {
     final body = await _api.get('/api/community/v1/me/notifications');
     return NotificationFeed(

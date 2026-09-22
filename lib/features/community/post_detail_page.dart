@@ -6,6 +6,7 @@ import '../../localization/app_language.dart';
 import 'comments_sheet.dart';
 import 'post_card.dart';
 import 'post_share.dart';
+import '../profile/member_profile_page.dart';
 
 class PostDetailPage extends StatefulWidget {
   const PostDetailPage({
@@ -85,6 +86,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 community: widget.community,
                 author: post.authorName,
                 authorAvatarUrl: post.authorAvatarUrl,
+                onAuthorTap: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
+                )),
                 time: formatPostTime(context, post.createdAt),
                 text: post.text,
                 likes: post.reactionCount,
