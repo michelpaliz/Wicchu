@@ -11,6 +11,16 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
+    if (path == '/api/community/v1/promotions/eligibility') {
+      return {
+        'eligibility': {
+          'eligible': true,
+          'trialStarted': false,
+          'trialDays': 30,
+          'maxCampaignDays': 7,
+        },
+      };
+    }
     if (path.startsWith('/api/community/v1/communities?')) {
       return {
         'communities': [
@@ -50,6 +60,20 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'id': 'town-echeandia',
           'name': 'Echeandía',
           'countryCode': 'EC',
+        },
+      };
+    }
+    if (path == '/api/community/v1/promotions') {
+      return {
+        'campaign': {
+          'id': 'promotion-1',
+          'postId': body?['postId'],
+          'communityId': 'community-1',
+          'status': 'pending',
+          'durationDays': body?['durationDays'],
+          'impressionCount': 0,
+          'clickCount': 0,
+          'createdAt': '2026-09-22T12:00:00.000Z',
         },
       };
     }
@@ -118,6 +142,24 @@ void main() {
     expect(api.lastBody?['categoryNames'], ['News', 'Events']);
     expect(api.lastBody?['approvalRequired'], isTrue);
     expect(community.myRole, CommunityRole.owner);
+  });
+
+  test('promotion eligibility and submission use the pilot API', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final eligibility = await repository.getPromotionEligibility();
+    expect(eligibility.eligible, isTrue);
+    expect(eligibility.trialDays, 30);
+
+    final campaign = await repository.createPromotion(
+      'post-1',
+      durationDays: 7,
+    );
+    expect(api.lastPath, '/api/community/v1/promotions');
+    expect(api.lastBody, {'postId': 'post-1', 'durationDays': 7});
+    expect(campaign.status, PromotionStatus.pending);
+    expect(campaign.durationDays, 7);
   });
 
   test('post detail accepts the pending approval status', () async {

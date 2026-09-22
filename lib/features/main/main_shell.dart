@@ -20,6 +20,7 @@ import '../community/post_collection_page.dart';
 import '../community/post_detail_page.dart';
 import '../community/post_share.dart';
 import '../settings/account_settings_page.dart';
+import '../promotions/promotions_page.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -514,6 +515,17 @@ class _HomeTabState extends State<_HomeTab> {
                     likes: post.reactionCount,
                     comments: post.commentCount,
                     media: post.media,
+                    promotion: post.promotion,
+                    onPromotionImpression: post.promotion == null
+                        ? null
+                        : () => widget.repository.recordPromotionImpression(
+                            post.promotion!.id,
+                          ),
+                    onPromotionClick: post.promotion == null
+                        ? null
+                        : () => widget.repository.recordPromotionClick(
+                            post.promotion!.id,
+                          ),
                     reacted: post.reactedByMe,
                     onReaction: (reacted) => widget.repository.setPostReaction(
                       post.id,
@@ -1087,6 +1099,16 @@ class _ProfileTabState extends State<_ProfileTab> {
             label: 'Saved posts',
             onTap: () =>
                 _openPosts('Saved posts', widget.repository.listSavedPosts),
+          ),
+          _ProfileRow(
+            icon: Icons.campaign_outlined,
+            label: 'Promote locally',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PromotionsPage(repository: widget.repository),
+              ),
+            ),
           ),
           const Divider(height: 28),
           _ProfileRow(

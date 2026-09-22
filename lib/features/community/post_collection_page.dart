@@ -84,6 +84,17 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                 likes: post.reactionCount,
                 comments: post.commentCount,
                 media: post.media,
+                promotion: post.promotion,
+                onPromotionImpression: post.promotion == null
+                    ? null
+                    : () => widget.repository.recordPromotionImpression(
+                        post.promotion!.id,
+                      ),
+                onPromotionClick: post.promotion == null
+                    ? null
+                    : () => widget.repository.recordPromotionClick(
+                        post.promotion!.id,
+                      ),
                 reacted: post.reactedByMe,
                 saved: post.savedByMe,
                 onReaction: (reacted) => widget.repository.setPostReaction(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -44,6 +46,9 @@ class PostCard extends StatefulWidget {
     this.media = const [],
     this.onReport,
     this.onShare,
+    this.promotion,
+    this.onPromotionImpression,
+    this.onPromotionClick,
   });
 
   final String category;
@@ -65,6 +70,9 @@ class PostCard extends StatefulWidget {
   final List<PostMedia> media;
   final Future<void> Function(String reason)? onReport;
   final Future<void> Function()? onShare;
+  final PostPromotion? promotion;
+  final Future<void> Function()? onPromotionImpression;
+  final Future<void> Function()? onPromotionClick;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -77,6 +85,13 @@ class _PostCardState extends State<PostCard> {
   late bool _saved = widget.saved;
   bool _savingReaction = false;
   bool _savingPost = false;
+  bool _impressionSent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _recordImpression();
+  }
 
   @override
   void didUpdateWidget(covariant PostCard oldWidget) {
@@ -85,6 +100,18 @@ class _PostCardState extends State<PostCard> {
     if (oldWidget.comments != widget.comments) _comments = widget.comments;
     if (oldWidget.reacted != widget.reacted) _reacted = widget.reacted;
     if (oldWidget.saved != widget.saved) _saved = widget.saved;
+    if (oldWidget.promotion?.id != widget.promotion?.id) {
+      _impressionSent = false;
+      _recordImpression();
+    }
+  }
+
+  void _recordImpression() {
+    if (_impressionSent || widget.onPromotionImpression == null) return;
+    _impressionSent = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(widget.onPromotionImpression!());
+    });
   }
 
   @override
@@ -93,12 +120,38 @@ class _PostCardState extends State<PostCard> {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: widget.onTap,
+        onTap: widget.onTap == null
+            ? null
+            : () {
+                if (widget.onPromotionClick != null) {
+                  unawaited(widget.onPromotionClick!());
+                }
+                widget.onTap!();
+              },
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (widget.promotion != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    context.tr('Sponsored'),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               Text(
                 '${widget.icon} ${context.tr(widget.category).toUpperCase()} · ${widget.community}',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(

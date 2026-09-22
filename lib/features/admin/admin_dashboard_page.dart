@@ -7,6 +7,7 @@ import '../../widgets/wicchu_logo.dart';
 import 'pending_posts_page.dart';
 import 'admin_review_queues.dart';
 import 'admin_management_pages.dart';
+import 'promotion_review_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({
@@ -76,6 +77,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       label: 'Posts awaiting approval',
                       count: summary.pendingPosts,
                       onTap: _openPendingPosts,
+                    ),
+                    _ActionRow(
+                      icon: Icons.campaign_outlined,
+                      label: 'Promotion requests',
+                      count: summary.pendingPromotions,
+                      onTap: () => _openQueue(
+                        PromotionReviewPage(
+                          community: community,
+                          repository: repository,
+                        ),
+                      ),
                     ),
                     _ActionRow(
                       icon: Icons.flag_outlined,

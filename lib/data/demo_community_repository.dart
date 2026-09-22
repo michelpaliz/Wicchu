@@ -40,6 +40,7 @@ class DemoCommunityRepository implements CommunityRepository {
   final List<Community> _communities = [];
   final Map<String, List<CommunityCategory>> _categories = {};
   final Map<String, List<CommunityPost>> _posts = {};
+  final List<PromotionCampaign> _promotions = [];
   final Map<String, List<Comment>> _comments = {};
   final Set<String> _savedPostIds = {};
 
@@ -406,6 +407,75 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<void> moderatePost(
     String communityId,
     String postId, {
+    required bool approve,
+    String? reason,
+  }) async {}
+
+  @override
+  Future<PromotionEligibility> getPromotionEligibility() async =>
+      PromotionEligibility(
+        eligible: true,
+        trialStarted: _promotions.isNotEmpty,
+        trialDays: 30,
+        maxCampaignDays: 7,
+        activeCampaignId: _promotions
+            .where(
+              (item) =>
+                  item.status == PromotionStatus.pending ||
+                  item.status == PromotionStatus.active,
+            )
+            .firstOrNull
+            ?.id,
+      );
+
+  @override
+  Future<List<PromotionCampaign>> listMyPromotions() async =>
+      List.unmodifiable(_promotions.reversed);
+
+  @override
+  Future<PromotionCampaign> createPromotion(
+    String postId, {
+    required int durationDays,
+  }) async {
+    final post = await getPost(postId);
+    final campaign = PromotionCampaign(
+      id: 'promotion-${_promotions.length + 1}',
+      postId: postId,
+      communityId: post.communityId,
+      status: PromotionStatus.pending,
+      durationDays: durationDays,
+      impressionCount: 0,
+      clickCount: 0,
+      createdAt: DateTime.now(),
+    );
+    _promotions.add(campaign);
+    return campaign;
+  }
+
+  @override
+  Future<void> cancelPromotion(String promotionId) async {}
+
+  @override
+  Future<void> recordPromotionImpression(String promotionId) async {}
+
+  @override
+  Future<void> recordPromotionClick(String promotionId) async {}
+
+  @override
+  Future<List<PromotionCampaign>> listPendingPromotions(
+    String communityId,
+  ) async => _promotions
+      .where(
+        (item) =>
+            item.communityId == communityId &&
+            item.status == PromotionStatus.pending,
+      )
+      .toList();
+
+  @override
+  Future<void> reviewPromotion(
+    String communityId,
+    String promotionId, {
     required bool approve,
     String? reason,
   }) async {}

@@ -455,6 +455,7 @@ class HttpCommunityRepository implements CommunityRepository {
       pendingPosts: (summary['pendingPosts'] as num?)?.toInt() ?? 0,
       openReports: (summary['openReports'] as num?)?.toInt() ?? 0,
       membershipRequests: (summary['membershipRequests'] as num?)?.toInt() ?? 0,
+      pendingPromotions: (summary['pendingPromotions'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -546,6 +547,78 @@ class HttpCommunityRepository implements CommunityRepository {
     await _api.patch(
       '/api/community/v1/communities/$communityId/admin/membership-requests/$userId',
       body: {'decision': approve ? 'approve' : 'reject'},
+    );
+  }
+
+  @override
+  Future<PromotionEligibility> getPromotionEligibility() async {
+    final body = await _api.get('/api/community/v1/promotions/eligibility');
+    final json = _object(body, 'eligibility');
+    return PromotionEligibility(
+      eligible: json['eligible'] as bool? ?? false,
+      trialStarted: json['trialStarted'] as bool? ?? false,
+      trialDays: (json['trialDays'] as num?)?.toInt() ?? 30,
+      maxCampaignDays: (json['maxCampaignDays'] as num?)?.toInt() ?? 7,
+      startedAt: _optionalDate(json['startedAt']),
+      expiresAt: _optionalDate(json['expiresAt']),
+      activeCampaignId: json['activeCampaignId']?.toString(),
+      townId: json['townId']?.toString(),
+    );
+  }
+
+  @override
+  Future<List<PromotionCampaign>> listMyPromotions() async {
+    final body = await _api.get('/api/community/v1/promotions/mine');
+    return _list(body, 'campaigns').map(_promotionFromJson).toList();
+  }
+
+  @override
+  Future<PromotionCampaign> createPromotion(
+    String postId, {
+    required int durationDays,
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/promotions',
+      body: {'postId': postId, 'durationDays': durationDays},
+    );
+    return _promotionFromJson(_object(body, 'campaign'));
+  }
+
+  @override
+  Future<void> cancelPromotion(String promotionId) async {
+    await _api.patch('/api/community/v1/promotions/$promotionId/cancel');
+  }
+
+  @override
+  Future<void> recordPromotionImpression(String promotionId) async {
+    await _api.post('/api/community/v1/promotions/$promotionId/impression');
+  }
+
+  @override
+  Future<void> recordPromotionClick(String promotionId) async {
+    await _api.post('/api/community/v1/promotions/$promotionId/click');
+  }
+
+  @override
+  Future<List<PromotionCampaign>> listPendingPromotions(
+    String communityId,
+  ) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/admin/promotions',
+    );
+    return _list(body, 'campaigns').map(_promotionFromJson).toList();
+  }
+
+  @override
+  Future<void> reviewPromotion(
+    String communityId,
+    String promotionId, {
+    required bool approve,
+    String? reason,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/communities/$communityId/admin/promotions/$promotionId',
+      body: {'decision': approve ? 'approve' : 'reject', 'reason': ?reason},
     );
   }
 
@@ -658,8 +731,43 @@ class HttpCommunityRepository implements CommunityRepository {
       commentCount: (json['commentCount'] as num?)?.toInt() ?? 0,
       reactedByMe: json['reactedByMe'] as bool? ?? false,
       savedByMe: json['savedByMe'] as bool? ?? false,
+      promotion: json['promotion'] is Map<String, dynamic>
+          ? _postPromotionFromJson(json['promotion'] as Map<String, dynamic>)
+          : null,
     );
   }
+
+  static PostPromotion _postPromotionFromJson(Map<String, dynamic> json) =>
+      PostPromotion(
+        id: _id(json),
+        startsAt: _date(json['startsAt']),
+        endsAt: _date(json['endsAt']),
+      );
+
+  static PromotionCampaign _promotionFromJson(Map<String, dynamic> json) =>
+      PromotionCampaign(
+        id: _id(json),
+        postId: json['postId']?.toString() ?? '',
+        communityId: json['communityId']?.toString() ?? '',
+        status: PromotionStatus.values.firstWhere(
+          (value) => value.name == json['status'],
+          orElse: () => PromotionStatus.pending,
+        ),
+        durationDays: (json['durationDays'] as num?)?.toInt() ?? 7,
+        impressionCount: (json['impressionCount'] as num?)?.toInt() ?? 0,
+        clickCount: (json['clickCount'] as num?)?.toInt() ?? 0,
+        createdAt: _date(json['createdAt']),
+        startsAt: _optionalDate(json['startsAt']),
+        endsAt: _optionalDate(json['endsAt']),
+        rejectionReason: json['rejectionReason'] as String? ?? '',
+      );
+
+  static DateTime _date(dynamic value) =>
+      DateTime.tryParse(value?.toString() ?? '') ??
+      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+
+  static DateTime? _optionalDate(dynamic value) =>
+      value == null ? null : DateTime.tryParse(value.toString());
 
   static Comment _commentFromJson(Map<String, dynamic> json) {
     final author = json['author'];

@@ -260,7 +260,38 @@ The server validates the file's actual signature, not only its declared MIME typ
 
 The frontend must display authorization errors and must never assume client-side role checks replace server authorization.
 
-## 8. Public sharing and deep links
+## 8. Free local promotion pilot
+
+The promotion pilot provides one free 30-day trial per account. The trial begins with the first submitted campaign, is limited to one town, permits one pending or active campaign at a time, and never converts into a paid plan automatically. Each campaign may run for up to seven days and requires community moderator approval.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/community/v1/promotions/eligibility` | Trial dates, eligibility, town, and current campaign |
+| `POST` | `/api/community/v1/promotions` | Submit an owned published post with `{ "postId": "...", "durationDays": 7 }` |
+| `GET` | `/api/community/v1/promotions/mine` | Campaign history and performance counts |
+| `GET` | `/api/community/v1/promotions/{promotionId}` | Campaign detail |
+| `PATCH` | `/api/community/v1/promotions/{promotionId}/cancel` | Cancel a pending or active campaign |
+| `POST` | `/api/community/v1/promotions/{promotionId}/impression` | Record one unique daily impression per member |
+| `POST` | `/api/community/v1/promotions/{promotionId}/click` | Record one unique daily post open per member |
+| `GET` | `/api/community/v1/communities/{communityId}/admin/promotions` | List promotions awaiting review |
+| `PATCH` | `/api/community/v1/communities/{communityId}/admin/promotions/{promotionId}` | Submit `approve` or `reject` in `decision` |
+
+An active promoted post can appear in normal feed responses with:
+
+```json
+{
+  "promotion": {
+    "id": "PROMOTION_ID",
+    "sponsored": true,
+    "startsAt": "2026-09-22T12:00:00.000Z",
+    "endsAt": "2026-09-29T12:00:00.000Z"
+  }
+}
+```
+
+The frontend must display a visible `Sponsored` label and record an impression only after the promoted item is rendered. It should record a click when the member opens the promoted post. Neither tracking call may be sent for the advertiser's own campaign.
+
+## 9. Public sharing and deep links
 
 These endpoints do not expose content from private communities:
 
@@ -285,7 +316,7 @@ wicchu://posts/{postId}
 
 Android and iOS manifests must retain the `wicchu` URL scheme. After login, the app opens the shared preview. Visitors must join before reactions, comments, saving, or reporting are enabled.
 
-## 9. Required response behavior
+## 10. Required response behavior
 
 - IDs are stable strings.
 - Times are ISO 8601 UTC timestamps.
@@ -298,7 +329,7 @@ Android and iOS manifests must retain the `wicchu` URL scheme. After login, the 
 - Error responses should contain a human-readable `message`.
 - The client must show errors and must not convert failed writes into local success.
 
-## 10. Device requirements
+## 11. Device requirements
 
 - Internet permission is required.
 - Location permission is required when creating a community or requesting nearby discovery.
@@ -306,7 +337,7 @@ Android and iOS manifests must retain the `wicchu` URL scheme. After login, the 
 - Secure storage must be available for Wicchu access and refresh tokens.
 - The APK must be rebuilt after dependency or Android-manifest changes.
 
-## 11. Production verification checklist
+## 12. Production verification checklist
 
 1. Build from `lib/main.dart` with no preview target.
 2. Confirm `API_BASE_URL` is `https://hexora.dev`.

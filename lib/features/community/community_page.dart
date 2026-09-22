@@ -304,6 +304,17 @@ class _CommunityPageState extends State<CommunityPage> {
                               likes: post.reactionCount,
                               comments: post.commentCount,
                               media: post.media,
+                              promotion: post.promotion,
+                              onPromotionImpression: post.promotion == null
+                                  ? null
+                                  : () => repository.recordPromotionImpression(
+                                      post.promotion!.id,
+                                    ),
+                              onPromotionClick: post.promotion == null
+                                  ? null
+                                  : () => repository.recordPromotionClick(
+                                      post.promotion!.id,
+                                    ),
                               reacted: post.reactedByMe,
                               onReaction: (reacted) => repository
                                   .setPostReaction(post.id, reacted: reacted),

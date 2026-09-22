@@ -23,11 +23,13 @@ class AdminAttentionSummary {
     this.pendingPosts = 0,
     this.openReports = 0,
     this.membershipRequests = 0,
+    this.pendingPromotions = 0,
   });
 
   final int pendingPosts;
   final int openReports;
   final int membershipRequests;
+  final int pendingPromotions;
 }
 
 class CreatePostInput {
@@ -131,6 +133,22 @@ abstract interface class CommunityRepository {
   Future<void> moderatePost(
     String communityId,
     String postId, {
+    required bool approve,
+    String? reason,
+  });
+  Future<PromotionEligibility> getPromotionEligibility();
+  Future<List<PromotionCampaign>> listMyPromotions();
+  Future<PromotionCampaign> createPromotion(
+    String postId, {
+    required int durationDays,
+  });
+  Future<void> cancelPromotion(String promotionId);
+  Future<void> recordPromotionImpression(String promotionId);
+  Future<void> recordPromotionClick(String promotionId);
+  Future<List<PromotionCampaign>> listPendingPromotions(String communityId);
+  Future<void> reviewPromotion(
+    String communityId,
+    String promotionId, {
     required bool approve,
     String? reason,
   });

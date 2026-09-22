@@ -152,6 +152,17 @@ class _CategoryPageState extends State<CategoryPage> {
                         likes: post.reactionCount,
                         comments: post.commentCount,
                         media: post.media,
+                        promotion: post.promotion,
+                        onPromotionImpression: post.promotion == null
+                            ? null
+                            : () => widget.repository.recordPromotionImpression(
+                                post.promotion!.id,
+                              ),
+                        onPromotionClick: post.promotion == null
+                            ? null
+                            : () => widget.repository.recordPromotionClick(
+                                post.promotion!.id,
+                              ),
                         reacted: post.reactedByMe,
                         onReaction: (reacted) => widget.repository
                             .setPostReaction(post.id, reacted: reacted),

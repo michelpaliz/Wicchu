@@ -161,6 +161,18 @@ class PostMedia {
   final String? blobName;
 }
 
+class PostPromotion {
+  const PostPromotion({
+    required this.id,
+    required this.startsAt,
+    required this.endsAt,
+  });
+
+  final String id;
+  final DateTime startsAt;
+  final DateTime endsAt;
+}
+
 class CommunityPost {
   const CommunityPost({
     required this.id,
@@ -176,6 +188,7 @@ class CommunityPost {
     this.commentCount = 0,
     this.reactedByMe = false,
     this.savedByMe = false,
+    this.promotion,
   });
 
   final String id;
@@ -191,6 +204,59 @@ class CommunityPost {
   final int commentCount;
   final bool reactedByMe;
   final bool savedByMe;
+  final PostPromotion? promotion;
+}
+
+enum PromotionStatus { pending, active, rejected, completed, cancelled }
+
+class PromotionEligibility {
+  const PromotionEligibility({
+    required this.eligible,
+    required this.trialStarted,
+    required this.trialDays,
+    required this.maxCampaignDays,
+    this.startedAt,
+    this.expiresAt,
+    this.activeCampaignId,
+    this.townId,
+  });
+
+  final bool eligible;
+  final bool trialStarted;
+  final int trialDays;
+  final int maxCampaignDays;
+  final DateTime? startedAt;
+  final DateTime? expiresAt;
+  final String? activeCampaignId;
+  final String? townId;
+}
+
+class PromotionCampaign {
+  const PromotionCampaign({
+    required this.id,
+    required this.postId,
+    required this.communityId,
+    required this.status,
+    required this.durationDays,
+    required this.impressionCount,
+    required this.clickCount,
+    required this.createdAt,
+    this.startsAt,
+    this.endsAt,
+    this.rejectionReason = '',
+  });
+
+  final String id;
+  final String postId;
+  final String communityId;
+  final PromotionStatus status;
+  final int durationDays;
+  final int impressionCount;
+  final int clickCount;
+  final DateTime createdAt;
+  final DateTime? startsAt;
+  final DateTime? endsAt;
+  final String rejectionReason;
 }
 
 class SharedPostPreview {
