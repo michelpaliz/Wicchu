@@ -34,6 +34,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
   bool _saving = false;
   bool _uploading = false;
   final _attachments = <_PostAttachment>[];
+  bool _hasPoll = false;
+  final _pollControllers = [TextEditingController(), TextEditingController()];
 
   @override
   void initState() {
@@ -44,6 +46,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
   @override
   void dispose() {
     _textController.dispose();
+    for (final controller in _pollControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -103,6 +108,45 @@ class _CreatePostPageState extends State<CreatePostPage> {
             },
           ),
           const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _hasPoll = !_hasPoll),
+              icon: const Icon(Icons.poll_outlined),
+              label: Text(context.tr(_hasPoll ? 'Remove poll' : 'Add poll')),
+            ),
+          ),
+          if (_hasPoll) ...[
+            for (final (index, controller) in _pollControllers.indexed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TextField(
+                  controller: controller,
+                  maxLength: 120,
+                  decoration: InputDecoration(
+                    labelText: context.tr('Option {number}', {'number': '${index + 1}'}),
+                    suffixIcon: _pollControllers.length > 2
+                        ? IconButton(
+                            onPressed: () => setState(() {
+                              _pollControllers.removeAt(index).dispose();
+                            }),
+                            icon: const Icon(Icons.close),
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+            if (_pollControllers.length < 10)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() => _pollControllers.add(TextEditingController())),
+                  icon: const Icon(Icons.add),
+                  label: Text(context.tr('Add option')),
+                ),
+              ),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               TextButton.icon(
@@ -187,9 +231,18 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
   Future<void> _publish() async {
     final text = _textController.text.trim();
+    final pollOptions = _hasPoll
+        ? _pollControllers.map((controller) => controller.text.trim()).toList()
+        : const <String>[];
     if (_category == null || text.isEmpty || _uploading) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.tr('Choose a category and add text.'))),
+      );
+      return;
+    }
+    if (_hasPoll && (pollOptions.any((option) => option.isEmpty) || pollOptions.toSet().length != pollOptions.length)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Add at least two unique poll options.'))),
       );
       return;
     }
@@ -201,6 +254,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           categoryId: _category!.id,
           text: text,
           media: _attachments.map((item) => item.media).toList(),
+          pollOptions: pollOptions,
         ),
       );
       if (!mounted) return;

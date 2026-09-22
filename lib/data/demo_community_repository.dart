@@ -43,6 +43,7 @@ class DemoCommunityRepository implements CommunityRepository {
   final List<PromotionCampaign> _promotions = [];
   final Map<String, List<Comment>> _comments = {};
   final Set<String> _savedPostIds = {};
+  NotificationPreferences _notificationPreferences = const NotificationPreferences();
 
   static const _towns = [Town(id: 'town-1', name: 'Town X', countryCode: 'EC')];
 
@@ -65,6 +66,26 @@ class DemoCommunityRepository implements CommunityRepository {
 
   @override
   Future<void> markAllNotificationsRead() async {}
+
+  @override
+  Future<NotificationPreferences> getNotificationPreferences() async => _notificationPreferences;
+
+  @override
+  Future<NotificationPreferences> updateNotificationPreferences({
+    bool? postActivity,
+    bool? communityActivity,
+    bool? promotions,
+  }) async => _notificationPreferences = NotificationPreferences(
+    postActivity: postActivity ?? _notificationPreferences.postActivity,
+    communityActivity: communityActivity ?? _notificationPreferences.communityActivity,
+    promotions: promotions ?? _notificationPreferences.promotions,
+  );
+
+  @override
+  Future<void> registerDeviceToken(String token, {required String platform}) async {}
+
+  @override
+  Future<void> unregisterDeviceToken(String token) async {}
 
   @override
   Future<List<Town>> listTowns() async => _towns;
@@ -320,6 +341,12 @@ class DemoCommunityRepository implements CommunityRepository {
       status: PostStatus.published,
       createdAt: DateTime.now(),
       media: input.media,
+      poll: input.pollOptions.isEmpty
+          ? null
+          : PostPoll(options: [
+              for (final (index, text) in input.pollOptions.indexed)
+                PollOption(id: 'poll-option-$index', text: text, voteCount: 0),
+            ]),
     );
     _posts.putIfAbsent(communityId, () => []).insert(0, post);
     return post;
@@ -330,11 +357,17 @@ class DemoCommunityRepository implements CommunityRepository {
       reacted ? 1 : 0;
 
   @override
+  Future<PostPoll> voteOnPost(String postId, String optionId) async {
+    final post = await getPost(postId);
+    return post.poll ?? const PostPoll(options: []);
+  }
+
+  @override
   Future<List<Comment>> listComments(String postId) async =>
       List.unmodifiable(_comments[postId] ?? const []);
 
   @override
-  Future<Comment> createComment(String postId, String text) async {
+  Future<Comment> createComment(String postId, String text, {String? parentCommentId}) async {
     final comment = Comment(
       id: 'comment-${DateTime.now().microsecondsSinceEpoch}',
       postId: postId,
@@ -342,9 +375,32 @@ class DemoCommunityRepository implements CommunityRepository {
       authorName: 'You',
       text: text,
       createdAt: DateTime.now(),
+      parentCommentId: parentCommentId,
     );
     _comments.putIfAbsent(postId, () => []).add(comment);
     return comment;
+  }
+
+  @override
+  Future<int> setCommentReaction(String commentId, {required bool reacted}) async {
+    for (final entry in _comments.entries) {
+      final index = entry.value.indexWhere((comment) => comment.id == commentId);
+      if (index < 0) continue;
+      final current = entry.value[index];
+      entry.value[index] = Comment(
+        id: current.id,
+        postId: current.postId,
+        authorId: current.authorId,
+        text: current.text,
+        createdAt: current.createdAt,
+        authorName: current.authorName,
+        parentCommentId: current.parentCommentId,
+        reactionCount: reacted ? current.reactionCount + (current.reactedByMe ? 0 : 1) : current.reactionCount - (current.reactedByMe ? 1 : 0),
+        reactedByMe: reacted,
+      );
+      return entry.value[index].reactionCount;
+    }
+    return 0;
   }
 
   @override

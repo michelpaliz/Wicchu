@@ -304,6 +304,8 @@ class _CommunityPageState extends State<CommunityPage> {
                               likes: post.reactionCount,
                               comments: post.commentCount,
                               media: post.media,
+                              poll: post.poll,
+                              onPollVote: (optionId) => repository.voteOnPost(post.id, optionId),
                               promotion: post.promotion,
                               onPromotionImpression: post.promotion == null
                                   ? null

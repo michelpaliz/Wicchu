@@ -47,6 +47,34 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<NotificationPreferences> getNotificationPreferences() async =>
+      _preferencesFromJson(await _api.get('/api/community/v1/me/notification-preferences'));
+
+  @override
+  Future<NotificationPreferences> updateNotificationPreferences({
+    bool? postActivity,
+    bool? communityActivity,
+    bool? promotions,
+  }) async => _preferencesFromJson(await _api.patch(
+    '/api/community/v1/me/notification-preferences',
+    body: {
+      if (postActivity != null) 'postActivity': postActivity,
+      if (communityActivity != null) 'communityActivity': communityActivity,
+      if (promotions != null) 'promotions': promotions,
+    },
+  ));
+
+  @override
+  Future<void> registerDeviceToken(String token, {required String platform}) async {
+    await _api.post('/api/community/v1/me/devices', body: {'token': token, 'platform': platform});
+  }
+
+  @override
+  Future<void> unregisterDeviceToken(String token) async {
+    await _api.delete('/api/community/v1/me/devices?token=${Uri.encodeQueryComponent(token)}');
+  }
+
+  @override
   Future<List<Town>> listTowns() async {
     final body = await _api.get('/api/community/v1/towns');
     return _list(body, 'towns').map(_townFromJson).toList(growable: false);
@@ -365,6 +393,7 @@ class HttpCommunityRepository implements CommunityRepository {
               },
             )
             .toList(),
+        if (input.pollOptions.isNotEmpty) 'pollOptions': input.pollOptions,
       },
     );
     return _postFromJson(_object(body, 'post'));
@@ -398,6 +427,15 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<PostPoll> voteOnPost(String postId, String optionId) async {
+    final body = await _api.put(
+      '/api/community/v1/posts/$postId/poll-vote',
+      body: {'optionId': optionId},
+    );
+    return _pollFromJson(_object(body, 'poll'));
+  }
+
+  @override
   Future<List<Comment>> listComments(String postId) async {
     final body = await _api.get('/api/community/v1/posts/$postId/comments');
     return _list(
@@ -407,12 +445,19 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<Comment> createComment(String postId, String text) async {
+  Future<Comment> createComment(String postId, String text, {String? parentCommentId}) async {
     final body = await _api.post(
       '/api/community/v1/posts/$postId/comments',
-      body: {'text': text},
+      body: {'text': text, if (parentCommentId != null) 'parentCommentId': parentCommentId},
     );
     return _commentFromJson(_object(body, 'comment'));
+  }
+
+  @override
+  Future<int> setCommentReaction(String commentId, {required bool reacted}) async {
+    final path = '/api/community/v1/comments/$commentId/reaction';
+    final body = reacted ? await _api.put(path) : await _api.delete(path);
+    return (body['reactionCount'] as num?)?.toInt() ?? 0;
   }
 
   @override
@@ -734,8 +779,23 @@ class HttpCommunityRepository implements CommunityRepository {
       promotion: json['promotion'] is Map<String, dynamic>
           ? _postPromotionFromJson(json['promotion'] as Map<String, dynamic>)
           : null,
+      poll: json['poll'] is Map<String, dynamic>
+          ? _pollFromJson(json['poll'] as Map<String, dynamic>)
+          : null,
     );
   }
+
+  static PostPoll _pollFromJson(Map<String, dynamic> json) => PostPoll(
+    options: (json['options'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map((option) => PollOption(
+          id: (option['id'] ?? option['_id'])?.toString() ?? '',
+          text: option['text']?.toString() ?? '',
+          voteCount: (option['voteCount'] as num?)?.toInt() ?? 0,
+        ))
+        .toList(growable: false),
+    selectedOptionId: json['selectedOptionId']?.toString(),
+  );
 
   static PostPromotion _postPromotionFromJson(Map<String, dynamic> json) =>
       PostPromotion(
@@ -781,6 +841,9 @@ class HttpCommunityRepository implements CommunityRepository {
           authorJson['id']?.toString() ?? json['authorId']?.toString() ?? '',
       authorName: authorJson['name'] as String? ?? 'Wicchu member',
       text: json['text'] as String? ?? '',
+      parentCommentId: json['parentCommentId']?.toString(),
+      reactionCount: (json['reactionCount'] as num?)?.toInt() ?? 0,
+      reactedByMe: json['reactedByMe'] == true,
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
@@ -798,10 +861,10 @@ class HttpCommunityRepository implements CommunityRepository {
       id: _id(json),
       actorName: actorJson['name'] as String? ?? 'Wicchu member',
       actorAvatarUrl: actorJson['avatarUrl'] as String?,
-      type: json['type'] == 'post_comment' || json['type'] == 'postComment'
-          ? CommunityNotificationType.postComment
-          : CommunityNotificationType.postReaction,
+      type: _notificationType(json['type']?.toString()),
       postId: json['postId']?.toString() ?? '',
+      communityId: json['communityId']?.toString() ?? '',
+      promotionId: json['promotionId']?.toString() ?? '',
       message: json['message'] as String? ?? '',
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
@@ -809,6 +872,36 @@ class HttpCommunityRepository implements CommunityRepository {
       isRead: json['readAt'] != null || json['isRead'] == true,
     );
   }
+
+  static NotificationPreferences _preferencesFromJson(Map<String, dynamic> body) {
+    final value = body['preferences'];
+    final json = value is Map<String, dynamic> ? value : body;
+    return NotificationPreferences(
+      postActivity: json['postActivity'] as bool? ?? true,
+      communityActivity: json['communityActivity'] as bool? ?? true,
+      promotions: json['promotions'] as bool? ?? true,
+    );
+  }
+
+  static CommunityNotificationType _notificationType(String? value) => switch (value) {
+    'post_comment' || 'postComment' => CommunityNotificationType.postComment,
+    'comment_reaction' => CommunityNotificationType.commentReaction,
+    'comment_reply' => CommunityNotificationType.commentReply,
+    'post_approved' => CommunityNotificationType.postApproved,
+    'post_rejected' => CommunityNotificationType.postRejected,
+    'post_removed' => CommunityNotificationType.postRemoved,
+    'post_restored' => CommunityNotificationType.postRestored,
+    'comment_approved' => CommunityNotificationType.commentApproved,
+    'comment_rejected' => CommunityNotificationType.commentRejected,
+    'comment_removed' => CommunityNotificationType.commentRemoved,
+    'member_banned' => CommunityNotificationType.memberBanned,
+    'member_unbanned' => CommunityNotificationType.memberUnbanned,
+    'membership_approved' => CommunityNotificationType.membershipApproved,
+    'membership_rejected' => CommunityNotificationType.membershipRejected,
+    'promotion_approved' => CommunityNotificationType.promotionApproved,
+    'promotion_rejected' => CommunityNotificationType.promotionRejected,
+    _ => CommunityNotificationType.postReaction,
+  };
 
   static String _id(Map<String, dynamic> json) =>
       (json['_id'] ?? json['id'])?.toString() ?? '';

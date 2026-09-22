@@ -89,6 +89,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 likes: post.reactionCount,
                 comments: post.commentCount,
                 media: post.media,
+                poll: post.poll,
+                onPollVote: (optionId) => widget.repository.voteOnPost(post.id, optionId),
                 reacted: post.reactedByMe,
                 onReaction: (reacted) => widget.repository.setPostReaction(
                   post.id,

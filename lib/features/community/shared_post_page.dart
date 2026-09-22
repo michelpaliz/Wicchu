@@ -90,6 +90,7 @@ class _SharedPostPageState extends State<SharedPostPage> {
               time: formatPostTime(context, post.createdAt),
               text: post.text,
               media: post.media,
+              poll: post.poll,
               likes: post.reactionCount,
               comments: post.commentCount,
               reacted: post.reactedByMe,

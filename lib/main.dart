@@ -12,9 +12,11 @@ import 'domain/community_repository.dart';
 import 'features/auth/login_page.dart';
 import 'features/main/main_shell.dart';
 import 'features/community/shared_post_page.dart';
+import 'features/promotions/promotions_page.dart';
 import 'localization/app_language.dart';
 import 'theme/theme_menu.dart';
 import 'theme/wicchu_theme.dart';
+import 'services/push_notification_service.dart';
 
 void main() {
   runApp(
@@ -43,11 +45,13 @@ class _WicchuAppState extends State<WicchuApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   StreamSubscription<Uri>? _linkSubscription;
   String? _pendingPostId;
+  bool _pendingPromotions = false;
   late Future<bool> _hasSession;
   String _languageCode = 'en';
   bool _languageChangedByUser = false;
   ThemeMode _themeMode = ThemeMode.system;
   bool _themeChangedByUser = false;
+  bool _pushActivationStarted = false;
 
   @override
   void initState() {
@@ -60,7 +64,32 @@ class _WicchuAppState extends State<WicchuApp> {
   @override
   void dispose() {
     _linkSubscription?.cancel();
+    PushNotificationService.instance.dispose();
     super.dispose();
+  }
+
+  void _activatePush() {
+    if (_pushActivationStarted) return;
+    _pushActivationStarted = true;
+    PushNotificationService.instance.activate(
+      widget.repository,
+      onTap: (data) {
+        final type = data['type']?.toString() ?? '';
+        if (type.startsWith('promotion_')) {
+          if (mounted) setState(() => _pendingPromotions = true);
+          _openPendingPost();
+          return;
+        }
+        final postId = data['postId']?.toString();
+        const openableTypes = {
+          'post_reaction', 'comment_reaction', 'post_comment', 'comment_reply', 'post_approved', 'post_restored', 'comment_approved',
+        };
+        if (openableTypes.contains(type) && postId != null && postId.isNotEmpty) {
+          _queueLink(Uri(scheme: 'wicchu', host: 'posts', path: postId));
+          _openPendingPost();
+        }
+      },
+    );
   }
 
   Future<void> _listenForLinks() async {
@@ -98,6 +127,15 @@ class _WicchuAppState extends State<WicchuApp> {
   }
 
   void _openPendingPost() {
+    if (_pendingPromotions) {
+      _pendingPromotions = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigatorKey.currentState?.push(
+          MaterialPageRoute(builder: (_) => PromotionsPage(repository: widget.repository)),
+        );
+      });
+      return;
+    }
     final postId = _pendingPostId;
     if (postId == null) return;
     _pendingPostId = null;
@@ -189,6 +227,7 @@ class _WicchuAppState extends State<WicchuApp> {
                 );
               }
               if (snapshot.data!) {
+                _activatePush();
                 _openPendingPost();
                 return MainShell(
                   repository: widget.repository,

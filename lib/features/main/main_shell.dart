@@ -515,6 +515,8 @@ class _HomeTabState extends State<_HomeTab> {
                     likes: post.reactionCount,
                     comments: post.commentCount,
                     media: post.media,
+                    poll: post.poll,
+                    onPollVote: (optionId) => widget.repository.voteOnPost(post.id, optionId),
                     promotion: post.promotion,
                     onPromotionImpression: post.promotion == null
                         ? null
@@ -905,10 +907,25 @@ class _ActivityTabState extends State<_ActivityTab> {
             separatorBuilder: (_, _) => const Divider(),
             itemBuilder: (context, index) {
               final notification = notifications[index];
-              final icon =
-                  notification.type == CommunityNotificationType.postComment
-                  ? Icons.chat_bubble_outline
-                  : Icons.favorite_border;
+              final icon = switch (notification.type) {
+                CommunityNotificationType.postReaction => Icons.favorite_border,
+                CommunityNotificationType.commentReaction => Icons.favorite_border,
+                CommunityNotificationType.postComment ||
+                CommunityNotificationType.commentReply ||
+                CommunityNotificationType.commentApproved ||
+                CommunityNotificationType.commentRejected ||
+                CommunityNotificationType.commentRemoved => Icons.chat_bubble_outline,
+                CommunityNotificationType.postApproved ||
+                CommunityNotificationType.postRestored ||
+                CommunityNotificationType.membershipApproved ||
+                CommunityNotificationType.memberUnbanned ||
+                CommunityNotificationType.promotionApproved => Icons.check_circle_outline,
+                CommunityNotificationType.postRejected ||
+                CommunityNotificationType.postRemoved ||
+                CommunityNotificationType.membershipRejected ||
+                CommunityNotificationType.memberBanned ||
+                CommunityNotificationType.promotionRejected => Icons.error_outline,
+              };
               return ListTile(
                 tileColor: notification.isRead
                     ? null
@@ -958,10 +975,30 @@ class _ActivityTabState extends State<_ActivityTab> {
       await _markRead(notification.id);
     }
     if (!mounted) return;
-    if (notification.postId.isEmpty) {
+    if ({
+      CommunityNotificationType.promotionApproved,
+      CommunityNotificationType.promotionRejected,
+    }.contains(notification.type)) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PromotionsPage(repository: widget.repository)),
+      );
+      if (mounted) setState(_reload);
+      return;
+    }
+    final postCanOpen = {
+      CommunityNotificationType.postReaction,
+      CommunityNotificationType.commentReaction,
+      CommunityNotificationType.postComment,
+      CommunityNotificationType.commentReply,
+      CommunityNotificationType.postApproved,
+      CommunityNotificationType.postRestored,
+      CommunityNotificationType.commentApproved,
+    }.contains(notification.type);
+    if (!postCanOpen || notification.postId.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(context.tr('Post unavailable'))));
+      ).showSnackBar(SnackBar(content: Text(context.tr('Update received'))));
       return;
     }
     await Navigator.push(
@@ -1129,7 +1166,7 @@ class _ProfileTabState extends State<_ProfileTab> {
             label: 'Settings',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const AccountSettingsPage()),
+              MaterialPageRoute(builder: (_) => AccountSettingsPage(repository: widget.repository)),
             ),
           ),
           ListTile(
