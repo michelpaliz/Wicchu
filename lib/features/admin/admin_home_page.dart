@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../../widgets/wicchu_logo.dart';
 import 'admin_dashboard_page.dart';
 import 'create_community_page.dart';
 
@@ -27,18 +28,14 @@ class _AdminHomePageState extends State<AdminHomePage> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Wicchu')),
+      appBar: AppBar(title: const WicchuTitle()),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.people_alt_rounded,
-                size: 68,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              const WicchuLogo(size: 96),
               const SizedBox(height: 20),
               Text(
                 context.tr('Bring your community together'),

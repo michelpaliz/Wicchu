@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/auth_gateway.dart';
 import '../../localization/app_language.dart';
 import '../../theme/theme_menu.dart';
+import '../../widgets/wicchu_logo.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -37,11 +38,7 @@ class _LoginPageState extends State<LoginPage> {
                     children: [ThemeMenu(), LanguageMenu()],
                   ),
                   const SizedBox(height: 24),
-                  Icon(
-                    Icons.people_alt_rounded,
-                    size: 76,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  const WicchuLogo(size: 112),
                   const SizedBox(height: 20),
                   Text(
                     'Wicchu',

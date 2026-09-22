@@ -9,6 +9,7 @@ import '../../domain/community_repository.dart';
 import '../../domain/auth_gateway.dart';
 import '../../localization/app_language.dart';
 import '../../theme/theme_menu.dart';
+import '../../widgets/wicchu_logo.dart';
 import '../admin/create_community_page.dart';
 import '../community/community_page.dart';
 import '../community/community_avatar.dart';
@@ -240,10 +241,7 @@ class _HomeTabState extends State<_HomeTab> {
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Wicchu',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
+        title: const WicchuTitle(),
         actions: [
           IconButton(
             tooltip: context.tr(_showSearch ? 'Close search' : 'Search posts'),

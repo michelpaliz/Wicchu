@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../../widgets/wicchu_logo.dart';
 import 'pending_posts_page.dart';
 import 'admin_review_queues.dart';
 import 'admin_management_pages.dart';
@@ -41,7 +42,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Wicchu')),
+      appBar: AppBar(title: const WicchuTitle()),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

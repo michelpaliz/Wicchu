@@ -44,6 +44,15 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   }) async {
     lastPath = path;
     lastBody = body;
+    if (path == '/api/community/v1/towns/resolve') {
+      return {
+        'town': {
+          'id': 'town-echeandia',
+          'name': 'Echeandía',
+          'countryCode': 'EC',
+        },
+      };
+    }
     return {
       'community': {'id': 'community-1', 'name': body?['name']},
     };
@@ -58,7 +67,7 @@ void main() {
       final repository = HttpCommunityRepository(apiClient: api);
 
       final communities = await repository.listCommunities(query: 'Town X');
-    expect(api.lastPath, '/api/community/v1/communities?q=Town+X');
+      expect(api.lastPath, '/api/community/v1/communities?q=Town+X');
       expect(communities.single.name, 'Riverside');
 
       await repository.listPosts(
@@ -72,6 +81,21 @@ void main() {
       );
     },
   );
+
+  test('location resolution registers and returns the detected town', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final town = await repository.locateTown(
+      latitude: -1.4325,
+      longitude: -79.2791,
+    );
+
+    expect(api.lastPath, '/api/community/v1/towns/resolve');
+    expect(api.lastBody, {'latitude': -1.4325, 'longitude': -79.2791});
+    expect(town.id, 'town-echeandia');
+    expect(town.name, 'Echeandía');
+  });
 
   test('community creation sends approval rules and category names', () async {
     final api = _RecordingApiClient();

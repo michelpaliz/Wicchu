@@ -57,11 +57,10 @@ class HttpCommunityRepository implements CommunityRepository {
     required double latitude,
     required double longitude,
   }) async {
-    final uri = Uri(
-      path: '/api/community/v1/towns/reverse-geocode',
-      queryParameters: {'latitude': '$latitude', 'longitude': '$longitude'},
+    final body = await _api.post(
+      '/api/community/v1/towns/resolve',
+      body: {'latitude': latitude, 'longitude': longitude},
     );
-    final body = await _api.get(uri.toString());
     final value = body['town'];
     if (value is! Map<String, dynamic>) {
       final location = body['location'];
@@ -70,8 +69,8 @@ class HttpCommunityRepository implements CommunityRepository {
           : null;
       throw ApiException(
         name == null
-            ? 'No supported town was found near your location.'
-            : 'Wicchu is not available in $name yet.',
+            ? 'No town was found near your location.'
+            : 'Unable to register $name. Please try again.',
       );
     }
     return _townFromJson(value);
