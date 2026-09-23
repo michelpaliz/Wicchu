@@ -12,6 +12,8 @@ class PushNotificationService {
   static final instance = PushNotificationService._();
   StreamSubscription<String>? _tokenSubscription;
   StreamSubscription<RemoteMessage>? _tapSubscription;
+  StreamSubscription<RemoteMessage>? _foregroundSubscription;
+  final _receivedController = StreamController<Map<String, dynamic>>.broadcast();
   bool _active = false;
 
   static const _apiKey = String.fromEnvironment('FIREBASE_API_KEY');
@@ -27,10 +29,12 @@ class PushNotificationService {
           _appId.isNotEmpty &&
           _senderId.isNotEmpty &&
           _projectId.isNotEmpty);
+  Stream<Map<String, dynamic>> get received => _receivedController.stream;
 
   Future<void> activate(
     CommunityRepository repository, {
     required void Function(Map<String, dynamic> data) onTap,
+    void Function(String message, Map<String, dynamic> data)? onForeground,
   }) async {
     if (_active || !isConfigured) return;
     try {
@@ -60,6 +64,13 @@ class PushNotificationService {
       _tapSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
         (message) => onTap(message.data),
       );
+      _foregroundSubscription = FirebaseMessaging.onMessage.listen((message) {
+        _receivedController.add(message.data);
+        onForeground?.call(
+          message.notification?.body ?? 'New activity on Wicchu',
+          message.data,
+        );
+      });
       final initial = await messaging.getInitialMessage();
       if (initial != null) onTap(initial.data);
       _active = true;
@@ -77,5 +88,6 @@ class PushNotificationService {
   Future<void> dispose() async {
     await _tokenSubscription?.cancel();
     await _tapSubscription?.cancel();
+    await _foregroundSubscription?.cancel();
   }
 }

@@ -1038,6 +1038,10 @@ class HttpCommunityRepository implements CommunityRepository {
         'membership_rejected' => CommunityNotificationType.membershipRejected,
         'promotion_approved' => CommunityNotificationType.promotionApproved,
         'promotion_rejected' => CommunityNotificationType.promotionRejected,
+        'membership_request' => CommunityNotificationType.membershipRequest,
+        'post_pending' => CommunityNotificationType.postPending,
+        'comment_pending' => CommunityNotificationType.commentPending,
+        'report_created' => CommunityNotificationType.reportCreated,
         _ => CommunityNotificationType.postReaction,
       };
 

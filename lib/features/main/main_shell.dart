@@ -9,6 +9,7 @@ import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../domain/auth_gateway.dart';
 import '../../localization/app_language.dart';
+import '../../services/push_notification_service.dart';
 import '../../theme/theme_menu.dart';
 import '../../widgets/wicchu_logo.dart';
 import '../admin/create_community_page.dart';
@@ -1650,6 +1651,23 @@ class _ActivityTab extends StatefulWidget {
 
 class _ActivityTabState extends State<_ActivityTab> {
   late Future<NotificationFeed> _feed = widget.repository.listNotifications();
+  StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationSubscription = PushNotificationService.instance.received.listen(
+      (_) {
+        if (mounted) setState(_reload);
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
+  }
 
   void _reload() {
     _feed = widget.repository.listNotifications();
@@ -1724,6 +1742,12 @@ class _ActivityTabState extends State<_ActivityTab> {
                 CommunityNotificationType.commentRejected ||
                 CommunityNotificationType.commentRemoved =>
                   Icons.chat_bubble_outline,
+                CommunityNotificationType.membershipRequest =>
+                  Icons.person_add_alt_1_outlined,
+                CommunityNotificationType.postPending ||
+                CommunityNotificationType.commentPending =>
+                  Icons.pending_actions_outlined,
+                CommunityNotificationType.reportCreated => Icons.flag_outlined,
                 CommunityNotificationType.postApproved ||
                 CommunityNotificationType.postRestored ||
                 CommunityNotificationType.membershipApproved ||

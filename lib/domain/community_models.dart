@@ -28,6 +28,10 @@ enum CommunityNotificationType {
   membershipRejected,
   promotionApproved,
   promotionRejected,
+  membershipRequest,
+  postPending,
+  commentPending,
+  reportCreated,
 }
 
 class NotificationPreferences {

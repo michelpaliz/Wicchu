@@ -44,6 +44,7 @@ class WicchuApp extends StatefulWidget {
 
 class _WicchuAppState extends State<WicchuApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<Uri>? _linkSubscription;
   String? _pendingPostId;
   bool _pendingPromotions = false;
@@ -98,6 +99,40 @@ class _WicchuAppState extends State<WicchuApp> {
           _queueLink(Uri(scheme: 'wicchu', host: 'posts', path: postId));
           _openPendingPost();
         }
+      },
+      onForeground: (message, data) {
+        const openableTypes = {
+          'post_reaction',
+          'comment_reaction',
+          'post_comment',
+          'comment_reply',
+          'post_approved',
+          'post_restored',
+          'comment_approved',
+          'report_created',
+        };
+        final type = data['type']?.toString() ?? '';
+        final postId = data['postId']?.toString();
+        _scaffoldMessengerKey.currentState
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(message),
+              action: !openableTypes.contains(type) ||
+                      postId == null ||
+                      postId.isEmpty
+                  ? null
+                  : SnackBarAction(
+                      label: 'View',
+                      onPressed: () {
+                        _queueLink(
+                          Uri(scheme: 'wicchu', host: 'posts', path: postId),
+                        );
+                        _openPendingPost();
+                      },
+                    ),
+            ),
+          );
       },
     );
   }
@@ -218,6 +253,7 @@ class _WicchuAppState extends State<WicchuApp> {
         onLanguageChanged: _setLanguage,
         child: MaterialApp(
           navigatorKey: _navigatorKey,
+          scaffoldMessengerKey: _scaffoldMessengerKey,
           title: 'Wicchu',
           debugShowCheckedModeBanner: false,
           theme: WicchuTheme.light,

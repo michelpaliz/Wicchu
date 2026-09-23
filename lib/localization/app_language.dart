@@ -508,6 +508,12 @@ const _spanish = <String, String>{
   'Join to view community media.':
       'Únete para ver el contenido multimedia de la comunidad.',
   'No media yet': 'Aún no hay contenido multimedia',
+  'requested to join your community': 'solicitó unirse a tu comunidad',
+  'submitted a post for review': 'envió una publicación para revisión',
+  'edited a post that needs review':
+      'editó una publicación que necesita revisión',
+  'submitted a comment for review': 'envió un comentario para revisión',
+  'reported a post': 'reportó una publicación',
   'Active recently': 'Activo recientemente',
   'Privacy': 'Privacidad',
   'Nearby discovery': 'Descubrimiento cercano',
