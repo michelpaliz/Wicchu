@@ -135,7 +135,7 @@ void main() {
     expect(find.text('Your communities'), findsOneWidget);
   });
 
-  testWidgets('home handles multiple towns and keeps post actions visible', (
+  testWidgets('home uses the central post action across multiple towns', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({'language': 'es'});
@@ -165,9 +165,10 @@ void main() {
 
     expect(find.text('Lo último de tus comunidades.'), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsNothing);
-    expect(find.text('Nueva publicación'), findsOneWidget);
+    expect(find.text('Publicar'), findsOneWidget);
+    expect(find.byIcon(Icons.add_rounded), findsOneWidget);
 
-    await tester.tap(find.text('Nueva publicación'));
+    await tester.tap(find.text('Publicar'));
     await tester.pumpAndSettle();
     expect(find.text('Elige una comunidad'), findsOneWidget);
     await tester.tap(find.text('Echeandía').last);

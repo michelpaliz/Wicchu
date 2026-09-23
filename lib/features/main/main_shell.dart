@@ -40,7 +40,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
-  int _homeRevision = 0;
+  final _homeKey = GlobalKey<_HomeTabState>();
   int _exploreRevision = 0;
   int _profileRevision = 0;
   int _activityRevision = 0;
@@ -49,7 +49,7 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     final pages = [
       _HomeTab(
-        key: ValueKey('home-$_homeRevision'),
+        key: _homeKey,
         repository: widget.repository,
         onCommunitiesChanged: () => setState(() {
           _exploreRevision++;
@@ -59,10 +59,10 @@ class _MainShellState extends State<MainShell> {
       _ExploreTab(
         key: ValueKey('explore-$_exploreRevision'),
         repository: widget.repository,
-        onCommunitiesChanged: () => setState(() {
-          _homeRevision++;
-          _profileRevision++;
-        }),
+        onCommunitiesChanged: () {
+          _homeKey.currentState?.refresh();
+          setState(() => _profileRevision++);
+        },
       ),
       _ActivityTab(
         key: ValueKey('activity-$_activityRevision'),
@@ -73,43 +73,195 @@ class _MainShellState extends State<MainShell> {
         authGateway: widget.authGateway,
         onSignedOut: widget.onSignedOut,
         refreshVersion: _profileRevision,
-        onCommunityCreated: () => setState(() {
-          _homeRevision++;
-          _exploreRevision++;
-        }),
+        onCommunityCreated: () {
+          _homeKey.currentState?.refresh();
+          setState(() => _exploreRevision++);
+        },
       ),
     ];
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _CompactBottomNavigation(
         selectedIndex: _index,
-        onDestinationSelected: (value) => setState(() {
-          _index = value;
-          if (value == 2) _activityRevision++;
-          if (value == 3) _profileRevision++;
-        }),
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home),
-            label: context.tr('Home'),
+        onSelected: _selectDestination,
+        onCreatePost: () => _homeKey.currentState?.startPost(),
+      ),
+    );
+  }
+
+  void _selectDestination(int value) {
+    setState(() {
+      _index = value;
+      if (value == 2) _activityRevision++;
+      if (value == 3) _profileRevision++;
+    });
+  }
+}
+
+class _CompactBottomNavigation extends StatelessWidget {
+  const _CompactBottomNavigation({
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.onCreatePost,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+  final VoidCallback onCreatePost;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          height: 62,
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: scheme.outlineVariant.withValues(alpha: 0.45),
+                width: 0.5,
+              ),
+            ),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.explore_outlined),
-            selectedIcon: const Icon(Icons.explore),
-            label: context.tr('Explore'),
+          child: Row(
+            children: [
+              _CompactNavigationItem(
+                icon: Icons.home_outlined,
+                selectedIcon: Icons.home_rounded,
+                label: context.tr('Home'),
+                selected: selectedIndex == 0,
+                onTap: () => onSelected(0),
+              ),
+              _CompactNavigationItem(
+                icon: Icons.explore_outlined,
+                selectedIcon: Icons.explore_rounded,
+                label: context.tr('Explore'),
+                selected: selectedIndex == 1,
+                onTap: () => onSelected(1),
+              ),
+              _CreatePostNavigationItem(
+                label: context.tr('Post'),
+                onTap: onCreatePost,
+              ),
+              _CompactNavigationItem(
+                icon: Icons.notifications_outlined,
+                selectedIcon: Icons.notifications_rounded,
+                label: context.tr('Activity'),
+                selected: selectedIndex == 2,
+                onTap: () => onSelected(2),
+              ),
+              _CompactNavigationItem(
+                icon: Icons.person_outline_rounded,
+                selectedIcon: Icons.person_rounded,
+                label: context.tr('You'),
+                selected: selectedIndex == 3,
+                onTap: () => onSelected(3),
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.notifications_outlined),
-            selectedIcon: const Icon(Icons.notifications),
-            label: context.tr('Activity'),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactNavigationItem extends StatelessWidget {
+  const _CompactNavigationItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(selected ? selectedIcon : icon, size: 22, color: color),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontSize: 10.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.person_outline),
-            selectedIcon: const Icon(Icons.person),
-            label: context.tr('You'),
+        ),
+      ),
+    );
+  }
+}
+
+class _CreatePostNavigationItem extends StatelessWidget {
+  const _CreatePostNavigationItem({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        label: label,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.add_rounded,
+                  color: scheme.onPrimary,
+                  size: 26,
+                ),
+              ),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: scheme.primary,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -192,6 +344,33 @@ class _HomeTabState extends State<_HomeTab> {
       posts: posts,
       categories: categories,
     );
+  }
+
+  void refresh() {
+    if (mounted) setState(_reload);
+  }
+
+  Future<void> startPost() async {
+    try {
+      final data = await _data;
+      if (!mounted) return;
+      if (data.communities.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.tr('Join a community before creating a post.'),
+            ),
+          ),
+        );
+        return;
+      }
+      await _startPost(data.communities);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
   }
 
   Future<void> _createPost(Community community) async {
@@ -470,17 +649,6 @@ class _HomeTabState extends State<_HomeTab> {
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
-                if (communities.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: FilledButton.icon(
-                      onPressed: () => _startPost(communities),
-                      icon: const Icon(Icons.add),
-                      label: Text(context.tr('New post')),
-                    ),
-                  ),
-                ],
                 if (_showSearch) ...[
                   const SizedBox(height: 16),
                   TextField(
@@ -530,9 +698,15 @@ class _HomeTabState extends State<_HomeTab> {
                         communityById[post.communityId]?.name ?? 'Wicchu',
                     author: post.authorName,
                     authorAvatarUrl: post.authorAvatarUrl,
-                    onAuthorTap: () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
-                    )),
+                    onAuthorTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MemberProfilePage(
+                          userId: post.authorId,
+                          repository: widget.repository,
+                        ),
+                      ),
+                    ),
                     time: formatPostTime(context, post.createdAt),
                     text: post.text,
                     likes: post.reactionCount,

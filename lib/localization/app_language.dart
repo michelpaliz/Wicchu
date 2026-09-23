@@ -124,6 +124,8 @@ const _spanish = <String, String>{
   'Your communities': 'Tus comunidades',
   'Join a community to see local updates here.':
       'Únete a una comunidad para ver novedades locales aquí.',
+  'Join a community before creating a post.':
+      'Únete a una comunidad antes de crear una publicación.',
   '{count} neighbors': '{count} vecinos',
   '{count} neighbor': '{count} vecino',
   'Neighborhood feed': 'Noticias de tu barrio',
