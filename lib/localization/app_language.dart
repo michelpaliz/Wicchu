@@ -282,6 +282,14 @@ const _spanish = <String, String>{
       'Vacía un campo para eliminarlo de tu perfil.',
   'Saving changes…': 'Guardando cambios…',
   'Email': 'Correo electrónico',
+  'Select a community': 'Selecciona una comunidad',
+  'Find your community': 'Encuentra tu comunidad',
+  'Discover communities nearby, join and connect with your neighbors.':
+      'Descubre comunidades cerca de ti, únete y conecta con tus vecinos.',
+  'Choose a community to see its posts and neighbors.':
+      'Elige una comunidad para ver sus publicaciones y vecinos.',
+  'Community details': 'Información de la comunidad',
+  'View all online neighbors': 'Ver todos los vecinos conectados',
   'Publication': 'Publicación',
   'View my profile': 'Ver mi perfil',
   'My content': 'Mi contenido',

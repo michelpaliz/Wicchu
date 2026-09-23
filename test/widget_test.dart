@@ -88,6 +88,11 @@ class _EmptyTownsRepository extends DemoCommunityRepository {
   Future<List<Town>> listTowns() async => const [];
 }
 
+class _NoCommunitiesRepository extends DemoCommunityRepository {
+  @override
+  Future<List<Community>> listJoinedCommunities() async => [];
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -100,13 +105,72 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Wicchu'), findsOneWidget);
-    expect(find.text('Town X'), findsOneWidget);
-    expect(find.text('Good things happen nearby.'), findsOneWidget);
+    expect(find.text('Wicchu'), findsNothing);
+    expect(find.text('Town X Community'), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Explore'), findsOneWidget);
     expect(find.text('Activity'), findsOneWidget);
     expect(find.text('You'), findsOneWidget);
+  });
+
+  testWidgets('empty Home shows discovery and routes to Explore', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: _NoCommunitiesRepository(),
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Wicchu'), findsOneWidget);
+    expect(find.text('Find your community'), findsOneWidget);
+    expect(find.text('No posts found'), findsNothing);
+    await tester.tap(find.text('Explore communities'));
+    await tester.pumpAndSettle();
+    expect(find.text('Town X Community'), findsWidgets);
+  });
+
+  testWidgets('multiple communities require a choice and persist it', (
+    tester,
+  ) async {
+    final repository = DemoCommunityRepository();
+    final second = await repository.createCommunity(
+      const CreateCommunityInput(
+        name: 'Second neighborhood',
+        description: 'Nearby',
+        town: Town(id: 'town-1', name: 'Town X', countryCode: 'EC'),
+        visibility: CommunityVisibility.public,
+        categoryNames: ['General'],
+      ),
+    );
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: repository,
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select a community').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Second neighborhood'));
+    await tester.pumpAndSettle();
+    expect(find.text('Second neighborhood'), findsOneWidget);
+    expect(
+      (await SharedPreferences.getInstance()).getString(
+        'currentCommunityId:current-user',
+      ),
+      second.id,
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: repository,
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Second neighborhood'), findsOneWidget);
   });
 
   testWidgets('logs out to the sign-in screen and can sign in again', (
@@ -136,7 +200,7 @@ void main() {
     await tester.tap(find.text('Continue with Facebook'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('Town X'), findsOneWidget);
+    expect(find.text('Town X Community'), findsOneWidget);
   });
 
   testWidgets('home uses the central post action across multiple towns', (
@@ -167,7 +231,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Lo bueno pasa cerca de ti.'), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsNothing);
     expect(find.byIcon(CupertinoIcons.plus), findsOneWidget);
 
@@ -434,12 +497,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('You').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('EN'),
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.text('EN').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Español'));
     await tester.pumpAndSettle();
-    expect(find.text('Lo bueno pasa cerca de ti.'), findsOneWidget);
     expect(find.text('Inicio'), findsOneWidget);
+    await tester.tap(find.text('Inicio').last);
+    await tester.pumpAndSettle();
     expect(find.text('Noticias'), findsOneWidget);
 
     final spanishContext = tester.element(find.text('Inicio'));
@@ -456,6 +527,11 @@ void main() {
     );
     await tester.tap(find.text('Tú').last);
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('1 comunidad · 0 publicaciones'),
+      -250,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('1 comunidad · 0 publicaciones'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Cerrar sesión'),
@@ -467,11 +543,13 @@ void main() {
     await tester.tap(find.text('Inicio').last);
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Tú').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('ES').first);
     await tester.tap(find.text('ES').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('English'));
     await tester.pumpAndSettle();
-    expect(find.text('Good things happen nearby.'), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
   });
 
@@ -506,6 +584,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('You').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byTooltip('Appearance'),
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.byTooltip('Appearance').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Dark').last);

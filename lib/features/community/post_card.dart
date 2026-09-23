@@ -38,6 +38,7 @@ class PostCard extends StatefulWidget {
     required this.text,
     this.price,
     this.collapseText = false,
+    this.showCommunity = true,
     this.likes = 0,
     this.comments = 0,
     this.showImage = false,
@@ -70,6 +71,7 @@ class PostCard extends StatefulWidget {
   final String text;
   final String? price;
   final bool collapseText;
+  final bool showCommunity;
   final int likes;
   final int comments;
   final bool showImage;
@@ -246,7 +248,7 @@ class _PostCardState extends State<PostCard> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''} · ${widget.community}',
+                          '${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}${widget.showCommunity ? ' · ${widget.community}' : ''}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(

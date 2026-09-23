@@ -52,6 +52,7 @@ class _MainShellState extends State<MainShell> {
     final pages = [
       _HomeTab(
         key: _homeKey,
+        onExplore: () => _selectDestination(1),
         repository: widget.repository,
         onCommunitiesChanged: () => setState(() {
           _exploreRevision++;
@@ -262,7 +263,9 @@ class _HomeTab extends StatefulWidget {
     super.key,
     required this.repository,
     required this.onCommunitiesChanged,
+    required this.onExplore,
   });
+  final VoidCallback onExplore;
   final CommunityRepository repository;
   final VoidCallback onCommunitiesChanged;
 
@@ -291,23 +294,17 @@ class _HomeTabState extends State<_HomeTab> {
   Timer? _searchDelay;
 
   final _feedScroll = ScrollController();
-  bool _compactHeader = false;
-  List<Town> _headerTowns = [];
-  Town? _headerTown;
+  String? _selectionKey;
 
   String _category = 'All';
   String _query = '';
-  String? _selectedTownId;
+  String? _selectedCommunityId;
   bool _showSearch = false;
 
   @override
   void initState() {
     super.initState();
     _reload();
-    _feedScroll.addListener(() {
-      final compact = _feedScroll.offset > 80;
-      if (compact != _compactHeader) setState(() => _compactHeader = compact);
-    });
   }
 
   void _reload() {
@@ -331,6 +328,22 @@ class _HomeTabState extends State<_HomeTab> {
 
   Future<_HomeFeedData> _loadData() async {
     final communities = await widget.repository.listJoinedCommunities();
+    final profile = await widget.repository.getProfile();
+    final preferences = await SharedPreferences.getInstance();
+    _selectionKey = 'currentCommunityId:${profile.id}';
+    final savedId =
+        _selectedCommunityId ?? preferences.getString(_selectionKey!);
+    _selectedCommunityId = communities.any((c) => c.id == savedId)
+        ? savedId
+        : communities.length == 1
+        ? communities.first.id
+        : null;
+    if (_selectedCommunityId != null) {
+      await preferences.setString(_selectionKey!, _selectedCommunityId!);
+    } else {
+      await preferences.remove(_selectionKey!);
+    }
+
     final memberFutures = communities.map(
       (community) => widget.repository.listMembers(community.id),
     );
@@ -348,7 +361,7 @@ class _HomeTabState extends State<_HomeTab> {
         '${member.communityId}:${member.userId}',
         () => member,
       );
-      if (member.isOnline) {
+      if (member.isOnline && member.userId != profile.id) {
         onlineByUserId.putIfAbsent(
           '${member.communityId}:${member.userId}',
           () => member,
@@ -389,7 +402,14 @@ class _HomeTabState extends State<_HomeTab> {
         );
         return;
       }
-      await _startPost(data.communities);
+      final active = data.communities
+          .where((c) => c.id == _selectedCommunityId)
+          .firstOrNull;
+      if (active != null) {
+        await _createPost(active);
+      } else {
+        await _startPost(data.communities);
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -490,45 +510,142 @@ class _HomeTabState extends State<_HomeTab> {
     if (selected != null && mounted) await _createPost(selected);
   }
 
-  Future<void> _chooseTown(List<Town> towns, String? currentTownId) async {
-    if (towns.isEmpty) return;
-    final selected = await showModalBottomSheet<Town>(
+  Future<void> _createHomeCommunity() async {
+    final created = await Navigator.push<Community>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateCommunityPage(repository: widget.repository),
+      ),
+    );
+    if (created != null && mounted) {
+      _selectedCommunityId = created.id;
+      widget.onCommunitiesChanged();
+      setState(_reload);
+    }
+  }
+
+  Future<void> _chooseCommunity(List<Community> communities) async {
+    final selected = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: ListView(
           shrinkWrap: true,
-          padding: const EdgeInsets.only(bottom: 12),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: Text(
-                sheetContext.tr('Choose a town'),
-                style: Theme.of(
-                  sheetContext,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                context.tr('My communities'),
+                style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
-            for (final town in towns)
+            for (final community in communities)
               ListTile(
-                leading: const Icon(Icons.location_on_outlined),
-                title: Text(town.name),
-                trailing: town.id == currentTownId
-                    ? const Icon(Icons.check_rounded)
-                    : null,
-                onTap: () => Navigator.pop(sheetContext, town),
+                leading: Icon(
+                  community.id == _selectedCommunityId
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                ),
+                title: Text(community.name),
+                subtitle: Text(community.town.name),
+                onTap: () => Navigator.pop(sheetContext, community.id),
               ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.explore_outlined),
+              title: Text(context.tr('Explore communities')),
+              onTap: () => Navigator.pop(sheetContext, '__explore'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: Text(context.tr('Create a community')),
+              onTap: () => Navigator.pop(sheetContext, '__create'),
+            ),
           ],
         ),
       ),
     );
-    if (selected != null && mounted) {
-      setState(() {
-        _selectedTownId = selected.id;
-        _category = 'All';
-      });
+    if (selected == null || !mounted) return;
+    if (selected == '__explore') {
+      widget.onExplore();
+      return;
+    }
+    if (selected == '__create') {
+      await _createHomeCommunity();
+      return;
+    }
+    setState(() {
+      _selectedCommunityId = selected;
+      _category = 'All';
+      _query = '';
+      _showSearch = false;
+    });
+    if (_feedScroll.hasClients) _feedScroll.jumpTo(0);
+    final preferences = await SharedPreferences.getInstance();
+    if (_selectionKey != null) {
+      await preferences.setString(_selectionKey!, selected);
     }
   }
+
+  Widget _homeOnboarding(List<Community> communities) => Center(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.holiday_village_outlined,
+            size: 64,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            context.tr(
+              communities.isEmpty
+                  ? 'Find your community'
+                  : 'Select a community',
+            ),
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.tr(
+              communities.isEmpty
+                  ? 'Discover communities nearby, join and connect with your neighbors.'
+                  : 'Choose a community to see its posts and neighbors.',
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: communities.isEmpty
+                ? widget.onExplore
+                : () => _chooseCommunity(communities),
+            icon: Icon(
+              communities.isEmpty
+                  ? Icons.explore_outlined
+                  : Icons.groups_outlined,
+            ),
+            label: Text(
+              context.tr(
+                communities.isEmpty
+                    ? 'Explore communities'
+                    : 'Select a community',
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _createHomeCommunity,
+            icon: const Icon(Icons.add),
+            label: Text(context.tr('Create a community')),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Future<void> _showMembers(List<CommunityMember> members) =>
       showModalBottomSheet<void>(
@@ -591,52 +708,89 @@ class _HomeTabState extends State<_HomeTab> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 48,
-        title: _compactHeader
-            ? InkWell(
-                onTap: () => _chooseTown(_headerTowns, _headerTown?.id),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Wicchu',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
+        title: FutureBuilder<_HomeFeedData>(
+          future: _data,
+          builder: (context, snapshot) {
+            final communities = snapshot.data?.communities ?? [];
+            if (communities.isEmpty) return const WicchuTitle();
+            final active = communities
+                .where((c) => c.id == _selectedCommunityId)
+                .firstOrNull;
+            return InkWell(
+              onTap: () => _chooseCommunity(communities),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.location_on_outlined,
+                    color: scheme.primary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      active?.name ?? context.tr('Select a community'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.titleMedium?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 20,
-                      color: scheme.primary,
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        _headerTown?.name ?? context.tr('Your town'),
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.titleMedium,
-                      ),
-                    ),
-                    const Icon(Icons.keyboard_arrow_down, size: 20),
-                  ],
-                ),
-              )
-            : const WicchuTitle(),
+                  ),
+                  const Icon(Icons.keyboard_arrow_down, size: 20),
+                ],
+              ),
+            );
+          },
+        ),
         actions: [
           IconButton(
-            tooltip: context.tr(_showSearch ? 'Close search' : 'Search posts'),
-            onPressed: () => setState(() {
-              _showSearch = !_showSearch;
-              if (!_showSearch) {
-                _searchDelay?.cancel();
-                _query = '';
-                _reload();
-              }
-            }),
+            tooltip: context.tr(
+              _selectedCommunityId == null
+                  ? 'Explore communities'
+                  : _showSearch
+                  ? 'Close search'
+                  : 'Search posts',
+            ),
+            onPressed: _selectedCommunityId == null
+                ? widget.onExplore
+                : () => setState(() {
+                    _showSearch = !_showSearch;
+                    if (!_showSearch) {
+                      _searchDelay?.cancel();
+                      _query = '';
+                      _reload();
+                    }
+                  }),
             icon: Icon(_showSearch ? Icons.close : Icons.search_rounded),
           ),
-          if (!_compactHeader) const ThemeMenu(),
-          if (!_compactHeader) const LanguageMenu(),
+          FutureBuilder<_HomeFeedData>(
+            future: _data,
+            builder: (context, snapshot) {
+              final active = snapshot.data?.communities
+                  .where((c) => c.id == _selectedCommunityId)
+                  .firstOrNull;
+              if (active == null) return const SizedBox.shrink();
+              return IconButton(
+                tooltip: context.tr('Community details'),
+                icon: const Icon(Icons.holiday_village_outlined),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CommunityPage(
+                        community: active,
+                        repository: widget.repository,
+                      ),
+                    ),
+                  );
+                  if (!mounted) return;
+                  widget.onCommunitiesChanged();
+                  setState(_reload);
+                },
+              );
+            },
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -654,35 +808,17 @@ class _HomeTabState extends State<_HomeTab> {
           }
           final data = snapshot.data!;
           final communities = data.communities;
-          final townsById = {
-            for (final community in communities)
-              community.town.id: community.town,
-          };
-          final towns = townsById.values.toList(growable: false);
-          final activeTownId = townsById.containsKey(_selectedTownId)
-              ? _selectedTownId
-              : towns.firstOrNull?.id;
-          final activeTown = activeTownId == null
-              ? null
-              : townsById[activeTownId];
-          _headerTowns = towns;
-          _headerTown = activeTown;
+          if (communities.isEmpty || _selectedCommunityId == null) {
+            return _homeOnboarding(communities);
+          }
           final visibleCommunities = communities
-              .where(
-                (community) =>
-                    activeTownId == null || community.town.id == activeTownId,
-              )
-              .toList(growable: false);
+              .where((c) => c.id == _selectedCommunityId)
+              .toList();
           final visibleCommunityIds = visibleCommunities
               .map((community) => community.id)
               .toSet();
           final visibleOnlineMembers = {
             for (final member in data.onlineMembers)
-              if (visibleCommunityIds.contains(member.communityId))
-                member.userId: member,
-          }.values.toList(growable: false);
-          final visibleMembers = {
-            for (final member in data.members)
               if (visibleCommunityIds.contains(member.communityId))
                 member.userId: member,
           }.values.toList(growable: false);
@@ -738,101 +874,57 @@ class _HomeTabState extends State<_HomeTab> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverList.list(
                     children: [
-                      Semantics(
-                        button: true,
-                        label: context.tr('Choose a town'),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () => _chooseTown(towns, activeTownId),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.location_on_outlined,
-                                  size: 28,
-                                  color: scheme.primary,
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    activeTown?.name ?? context.tr('Your town'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: textTheme.titleLarge?.copyWith(
-                                      color: scheme.primary,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  color: scheme.primary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Text(
-                        context.tr('Good things happen nearby.'),
-                        style: textTheme.bodyLarge?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
                       if (visibleOnlineMembers.isNotEmpty) ...[
-                        Row(
-                          children: [
-                            Container(
-                              width: 9,
-                              height: 9,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF59C36A),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                context.tr(
-                                  visibleOnlineMembers.length == 1
-                                      ? '1 neighbor online'
-                                      : '{count} neighbors online',
-                                  {'count': '${visibleOnlineMembers.length}'},
-                                ),
-                                style: textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            TextButton.icon(
-                              onPressed: () => _showMembers(visibleMembers),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              label: Text(context.tr('View all')),
-                              iconAlignment: IconAlignment.end,
-                              icon: const Icon(Icons.chevron_right_rounded),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 6),
                         SizedBox(
                           height:
                               56 +
                               MediaQuery.textScalerOf(context).scale(12) * 1.5,
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
-                            itemCount: visibleOnlineMembers.length,
+                            itemCount: visibleOnlineMembers.length > 5
+                                ? 6
+                                : visibleOnlineMembers.length,
                             separatorBuilder: (_, _) =>
                                 const SizedBox(width: 12),
                             itemBuilder: (context, index) {
+                              if (index == 5) {
+                                final remaining =
+                                    visibleOnlineMembers.length - 5;
+                                return Semantics(
+                                  button: true,
+                                  label: context.tr(
+                                    'View all online neighbors',
+                                  ),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: () =>
+                                        _showMembers(visibleOnlineMembers),
+                                    child: SizedBox(
+                                      width: 58,
+                                      child: Column(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 24,
+                                            backgroundColor:
+                                                scheme.primaryContainer,
+                                            child: Icon(
+                                              CupertinoIcons.person_2,
+                                              size: 22,
+                                              color: scheme.onPrimaryContainer,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            '+$remaining',
+                                            style: textTheme.labelSmall,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
                               final member = visibleOnlineMembers[index];
                               return InkWell(
                                 borderRadius: BorderRadius.circular(16),
@@ -928,7 +1020,7 @@ class _HomeTabState extends State<_HomeTab> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: _CategoryFilterStrip(
-                          key: ValueKey(activeTownId),
+                          key: ValueKey(_selectedCommunityId),
                           categories: categoryNames,
                           selected: _category,
                           onSelected: (category) =>
@@ -946,6 +1038,7 @@ class _HomeTabState extends State<_HomeTab> {
                         PostCard(
                           key: ValueKey(post.id),
                           collapseText: true,
+                          showCommunity: false,
                           onTap: () =>
                               Navigator.push(
                                 context,
@@ -1104,7 +1197,7 @@ class _FeedFiltersHeader extends SliverPersistentHeaderDelegate {
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
-  ) => child;
+  ) => SizedBox.expand(child: child);
   @override
   bool shouldRebuild(covariant _FeedFiltersHeader oldDelegate) => true;
 }
