@@ -92,6 +92,53 @@ class _CommunityPageState extends State<CommunityPage> {
     if (updated != null && mounted) setState(() => _community = updated);
   }
 
+  Future<void> _showMembers() => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => FutureBuilder<List<CommunityMember>>(
+      future: repository.listMembers(community.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) return Center(child: Text(context.trError(snapshot.error!)));
+        final members = [...?snapshot.data]..sort((a, b) {
+          if (a.isOnline != b.isOnline) return a.isOnline ? -1 : 1;
+          return a.name.compareTo(b.name);
+        });
+        return ListView(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(context.tr('Members'), style: Theme.of(context).textTheme.titleLarge),
+            ),
+            for (final member in members)
+              ListTile(
+                leading: Badge(
+                  isLabelVisible: member.isOnline,
+                  backgroundColor: Colors.green,
+                  smallSize: 10,
+                  child: CircleAvatar(child: Text(member.name.isEmpty ? '?' : member.name[0].toUpperCase())),
+                ),
+                title: Text(member.name),
+                subtitle: member.isOnline
+                    ? Text(context.tr('Online now'))
+                    : member.lastActiveAt != null
+                        ? Text(context.tr('Active recently'))
+                        : null,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => MemberProfilePage(userId: member.userId, repository: repository),
+                  ));
+                },
+              ),
+          ],
+        );
+      },
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -192,6 +239,7 @@ class _CommunityPageState extends State<CommunityPage> {
                           singular: '{count} member',
                           plural: '{count} members',
                         ),
+                        onTap: _isJoined ? _showMembers : null,
                       ),
                       if (community.myRole != null)
                         _InfoChip(
@@ -424,13 +472,17 @@ class _CommunityPageState extends State<CommunityPage> {
 }
 
 class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label});
+  const _InfoChip({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(999),
+    child: Container(
     padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
@@ -444,6 +496,7 @@ class _InfoChip extends StatelessWidget {
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
       ],
+    ),
     ),
   );
 }

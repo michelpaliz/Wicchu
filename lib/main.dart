@@ -17,6 +17,7 @@ import 'localization/app_language.dart';
 import 'theme/theme_menu.dart';
 import 'theme/wicchu_theme.dart';
 import 'services/push_notification_service.dart';
+import 'services/presence_service.dart';
 
 void main() {
   runApp(
@@ -65,6 +66,7 @@ class _WicchuAppState extends State<WicchuApp> {
   void dispose() {
     _linkSubscription?.cancel();
     PushNotificationService.instance.dispose();
+    PresenceService.instance.stop();
     super.dispose();
   }
 
@@ -238,6 +240,7 @@ class _WicchuAppState extends State<WicchuApp> {
               }
               if (snapshot.data!) {
                 _activatePush();
+                PresenceService.instance.start();
                 _openPendingPost();
                 return MainShell(
                   repository: widget.repository,

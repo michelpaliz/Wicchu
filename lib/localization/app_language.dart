@@ -433,6 +433,12 @@ const _spanish = <String, String>{
       'WhatsApp, Facebook, Instagram y correo electrónico',
   'Profile links saved': 'Enlaces del perfil guardados',
   'Unable to open link': 'No se pudo abrir el enlace',
+  'Show online status': 'Mostrar estado en línea',
+  'Let members of your communities see when you are online':
+      'Permite que los miembros de tus comunidades vean cuándo estás en línea',
+  'Online now': 'En línea ahora',
+  'Online in your communities': 'En línea en tus comunidades',
+  'Active recently': 'Activo recientemente',
   'Privacy': 'Privacidad',
   'Nearby discovery': 'Descubrimiento cercano',
   'Allow location use when you request nearby communities':

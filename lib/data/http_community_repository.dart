@@ -36,13 +36,18 @@ class HttpCommunityRepository implements CommunityRepository {
       postCount: (json['postCount'] as num?)?.toInt() ?? 0,
       communityCount: (json['communityCount'] as num?)?.toInt() ?? 0,
       socialLinks: _socialLinksFromJson(json['socialLinks']),
+      isOnline: json['isOnline'] == true,
+      lastActiveAt: _optionalDate(json['lastActiveAt']),
     );
   }
 
   @override
   Future<SocialLinks> getMySocialLinks() async {
     final body = await _api.get('/api/community/v1/me/social-links');
-    return _socialLinksFromJson(body['socialLinks']);
+    return _socialLinksFromJson({
+      ..._object(body, 'socialLinks'),
+      'showOnlineStatus': body['showOnlineStatus'],
+    });
   }
 
   @override
@@ -52,8 +57,12 @@ class HttpCommunityRepository implements CommunityRepository {
       'facebook': links.facebook,
       'instagram': links.instagram,
       'email': links.email,
+      'showOnlineStatus': links.showOnlineStatus,
     });
-    return _socialLinksFromJson(body['socialLinks']);
+    return _socialLinksFromJson({
+      ..._object(body, 'socialLinks'),
+      'showOnlineStatus': body['showOnlineStatus'],
+    });
   }
 
   static SocialLinks _socialLinksFromJson(Object? value) {
@@ -63,6 +72,7 @@ class HttpCommunityRepository implements CommunityRepository {
       facebook: json['facebook']?.toString() ?? '',
       instagram: json['instagram']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
+      showOnlineStatus: json['showOnlineStatus'] as bool? ?? true,
     );
   }
 
@@ -316,6 +326,7 @@ class HttpCommunityRepository implements CommunityRepository {
                 userJson['name'] as String? ??
                 json['userName'] as String? ??
                 'Member ${json['userId']?.toString().substring(0, 6) ?? ''}',
+            avatarUrl: userJson['avatarUrl'] as String?,
             role: _roleFromJson(json['role']) ?? CommunityRole.member,
             status: switch (json['status']) {
               'pending' => MembershipStatus.pending,
@@ -325,6 +336,8 @@ class HttpCommunityRepository implements CommunityRepository {
             joinedAt:
                 DateTime.tryParse(json['joinedAt']?.toString() ?? '') ??
                 DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+            isOnline: json['isOnline'] == true,
+            lastActiveAt: _optionalDate(json['lastActiveAt']),
           );
         })
         .toList(growable: false);

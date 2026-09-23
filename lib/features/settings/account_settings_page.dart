@@ -17,6 +17,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool _communityNotifications = true;
   bool _promotionNotifications = true;
   bool _locationDiscovery = true;
+  bool _showOnlineStatus = true;
   bool _loaded = false;
 
   @override
@@ -30,15 +31,18 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       final results = await Future.wait([
         SharedPreferences.getInstance(),
         widget.repository.getNotificationPreferences(),
+        widget.repository.getMySocialLinks(),
       ]);
       final preferences = results[0] as SharedPreferences;
       final notifications = results[1] as NotificationPreferences;
+      final socialLinks = results[2] as SocialLinks;
       if (!mounted) return;
       setState(() {
         _postNotifications = notifications.postActivity;
         _communityNotifications = notifications.communityActivity;
         _promotionNotifications = notifications.promotions;
         _locationDiscovery = preferences.getBool('location_discovery') ?? true;
+        _showOnlineStatus = socialLinks.showOnlineStatus;
         _loaded = true;
       });
     } catch (error) {
@@ -141,6 +145,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   _set('location_discovery', value);
                 },
               ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(context.tr('Show online status')),
+                subtitle: Text(context.tr('Let members of your communities see when you are online')),
+                value: _showOnlineStatus,
+                onChanged: _setOnlineVisibility,
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.lock_outline),
@@ -196,6 +207,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 facebook: facebook.text.trim(),
                 instagram: instagram.text.trim(),
                 email: email.text.trim(),
+                showOnlineStatus: current.showOnlineStatus,
               )),
               child: Text(dialogContext.tr('Save')),
             ),
@@ -211,6 +223,25 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('Profile links saved'))));
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
+
+  Future<void> _setOnlineVisibility(bool value) async {
+    final previous = _showOnlineStatus;
+    setState(() => _showOnlineStatus = value);
+    try {
+      final current = await widget.repository.getMySocialLinks();
+      await widget.repository.updateMySocialLinks(SocialLinks(
+        whatsapp: current.whatsapp,
+        facebook: current.facebook,
+        instagram: current.instagram,
+        email: current.email,
+        showOnlineStatus: value,
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _showOnlineStatus = previous);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.trError(error))));
     }
   }
 }
