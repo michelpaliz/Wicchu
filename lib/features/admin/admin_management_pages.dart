@@ -208,13 +208,32 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
           itemBuilder: (context, index) {
             final member = members[index];
             return ListTile(
-              leading: CircleAvatar(
-                child: Text(
-                  member.name.isEmpty ? '?' : member.name[0].toUpperCase(),
-                ),
+              leading: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(child: Text(member.name.isEmpty ? '?' : member.name[0].toUpperCase())),
+                  if (member.isOnline)
+                    Positioned(
+                      right: -1,
+                      bottom: -1,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               title: Text(member.name),
-              subtitle: Text(member.userId),
+              subtitle: Text(member.isOnline
+                  ? context.tr('Online now')
+                  : member.lastActiveAt != null
+                      ? context.tr('Active recently')
+                      : member.userId),
               trailing: member.role == CommunityRole.owner
                   ? Chip(label: Text(context.tr('Owner')))
                   : DropdownButton<CommunityRole>(

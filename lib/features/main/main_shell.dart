@@ -133,11 +133,13 @@ class _HomeFeedData {
     required this.communities,
     required this.posts,
     required this.categories,
+    required this.onlineMembers,
   });
 
   final List<Community> communities;
   final List<CommunityPost> posts;
   final Map<String, CommunityCategory> categories;
+  final List<CommunityMember> onlineMembers;
 }
 
 class _HomeTabState extends State<_HomeTab> {
@@ -174,12 +176,24 @@ class _HomeTabState extends State<_HomeTab> {
 
   Future<_HomeFeedData> _loadData() async {
     final communities = await widget.repository.listJoinedCommunities();
+    final profileFuture = widget.repository.getProfile();
+    final memberFutures = communities.map(
+      (community) => widget.repository.listMembers(community.id),
+    );
     final results = await Future.wait([
       widget.repository.listFollowingPosts(query: _query),
       ...communities.map(
         (community) => widget.repository.listCategories(community.id),
       ),
     ]);
+    final memberLists = await Future.wait(memberFutures);
+    final profile = await profileFuture;
+    final onlineByUserId = <String, CommunityMember>{};
+    for (final member in memberLists.expand((members) => members)) {
+      if (member.isOnline && member.userId != profile.id) {
+        onlineByUserId.putIfAbsent(member.userId, () => member);
+      }
+    }
     final posts = results.first.cast<CommunityPost>();
     final categories = <String, CommunityCategory>{};
     for (final result in results.skip(1)) {
@@ -191,6 +205,7 @@ class _HomeTabState extends State<_HomeTab> {
       communities: communities,
       posts: posts,
       categories: categories,
+      onlineMembers: onlineByUserId.values.toList(growable: false),
     );
   }
 
@@ -382,6 +397,100 @@ class _HomeTabState extends State<_HomeTab> {
                   ),
                 ),
                 const SizedBox(height: 28),
+                if (data.onlineMembers.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      Text(
+                        context.tr('Online in your communities'),
+                        style: textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 82,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: data.onlineMembers.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 14),
+                      itemBuilder: (context, index) {
+                        final member = data.onlineMembers[index];
+                        final avatar = member.avatarUrl?.trim();
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MemberProfilePage(
+                                repository: widget.repository,
+                                userId: member.userId,
+                              ),
+                            ),
+                          ),
+                          child: SizedBox(
+                            width: 64,
+                            child: Column(
+                              children: [
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 24,
+                                      foregroundImage:
+                                          avatar != null && avatar.isNotEmpty
+                                          ? NetworkImage(avatar)
+                                          : null,
+                                      child: Text(
+                                        member.name.isEmpty
+                                            ? '?'
+                                            : member.name[0].toUpperCase(),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: -1,
+                                      bottom: -1,
+                                      child: Container(
+                                        width: 14,
+                                        height: 14,
+                                        decoration: BoxDecoration(
+                                          color: Colors.green,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: scheme.surface,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  member.name.split(' ').first,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: textTheme.labelSmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ],
                 Text(
                   context.tr('Your communities'),
                   style: textTheme.titleLarge?.copyWith(

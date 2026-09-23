@@ -82,6 +82,16 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                             ),
                             if (profile.userName.isNotEmpty)
                               Text('@${profile.userName}'),
+                            if (profile.isOnline)
+                              Text(
+                                context.tr('Online now'),
+                                style: TextStyle(
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              )
+                            else if (profile.lastActiveAt != null)
+                              Text(context.tr('Active recently')),
                             Text(
                               context.tr(
                                 '{posts} posts · {communities} communities',

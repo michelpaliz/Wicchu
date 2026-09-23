@@ -87,6 +87,8 @@ class PublicMemberProfile {
     required this.communityCount,
     this.avatarUrl,
     this.socialLinks = const SocialLinks(),
+    this.isOnline = false,
+    this.lastActiveAt,
   });
   final String id;
   final String name;
@@ -95,6 +97,8 @@ class PublicMemberProfile {
   final int postCount;
   final int communityCount;
   final SocialLinks socialLinks;
+  final bool isOnline;
+  final DateTime? lastActiveAt;
 }
 
 class SocialLinks {
@@ -103,11 +107,13 @@ class SocialLinks {
     this.facebook = '',
     this.instagram = '',
     this.email = '',
+    this.showOnlineStatus = true,
   });
   final String whatsapp;
   final String facebook;
   final String instagram;
   final String email;
+  final bool showOnlineStatus;
   bool get isEmpty => whatsapp.isEmpty && facebook.isEmpty && instagram.isEmpty && email.isEmpty;
 }
 
@@ -192,6 +198,9 @@ class CommunityMember {
     required this.status,
     required this.joinedAt,
     this.name = 'Wicchu member',
+    this.avatarUrl,
+    this.isOnline = false,
+    this.lastActiveAt,
   });
 
   final String userId;
@@ -200,6 +209,9 @@ class CommunityMember {
   final MembershipStatus status;
   final DateTime joinedAt;
   final String name;
+  final String? avatarUrl;
+  final bool isOnline;
+  final DateTime? lastActiveAt;
 }
 
 class CommunityCategory {
