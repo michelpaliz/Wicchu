@@ -163,22 +163,20 @@ PATCH /api/community/v1/communities/{communityId}
 
 Supported fields are `name`, `description`, `visibility`, `approvalRequired`, and `imageBlobName`. Only owners/admins may update a community.
 
-### Community rules update — backend support to confirm
+### Community rules
 
-The settings editor now sends an optional ordered `rules` array with the existing
-community PATCH request:
+Rules use dedicated endpoints, shared by the administration Rules screen and the
+Community settings shortcut:
 
-```json
-{ "rules": [{ "title": "Be respectful", "description": "Discuss ideas without personal attacks." }] }
-```
+- `GET /api/community/v1/communities/{communityId}/rules`
+- `POST /api/community/v1/communities/{communityId}/rules`
+- `PATCH /api/community/v1/communities/{communityId}/rules/{ruleId}`
+- `DELETE /api/community/v1/communities/{communityId}/rules/{ruleId}`
+- `POST /api/community/v1/communities/{communityId}/rules/accept`
 
-The backend must authorize owners/admins, validate nonempty titles, persist the
-array in order, and return it in the updated `community.rules` response and future
-community reads. Omission preserves existing rules; an empty array removes all
-rules. The previous documented update contract does not confirm this capability.
-The frontend checks the returned rules and retains the draft with an error if
-they differ, rather than reporting success. Other fields may already have saved
-when this happens.
+Create/update sends title, description and position as applicable. Acceptance
+sends `rulesVersion`. The response includes rules versions and management
+permissions. Rules are saved separately from general community settings.
 
 ## 4. Categories and members
 

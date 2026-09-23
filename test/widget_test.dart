@@ -569,7 +569,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Administrar comunidad'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Moderación'));
+    await tester.scrollUntilVisible(find.text('Moderación'), 250, scrollable: find.byType(Scrollable).last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Moderación'));
     await tester.pumpAndSettle();
 

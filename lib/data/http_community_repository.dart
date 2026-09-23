@@ -249,10 +249,7 @@ class HttpCommunityRepository implements CommunityRepository {
         'approvalRequired': input.approvalRequired,
         'rules': input.rules
             .map(
-              (rule) => {
-                'title': rule.title,
-                'description': rule.description,
-              },
+              (rule) => {'title': rule.title, 'description': rule.description},
             )
             .toList(),
       },
@@ -287,25 +284,45 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<List<CommunityInvitation>> listCommunityInvitations(String communityId) async {
-    final body = await _api.get('/api/community/v1/communities/$communityId/invitations');
-    return _list(body, 'invitations').map(_invitationFromJson).toList(growable: false);
+  Future<List<CommunityInvitation>> listCommunityInvitations(
+    String communityId,
+  ) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/invitations',
+    );
+    return _list(
+      body,
+      'invitations',
+    ).map(_invitationFromJson).toList(growable: false);
   }
 
   @override
   Future<List<CommunityInvitation>> listMyCommunityInvitations() async {
     final body = await _api.get('/api/community/v1/me/invitations');
-    return _list(body, 'invitations').map(_invitationFromJson).toList(growable: false);
+    return _list(
+      body,
+      'invitations',
+    ).map(_invitationFromJson).toList(growable: false);
   }
 
   @override
-  Future<void> respondToCommunityInvitation(String invitationId, {required bool accept}) async {
-    await _api.post('/api/community/v1/me/invitations/$invitationId/${accept ? 'accept' : 'decline'}');
+  Future<void> respondToCommunityInvitation(
+    String invitationId, {
+    required bool accept,
+  }) async {
+    await _api.post(
+      '/api/community/v1/me/invitations/$invitationId/${accept ? 'accept' : 'decline'}',
+    );
   }
 
   @override
-  Future<void> revokeCommunityInvitation(String communityId, String invitationId) async {
-    await _api.delete('/api/community/v1/communities/$communityId/invitations/$invitationId');
+  Future<void> revokeCommunityInvitation(
+    String communityId,
+    String invitationId,
+  ) async {
+    await _api.delete(
+      '/api/community/v1/communities/$communityId/invitations/$invitationId',
+    );
   }
 
   @override
@@ -332,11 +349,7 @@ class HttpCommunityRepository implements CommunityRepository {
   }) async {
     final body = await _api.post(
       '/api/community/v1/communities/$communityId/rules',
-      body: {
-        'title': title,
-        'description': description,
-        'position': position,
-      },
+      body: {'title': title, 'description': description, 'position': position},
     );
     return _ruleFromJson(_object(body, 'rule'));
   }
@@ -352,9 +365,9 @@ class HttpCommunityRepository implements CommunityRepository {
     final body = await _api.patch(
       '/api/community/v1/communities/$communityId/rules/${rule.id}',
       body: {
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
-        if (position != null) 'position': position,
+        'title': ?title,
+        'description': ?description,
+        'position': ?position,
       },
     );
     return _ruleFromJson(_object(body, 'rule'));
@@ -481,7 +494,6 @@ class HttpCommunityRepository implements CommunityRepository {
     required bool approvalRequired,
     String? imageUrl,
     String? imageBlobName,
-    List<CommunityRule>? rules,
   }) async {
     final body = await _api.patch(
       '/api/community/v1/communities/${community.id}',
@@ -491,32 +503,14 @@ class HttpCommunityRepository implements CommunityRepository {
         'visibility': visibility.name,
         'approvalRequired': approvalRequired,
         'imageBlobName': ?imageBlobName,
-        if (rules != null)
-          'rules': [
-            for (final rule in rules)
-              {'title': rule.title, 'description': rule.description},
-          ],
       },
     );
-    final updated = _communityFromJson({
+    return _communityFromJson({
       ..._object(body, 'community'),
       'town': _townToJson(community.town),
       'memberCount': community.memberCount,
       'myRole': community.myRole?.name,
     });
-    if (rules != null &&
-        (_object(body, 'community')['rules'] is! List ||
-            updated.rules.length != rules.length ||
-            List.generate(rules.length, (i) => i).any(
-              (i) =>
-                  updated.rules[i].title != rules[i].title ||
-                  updated.rules[i].description != rules[i].description,
-            ))) {
-      throw const ApiException(
-        'The server did not confirm the rules. Your draft is still here; other settings may have saved.',
-      );
-    }
-    return updated;
   }
 
   @override
@@ -1162,33 +1156,33 @@ class HttpCommunityRepository implements CommunityRepository {
     );
   }
 
-  static CommunityNotificationType _notificationType(String? value) =>
-      switch (value) {
-        'post_comment' ||
-        'postComment' => CommunityNotificationType.postComment,
-        'comment_reaction' => CommunityNotificationType.commentReaction,
-        'comment_reply' => CommunityNotificationType.commentReply,
-        'post_approved' => CommunityNotificationType.postApproved,
-        'post_rejected' => CommunityNotificationType.postRejected,
-        'post_removed' => CommunityNotificationType.postRemoved,
-        'post_restored' => CommunityNotificationType.postRestored,
-        'comment_approved' => CommunityNotificationType.commentApproved,
-        'comment_rejected' => CommunityNotificationType.commentRejected,
-        'comment_removed' => CommunityNotificationType.commentRemoved,
-        'member_banned' => CommunityNotificationType.memberBanned,
-        'member_unbanned' => CommunityNotificationType.memberUnbanned,
-        'membership_approved' => CommunityNotificationType.membershipApproved,
-        'membership_rejected' => CommunityNotificationType.membershipRejected,
-        'promotion_approved' => CommunityNotificationType.promotionApproved,
-        'promotion_rejected' => CommunityNotificationType.promotionRejected,
-        'membership_request' => CommunityNotificationType.membershipRequest,
-        'post_pending' => CommunityNotificationType.postPending,
-        'comment_pending' => CommunityNotificationType.commentPending,
-        'report_created' => CommunityNotificationType.reportCreated,
-        'community_invitation' => CommunityNotificationType.communityInvitation,
-        'community_role_changed' => CommunityNotificationType.communityRoleChanged,
-        _ => CommunityNotificationType.postReaction,
-      };
+  static CommunityNotificationType _notificationType(
+    String? value,
+  ) => switch (value) {
+    'post_comment' || 'postComment' => CommunityNotificationType.postComment,
+    'comment_reaction' => CommunityNotificationType.commentReaction,
+    'comment_reply' => CommunityNotificationType.commentReply,
+    'post_approved' => CommunityNotificationType.postApproved,
+    'post_rejected' => CommunityNotificationType.postRejected,
+    'post_removed' => CommunityNotificationType.postRemoved,
+    'post_restored' => CommunityNotificationType.postRestored,
+    'comment_approved' => CommunityNotificationType.commentApproved,
+    'comment_rejected' => CommunityNotificationType.commentRejected,
+    'comment_removed' => CommunityNotificationType.commentRemoved,
+    'member_banned' => CommunityNotificationType.memberBanned,
+    'member_unbanned' => CommunityNotificationType.memberUnbanned,
+    'membership_approved' => CommunityNotificationType.membershipApproved,
+    'membership_rejected' => CommunityNotificationType.membershipRejected,
+    'promotion_approved' => CommunityNotificationType.promotionApproved,
+    'promotion_rejected' => CommunityNotificationType.promotionRejected,
+    'membership_request' => CommunityNotificationType.membershipRequest,
+    'post_pending' => CommunityNotificationType.postPending,
+    'comment_pending' => CommunityNotificationType.commentPending,
+    'report_created' => CommunityNotificationType.reportCreated,
+    'community_invitation' => CommunityNotificationType.communityInvitation,
+    'community_role_changed' => CommunityNotificationType.communityRoleChanged,
+    _ => CommunityNotificationType.postReaction,
+  };
 
   static String _id(Map<String, dynamic> json) =>
       (json['_id'] ?? json['id'])?.toString() ?? '';
@@ -1203,11 +1197,18 @@ class HttpCommunityRepository implements CommunityRepository {
         : const <String, dynamic>{};
     return CommunityInvitation(
       id: _id(json),
-      communityId: json['communityId']?.toString() ?? communityJson['id']?.toString() ?? '',
+      communityId:
+          json['communityId']?.toString() ??
+          communityJson['id']?.toString() ??
+          '',
       email: json['email']?.toString() ?? '',
       status: json['status']?.toString() ?? 'pending',
-      expiresAt: DateTime.tryParse(json['expiresAt']?.toString() ?? '') ?? DateTime.now(),
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+      expiresAt:
+          DateTime.tryParse(json['expiresAt']?.toString() ?? '') ??
+          DateTime.now(),
+      createdAt:
+          DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.now(),
       communityName: communityJson['name']?.toString(),
       communityImageUrl: communityJson['imageUrl']?.toString(),
       invitationUrl: invitationUrl,

@@ -381,7 +381,6 @@ class DemoCommunityRepository implements CommunityRepository {
     required bool approvalRequired,
     String? imageUrl,
     String? imageBlobName,
-    List<CommunityRule>? rules,
   }) async {
     final updated = Community(
       id: community.id,
@@ -396,7 +395,7 @@ class DemoCommunityRepository implements CommunityRepository {
       myRole: community.myRole,
       approvalRequired: approvalRequired,
       distanceKm: community.distanceKm,
-      rules: rules == null ? community.rules : List.unmodifiable(rules),
+      rules: community.rules,
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;

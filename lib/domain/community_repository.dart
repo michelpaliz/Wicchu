@@ -89,10 +89,18 @@ abstract interface class CommunityRepository {
     String communityId,
     String email,
   );
-  Future<List<CommunityInvitation>> listCommunityInvitations(String communityId);
+  Future<List<CommunityInvitation>> listCommunityInvitations(
+    String communityId,
+  );
   Future<List<CommunityInvitation>> listMyCommunityInvitations();
-  Future<void> respondToCommunityInvitation(String invitationId, {required bool accept});
-  Future<void> revokeCommunityInvitation(String communityId, String invitationId);
+  Future<void> respondToCommunityInvitation(
+    String invitationId, {
+    required bool accept,
+  });
+  Future<void> revokeCommunityInvitation(
+    String communityId,
+    String invitationId,
+  );
   Future<CommunityRules> listRules(String communityId);
   Future<CommunityRule> createRule(
     String communityId, {
@@ -136,7 +144,6 @@ abstract interface class CommunityRepository {
     required bool approvalRequired,
     String? imageUrl,
     String? imageBlobName,
-    List<CommunityRule>? rules,
   });
   Future<List<CommunityPost>> listPosts(
     String communityId, {

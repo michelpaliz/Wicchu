@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/data/authenticated_api_client.dart';
 import 'package:wicchu/data/http_community_repository.dart';
-import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/domain/community_repository.dart';
 import 'package:wicchu/features/admin/admin_dashboard_page.dart';
 import 'package:wicchu/features/admin/admin_management_pages.dart';
@@ -22,48 +21,56 @@ class AttentionRepository extends DemoCommunityRepository {
 
 class RulesApi extends AuthenticatedApiClient {
   Map<String, dynamic>? sent;
-  bool ignore = false;
+  String? lastPath;
   @override
   Future<Map<String, dynamic>> patch(
     String path, {
     Map<String, dynamic>? body,
   }) async {
     sent = body;
+    lastPath = path;
     return {
-      'community': {'id': 'test', ...?body, if (ignore) 'rules': null},
+      'rule': {'id': 'rule-1', ...?body},
     };
+  }
+
+  @override
+  Future<Map<String, dynamic>> post(
+    String path, {
+    Map<String, dynamic>? body,
+  }) => patch(path, body: body);
+  @override
+  Future<Map<String, dynamic>> delete(String path) async {
+    lastPath = path;
+    return {};
   }
 }
 
 void main() {
   test(
-    'rules are sent in order, cleared explicitly, and ignored updates fail',
+    'rule edits use dedicated endpoints and preserve rule identity',
     () async {
-      final community =
-          (await DemoCommunityRepository().listJoinedCommunities()).first;
       final api = RulesApi();
       final repository = HttpCommunityRepository(apiClient: api);
-      Future<Community> save(List<CommunityRule>? rules) =>
-          repository.updateCommunity(
-            community,
-            name: community.name,
-            description: community.description,
-            visibility: community.visibility,
-            approvalRequired: false,
-            rules: rules,
-          );
-      final result = await save(const [
-        CommunityRule(title: 'Respect', description: 'Be kind'),
-        CommunityRule(title: 'Local', description: ''),
-      ]);
-      expect(result.rules.map((r) => r.title), ['Respect', 'Local']);
-      expect((api.sent!['rules'] as List).length, 2);
-      await save([]);
-      expect(api.sent!['rules'], isEmpty);
-      await save(null);
-      expect(api.sent!.containsKey('rules'), isFalse);
-      api.ignore = true;
-      await expectLater(save([]), throwsA(isA<ApiException>()));
+      final rule = await repository.createRule(
+        'community-1',
+        title: 'Respect',
+        description: 'Be kind',
+        position: 0,
+      );
+      expect(api.lastPath, '/api/community/v1/communities/community-1/rules');
+      expect(rule.id, 'rule-1');
+      await repository.updateRule('community-1', rule, position: 2);
+      expect(
+        api.lastPath,
+        '/api/community/v1/communities/community-1/rules/rule-1',
+      );
+      expect(api.sent, {'position': 2});
+      await repository.deleteRule('community-1', rule.id);
+      expect(
+        api.lastPath,
+        '/api/community/v1/communities/community-1/rules/rule-1',
+      );
     },
   );
 
@@ -106,8 +113,10 @@ void main() {
     final repository = DemoCommunityRepository();
     final community = (await repository.listJoinedCommunities()).first;
     final category = (await repository.listCategories(community.id)).first;
-    await repository.createPost(community.id, CreatePostInput(
-      categoryId: category.id, text: 'A local update'));
+    await repository.createPost(
+      community.id,
+      CreatePostInput(categoryId: category.id, text: 'A local update'),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: CommunityProfilePage(
@@ -124,7 +133,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('rule editor validates title and saves a new rule', (
+  testWidgets('settings opens the shared rule editor and saves a new rule', (
     tester,
   ) async {
     final repository = DemoCommunityRepository();
@@ -138,26 +147,27 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Add rule'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.text('Community rules'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Community rules'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Add rule'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
-    expect(find.text('Enter a rule title'), findsOneWidget);
-    await tester.enterText(find.byType(TextFormField).first, 'Be respectful');
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'Be respectful');
     await tester.enterText(
-      find.byType(TextFormField).last,
+      find.byType(TextField).last,
       'Respect your neighbors',
     );
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
     expect(find.text('Be respectful'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Save changes'), 200, scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.text('Save changes'));
-    await tester.pumpAndSettle();
-    final updated = (await repository.listJoinedCommunities()).firstWhere(
-      (c) => c.id == community.id,
-    );
+    final updated = await repository.listRules(community.id);
     expect(updated.rules.last.title, 'Be respectful');
     expect(updated.rules.last.description, 'Respect your neighbors');
   });

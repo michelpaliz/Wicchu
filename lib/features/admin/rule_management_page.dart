@@ -33,65 +33,10 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
   }
 
   Future<void> _openEditor([CommunityRule? rule]) async {
-    final title = TextEditingController(text: rule?.title);
-    final description = TextEditingController(text: rule?.description);
     final result = await showDialog<(String, String)>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          dialogContext.tr(rule == null ? 'Add rule' : 'Edit rule'),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: title,
-                autofocus: true,
-                maxLength: 120,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  labelText: dialogContext.tr('Rule title'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: description,
-                minLines: 3,
-                maxLines: 6,
-                maxLength: 1000,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  labelText: dialogContext.tr('Description'),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(dialogContext.tr('Cancel')),
-          ),
-          FilledButton(
-            onPressed: () {
-              final normalizedTitle = title.text.trim();
-              final normalizedDescription = description.text.trim();
-              if (normalizedTitle.isEmpty || normalizedDescription.isEmpty) {
-                return;
-              }
-              Navigator.pop(
-                dialogContext,
-                (normalizedTitle, normalizedDescription),
-              );
-            },
-            child: Text(dialogContext.tr('Save')),
-          ),
-        ],
-      ),
+      builder: (_) => _RuleEditorDialog(rule: rule),
     );
-    title.dispose();
-    description.dispose();
     if (result == null || !mounted) return;
     try {
       final current = await _rules;
@@ -153,7 +98,6 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
     int newIndex,
   ) async {
     if (_reordering) return;
-    if (newIndex > oldIndex) newIndex -= 1;
     final reordered = [...rules];
     final moved = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, moved);
@@ -270,7 +214,7 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
         return ReorderableListView.builder(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
           itemCount: rules.length,
-          onReorder: (oldIndex, newIndex) =>
+          onReorderItem: (oldIndex, newIndex) =>
               _reorder(rules, oldIndex, newIndex),
           itemBuilder: (context, index) {
             final rule = rules[index];
@@ -306,5 +250,70 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
         );
       },
     ),
+  );
+}
+
+class _RuleEditorDialog extends StatefulWidget {
+  const _RuleEditorDialog({this.rule});
+  final CommunityRule? rule;
+  @override
+  State<_RuleEditorDialog> createState() => _RuleEditorDialogState();
+}
+
+class _RuleEditorDialogState extends State<_RuleEditorDialog> {
+  late final title = TextEditingController(text: widget.rule?.title);
+  late final description = TextEditingController(
+    text: widget.rule?.description,
+  );
+  @override
+  void dispose() {
+    title.dispose();
+    description.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(context.tr(widget.rule == null ? 'Add rule' : 'Edit rule')),
+    content: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: title,
+            autofocus: true,
+            maxLength: 120,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(labelText: context.tr('Rule title')),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: description,
+            minLines: 3,
+            maxLines: 6,
+            maxLength: 1000,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(labelText: context.tr('Description')),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: Text(context.tr('Cancel')),
+      ),
+      FilledButton(
+        onPressed: () {
+          final normalizedTitle = title.text.trim();
+          final normalizedDescription = description.text.trim();
+          if (normalizedTitle.isEmpty || normalizedDescription.isEmpty) {
+            return;
+          }
+          Navigator.pop(context, (normalizedTitle, normalizedDescription));
+        },
+        child: Text(context.tr('Save')),
+      ),
+    ],
   );
 }
