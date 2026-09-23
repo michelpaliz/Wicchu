@@ -8,6 +8,7 @@ import '../community/comments_sheet.dart';
 import '../community/user_avatar.dart';
 import '../community/post_share.dart';
 import 'edit_profile_links.dart';
+import '../community/create_post_page.dart';
 import '../community/post_card.dart';
 import '../community/post_detail_page.dart';
 
@@ -318,6 +319,23 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                       community: _communityNames[post.communityId] ?? 'Wicchu',
                       author: post.authorName,
                       time: formatPostTime(context, post.createdAt),
+                      edited: post.editedAt != null,
+                      onEdit: post.ownedByMe
+                          ? () async {
+                              await openEditPost(
+                                context,
+                                widget.repository,
+                                post,
+                              );
+                              if (mounted) _reload();
+                            }
+                          : null,
+                      onDelete: post.ownedByMe
+                          ? () async {
+                              await widget.repository.deletePost(post.id);
+                              if (mounted) _reload();
+                            }
+                          : null,
                       text: post.text,
                       likes: post.reactionCount,
                       comments: post.commentCount,

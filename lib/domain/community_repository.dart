@@ -122,6 +122,8 @@ abstract interface class CommunityRepository {
   Future<SharedPostPreview> getSharedPost(String postId);
   Future<void> recordPostShare(String postId);
   Future<CommunityPost> createPost(String communityId, CreatePostInput input);
+  Future<CommunityPost> updatePost(String postId, CreatePostInput input);
+  Future<void> deletePost(String postId);
   Future<PostMedia> uploadPostMedia({
     required List<int> bytes,
     required String filename,

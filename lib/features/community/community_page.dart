@@ -442,6 +442,23 @@ class _CommunityPageState extends State<CommunityPage> {
                                 ),
                               ),
                               time: formatPostTime(context, post.createdAt),
+                              edited: post.editedAt != null,
+                              onEdit: post.ownedByMe
+                                  ? () async {
+                                      await openEditPost(
+                                        context,
+                                        repository,
+                                        post,
+                                      );
+                                      if (mounted) setState(_reload);
+                                    }
+                                  : null,
+                              onDelete: post.ownedByMe
+                                  ? () async {
+                                      await repository.deletePost(post.id);
+                                      if (mounted) setState(_reload);
+                                    }
+                                  : null,
                               text: post.text,
                               likes: post.reactionCount,
                               comments: post.commentCount,

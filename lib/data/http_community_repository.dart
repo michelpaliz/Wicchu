@@ -481,6 +481,36 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<CommunityPost> updatePost(
+    String postId,
+    CreatePostInput input,
+  ) async {
+    final body = await _api.patch(
+      '/api/community/v1/posts/$postId',
+      body: {
+        'categoryId': input.categoryId,
+        'text': input.text,
+        'media': input.media
+            .map(
+              (item) => {
+                'type': item.type,
+                'blobName': item.blobName,
+                'url': item.url,
+              },
+            )
+            .toList(),
+        'pollOptions': input.pollOptions,
+      },
+    );
+    return _postFromJson(_object(body, 'post'));
+  }
+
+  @override
+  Future<void> deletePost(String postId) async {
+    await _api.delete('/api/community/v1/posts/$postId');
+  }
+
+  @override
   Future<PostMedia> uploadPostMedia({
     required List<int> bytes,
     required String filename,
@@ -865,6 +895,8 @@ class HttpCommunityRepository implements CommunityRepository {
       commentCount: (json['commentCount'] as num?)?.toInt() ?? 0,
       reactedByMe: json['reactedByMe'] as bool? ?? false,
       savedByMe: json['savedByMe'] as bool? ?? false,
+      ownedByMe: json['ownedByMe'] as bool? ?? false,
+      editedAt: _optionalDate(json['editedAt']),
       promotion: json['promotion'] is Map<String, dynamic>
           ? _postPromotionFromJson(json['promotion'] as Map<String, dynamic>)
           : null,
