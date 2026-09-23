@@ -172,6 +172,7 @@ class Community {
     this.myRole,
     this.approvalRequired = false,
     this.distanceKm,
+    this.rules = const [],
   });
 
   final String id;
@@ -186,8 +187,16 @@ class Community {
   final CommunityRole? myRole;
   final bool approvalRequired;
   final double? distanceKm;
+  final List<CommunityRule> rules;
 
   bool get isJoined => myRole != null;
+}
+
+class CommunityRule {
+  const CommunityRule({required this.title, required this.description});
+
+  final String title;
+  final String description;
 }
 
 class CommunityMember {
