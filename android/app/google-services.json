@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "414702659593",
+    "project_id": "wicchu-3ece7",
+    "storage_bucket": "wicchu-3ece7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:414702659593:android:a5436e30e18bfcae4430d8",
+        "android_client_info": {
+          "package_name": "com.wicchu.wicchu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8kgwDfg66zpVhzGW8EG3UEHgxXRxt3b0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

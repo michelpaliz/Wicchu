@@ -22,10 +22,11 @@ class PushNotificationService {
   static const _projectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
 
   bool get isConfigured =>
-      _apiKey.isNotEmpty &&
-      _appId.isNotEmpty &&
-      _senderId.isNotEmpty &&
-      _projectId.isNotEmpty;
+      !kIsWeb ||
+      (_apiKey.isNotEmpty &&
+          _appId.isNotEmpty &&
+          _senderId.isNotEmpty &&
+          _projectId.isNotEmpty);
 
   Future<void> activate(
     CommunityRepository repository, {
@@ -34,14 +35,18 @@ class PushNotificationService {
     if (_active || !isConfigured) return;
     try {
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp(
-          options: const FirebaseOptions(
-            apiKey: _apiKey,
-            appId: _appId,
-            messagingSenderId: _senderId,
-            projectId: _projectId,
-          ),
-        );
+        if (kIsWeb) {
+          await Firebase.initializeApp(
+            options: const FirebaseOptions(
+              apiKey: _apiKey,
+              appId: _appId,
+              messagingSenderId: _senderId,
+              projectId: _projectId,
+            ),
+          );
+        } else {
+          await Firebase.initializeApp();
+        }
       }
       final messaging = FirebaseMessaging.instance;
       await messaging.requestPermission(alert: true, badge: true, sound: true);
