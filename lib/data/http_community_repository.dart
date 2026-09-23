@@ -52,13 +52,16 @@ class HttpCommunityRepository implements CommunityRepository {
 
   @override
   Future<SocialLinks> updateMySocialLinks(SocialLinks links) async {
-    final body = await _api.patch('/api/community/v1/me/social-links', body: {
-      'whatsapp': links.whatsapp,
-      'facebook': links.facebook,
-      'instagram': links.instagram,
-      'email': links.email,
-      'showOnlineStatus': links.showOnlineStatus,
-    });
+    final body = await _api.patch(
+      '/api/community/v1/me/social-links',
+      body: {
+        'whatsapp': links.whatsapp,
+        'facebook': links.facebook,
+        'instagram': links.instagram,
+        'email': links.email,
+        'showOnlineStatus': links.showOnlineStatus,
+      },
+    );
     return _socialLinksFromJson({
       ..._object(body, 'socialLinks'),
       'showOnlineStatus': body['showOnlineStatus'],
@@ -66,7 +69,9 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   static SocialLinks _socialLinksFromJson(Object? value) {
-    final json = value is Map<String, dynamic> ? value : const <String, dynamic>{};
+    final json = value is Map<String, dynamic>
+        ? value
+        : const <String, dynamic>{};
     return SocialLinks(
       whatsapp: json['whatsapp']?.toString() ?? '',
       facebook: json['facebook']?.toString() ?? '',
@@ -364,6 +369,7 @@ class HttpCommunityRepository implements CommunityRepository {
     required bool approvalRequired,
     String? imageUrl,
     String? imageBlobName,
+    List<CommunityRule>? rules,
   }) async {
     final body = await _api.patch(
       '/api/community/v1/communities/${community.id}',
@@ -373,14 +379,32 @@ class HttpCommunityRepository implements CommunityRepository {
         'visibility': visibility.name,
         'approvalRequired': approvalRequired,
         'imageBlobName': ?imageBlobName,
+        if (rules != null)
+          'rules': [
+            for (final rule in rules)
+              {'title': rule.title, 'description': rule.description},
+          ],
       },
     );
-    return _communityFromJson({
+    final updated = _communityFromJson({
       ..._object(body, 'community'),
       'town': _townToJson(community.town),
       'memberCount': community.memberCount,
       'myRole': community.myRole?.name,
     });
+    if (rules != null &&
+        (_object(body, 'community')['rules'] is! List ||
+            updated.rules.length != rules.length ||
+            List.generate(rules.length, (i) => i).any(
+              (i) =>
+                  updated.rules[i].title != rules[i].title ||
+                  updated.rules[i].description != rules[i].description,
+            ))) {
+      throw const ApiException(
+        'The server did not confirm the rules. Your draft is still here; other settings may have saved.',
+      );
+    }
+    return updated;
   }
 
   @override
@@ -481,10 +505,7 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<CommunityPost> updatePost(
-    String postId,
-    CreatePostInput input,
-  ) async {
+  Future<CommunityPost> updatePost(String postId, CreatePostInput input) async {
     final body = await _api.patch(
       '/api/community/v1/posts/$postId',
       body: {

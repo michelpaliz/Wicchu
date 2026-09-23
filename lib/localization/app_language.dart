@@ -500,6 +500,25 @@ const _spanish = <String, String>{
   'Public community': 'Comunidad pública',
   'Private community': 'Comunidad privada',
   'Created {date}': 'Creada el {date}',
+  'The server did not confirm the rules. Your draft is still here; other settings may have saved.':
+      'El servidor no confirmó las reglas. Tu borrador sigue aquí; es posible que los otros ajustes se hayan guardado.',
+  'Rule changes are applied when you save.':
+      'Los cambios en las reglas se aplican al guardar.',
+  'Description (optional)': 'Descripción (opcional)',
+  'Enter a rule title': 'Escribe un título para la regla',
+  'Rule title': 'Título de la regla',
+  'Move down': 'Mover abajo',
+  'Move up': 'Mover arriba',
+  'Edit rule': 'Editar regla',
+  'Add rule': 'Añadir regla',
+  'Rule actions': 'Opciones de la regla',
+  'Help members understand what belongs in this community.':
+      'Ayuda a los miembros a entender qué se puede publicar en esta comunidad.',
+  'Join to view community posts.':
+      'Únete para ver las publicaciones de la comunidad.',
+  'Nothing needs your attention.': 'No hay nada que requiera tu atención.',
+  'All caught up': 'Todo al día',
+  'Manage community': 'Administrar comunidad',
   'Community rules': 'Reglas de la comunidad',
   'No community rules have been added yet.':
       'Aún no se han añadido reglas para la comunidad.',

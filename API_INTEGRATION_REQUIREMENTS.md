@@ -163,6 +163,23 @@ PATCH /api/community/v1/communities/{communityId}
 
 Supported fields are `name`, `description`, `visibility`, `approvalRequired`, and `imageBlobName`. Only owners/admins may update a community.
 
+### Community rules update — backend support to confirm
+
+The settings editor now sends an optional ordered `rules` array with the existing
+community PATCH request:
+
+```json
+{ "rules": [{ "title": "Be respectful", "description": "Discuss ideas without personal attacks." }] }
+```
+
+The backend must authorize owners/admins, validate nonempty titles, persist the
+array in order, and return it in the updated `community.rules` response and future
+community reads. Omission preserves existing rules; an empty array removes all
+rules. The previous documented update contract does not confirm this capability.
+The frontend checks the returned rules and retains the draft with an error if
+they differ, rather than reporting success. Other fields may already have saved
+when this happens.
+
 ## 4. Categories and members
 
 | Method | Path | Purpose |

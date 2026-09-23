@@ -60,20 +60,22 @@ class DemoCommunityRepository implements CommunityRepository {
   );
 
   @override
-  Future<PublicMemberProfile> getMemberProfile(String userId) async => PublicMemberProfile(
-    id: userId,
-    name: userId == 'current-user' ? 'Michael P.' : 'Wicchu member',
-    userName: '',
-    postCount: (await listMemberPosts(userId)).length,
-    communityCount: 1,
-    socialLinks: _socialLinks,
-  );
+  Future<PublicMemberProfile> getMemberProfile(String userId) async =>
+      PublicMemberProfile(
+        id: userId,
+        name: userId == 'current-user' ? 'Michael P.' : 'Wicchu member',
+        userName: '',
+        postCount: (await listMemberPosts(userId)).length,
+        communityCount: 1,
+        socialLinks: _socialLinks,
+      );
 
   @override
   Future<SocialLinks> getMySocialLinks() async => _socialLinks;
 
   @override
-  Future<SocialLinks> updateMySocialLinks(SocialLinks links) async => _socialLinks = links;
+  Future<SocialLinks> updateMySocialLinks(SocialLinks links) async =>
+      _socialLinks = links;
 
   @override
   Future<List<CommunityPost>> listMemberPosts(
@@ -87,9 +89,11 @@ class DemoCommunityRepository implements CommunityRepository {
       if (kind == 'polls') return post.poll != null;
       return true;
     }).toList();
-    posts.sort((a, b) => sort == 'oldest'
-        ? a.createdAt.compareTo(b.createdAt)
-        : b.createdAt.compareTo(a.createdAt));
+    posts.sort(
+      (a, b) => sort == 'oldest'
+          ? a.createdAt.compareTo(b.createdAt)
+          : b.createdAt.compareTo(a.createdAt),
+    );
     return posts;
   }
 
@@ -287,6 +291,7 @@ class DemoCommunityRepository implements CommunityRepository {
     required bool approvalRequired,
     String? imageUrl,
     String? imageBlobName,
+    List<CommunityRule>? rules,
   }) async {
     final updated = Community(
       id: community.id,
@@ -301,7 +306,7 @@ class DemoCommunityRepository implements CommunityRepository {
       myRole: community.myRole,
       approvalRequired: approvalRequired,
       distanceKm: community.distanceKm,
-      rules: community.rules,
+      rules: rules == null ? community.rules : List.unmodifiable(rules),
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;
@@ -402,10 +407,7 @@ class DemoCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<CommunityPost> updatePost(
-    String postId,
-    CreatePostInput input,
-  ) async {
+  Future<CommunityPost> updatePost(String postId, CreatePostInput input) async {
     for (final entry in _posts.entries) {
       final index = entry.value.indexWhere((post) => post.id == postId);
       if (index < 0) continue;

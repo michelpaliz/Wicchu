@@ -110,6 +110,7 @@ abstract interface class CommunityRepository {
     required bool approvalRequired,
     String? imageUrl,
     String? imageBlobName,
+    List<CommunityRule>? rules,
   });
   Future<List<CommunityPost>> listPosts(
     String communityId, {

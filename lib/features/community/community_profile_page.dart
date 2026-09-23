@@ -8,6 +8,11 @@ import '../profile/member_profile_page.dart';
 import 'community_avatar.dart';
 import 'community_share.dart';
 import 'post_media_gallery.dart';
+import 'post_card.dart';
+import 'post_detail_page.dart';
+import 'post_share.dart';
+import 'comments_sheet.dart';
+import 'create_post_page.dart';
 
 class CommunityProfilePage extends StatefulWidget {
   const CommunityProfilePage({
@@ -27,15 +32,17 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     with SingleTickerProviderStateMixin {
   late Community _community = widget.community;
   late bool _joined = widget.community.isJoined;
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 4, vsync: this);
   late Future<List<CommunityMember>> _members;
   late Future<List<CommunityCategory>> _categories;
   late Future<List<CommunityPost>> _posts;
   bool _savingMembership = false;
+  String? _categoryId;
 
   bool get _canManage =>
       _community.myRole == CommunityRole.owner ||
-      _community.myRole == CommunityRole.admin;
+      _community.myRole == CommunityRole.admin ||
+      _community.myRole == CommunityRole.moderator;
 
   @override
   void initState() {
@@ -110,50 +117,58 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         ),
       ),
     );
-    if (updated != null && mounted) setState(() => _community = updated);
+    if (mounted) {
+      setState(() {
+        if (updated != null) _community = updated;
+        _reload();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leading: IconButton(
-          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-          onPressed: () => Navigator.pop(context, _community),
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: Text(context.tr('Community profile')),
-        actions: [
-          IconButton(
-            tooltip: context.tr('Share'),
-            onPressed: () => shareCommunity(context, _community),
-            icon: const Icon(Icons.ios_share_outlined),
-          ),
-        ],
+    appBar: AppBar(
+      automaticallyImplyLeading: false,
+      leading: IconButton(
+        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+        onPressed: () => Navigator.pop(context, _community),
+        icon: const Icon(Icons.arrow_back),
       ),
-      body: NestedScrollView(
-        headerSliverBuilder: (context, _) => [
-          SliverToBoxAdapter(child: _buildHeader(context)),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _TabHeaderDelegate(
-              TabBar(
-                controller: _tabs,
-                tabs: [
-                  Tab(text: context.tr('About')),
-                  Tab(text: context.tr('Members')),
-                  Tab(text: context.tr('Media')),
-                ],
-              ),
+      title: Text(context.tr('Community profile')),
+      actions: [
+        IconButton(
+          tooltip: context.tr('Share'),
+          onPressed: () => shareCommunity(context, _community),
+          icon: const Icon(Icons.ios_share_outlined),
+        ),
+      ],
+    ),
+    body: NestedScrollView(
+      headerSliverBuilder: (context, _) => [
+        SliverToBoxAdapter(child: _buildHeader(context)),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _TabHeaderDelegate(
+            TabBar(
+              controller: _tabs,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: [
+                Tab(text: context.tr('Posts')),
+                Tab(text: context.tr('About')),
+                Tab(text: context.tr('Members')),
+                Tab(text: context.tr('Media')),
+              ],
             ),
           ),
-        ],
-        body: TabBarView(
-          controller: _tabs,
-          children: [_aboutTab(context), _membersTab(), _mediaTab()],
         ),
+      ],
+      body: TabBarView(
+        controller: _tabs,
+        children: [_postsTab(), _aboutTab(context), _membersTab(), _mediaTab()],
       ),
-    );
+    ),
+  );
 
   Widget _buildHeader(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -168,7 +183,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               Container(
                 color: scheme.primaryContainer,
                 child: _community.imageUrl == null
-                    ? Icon(Icons.groups_rounded, size: 72, color: scheme.primary)
+                    ? Icon(
+                        Icons.groups_rounded,
+                        size: 72,
+                        color: scheme.primary,
+                      )
                     : Image.network(_community.imageUrl!, fit: BoxFit.cover),
               ),
               Positioned(
@@ -193,9 +212,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             children: [
               Text(
                 _community.name,
-                style: Theme.of(
-                  context,
-                ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -207,7 +226,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 children: [
                   Expanded(
                     child: FilledButton.tonalIcon(
-                      onPressed: _savingMembership ||
+                      onPressed:
+                          _savingMembership ||
                               _community.myRole == CommunityRole.owner
                           ? null
                           : _toggleMembership,
@@ -229,7 +249,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   if (_canManage) ...[
                     const SizedBox(width: 10),
                     IconButton.filledTonal(
-                      tooltip: context.tr('Community management'),
+                      tooltip: context.tr('Manage community'),
                       onPressed: _openManagement,
                       icon: const Icon(Icons.admin_panel_settings_outlined),
                     ),
@@ -240,6 +260,210 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _refreshPosts() async {
+    setState(_reload);
+    try {
+      await _posts;
+    } catch (_) {}
+  }
+
+  Widget _postsTab() {
+    if (!_joined) {
+      return Center(child: Text(context.tr('Join to view community posts.')));
+    }
+    return FutureBuilder<List<CommunityCategory>>(
+      future: _categories,
+      builder: (context, categorySnapshot) {
+        final categories = categorySnapshot.data ?? const <CommunityCategory>[];
+        return RefreshIndicator(
+          onRefresh: _refreshPosts,
+          child: CustomScrollView(
+            key: const PageStorageKey('community-profile-posts'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(context.tr('All')),
+                          selected: _categoryId == null,
+                          onSelected: (_) => setState(() => _categoryId = null),
+                        ),
+                      ),
+                      for (final category in categories)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(context.tr(category.name)),
+                            selected: _categoryId == category.id,
+                            onSelected: (_) =>
+                                setState(() => _categoryId = category.id),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              FutureBuilder<List<CommunityPost>>(
+                future: _posts,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SliverToBoxAdapter(
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return SliverToBoxAdapter(
+                      child: Column(
+                        children: [
+                          Text(context.trError(snapshot.error!)),
+                          TextButton(
+                            onPressed: _refreshPosts,
+                            child: Text(context.tr('Retry')),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  final posts = (snapshot.data ?? const <CommunityPost>[])
+                      .where(
+                        (post) =>
+                            _categoryId == null ||
+                            post.categoryId == _categoryId,
+                      )
+                      .toList();
+                  if (posts.isEmpty) {
+                    return SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(context.tr('No posts found')),
+                      ),
+                    );
+                  }
+                  return SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    sliver: SliverList.builder(
+                      itemCount: posts.length,
+                      itemBuilder: (context, index) {
+                        final post = posts[index];
+                        final category = categories
+                            .where((c) => c.id == post.categoryId)
+                            .firstOrNull;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: PostCard(
+                            key: ValueKey(post.id),
+                            collapseText: true,
+                            showCommunity: false,
+                            onTap: () =>
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PostDetailPage(
+                                      postId: post.id,
+                                      repository: widget.repository,
+                                      initialPost: post,
+                                      category: category?.name ?? 'General',
+                                      icon: category?.icon ?? '💬',
+                                      community: _community.name,
+                                    ),
+                                  ),
+                                ).then((_) {
+                                  if (mounted) setState(_reload);
+                                }),
+                            category: category?.name ?? 'General',
+                            icon: category?.icon ?? '💬',
+                            community: _community.name,
+                            author: post.authorName,
+                            authorAvatarUrl: post.authorAvatarUrl,
+                            onAuthorTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MemberProfilePage(
+                                  userId: post.authorId,
+                                  repository: widget.repository,
+                                ),
+                              ),
+                            ),
+                            time: formatPostTime(context, post.createdAt),
+                            edited: post.editedAt != null,
+                            onEdit: post.ownedByMe
+                                ? () async {
+                                    await openEditPost(
+                                      context,
+                                      widget.repository,
+                                      post,
+                                    );
+                                    if (mounted) setState(_reload);
+                                  }
+                                : null,
+                            onDelete: post.ownedByMe
+                                ? () async {
+                                    await widget.repository.deletePost(post.id);
+                                    if (mounted) setState(_reload);
+                                  }
+                                : null,
+                            text: post.text,
+                            likes: post.reactionCount,
+                            comments: post.commentCount,
+                            media: post.media,
+                            poll: post.poll,
+                            onPollVote: (optionId) =>
+                                widget.repository.voteOnPost(post.id, optionId),
+                            promotion: post.promotion,
+                            onPromotionImpression: post.promotion == null
+                                ? null
+                                : () => widget.repository
+                                      .recordPromotionImpression(
+                                        post.promotion!.id,
+                                      ),
+                            onPromotionClick: post.promotion == null
+                                ? null
+                                : () => widget.repository.recordPromotionClick(
+                                    post.promotion!.id,
+                                  ),
+                            reacted: post.reactedByMe,
+                            onReaction: (reacted) => widget.repository
+                                .setPostReaction(post.id, reacted: reacted),
+                            onComments: () => showPostComments(
+                              context,
+                              widget.repository,
+                              post,
+                            ),
+                            saved: post.savedByMe,
+                            onSaved: (saved) => widget.repository.setPostSaved(
+                              post.id,
+                              saved: saved,
+                            ),
+                            onReport: (reason) =>
+                                widget.repository.reportPost(post.id, reason),
+                            onShare: () => sharePost(
+                              widget.repository,
+                              post,
+                              communityName: _community.name,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -291,8 +515,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final category in snapshot.data ?? const <CommunityCategory>[])
-                Chip(label: Text('${category.icon} ${context.tr(category.name)}')),
+              for (final category
+                  in snapshot.data ?? const <CommunityCategory>[])
+                Chip(
+                  label: Text('${category.icon} ${context.tr(category.name)}'),
+                ),
               if (snapshot.connectionState == ConnectionState.waiting)
                 const CircularProgressIndicator(),
             ],
@@ -330,14 +557,23 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) return Center(child: Text(context.trError(snapshot.error!)));
-        final members = [...?snapshot.data]..sort((a, b) {
-          final aLeader = a.role == CommunityRole.owner || a.role == CommunityRole.admin || a.role == CommunityRole.moderator;
-          final bLeader = b.role == CommunityRole.owner || b.role == CommunityRole.admin || b.role == CommunityRole.moderator;
-          if (aLeader != bLeader) return aLeader ? -1 : 1;
-          if (a.isOnline != b.isOnline) return a.isOnline ? -1 : 1;
-          return a.name.compareTo(b.name);
-        });
+        if (snapshot.hasError) {
+          return Center(child: Text(context.trError(snapshot.error!)));
+        }
+        final members = [...?snapshot.data]
+          ..sort((a, b) {
+            final aLeader =
+                a.role == CommunityRole.owner ||
+                a.role == CommunityRole.admin ||
+                a.role == CommunityRole.moderator;
+            final bLeader =
+                b.role == CommunityRole.owner ||
+                b.role == CommunityRole.admin ||
+                b.role == CommunityRole.moderator;
+            if (aLeader != bLeader) return aLeader ? -1 : 1;
+            if (a.isOnline != b.isOnline) return a.isOnline ? -1 : 1;
+            return a.name.compareTo(b.name);
+          });
         return ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: members.length,
@@ -352,7 +588,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       ? null
                       : NetworkImage(member.avatarUrl!),
                   child: member.avatarUrl == null
-                      ? Text(member.name.isEmpty ? '?' : member.name[0].toUpperCase())
+                      ? Text(
+                          member.name.isEmpty
+                              ? '?'
+                              : member.name[0].toUpperCase(),
+                        )
                       : null,
                 ),
               ),
@@ -396,11 +636,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) return Center(child: Text(context.trError(snapshot.error!)));
+        if (snapshot.hasError) {
+          return Center(child: Text(context.trError(snapshot.error!)));
+        }
         final media = (snapshot.data ?? const <CommunityPost>[])
             .expand((post) => post.media)
             .toList(growable: false);
-        if (media.isEmpty) return Center(child: Text(context.tr('No media yet')));
+        if (media.isEmpty) {
+          return Center(child: Text(context.tr('No media yet')));
+        }
         return GridView.builder(
           padding: const EdgeInsets.all(4),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -486,8 +730,12 @@ class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   double get maxExtent => tabBar.preferredSize.height;
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      Material(color: Theme.of(context).colorScheme.surface, child: tabBar);
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => Material(color: Theme.of(context).colorScheme.surface, child: tabBar);
   @override
-  bool shouldRebuild(covariant _TabHeaderDelegate oldDelegate) => false;
+  bool shouldRebuild(covariant _TabHeaderDelegate oldDelegate) =>
+      oldDelegate.tabBar != tabBar;
 }

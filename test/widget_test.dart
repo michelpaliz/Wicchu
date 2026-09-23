@@ -569,7 +569,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Administrar comunidad'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Denuncias'));
+    await tester.ensureVisible(find.text('Moderación'));
+    await tester.tap(find.text('Moderación'));
     await tester.pumpAndSettle();
 
     expect(find.text('No hay denuncias abiertas'), findsOneWidget);

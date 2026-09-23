@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
-import '../../widgets/wicchu_logo.dart';
 import 'pending_posts_page.dart';
 import 'admin_review_queues.dart';
 import 'admin_management_pages.dart';
@@ -27,6 +26,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   late Future<AdminAttentionSummary> _summary;
   late Community _community = widget.community;
 
+  bool get _canConfigure =>
+      community.myRole == CommunityRole.owner ||
+      community.myRole == CommunityRole.admin;
   Community get community => _community;
   CommunityRepository get repository => widget.repository;
 
@@ -45,7 +47,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(onPressed: () => Navigator.pop(context, community)),
-        title: const WicchuTitle(),
+        title: Text(context.tr('Manage community')),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -63,57 +65,92 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
           ),
           const SizedBox(height: 28),
-          Text(
-            context.tr('Needs your attention'),
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 12),
           FutureBuilder<AdminAttentionSummary>(
             future: _summary,
             builder: (context, snapshot) {
-              final summary = snapshot.data ?? const AdminAttentionSummary();
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const LinearProgressIndicator();
+              }
+              if (snapshot.hasError) {
+                return Column(
+                  children: [
+                    Text(context.trError(snapshot.error!)),
+                    TextButton(
+                      onPressed: () => setState(_reload),
+                      child: Text(context.tr('Retry')),
+                    ),
+                  ],
+                );
+              }
+              final summary = snapshot.data!;
+              if (summary.pendingPosts +
+                      summary.pendingPromotions +
+                      summary.openReports +
+                      (_canConfigure ? summary.membershipRequests : 0) ==
+                  0) {
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.check_circle_outline,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: Text(context.tr('All caught up')),
+                  subtitle: Text(context.tr('Nothing needs your attention.')),
+                );
+              }
               return Card(
                 child: Column(
                   children: [
-                    _ActionRow(
-                      icon: Icons.pending_actions,
-                      label: 'Posts awaiting approval',
-                      count: summary.pendingPosts,
-                      onTap: _openPendingPosts,
-                    ),
-                    _ActionRow(
-                      icon: Icons.campaign_outlined,
-                      label: 'Promotion requests',
-                      count: summary.pendingPromotions,
-                      onTap: () => _openQueue(
-                        PromotionReviewPage(
-                          community: community,
-                          repository: repository,
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        context.tr('Needs your attention'),
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
-                    _ActionRow(
-                      icon: Icons.flag_outlined,
-                      label: 'Reports',
-                      count: summary.openReports,
-                      onTap: () => _openQueue(
-                        ReportsQueuePage(
-                          community: community,
-                          repository: repository,
+                    if (summary.pendingPosts > 0)
+                      _ActionRow(
+                        icon: Icons.pending_actions,
+                        label: 'Posts awaiting approval',
+                        count: summary.pendingPosts,
+                        onTap: _openPendingPosts,
+                      ),
+                    if (summary.pendingPromotions > 0)
+                      _ActionRow(
+                        icon: Icons.campaign_outlined,
+                        label: 'Promotion requests',
+                        count: summary.pendingPromotions,
+                        onTap: () => _openQueue(
+                          PromotionReviewPage(
+                            community: community,
+                            repository: repository,
+                          ),
                         ),
                       ),
-                    ),
-                    _ActionRow(
-                      icon: Icons.person_add_alt,
-                      label: 'Membership requests',
-                      count: summary.membershipRequests,
-                      onTap: () => _openQueue(
-                        MembershipRequestsPage(
-                          community: community,
-                          repository: repository,
+                    if (summary.openReports > 0)
+                      _ActionRow(
+                        icon: Icons.flag_outlined,
+                        label: 'Reports',
+                        count: summary.openReports,
+                        onTap: () => _openQueue(
+                          ReportsQueuePage(
+                            community: community,
+                            repository: repository,
+                          ),
                         ),
                       ),
-                    ),
+                    if (_canConfigure && summary.membershipRequests > 0)
+                      _ActionRow(
+                        icon: Icons.person_add_alt,
+                        label: 'Membership requests',
+                        count: summary.membershipRequests,
+                        onTap: () => _openQueue(
+                          MembershipRequestsPage(
+                            community: community,
+                            repository: repository,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               );
@@ -121,7 +158,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           ),
           const SizedBox(height: 28),
           Text(
-            context.tr('Community'),
+            context.tr('Manage community'),
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
@@ -130,26 +167,28 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             label: 'Overview',
             onTap: () => _openQueue(AdminOverviewPage(community: community)),
           ),
-          _MenuRow(
-            icon: Icons.folder_outlined,
-            label: 'Categories',
-            onTap: () => _openQueue(
-              CategoryManagementPage(
-                community: community,
-                repository: repository,
+          if (_canConfigure)
+            _MenuRow(
+              icon: Icons.folder_outlined,
+              label: 'Categories',
+              onTap: () => _openQueue(
+                CategoryManagementPage(
+                  community: community,
+                  repository: repository,
+                ),
               ),
             ),
-          ),
-          _MenuRow(
-            icon: Icons.group_outlined,
-            label: 'Members',
-            onTap: () => _openQueue(
-              MemberManagementPage(
-                community: community,
-                repository: repository,
+          if (_canConfigure)
+            _MenuRow(
+              icon: Icons.group_outlined,
+              label: 'Members',
+              onTap: () => _openQueue(
+                MemberManagementPage(
+                  community: community,
+                  repository: repository,
+                ),
               ),
             ),
-          ),
           _MenuRow(
             icon: Icons.shield_outlined,
             label: 'Moderation',
@@ -157,11 +196,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               ReportsQueuePage(community: community, repository: repository),
             ),
           ),
-          _MenuRow(
-            icon: Icons.settings_outlined,
-            label: 'Settings',
-            onTap: _openSettings,
-          ),
+          if (_canConfigure)
+            _MenuRow(
+              icon: Icons.settings_outlined,
+              label: 'Settings',
+              onTap: _openSettings,
+            ),
         ],
       ),
     );

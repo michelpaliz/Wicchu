@@ -211,7 +211,11 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
               leading: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  CircleAvatar(child: Text(member.name.isEmpty ? '?' : member.name[0].toUpperCase())),
+                  CircleAvatar(
+                    child: Text(
+                      member.name.isEmpty ? '?' : member.name[0].toUpperCase(),
+                    ),
+                  ),
                   if (member.isOnline)
                     Positioned(
                       right: -1,
@@ -222,18 +226,23 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                         decoration: BoxDecoration(
                           color: Colors.green,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.surface,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
                 ],
               ),
               title: Text(member.name),
-              subtitle: Text(member.isOnline
-                  ? context.tr('Online now')
-                  : member.lastActiveAt != null
-                      ? context.tr('Active recently')
-                      : member.userId),
+              subtitle: Text(
+                member.isOnline
+                    ? context.tr('Online now')
+                    : member.lastActiveAt != null
+                    ? context.tr('Active recently')
+                    : member.userId,
+              ),
               trailing: member.role == CommunityRole.owner
                   ? Chip(label: Text(context.tr('Owner')))
                   : DropdownButton<CommunityRole>(
@@ -308,6 +317,33 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   String? _imageBlobName;
   bool _saving = false;
   bool _uploadingImage = false;
+  late final List<CommunityRule> _rules = [...widget.community.rules];
+  bool _rulesChanged = false;
+
+  Future<void> _editRule([int? index]) async {
+    final rule = index == null ? null : _rules[index];
+    final updated = await showDialog<CommunityRule>(
+      context: context,
+      builder: (_) => _RuleEditor(rule: rule),
+    );
+    if (updated == null || !mounted) return;
+    setState(() {
+      if (index == null) {
+        _rules.add(updated);
+      } else {
+        _rules[index] = updated;
+      }
+      _rulesChanged = true;
+    });
+  }
+
+  void _moveRule(int index, int offset) {
+    setState(() {
+      final rule = _rules.removeAt(index);
+      _rules.insert(index + offset, rule);
+      _rulesChanged = true;
+    });
+  }
 
   @override
   void dispose() {
@@ -404,6 +440,75 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           onChanged: (value) => setState(() => _approvalRequired = value),
         ),
         const SizedBox(height: 24),
+        Text(
+          context.tr('Community rules'),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          context.tr('Help members understand what belongs in this community.'),
+        ),
+        if (_rules.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(context.tr('No community rules have been added yet.')),
+          ),
+        for (final (index, rule) in _rules.indexed)
+          Card(
+            child: ListTile(
+              leading: CircleAvatar(radius: 16, child: Text('${index + 1}')),
+              title: Text(rule.title),
+              subtitle: rule.description.isEmpty
+                  ? null
+                  : Text(rule.description),
+              onTap: _saving ? null : () => _editRule(index),
+              trailing: PopupMenuButton<String>(
+                enabled: !_saving,
+                tooltip: context.tr('Rule actions'),
+                onSelected: (action) {
+                  if (action == 'edit') _editRule(index);
+                  if (action == 'up') _moveRule(index, -1);
+                  if (action == 'down') _moveRule(index, 1);
+                  if (action == 'delete') {
+                    setState(() {
+                      _rules.removeAt(index);
+                      _rulesChanged = true;
+                    });
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Text(context.tr('Edit rule')),
+                  ),
+                  if (index > 0)
+                    PopupMenuItem(
+                      value: 'up',
+                      child: Text(context.tr('Move up')),
+                    ),
+                  if (index < _rules.length - 1)
+                    PopupMenuItem(
+                      value: 'down',
+                      child: Text(context.tr('Move down')),
+                    ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text(context.tr('Delete')),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _saving ? null : () => _editRule(),
+            icon: const Icon(Icons.add),
+            label: Text(context.tr('Add rule')),
+          ),
+        ),
+        Text(context.tr('Rule changes are applied when you save.')),
+        const SizedBox(height: 24),
         FilledButton.icon(
           onPressed: _saving || _uploadingImage ? null : _save,
           icon: _saving
@@ -430,6 +535,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         approvalRequired: _approvalRequired,
         imageUrl: _imageUrl,
         imageBlobName: _imageBlobName,
+        rules: _rulesChanged ? List.of(_rules) : null,
       );
       if (mounted) Navigator.pop(context, updated);
     } catch (error) {
@@ -494,4 +600,81 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     if (lower.endsWith('.webp')) return 'image/webp';
     return 'image/jpeg';
   }
+}
+
+class _RuleEditor extends StatefulWidget {
+  const _RuleEditor({this.rule});
+  final CommunityRule? rule;
+
+  @override
+  State<_RuleEditor> createState() => _RuleEditorState();
+}
+
+class _RuleEditorState extends State<_RuleEditor> {
+  final _form = GlobalKey<FormState>();
+  late final _title = TextEditingController(text: widget.rule?.title);
+  late final _description = TextEditingController(
+    text: widget.rule?.description,
+  );
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(context.tr(widget.rule == null ? 'Add rule' : 'Edit rule')),
+    content: SingleChildScrollView(
+      child: Form(
+        key: _form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _title,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(labelText: context.tr('Rule title')),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? context.tr('Enter a rule title')
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _description,
+              minLines: 2,
+              maxLines: 4,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: context.tr('Description (optional)'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: Text(context.tr('Cancel')),
+      ),
+      FilledButton(
+        onPressed: () {
+          if (_form.currentState!.validate()) {
+            Navigator.pop(
+              context,
+              CommunityRule(
+                title: _title.text.trim(),
+                description: _description.text.trim(),
+              ),
+            );
+          }
+        },
+        child: Text(context.tr('Save')),
+      ),
+    ],
+  );
 }
