@@ -28,6 +28,12 @@ enum CommunityNotificationType {
   membershipRejected,
   promotionApproved,
   promotionRejected,
+  membershipRequest,
+  postPending,
+  commentPending,
+  reportCreated,
+  communityInvitation,
+  communityRoleChanged,
 }
 
 class NotificationPreferences {
@@ -192,11 +198,58 @@ class Community {
   bool get isJoined => myRole != null;
 }
 
-class CommunityRule {
-  const CommunityRule({required this.title, required this.description});
+class CommunityInvitation {
+  const CommunityInvitation({
+    required this.id,
+    required this.communityId,
+    required this.email,
+    required this.status,
+    required this.expiresAt,
+    required this.createdAt,
+    this.communityName,
+    this.communityImageUrl,
+    this.invitationUrl,
+  });
 
+  final String id;
+  final String communityId;
+  final String email;
+  final String status;
+  final DateTime expiresAt;
+  final DateTime createdAt;
+  final String? communityName;
+  final String? communityImageUrl;
+  final String? invitationUrl;
+}
+
+class CommunityRule {
+  const CommunityRule({
+    this.id = '',
+    required this.title,
+    required this.description,
+    this.position = 0,
+  });
+
+  final String id;
   final String title;
   final String description;
+  final int position;
+}
+
+class CommunityRules {
+  const CommunityRules({
+    required this.rules,
+    required this.rulesVersion,
+    required this.acceptedRulesVersion,
+    required this.acceptanceRequired,
+    required this.canManage,
+  });
+
+  final List<CommunityRule> rules;
+  final int rulesVersion;
+  final int acceptedRulesVersion;
+  final bool acceptanceRequired;
+  final bool canManage;
 }
 
 class CommunityMember {

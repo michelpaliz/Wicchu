@@ -36,6 +36,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   late Future<List<CommunityMember>> _members;
   late Future<List<CommunityCategory>> _categories;
   late Future<List<CommunityPost>> _posts;
+  late Future<CommunityRules> _rules;
   bool _savingMembership = false;
   String? _categoryId;
 
@@ -52,6 +53,17 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   void _reload() {
     _categories = widget.repository.listCategories(_community.id);
+    _rules = _joined
+        ? widget.repository.listRules(_community.id)
+        : Future.value(
+            CommunityRules(
+              rules: _community.rules,
+              rulesVersion: 0,
+              acceptedRulesVersion: 0,
+              acceptanceRequired: false,
+              canManage: false,
+            ),
+          );
     _posts = _joined
         ? widget.repository.listPosts(_community.id)
         : Future.value(const <CommunityPost>[]);
@@ -526,23 +538,29 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           ),
         ),
       ),
-      _Section(
-        title: context.tr('Community rules'),
-        child: _community.rules.isEmpty
-            ? Text(context.tr('No community rules have been added yet.'))
-            : Column(
-                children: [
-                  for (final (index, rule) in _community.rules.indexed)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(child: Text('${index + 1}')),
-                      title: Text(rule.title),
-                      subtitle: rule.description.isEmpty
-                          ? null
-                          : Text(rule.description),
-                    ),
-                ],
-              ),
+      FutureBuilder<CommunityRules>(
+        future: _rules,
+        builder: (context, snapshot) {
+          final rules = snapshot.data?.rules ?? _community.rules;
+          return _Section(
+            title: context.tr('Community rules'),
+            child: rules.isEmpty
+                ? Text(context.tr('No community rules have been added yet.'))
+                : Column(
+                    children: [
+                      for (final (index, rule) in rules.indexed)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(child: Text('${index + 1}')),
+                          title: Text(rule.title),
+                          subtitle: rule.description.isEmpty
+                              ? null
+                              : Text(rule.description),
+                        ),
+                    ],
+                  ),
+          );
+        },
       ),
     ],
   );

@@ -7,6 +7,8 @@ import 'pending_posts_page.dart';
 import 'admin_review_queues.dart';
 import 'admin_management_pages.dart';
 import 'promotion_review_page.dart';
+import 'rule_management_page.dart';
+import '../community/community_invitations_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({
@@ -189,6 +191,23 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
               ),
             ),
+          _MenuRow(
+            icon: Icons.person_add_alt_1_outlined,
+            label: 'Invitations',
+            onTap: () => _openQueue(
+              CommunityInvitationsPage(community: community, repository: repository),
+            ),
+          ),
+          _MenuRow(
+            icon: Icons.rule_outlined,
+            label: 'Rules',
+            onTap: () => _openQueue(
+              RuleManagementPage(
+                community: community,
+                repository: repository,
+              ),
+            ),
+          ),
           _MenuRow(
             icon: Icons.shield_outlined,
             label: 'Moderation',

@@ -12,6 +12,7 @@ import 'domain/community_repository.dart';
 import 'features/auth/login_page.dart';
 import 'features/main/main_shell.dart';
 import 'features/community/shared_post_page.dart';
+import 'features/community/community_invitations_page.dart';
 import 'features/promotions/promotions_page.dart';
 import 'localization/app_language.dart';
 import 'theme/theme_menu.dart';
@@ -44,8 +45,10 @@ class WicchuApp extends StatefulWidget {
 
 class _WicchuAppState extends State<WicchuApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<Uri>? _linkSubscription;
   String? _pendingPostId;
+  bool _pendingInvitations = false;
   bool _pendingPromotions = false;
   late Future<bool> _hasSession;
   String _languageCode = 'en';
@@ -99,6 +102,40 @@ class _WicchuAppState extends State<WicchuApp> {
           _openPendingPost();
         }
       },
+      onForeground: (message, data) {
+        const openableTypes = {
+          'post_reaction',
+          'comment_reaction',
+          'post_comment',
+          'comment_reply',
+          'post_approved',
+          'post_restored',
+          'comment_approved',
+          'report_created',
+        };
+        final type = data['type']?.toString() ?? '';
+        final postId = data['postId']?.toString();
+        _scaffoldMessengerKey.currentState
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(message),
+              action: !openableTypes.contains(type) ||
+                      postId == null ||
+                      postId.isEmpty
+                  ? null
+                  : SnackBarAction(
+                      label: 'View',
+                      onPressed: () {
+                        _queueLink(
+                          Uri(scheme: 'wicchu', host: 'posts', path: postId),
+                        );
+                        _openPendingPost();
+                      },
+                    ),
+            ),
+          );
+      },
     );
   }
 
@@ -114,6 +151,15 @@ class _WicchuAppState extends State<WicchuApp> {
   }
 
   void _queueLink(Uri uri) {
+    if ((uri.scheme == 'wicchu' && uri.host == 'invitations') ||
+        ((uri.scheme == 'http' || uri.scheme == 'https') &&
+            uri.host == 'hexora.dev' &&
+            uri.pathSegments.length >= 2 &&
+            uri.pathSegments[0] == 'wicchu' &&
+            uri.pathSegments[1] == 'invitations')) {
+      if (mounted) setState(() => _pendingInvitations = true);
+      return;
+    }
     final postId = _postIdFromUri(uri);
     if (postId == null || !mounted) return;
     setState(() => _pendingPostId = postId);
@@ -137,6 +183,17 @@ class _WicchuAppState extends State<WicchuApp> {
   }
 
   void _openPendingPost() {
+    if (_pendingInvitations) {
+      _pendingInvitations = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (_) => MyCommunityInvitationsPage(repository: widget.repository),
+          ),
+        );
+      });
+      return;
+    }
     if (_pendingPromotions) {
       _pendingPromotions = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -218,6 +275,7 @@ class _WicchuAppState extends State<WicchuApp> {
         onLanguageChanged: _setLanguage,
         child: MaterialApp(
           navigatorKey: _navigatorKey,
+          scaffoldMessengerKey: _scaffoldMessengerKey,
           title: 'Wicchu',
           debugShowCheckedModeBanner: false,
           theme: WicchuTheme.light,

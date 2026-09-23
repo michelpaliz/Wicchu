@@ -37,6 +37,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _selectedCategories = <String>{..._defaults};
+  final _draftRules = <CommunityRule>[];
   int _step = 0;
   Town? _town;
   bool _saving = false;
@@ -205,6 +206,33 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                   onChanged: (value) =>
                       setState(() => _approvalRequired = value),
                 ),
+                for (final (index, rule) in _draftRules.indexed)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(child: Text('${index + 1}')),
+                    title: Text(rule.title),
+                    subtitle: Text(
+                      rule.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: IconButton(
+                      tooltip: context.tr('Delete rule'),
+                      onPressed: () => setState(() => _draftRules.removeAt(index)),
+                      icon: const Icon(Icons.close),
+                    ),
+                    onTap: () => _editDraftRule(index),
+                  ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _draftRules.length >= 25
+                        ? null
+                        : () => _editDraftRule(),
+                    icon: const Icon(Icons.add),
+                    label: Text(context.tr('Add rule')),
+                  ),
+                ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(_nameController.text.trim()),
@@ -261,6 +289,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           visibility: CommunityVisibility.public,
           categoryNames: _selectedCategories.toList(),
           approvalRequired: _approvalRequired,
+          rules: _draftRules,
         ),
       );
     } catch (error) {
@@ -297,6 +326,79 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       ),
     );
     if (mounted) Navigator.pop(context, community);
+  }
+
+  Future<void> _editDraftRule([int? index]) async {
+    final existing = index == null ? null : _draftRules[index];
+    final title = TextEditingController(text: existing?.title);
+    final description = TextEditingController(text: existing?.description);
+    final result = await showDialog<(String, String)>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          dialogContext.tr(existing == null ? 'Add rule' : 'Edit rule'),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: title,
+                autofocus: true,
+                maxLength: 120,
+                decoration: InputDecoration(
+                  labelText: dialogContext.tr('Rule title'),
+                ),
+              ),
+              TextField(
+                controller: description,
+                minLines: 3,
+                maxLines: 6,
+                maxLength: 1000,
+                decoration: InputDecoration(
+                  labelText: dialogContext.tr('Description'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(dialogContext.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () {
+              final normalizedTitle = title.text.trim();
+              final normalizedDescription = description.text.trim();
+              if (normalizedTitle.isEmpty || normalizedDescription.isEmpty) {
+                return;
+              }
+              Navigator.pop(
+                dialogContext,
+                (normalizedTitle, normalizedDescription),
+              );
+            },
+            child: Text(dialogContext.tr('Save')),
+          ),
+        ],
+      ),
+    );
+    title.dispose();
+    description.dispose();
+    if (result == null || !mounted) return;
+    setState(() {
+      final rule = CommunityRule(
+        title: result.$1,
+        description: result.$2,
+        position: index ?? _draftRules.length,
+      );
+      if (index == null) {
+        _draftRules.add(rule);
+      } else {
+        _draftRules[index] = rule;
+      }
+    });
   }
 
   Future<void> _detectLocation() async {

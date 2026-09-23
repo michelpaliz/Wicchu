@@ -34,6 +34,7 @@ class _CommunityPageState extends State<CommunityPage> {
   late Future<List<CommunityPost>> _posts;
   late Community _community = widget.community;
   late bool _isJoined = widget.community.isJoined;
+  bool _checkingRules = false;
 
   Community get community => _community;
   CommunityRepository get repository => widget.repository;
@@ -45,11 +46,73 @@ class _CommunityPageState extends State<CommunityPage> {
   void initState() {
     super.initState();
     _reload();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkRules());
   }
 
   void _reload() {
     _categories = repository.listCategories(community.id);
     _posts = repository.listPosts(community.id);
+  }
+
+  Future<void> _checkRules() async {
+    if (!_isJoined || _checkingRules || !mounted) return;
+    _checkingRules = true;
+    try {
+      final result = await repository.listRules(community.id);
+      if (!mounted || !result.acceptanceRequired) return;
+      final accepted = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(dialogContext.tr('Community rules')),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: result.rules.length,
+              itemBuilder: (context, index) {
+                final rule = result.rules[index];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(child: Text('${index + 1}')),
+                  title: Text(rule.title),
+                  subtitle: Text(rule.description),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(dialogContext.tr('Not now')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(dialogContext.tr('Accept rules')),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (accepted == true) {
+        await repository.acceptRules(community.id, result.rulesVersion);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.tr('Rules accepted'))),
+          );
+        }
+      } else {
+        Navigator.pop(context);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      _checkingRules = false;
+    }
   }
 
   Future<void> _createPost() async {
@@ -303,7 +366,14 @@ class _CommunityPageState extends State<CommunityPage> {
                         community: community,
                         repository: repository,
                         onChanged: (joined) =>
-                            setState(() => _isJoined = joined),
+                            setState(() {
+                              _isJoined = joined;
+                              if (joined) {
+                                WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) => _checkRules(),
+                                );
+                              }
+                            }),
                       ),
                     ),
                   if (community.myRole != CommunityRole.owner)

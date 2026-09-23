@@ -247,6 +247,14 @@ class HttpCommunityRepository implements CommunityRepository {
         'visibility': input.visibility.name,
         'categoryNames': input.categoryNames,
         'approvalRequired': input.approvalRequired,
+        'rules': input.rules
+            .map(
+              (rule) => {
+                'title': rule.title,
+                'description': rule.description,
+              },
+            )
+            .toList(),
       },
     );
     final json = _object(body, 'community');
@@ -261,6 +269,110 @@ class HttpCommunityRepository implements CommunityRepository {
   @override
   Future<void> joinCommunity(String communityId) async {
     await _api.post('/api/community/v1/communities/$communityId/join');
+  }
+
+  @override
+  Future<CommunityInvitation> createCommunityInvitation(
+    String communityId,
+    String email,
+  ) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/$communityId/invitations',
+      body: {'email': email},
+    );
+    return _invitationFromJson(
+      _object(body, 'invitation'),
+      invitationUrl: body['invitationUrl']?.toString(),
+    );
+  }
+
+  @override
+  Future<List<CommunityInvitation>> listCommunityInvitations(String communityId) async {
+    final body = await _api.get('/api/community/v1/communities/$communityId/invitations');
+    return _list(body, 'invitations').map(_invitationFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<List<CommunityInvitation>> listMyCommunityInvitations() async {
+    final body = await _api.get('/api/community/v1/me/invitations');
+    return _list(body, 'invitations').map(_invitationFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<void> respondToCommunityInvitation(String invitationId, {required bool accept}) async {
+    await _api.post('/api/community/v1/me/invitations/$invitationId/${accept ? 'accept' : 'decline'}');
+  }
+
+  @override
+  Future<void> revokeCommunityInvitation(String communityId, String invitationId) async {
+    await _api.delete('/api/community/v1/communities/$communityId/invitations/$invitationId');
+  }
+
+  @override
+  Future<CommunityRules> listRules(String communityId) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/rules',
+    );
+    return CommunityRules(
+      rules: _list(body, 'rules').map(_ruleFromJson).toList(growable: false),
+      rulesVersion: (body['rulesVersion'] as num?)?.toInt() ?? 0,
+      acceptedRulesVersion:
+          (body['acceptedRulesVersion'] as num?)?.toInt() ?? 0,
+      acceptanceRequired: body['acceptanceRequired'] == true,
+      canManage: body['canManage'] == true,
+    );
+  }
+
+  @override
+  Future<CommunityRule> createRule(
+    String communityId, {
+    required String title,
+    required String description,
+    required int position,
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/$communityId/rules',
+      body: {
+        'title': title,
+        'description': description,
+        'position': position,
+      },
+    );
+    return _ruleFromJson(_object(body, 'rule'));
+  }
+
+  @override
+  Future<CommunityRule> updateRule(
+    String communityId,
+    CommunityRule rule, {
+    String? title,
+    String? description,
+    int? position,
+  }) async {
+    final body = await _api.patch(
+      '/api/community/v1/communities/$communityId/rules/${rule.id}',
+      body: {
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
+        if (position != null) 'position': position,
+      },
+    );
+    return _ruleFromJson(_object(body, 'rule'));
+  }
+
+  @override
+  Future<void> deleteRule(String communityId, String ruleId) async {
+    await _api.delete(
+      '/api/community/v1/communities/$communityId/rules/$ruleId',
+    );
+  }
+
+  @override
+  Future<void> acceptRules(String communityId, int rulesVersion) async {
+    await _api.post(
+      '/api/community/v1/communities/$communityId/rules/accept',
+      body: {'rulesVersion': rulesVersion},
+    );
   }
 
   @override
@@ -829,6 +941,14 @@ class HttpCommunityRepository implements CommunityRepository {
     countryCode: json['countryCode'] as String? ?? '',
   );
 
+  static CommunityRule _ruleFromJson(Map<String, dynamic> json) =>
+      CommunityRule(
+        id: _id(json),
+        title: json['title']?.toString() ?? '',
+        description: json['description']?.toString() ?? '',
+        position: (json['position'] as num?)?.toInt() ?? 0,
+      );
+
   static Map<String, dynamic> _townToJson(Town town) => {
     '_id': town.id,
     'name': town.name,
@@ -867,8 +987,10 @@ class HttpCommunityRepository implements CommunityRepository {
           .whereType<Map<String, dynamic>>()
           .map(
             (rule) => CommunityRule(
+              id: _id(rule),
               title: rule['title']?.toString() ?? '',
               description: rule['description']?.toString() ?? '',
+              position: (rule['position'] as num?)?.toInt() ?? 0,
             ),
           )
           .where((rule) => rule.title.isNotEmpty)
@@ -1059,11 +1181,38 @@ class HttpCommunityRepository implements CommunityRepository {
         'membership_rejected' => CommunityNotificationType.membershipRejected,
         'promotion_approved' => CommunityNotificationType.promotionApproved,
         'promotion_rejected' => CommunityNotificationType.promotionRejected,
+        'membership_request' => CommunityNotificationType.membershipRequest,
+        'post_pending' => CommunityNotificationType.postPending,
+        'comment_pending' => CommunityNotificationType.commentPending,
+        'report_created' => CommunityNotificationType.reportCreated,
+        'community_invitation' => CommunityNotificationType.communityInvitation,
+        'community_role_changed' => CommunityNotificationType.communityRoleChanged,
         _ => CommunityNotificationType.postReaction,
       };
 
   static String _id(Map<String, dynamic> json) =>
       (json['_id'] ?? json['id'])?.toString() ?? '';
+
+  static CommunityInvitation _invitationFromJson(
+    Map<String, dynamic> json, {
+    String? invitationUrl,
+  }) {
+    final community = json['community'];
+    final communityJson = community is Map<String, dynamic>
+        ? community
+        : const <String, dynamic>{};
+    return CommunityInvitation(
+      id: _id(json),
+      communityId: json['communityId']?.toString() ?? communityJson['id']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'pending',
+      expiresAt: DateTime.tryParse(json['expiresAt']?.toString() ?? '') ?? DateTime.now(),
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+      communityName: communityJson['name']?.toString(),
+      communityImageUrl: communityJson['imageUrl']?.toString(),
+      invitationUrl: invitationUrl,
+    );
+  }
 
   static CommunityRole? _roleFromJson(Object? value) => switch (value) {
     'owner' => CommunityRole.owner,
