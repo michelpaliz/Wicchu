@@ -16,6 +16,7 @@ import '../admin/create_community_page.dart';
 import '../community/community_page.dart';
 import '../community/community_profile_page.dart';
 import '../community/community_avatar.dart';
+import '../community/community_invitations_page.dart';
 import '../community/comments_sheet.dart';
 import '../community/create_post_page.dart';
 import '../community/post_card.dart';
@@ -1744,6 +1745,10 @@ class _ActivityTabState extends State<_ActivityTab> {
                   Icons.chat_bubble_outline,
                 CommunityNotificationType.membershipRequest =>
                   Icons.person_add_alt_1_outlined,
+                CommunityNotificationType.communityInvitation =>
+                  Icons.mail_outline,
+                CommunityNotificationType.communityRoleChanged =>
+                  Icons.admin_panel_settings_outlined,
                 CommunityNotificationType.postPending ||
                 CommunityNotificationType.commentPending =>
                   Icons.pending_actions_outlined,
@@ -1810,6 +1815,16 @@ class _ActivityTabState extends State<_ActivityTab> {
       await _markRead(notification.id);
     }
     if (!mounted) return;
+    if (notification.type == CommunityNotificationType.communityInvitation) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MyCommunityInvitationsPage(repository: widget.repository),
+        ),
+      );
+      if (mounted) setState(_reload);
+      return;
+    }
     if ({
       CommunityNotificationType.promotionApproved,
       CommunityNotificationType.promotionRejected,
@@ -1998,6 +2013,16 @@ class _ProfileTabState extends State<_ProfileTab> {
             icon: Icons.article_outlined,
             label: 'My posts',
             onTap: () => _openPosts('My posts', widget.repository.listMyPosts),
+          ),
+          _ProfileRow(
+            icon: Icons.mail_outline,
+            label: 'Invitations',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MyCommunityInvitationsPage(repository: widget.repository),
+              ),
+            ),
           ),
           _ProfileRow(
             icon: Icons.bookmark_border,

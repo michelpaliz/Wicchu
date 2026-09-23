@@ -39,6 +39,8 @@ class DemoCommunityRepository implements CommunityRepository {
 
   final List<Community> _communities = [];
   final Map<String, List<CommunityCategory>> _categories = {};
+  final Map<String, List<CommunityRule>> _rules = {};
+  final Map<String, int> _ruleVersions = {};
   final Map<String, List<CommunityPost>> _posts = {};
   final List<PromotionCampaign> _promotions = [];
   final Map<String, List<Comment>> _comments = {};
@@ -181,6 +183,8 @@ class DemoCommunityRepository implements CommunityRepository {
       createdAt: DateTime.now(),
       memberCount: 1,
       myRole: CommunityRole.owner,
+      approvalRequired: input.approvalRequired,
+      rules: input.rules,
     );
     _communities.add(community);
     _categories[id] = [
@@ -192,6 +196,16 @@ class DemoCommunityRepository implements CommunityRepository {
           icon: _iconFor(name),
         ),
     ];
+    _rules[id] = [
+      for (final (index, rule) in input.rules.indexed)
+        CommunityRule(
+          id: 'rule-$index',
+          title: rule.title,
+          description: rule.description,
+          position: index,
+        ),
+    ];
+    _ruleVersions[id] = input.rules.isEmpty ? 0 : 1;
     return community;
   }
 
@@ -210,7 +224,83 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<void> joinCommunity(String communityId) async {}
 
   @override
+  Future<CommunityInvitation> createCommunityInvitation(String communityId, String email) async => CommunityInvitation(
+    id: 'invite-${DateTime.now().millisecondsSinceEpoch}', communityId: communityId,
+    email: email, status: 'pending', expiresAt: DateTime.now().add(const Duration(days: 14)),
+    createdAt: DateTime.now(), invitationUrl: 'https://hexora.dev/wicchu/invitations/demo',
+  );
+
+  @override
+  Future<List<CommunityInvitation>> listCommunityInvitations(String communityId) async => const [];
+
+  @override
+  Future<List<CommunityInvitation>> listMyCommunityInvitations() async => const [];
+
+  @override
+  Future<void> respondToCommunityInvitation(String invitationId, {required bool accept}) async {}
+
+  @override
+  Future<void> revokeCommunityInvitation(String communityId, String invitationId) async {}
+
+  @override
   Future<void> leaveCommunity(String communityId) async {}
+
+  @override
+  Future<CommunityRules> listRules(String communityId) async => CommunityRules(
+    rules: List.unmodifiable(_rules[communityId] ?? const []),
+    rulesVersion: _ruleVersions[communityId] ?? 0,
+    acceptedRulesVersion: _ruleVersions[communityId] ?? 0,
+    acceptanceRequired: false,
+    canManage: true,
+  );
+
+  @override
+  Future<CommunityRule> createRule(
+    String communityId, {
+    required String title,
+    required String description,
+    required int position,
+  }) async {
+    final rule = CommunityRule(
+      id: 'rule-${DateTime.now().microsecondsSinceEpoch}',
+      title: title,
+      description: description,
+      position: position,
+    );
+    _rules.putIfAbsent(communityId, () => []).add(rule);
+    _ruleVersions[communityId] = (_ruleVersions[communityId] ?? 0) + 1;
+    return rule;
+  }
+
+  @override
+  Future<CommunityRule> updateRule(
+    String communityId,
+    CommunityRule rule, {
+    String? title,
+    String? description,
+    int? position,
+  }) async {
+    final updated = CommunityRule(
+      id: rule.id,
+      title: title ?? rule.title,
+      description: description ?? rule.description,
+      position: position ?? rule.position,
+    );
+    final rules = _rules[communityId] ?? [];
+    final index = rules.indexWhere((item) => item.id == rule.id);
+    if (index >= 0) rules[index] = updated;
+    _ruleVersions[communityId] = (_ruleVersions[communityId] ?? 0) + 1;
+    return updated;
+  }
+
+  @override
+  Future<void> deleteRule(String communityId, String ruleId) async {
+    _rules[communityId]?.removeWhere((rule) => rule.id == ruleId);
+    _ruleVersions[communityId] = (_ruleVersions[communityId] ?? 0) + 1;
+  }
+
+  @override
+  Future<void> acceptRules(String communityId, int rulesVersion) async {}
 
   @override
   Future<List<CommunityCategory>> listCategories(String communityId) async =>

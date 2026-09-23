@@ -8,6 +8,7 @@ class CreateCommunityInput {
     required this.visibility,
     required this.categoryNames,
     this.approvalRequired = false,
+    this.rules = const [],
   });
 
   final String name;
@@ -16,6 +17,7 @@ class CreateCommunityInput {
   final CommunityVisibility visibility;
   final List<String> categoryNames;
   final bool approvalRequired;
+  final List<CommunityRule> rules;
 }
 
 class AdminAttentionSummary {
@@ -83,6 +85,30 @@ abstract interface class CommunityRepository {
   Future<Community> createCommunity(CreateCommunityInput input);
   Future<void> joinCommunity(String communityId);
   Future<void> leaveCommunity(String communityId);
+  Future<CommunityInvitation> createCommunityInvitation(
+    String communityId,
+    String email,
+  );
+  Future<List<CommunityInvitation>> listCommunityInvitations(String communityId);
+  Future<List<CommunityInvitation>> listMyCommunityInvitations();
+  Future<void> respondToCommunityInvitation(String invitationId, {required bool accept});
+  Future<void> revokeCommunityInvitation(String communityId, String invitationId);
+  Future<CommunityRules> listRules(String communityId);
+  Future<CommunityRule> createRule(
+    String communityId, {
+    required String title,
+    required String description,
+    required int position,
+  });
+  Future<CommunityRule> updateRule(
+    String communityId,
+    CommunityRule rule, {
+    String? title,
+    String? description,
+    int? position,
+  });
+  Future<void> deleteRule(String communityId, String ruleId);
+  Future<void> acceptRules(String communityId, int rulesVersion);
   Future<List<CommunityCategory>> listCategories(String communityId);
   Future<CommunityCategory> createCategory(
     String communityId, {
