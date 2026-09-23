@@ -5,6 +5,7 @@ import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import '../community/comments_sheet.dart';
+import '../community/create_post_page.dart';
 import '../community/post_card.dart';
 import '../community/post_detail_page.dart';
 
@@ -222,6 +223,23 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                       community: 'Wicchu',
                       author: post.authorName,
                       time: formatPostTime(context, post.createdAt),
+                      edited: post.editedAt != null,
+                      onEdit: post.ownedByMe
+                          ? () async {
+                              await openEditPost(
+                                context,
+                                widget.repository,
+                                post,
+                              );
+                              if (mounted) _reload();
+                            }
+                          : null,
+                      onDelete: post.ownedByMe
+                          ? () async {
+                              await widget.repository.deletePost(post.id);
+                              if (mounted) _reload();
+                            }
+                          : null,
                       text: post.text,
                       likes: post.reactionCount,
                       comments: post.commentCount,

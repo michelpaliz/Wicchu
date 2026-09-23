@@ -4,6 +4,7 @@ import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'comments_sheet.dart';
+import 'create_post_page.dart';
 import 'post_card.dart';
 import 'post_detail_page.dart';
 import '../profile/member_profile_page.dart';
@@ -85,6 +86,19 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                   builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
                 )),
                 time: formatPostTime(context, post.createdAt),
+                edited: post.editedAt != null,
+                onEdit: post.ownedByMe
+                    ? () async {
+                        await openEditPost(context, widget.repository, post);
+                        if (mounted) await _refresh();
+                      }
+                    : null,
+                onDelete: post.ownedByMe
+                    ? () async {
+                        await widget.repository.deletePost(post.id);
+                        if (mounted) await _refresh();
+                      }
+                    : null,
                 text: post.text,
                 likes: post.reactionCount,
                 comments: post.commentCount,

@@ -17,12 +17,14 @@ class CreatePostPage extends StatefulWidget {
     required this.repository,
     this.initialCategory,
     this.categories = const [],
+    this.existingPost,
   });
 
   final Community community;
   final CommunityRepository repository;
   final CommunityCategory? initialCategory;
   final List<CommunityCategory> categories;
+  final CommunityPost? existingPost;
 
   @override
   State<CreatePostPage> createState() => _CreatePostPageState();
@@ -36,11 +38,37 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final _attachments = <_PostAttachment>[];
   bool _hasPoll = false;
   final _pollControllers = [TextEditingController(), TextEditingController()];
+  bool get _isEditing => widget.existingPost != null;
+  bool get _pollLocked => (widget.existingPost?.poll?.totalVotes ?? 0) > 0;
 
   @override
   void initState() {
     super.initState();
-    _category = widget.initialCategory ?? widget.categories.firstOrNull;
+    final existingPost = widget.existingPost;
+    _category = existingPost == null
+        ? widget.initialCategory ?? widget.categories.firstOrNull
+        : widget.categories
+              .where((category) => category.id == existingPost.categoryId)
+              .firstOrNull;
+    if (existingPost != null) {
+      _textController.text = existingPost.text;
+      _attachments.addAll(
+        existingPost.media.map((media) => _PostAttachment(media, null)),
+      );
+      if (existingPost.poll != null) {
+        _hasPoll = true;
+        for (final controller in _pollControllers) {
+          controller.dispose();
+        }
+        _pollControllers
+          ..clear()
+          ..addAll(
+            existingPost.poll!.options.map(
+              (option) => TextEditingController(text: option.text),
+            ),
+          );
+      }
+    }
   }
 
   @override
@@ -59,7 +87,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
         ? [widget.initialCategory!]
         : widget.categories;
     return Scaffold(
-      appBar: AppBar(title: Text(context.tr('Create post'))),
+      appBar: AppBar(
+        title: Text(context.tr(_isEditing ? 'Edit post' : 'Create post')),
+      ),
       body: ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -186,7 +216,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ),
           const SizedBox(height: 14),
           OutlinedButton.icon(
-            onPressed: () => setState(() => _hasPoll = !_hasPoll),
+            onPressed: _pollLocked
+                ? null
+                : () => setState(() => _hasPoll = !_hasPoll),
             icon: Icon(_hasPoll ? Icons.close : Icons.poll_outlined),
             label: Text(context.tr(_hasPoll ? 'Remove poll' : 'Add poll')),
           ),
@@ -229,7 +261,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   const SizedBox(height: 4),
                   Text(
                     context.tr(
-                      'Ask your community a question and let members vote.',
+                      _pollLocked
+                          ? 'Poll options cannot be changed after voting begins.'
+                          : 'Ask your community a question and let members vote.',
                     ),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -241,6 +275,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: TextField(
                         controller: controller,
+                        enabled: !_pollLocked,
                         maxLength: 120,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
@@ -255,7 +290,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                               child: Text('${index + 1}'),
                             ),
                           ),
-                          suffixIcon: _pollControllers.length > 2
+                          suffixIcon: !_pollLocked && _pollControllers.length > 2
                               ? IconButton(
                                   tooltip: context.tr('Remove option'),
                                   onPressed: () => setState(() {
@@ -280,7 +315,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                               ),
                         ),
                       ),
-                      if (_pollControllers.length < 10)
+                      if (!_pollLocked && _pollControllers.length < 10)
                         TextButton.icon(
                           onPressed: () => setState(
                             () => _pollControllers.add(TextEditingController()),
@@ -338,12 +373,19 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: attachment.media.type == 'image'
-                            ? Image.memory(
-                                attachment.bytes,
-                                width: 92,
-                                height: 92,
-                                fit: BoxFit.cover,
-                              )
+                            ? attachment.bytes != null
+                                  ? Image.memory(
+                                      attachment.bytes!,
+                                      width: 92,
+                                      height: 92,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Image.network(
+                                      attachment.media.url,
+                                      width: 92,
+                                      height: 92,
+                                      fit: BoxFit.cover,
+                                    )
                             : Container(
                                 width: 92,
                                 height: 92,
@@ -383,7 +425,13 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.send_rounded),
-              label: Text(context.tr(_saving ? 'Publishing…' : 'Publish')),
+              label: Text(
+                context.tr(
+                  _saving
+                      ? (_isEditing ? 'Saving…' : 'Publishing…')
+                      : (_isEditing ? 'Save changes' : 'Publish'),
+                ),
+              ),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
@@ -417,15 +465,15 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
     setState(() => _saving = true);
     try {
-      final post = await widget.repository.createPost(
-        widget.community.id,
-        CreatePostInput(
-          categoryId: _category!.id,
-          text: text,
-          media: _attachments.map((item) => item.media).toList(),
-          pollOptions: pollOptions,
-        ),
+      final input = CreatePostInput(
+        categoryId: _category!.id,
+        text: text,
+        media: _attachments.map((item) => item.media).toList(),
+        pollOptions: pollOptions,
       );
+      final post = _isEditing
+          ? await widget.repository.updatePost(widget.existingPost!.id, input)
+          : await widget.repository.createPost(widget.community.id, input);
       if (!mounted) return;
       if (post.status == PostStatus.pendingApproval) {
         await showDialog<void>(
@@ -446,7 +494,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ],
           ),
         );
-      } else {
+      } else if (!_isEditing) {
         await showDialog<void>(
           context: context,
           builder: (dialogContext) => AlertDialog(
@@ -547,5 +595,39 @@ class _PostAttachment {
   const _PostAttachment(this.media, this.bytes);
 
   final PostMedia media;
-  final Uint8List bytes;
+  final Uint8List? bytes;
+}
+
+Future<CommunityPost?> openEditPost(
+  BuildContext context,
+  CommunityRepository repository,
+  CommunityPost post,
+) async {
+  try {
+    final communities = await repository.listJoinedCommunities();
+    final community = communities
+        .where((item) => item.id == post.communityId)
+        .firstOrNull;
+    if (community == null) throw StateError('Community not found');
+    final categories = await repository.listCategories(community.id);
+    if (!context.mounted) return null;
+    return Navigator.push<CommunityPost>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreatePostPage(
+          community: community,
+          repository: repository,
+          categories: categories,
+          existingPost: post,
+        ),
+      ),
+    );
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+    return null;
+  }
 }

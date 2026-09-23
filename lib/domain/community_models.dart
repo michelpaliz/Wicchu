@@ -287,6 +287,8 @@ class CommunityPost {
     this.commentCount = 0,
     this.reactedByMe = false,
     this.savedByMe = false,
+    this.ownedByMe = false,
+    this.editedAt,
     this.promotion,
     this.poll,
   });
@@ -305,6 +307,8 @@ class CommunityPost {
   final int commentCount;
   final bool reactedByMe;
   final bool savedByMe;
+  final bool ownedByMe;
+  final DateTime? editedAt;
   final PostPromotion? promotion;
   final PostPoll? poll;
 }

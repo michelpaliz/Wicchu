@@ -54,6 +54,9 @@ class PostCard extends StatefulWidget {
     this.poll,
     this.onPollVote,
     this.onAuthorTap,
+    this.edited = false,
+    this.onEdit,
+    this.onDelete,
   });
 
   final String category;
@@ -82,6 +85,9 @@ class PostCard extends StatefulWidget {
   final PostPoll? poll;
   final Future<PostPoll> Function(String optionId)? onPollVote;
   final VoidCallback? onAuthorTap;
+  final bool edited;
+  final VoidCallback? onEdit;
+  final Future<void> Function()? onDelete;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -97,6 +103,46 @@ class _PostCardState extends State<PostCard> {
   bool _impressionSent = false;
   late PostPoll? _poll = widget.poll;
   bool _savingVote = false;
+  bool _deleting = false;
+
+  Future<void> _deletePost() async {
+    if (widget.onDelete == null || _deleting) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.delete_outline),
+        title: Text(dialogContext.tr('Delete publication?')),
+        content: Text(
+          dialogContext.tr(
+            'This publication will disappear from Wicchu. This action cannot be undone.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(dialogContext.tr('Delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _deleting = true);
+    try {
+      await widget.onDelete!();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
 
   @override
   void initState() {
@@ -197,7 +243,7 @@ class _PostCardState extends State<PostCard> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${widget.time} · ${widget.community}',
+                          '${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''} · ${widget.community}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -207,12 +253,17 @@ class _PostCardState extends State<PostCard> {
                       ],
                     ),
                   ),
-                  if (widget.onSaved != null || widget.onReport != null)
+                  if (widget.onSaved != null ||
+                      widget.onReport != null ||
+                      widget.onEdit != null ||
+                      widget.onDelete != null)
                     _PostMenu(
                       saved: _saved,
-                      saving: _savingPost,
+                      saving: _savingPost || _deleting,
                       onSave: widget.onSaved == null ? null : _toggleSaved,
                       onReport: widget.onReport == null ? null : _report,
+                      onEdit: widget.onEdit,
+                      onDelete: widget.onDelete == null ? null : _deletePost,
                     ),
                 ],
               ),
@@ -538,12 +589,16 @@ class _PostMenu extends StatelessWidget {
     required this.saving,
     this.onSave,
     this.onReport,
+    this.onEdit,
+    this.onDelete,
   });
 
   final bool saved;
   final bool saving;
   final VoidCallback? onSave;
   final VoidCallback? onReport;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) => PopupMenuButton<_PostMenuAction>(
@@ -555,6 +610,10 @@ class _PostMenu extends StatelessWidget {
           onSave?.call();
         case _PostMenuAction.report:
           onReport?.call();
+        case _PostMenuAction.edit:
+          onEdit?.call();
+        case _PostMenuAction.delete:
+          onDelete?.call();
       }
     },
     itemBuilder: (context) => [
@@ -565,6 +624,30 @@ class _PostMenu extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             leading: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
             title: Text(context.tr(saved ? 'Unsave post' : 'Save post')),
+          ),
+        ),
+      if (onEdit != null)
+        PopupMenuItem(
+          value: _PostMenuAction.edit,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.edit_outlined),
+            title: Text(context.tr('Edit post')),
+          ),
+        ),
+      if (onDelete != null)
+        PopupMenuItem(
+          value: _PostMenuAction.delete,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              Icons.delete_outline,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            title: Text(
+              context.tr('Delete publication'),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ),
         ),
       if (onReport != null)
@@ -586,4 +669,4 @@ class _PostMenu extends StatelessWidget {
   );
 }
 
-enum _PostMenuAction { save, report }
+enum _PostMenuAction { save, edit, delete, report }

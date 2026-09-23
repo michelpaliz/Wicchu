@@ -400,6 +400,58 @@ class DemoCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<CommunityPost> updatePost(
+    String postId,
+    CreatePostInput input,
+  ) async {
+    for (final entry in _posts.entries) {
+      final index = entry.value.indexWhere((post) => post.id == postId);
+      if (index < 0) continue;
+      final current = entry.value[index];
+      final updated = CommunityPost(
+        id: current.id,
+        communityId: current.communityId,
+        categoryId: input.categoryId,
+        authorId: current.authorId,
+        authorName: current.authorName,
+        authorAvatarUrl: current.authorAvatarUrl,
+        text: input.text,
+        status: current.status,
+        createdAt: current.createdAt,
+        editedAt: DateTime.now(),
+        ownedByMe: true,
+        media: input.media,
+        reactionCount: current.reactionCount,
+        commentCount: current.commentCount,
+        reactedByMe: current.reactedByMe,
+        savedByMe: current.savedByMe,
+        poll: input.pollOptions.isEmpty
+            ? null
+            : PostPoll(
+                options: [
+                  for (final (optionIndex, text) in input.pollOptions.indexed)
+                    PollOption(
+                      id: 'poll-option-$optionIndex',
+                      text: text,
+                      voteCount: 0,
+                    ),
+                ],
+              ),
+      );
+      entry.value[index] = updated;
+      return updated;
+    }
+    throw StateError('Post not found');
+  }
+
+  @override
+  Future<void> deletePost(String postId) async {
+    for (final posts in _posts.values) {
+      posts.removeWhere((post) => post.id == postId);
+    }
+  }
+
+  @override
   Future<int> setPostReaction(String postId, {required bool reacted}) async =>
       reacted ? 1 : 0;
 

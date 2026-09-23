@@ -93,6 +93,7 @@ class _SharedPostPageState extends State<SharedPostPage> {
                 builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
               )),
               time: formatPostTime(context, post.createdAt),
+              edited: post.editedAt != null,
               text: post.text,
               media: post.media,
               poll: post.poll,

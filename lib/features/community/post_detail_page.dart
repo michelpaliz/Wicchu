@@ -4,6 +4,7 @@ import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'comments_sheet.dart';
+import 'create_post_page.dart';
 import 'post_card.dart';
 import 'post_share.dart';
 import '../profile/member_profile_page.dart';
@@ -90,6 +91,28 @@ class _PostDetailPageState extends State<PostDetailPage> {
                   builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
                 )),
                 time: formatPostTime(context, post.createdAt),
+                edited: post.editedAt != null,
+                onEdit: post.ownedByMe
+                    ? () async {
+                        final updated = await openEditPost(
+                          context,
+                          widget.repository,
+                          post,
+                        );
+                        if (!mounted || updated == null) return;
+                        if (updated.status == PostStatus.pendingApproval) {
+                          Navigator.pop(context, updated);
+                        } else {
+                          await _reload();
+                        }
+                      }
+                    : null,
+                onDelete: post.ownedByMe
+                    ? () async {
+                        await widget.repository.deletePost(post.id);
+                        if (mounted) Navigator.pop(context);
+                      }
+                    : null,
                 text: post.text,
                 likes: post.reactionCount,
                 comments: post.commentCount,

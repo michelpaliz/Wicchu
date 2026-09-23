@@ -438,6 +438,16 @@ const _spanish = <String, String>{
       'Permite que los miembros de tus comunidades vean cuándo estás en línea',
   'Online now': 'En línea ahora',
   'Online in your communities': 'En línea en tus comunidades',
+  'Edit post': 'Editar publicación',
+  'Edited': 'Editado',
+  'Save changes': 'Guardar cambios',
+  'Saving…': 'Guardando…',
+  'Poll options cannot be changed after voting begins.':
+      'Las opciones no se pueden cambiar después de que comience la votación.',
+  'Delete publication': 'Eliminar publicación',
+  'Delete publication?': '¿Eliminar publicación?',
+  'This publication will disappear from Wicchu. This action cannot be undone.':
+      'Esta publicación desaparecerá de Wicchu. Esta acción no se puede deshacer.',
   'Active recently': 'Activo recientemente',
   'Privacy': 'Privacidad',
   'Nearby discovery': 'Descubrimiento cercano',
