@@ -13,6 +13,7 @@ import '../../theme/theme_menu.dart';
 import '../../widgets/wicchu_logo.dart';
 import '../admin/create_community_page.dart';
 import '../community/community_page.dart';
+import '../community/community_profile_page.dart';
 import '../community/community_avatar.dart';
 import '../community/comments_sheet.dart';
 import '../community/create_post_page.dart';
@@ -778,7 +779,7 @@ class _HomeTabState extends State<_HomeTab> {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => CommunityPage(
+                      builder: (_) => CommunityProfilePage(
                         community: active,
                         repository: widget.repository,
                       ),
