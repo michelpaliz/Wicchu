@@ -476,7 +476,6 @@ const _spanish = <String, String>{
   'View all': 'Ver todos',
   'Edit post': 'Editar publicación',
   'Edited': 'Editado',
-  'Save changes': 'Guardar cambios',
   'Saving…': 'Guardando…',
   'Poll options cannot be changed after voting begins.':
       'Las opciones no se pueden cambiar después de que comience la votación.',
@@ -484,6 +483,23 @@ const _spanish = <String, String>{
   'Delete publication?': '¿Eliminar publicación?',
   'This publication will disappear from Wicchu. This action cannot be undone.':
       'Esta publicación desaparecerá de Wicchu. Esta acción no se puede deshacer.',
+  'Community profile': 'Perfil de la comunidad',
+  'View community profile': 'Ver perfil de la comunidad',
+  'About': 'Información',
+  'About this community': 'Acerca de esta comunidad',
+  'Details': 'Detalles',
+  'No description provided': 'No se proporcionó una descripción',
+  'Public community': 'Comunidad pública',
+  'Private community': 'Comunidad privada',
+  'Created {date}': 'Creada el {date}',
+  'Community rules': 'Reglas de la comunidad',
+  'No community rules have been added yet.':
+      'Aún no se han añadido reglas para la comunidad.',
+  'Join to view community members.':
+      'Únete para ver los miembros de la comunidad.',
+  'Join to view community media.':
+      'Únete para ver el contenido multimedia de la comunidad.',
+  'No media yet': 'Aún no hay contenido multimedia',
   'Active recently': 'Activo recientemente',
   'Privacy': 'Privacidad',
   'Nearby discovery': 'Descubrimiento cercano',

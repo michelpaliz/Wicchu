@@ -11,6 +11,7 @@ import 'post_card.dart';
 import 'post_detail_page.dart';
 import 'community_share.dart';
 import 'community_avatar.dart';
+import 'community_profile_page.dart';
 import 'post_share.dart';
 import '../profile/member_profile_page.dart';
 
@@ -90,6 +91,26 @@ class _CommunityPageState extends State<CommunityPage> {
       ),
     );
     if (updated != null && mounted) setState(() => _community = updated);
+  }
+
+  Future<void> _openProfile() async {
+    final updated = await Navigator.push<Community>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CommunityProfilePage(
+          community: community,
+          repository: repository,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      if (updated != null) {
+        _community = updated;
+        _isJoined = updated.isJoined;
+      }
+      _reload();
+    });
   }
 
   Future<void> _showMembers() => showModalBottomSheet<void>(
@@ -267,6 +288,12 @@ class _CommunityPageState extends State<CommunityPage> {
                           ),
                         ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _openProfile,
+                    icon: const Icon(Icons.info_outline),
+                    label: Text(context.tr('View community profile')),
                   ),
                   const SizedBox(height: 18),
                   if (community.myRole != CommunityRole.owner)

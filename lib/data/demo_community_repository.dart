@@ -300,6 +300,8 @@ class DemoCommunityRepository implements CommunityRepository {
       memberCount: community.memberCount,
       myRole: community.myRole,
       approvalRequired: approvalRequired,
+      distanceKm: community.distanceKm,
+      rules: community.rules,
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;

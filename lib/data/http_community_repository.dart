@@ -842,6 +842,16 @@ class HttpCommunityRepository implements CommunityRepository {
       },
       approvalRequired: json['approvalRequired'] as bool? ?? false,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
+      rules: (json['rules'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (rule) => CommunityRule(
+              title: rule['title']?.toString() ?? '',
+              description: rule['description']?.toString() ?? '',
+            ),
+          )
+          .where((rule) => rule.title.isNotEmpty)
+          .toList(growable: false),
     );
   }
 
