@@ -101,16 +101,22 @@ class _CommunityPageState extends State<CommunityPage> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) return Center(child: Text(context.trError(snapshot.error!)));
-        final members = [...?snapshot.data]..sort((a, b) {
-          if (a.isOnline != b.isOnline) return a.isOnline ? -1 : 1;
-          return a.name.compareTo(b.name);
-        });
+        if (snapshot.hasError) {
+          return Center(child: Text(context.trError(snapshot.error!)));
+        }
+        final members = [...?snapshot.data]
+          ..sort((a, b) {
+            if (a.isOnline != b.isOnline) return a.isOnline ? -1 : 1;
+            return a.name.compareTo(b.name);
+          });
         return ListView(
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(context.tr('Members'), style: Theme.of(context).textTheme.titleLarge),
+              child: Text(
+                context.tr('Members'),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
             for (final member in members)
               ListTile(
@@ -118,19 +124,29 @@ class _CommunityPageState extends State<CommunityPage> {
                   isLabelVisible: member.isOnline,
                   backgroundColor: Colors.green,
                   smallSize: 10,
-                  child: CircleAvatar(child: Text(member.name.isEmpty ? '?' : member.name[0].toUpperCase())),
+                  child: CircleAvatar(
+                    child: Text(
+                      member.name.isEmpty ? '?' : member.name[0].toUpperCase(),
+                    ),
+                  ),
                 ),
                 title: Text(member.name),
                 subtitle: member.isOnline
                     ? Text(context.tr('Online now'))
                     : member.lastActiveAt != null
-                        ? Text(context.tr('Active recently'))
-                        : null,
+                    ? Text(context.tr('Active recently'))
+                    : null,
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => MemberProfilePage(userId: member.userId, repository: repository),
-                  ));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MemberProfilePage(
+                        userId: member.userId,
+                        repository: repository,
+                      ),
+                    ),
+                  );
                 },
               ),
           ],
@@ -396,6 +412,7 @@ class _CommunityPageState extends State<CommunityPage> {
                         children: [
                           for (final post in posts) ...[
                             PostCard(
+                              collapseText: true,
                               onTap: () =>
                                   Navigator.push(
                                     context,
@@ -415,9 +432,15 @@ class _CommunityPageState extends State<CommunityPage> {
                               community: community.name,
                               author: post.authorName,
                               authorAvatarUrl: post.authorAvatarUrl,
-                              onAuthorTap: () => Navigator.push(context, MaterialPageRoute(
-                                builder: (_) => MemberProfilePage(userId: post.authorId, repository: repository),
-                              )),
+                              onAuthorTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => MemberProfilePage(
+                                    userId: post.authorId,
+                                    repository: repository,
+                                  ),
+                                ),
+                              ),
                               time: formatPostTime(context, post.createdAt),
                               text: post.text,
                               likes: post.reactionCount,
@@ -483,20 +506,20 @@ class _InfoChip extends StatelessWidget {
     onTap: onTap,
     borderRadius: BorderRadius.circular(999),
     child: Container(
-    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
-      borderRadius: BorderRadius.circular(999),
-      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 17),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-      ],
-    ),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 17),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
+      ),
     ),
   );
 }

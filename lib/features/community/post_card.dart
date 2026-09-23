@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 import '../../domain/community_models.dart';
 import '../../theme/wicchu_theme.dart';
@@ -36,6 +37,7 @@ class PostCard extends StatefulWidget {
     required this.time,
     required this.text,
     this.price,
+    this.collapseText = false,
     this.likes = 0,
     this.comments = 0,
     this.showImage = false,
@@ -64,6 +66,7 @@ class PostCard extends StatefulWidget {
   final String time;
   final String text;
   final String? price;
+  final bool collapseText;
   final int likes;
   final int comments;
   final bool showImage;
@@ -142,7 +145,7 @@ class _PostCardState extends State<PostCard> {
                 widget.onTap!();
               },
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -216,7 +219,7 @@ class _PostCardState extends State<PostCard> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -234,8 +237,8 @@ class _PostCardState extends State<PostCard> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
-              PostMarkdown(data: widget.text),
+              const SizedBox(height: 8),
+              PostMarkdown(data: widget.text, collapsible: widget.collapseText),
               if (widget.price != null) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -246,10 +249,10 @@ class _PostCardState extends State<PostCard> {
                 ),
               ],
               if (widget.media.isNotEmpty) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 PostMediaGallery(media: widget.media),
               ] else if (widget.showImage) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 Container(
                   height: 170,
                   width: double.infinity,
@@ -261,40 +264,38 @@ class _PostCardState extends State<PostCard> {
                 ),
               ],
               if (_poll != null) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 _PollView(
                   poll: _poll!,
                   enabled: widget.onPollVote != null && !_savingVote,
                   onSelected: _vote,
                 ),
               ],
-              const SizedBox(height: 14),
-              Divider(height: 1, color: theme.dividerColor),
               const SizedBox(height: 6),
               Row(
                 children: [
-                  Expanded(
-                    child: _PostAction(
-                      icon: _reacted ? Icons.favorite : Icons.favorite_border,
-                      value: '$_likes',
-                      tooltip: context.tr(_reacted ? 'Unlike' : 'Like'),
-                      color: _reacted ? theme.colorScheme.primary : null,
-                      onTap: widget.onReaction == null || _savingReaction
-                          ? null
-                          : _toggleReaction,
-                    ),
+                  _PostAction(
+                    icon: _reacted
+                        ? CupertinoIcons.heart_fill
+                        : CupertinoIcons.heart,
+                    value: '$_likes',
+                    tooltip: context.tr(_reacted ? 'Unlike' : 'Like'),
+                    color: _reacted ? const Color(0xFFE53945) : null,
+                    onTap: widget.onReaction == null || _savingReaction
+                        ? null
+                        : _toggleReaction,
                   ),
-                  Expanded(
-                    child: _PostAction(
-                      icon: Icons.chat_bubble_outline,
-                      value: '$_comments',
-                      tooltip: context.tr('Comments'),
-                      onTap: widget.onComments == null ? null : _openComments,
-                    ),
+                  const SizedBox(width: 12),
+                  _PostAction(
+                    icon: CupertinoIcons.chat_bubble,
+                    value: '$_comments',
+                    tooltip: context.tr('Comments'),
+                    onTap: widget.onComments == null ? null : _openComments,
                   ),
-                  Expanded(
+                  const Spacer(),
+                  Flexible(
                     child: _PostAction(
-                      icon: Icons.ios_share_outlined,
+                      icon: CupertinoIcons.arrowshape_turn_up_right,
                       value: context.tr('Share'),
                       tooltip: context.tr('Share'),
                       onTap: widget.onShare,
@@ -504,23 +505,23 @@ class _PostAction extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 21, color: color),
-              const SizedBox(width: 7),
+              Icon(icon, size: 19, color: color),
+              const SizedBox(width: 5),
               Flexible(
                 child: Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: color,
-                    fontWeight: color == null
-                        ? FontWeight.w500
-                        : FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ),

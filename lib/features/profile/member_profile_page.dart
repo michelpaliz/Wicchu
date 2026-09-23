@@ -5,6 +5,9 @@ import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import '../community/comments_sheet.dart';
+import '../community/user_avatar.dart';
+import '../community/post_share.dart';
+import 'edit_profile_links.dart';
 import '../community/post_card.dart';
 import '../community/post_detail_page.dart';
 
@@ -23,17 +26,43 @@ class MemberProfilePage extends StatefulWidget {
 }
 
 class _MemberProfilePageState extends State<MemberProfilePage> {
+  late final Future<WicchuProfile?> _viewer = widget.repository
+      .getProfile()
+      .then<WicchuProfile?>((profile) => profile)
+      .catchError((Object _) => null);
   String _kind = 'all';
   String _sort = 'newest';
   late Future<PublicMemberProfile> _profile = widget.repository
       .getMemberProfile(widget.userId);
   late Future<List<CommunityPost>> _posts = _loadPosts();
 
-  Future<List<CommunityPost>> _loadPosts() => widget.repository.listMemberPosts(
-    widget.userId,
-    kind: _kind,
-    sort: _sort,
-  );
+  final Map<String, CommunityCategory> _categories = {};
+  final Map<String, String> _communityNames = {};
+
+  Future<List<CommunityPost>> _loadPosts() async {
+    final posts = await widget.repository.listMemberPosts(
+      widget.userId,
+      kind: _kind,
+      sort: _sort,
+    );
+    try {
+      final communities = await widget.repository.listJoinedCommunities();
+      for (final community in communities) {
+        _communityNames[community.id] = community.name;
+      }
+      await Future.wait(
+        posts.map((post) => post.communityId).toSet().map((id) async {
+          final categories = await widget.repository.listCategories(id);
+          for (final category in categories) {
+            _categories[category.id] = category;
+          }
+        }),
+      );
+    } catch (_) {
+      // A public post can remain visible even when its community metadata is private.
+    }
+    return posts;
+  }
 
   void _reload() => setState(() {
     _profile = widget.repository.getMemberProfile(widget.userId);
@@ -42,7 +71,7 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Member profile'))),
+    appBar: AppBar(toolbarHeight: 48, title: Text(context.tr('Profile'))),
     body: RefreshIndicator(
       onRefresh: () async {
         _reload();
@@ -50,26 +79,26 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
         children: [
           FutureBuilder<PublicMemberProfile>(
             future: _profile,
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Text(context.trError(snapshot.error!));
+              }
               if (!snapshot.hasData) return const LinearProgressIndicator();
               final profile = snapshot.data!;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        radius: 34,
-                        backgroundImage: profile.avatarUrl == null
-                            ? null
-                            : NetworkImage(profile.avatarUrl!),
-                        child: profile.avatarUrl == null
-                            ? const Icon(Icons.person_outline, size: 34)
-                            : null,
+                      UserAvatar(
+                        name: profile.name,
+                        imageUrl: profile.avatarUrl,
+                        radius: 28,
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -78,31 +107,74 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                           children: [
                             Text(
                               profile.name,
-                              style: Theme.of(context).textTheme.titleLarge,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                             if (profile.userName.isNotEmpty)
-                              Text('@${profile.userName}'),
+                              Text(
+                                '@${profile.userName}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
                             if (profile.isOnline)
                               Text(
-                                context.tr('Online now'),
+                                '● ${context.tr('Online now')}',
                                 style: TextStyle(
                                   color: Colors.green.shade700,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
                                 ),
                               )
                             else if (profile.lastActiveAt != null)
                               Text(context.tr('Active recently')),
                             Text(
-                              context.tr(
-                                '{posts} posts · {communities} communities',
-                                {
-                                  'posts': '${profile.postCount}',
-                                  'communities': '${profile.communityCount}',
-                                },
-                              ),
+                              '${context.trCount(profile.postCount, singular: '{count} post', plural: '{count} posts')} · '
+                              '${context.trCount(profile.communityCount, singular: '{count} community', plural: '{count} communities')}',
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
                         ),
+                      ),
+                      FutureBuilder<WicchuProfile?>(
+                        future: _viewer,
+                        builder: (context, viewer) =>
+                            viewer.data?.id != widget.userId
+                            ? const SizedBox.shrink()
+                            : Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 16,
+                                  ),
+                                  label: Text(context.tr('Edit profile')),
+                                  onPressed: () async {
+                                    await editProfileLinks(
+                                      context,
+                                      widget.repository,
+                                    );
+                                    if (mounted) _reload();
+                                  },
+                                ),
+                              ),
                       ),
                     ],
                   ),
@@ -155,17 +227,30 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
               );
             },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             children: [
               for (final kind in const ['all', 'media', 'polls'])
                 ChoiceChip(
+                  showCheckmark: false,
+                  visualDensity: VisualDensity.compact,
+                  selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                  side: BorderSide(color: Theme.of(context).dividerColor),
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    color: _kind == kind
+                        ? Theme.of(context).colorScheme.onPrimaryContainer
+                        : Theme.of(context).colorScheme.onSurface,
+                    fontWeight: _kind == kind
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                  ),
                   label: Text(
                     context.tr(switch (kind) {
                       'media' => 'Media',
                       'polls' => 'Polls',
-                      _ => 'All posts',
+                      _ => 'Posts',
                     }),
                   ),
                   selected: _kind == kind,
@@ -174,29 +259,35 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                     _posts = _loadPosts();
                   }),
                 ),
-              DropdownButton<String>(
-                value: _sort,
-                items: [
-                  DropdownMenuItem(
-                    value: 'newest',
-                    child: Text(context.tr('Newest')),
-                  ),
-                  DropdownMenuItem(
-                    value: 'oldest',
-                    child: Text(context.tr('Oldest')),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() {
-                    _sort = value;
-                    _posts = _loadPosts();
-                  });
-                },
-              ),
             ],
           ),
-          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: DropdownButton<String>(
+              underline: const SizedBox.shrink(),
+              iconSize: 18,
+              style: Theme.of(context).textTheme.bodySmall,
+              value: _sort,
+              items: [
+                DropdownMenuItem(
+                  value: 'newest',
+                  child: Text(context.tr('Newest')),
+                ),
+                DropdownMenuItem(
+                  value: 'oldest',
+                  child: Text(context.tr('Oldest')),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _sort = value;
+                  _posts = _loadPosts();
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 4),
           FutureBuilder<List<CommunityPost>>(
             future: _posts,
             builder: (context, snapshot) {
@@ -217,9 +308,14 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                 children: [
                   for (final post in posts) ...[
                     PostCard(
-                      category: 'Post',
-                      icon: '💬',
-                      community: 'Wicchu',
+                      key: ValueKey(post.id),
+                      collapseText: true,
+                      authorAvatarUrl: post.authorAvatarUrl,
+                      onShare: () => sharePost(widget.repository, post),
+                      category:
+                          _categories[post.categoryId]?.name ?? 'Publication',
+                      icon: _categories[post.categoryId]?.icon ?? '💬',
+                      community: _communityNames[post.communityId] ?? 'Wicchu',
                       author: post.authorName,
                       time: formatPostTime(context, post.createdAt),
                       text: post.text,
@@ -229,16 +325,19 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                       poll: post.poll,
                       reacted: post.reactedByMe,
                       saved: post.savedByMe,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PostDetailPage(
-                            postId: post.id,
-                            repository: widget.repository,
-                            initialPost: post,
-                          ),
-                        ),
-                      ).then((_) => _reload()),
+                      onTap: () =>
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PostDetailPage(
+                                postId: post.id,
+                                repository: widget.repository,
+                                initialPost: post,
+                              ),
+                            ),
+                          ).then((_) {
+                            if (mounted) _reload();
+                          }),
                       onReaction: (reacted) => widget.repository
                           .setPostReaction(post.id, reacted: reacted),
                       onPollVote: (optionId) =>

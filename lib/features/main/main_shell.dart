@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,6 +20,7 @@ import '../community/post_card.dart';
 import '../community/post_collection_page.dart';
 import '../community/post_detail_page.dart';
 import '../community/post_share.dart';
+import '../community/user_avatar.dart';
 import '../settings/account_settings_page.dart';
 import '../promotions/promotions_page.dart';
 import '../profile/member_profile_page.dart';
@@ -112,57 +114,65 @@ class _CompactBottomNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surface,
-      child: SafeArea(
-        top: false,
-        child: Container(
-          height: 62,
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(
-                color: scheme.outlineVariant.withValues(alpha: 0.45),
-                width: 0.5,
+    return SizedBox(
+      height: 68 + MediaQuery.paddingOf(context).bottom,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            top: 8,
+            child: Material(
+              color: scheme.surface,
+              elevation: 3,
+              shadowColor: scheme.shadow.withValues(alpha: 0.08),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(14),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: [
+                    _CompactNavigationItem(
+                      icon: Icons.home_outlined,
+                      selectedIcon: Icons.home_rounded,
+                      label: context.tr('Home'),
+                      selected: selectedIndex == 0,
+                      onTap: () => onSelected(0),
+                    ),
+                    _CompactNavigationItem(
+                      icon: CupertinoIcons.compass,
+                      selectedIcon: CupertinoIcons.compass_fill,
+                      label: context.tr('Explore'),
+                      selected: selectedIndex == 1,
+                      onTap: () => onSelected(1),
+                    ),
+                    const Spacer(),
+                    _CompactNavigationItem(
+                      icon: CupertinoIcons.bell,
+                      selectedIcon: CupertinoIcons.bell_fill,
+                      label: context.tr('Activity'),
+                      selected: selectedIndex == 2,
+                      onTap: () => onSelected(2),
+                    ),
+                    _CompactNavigationItem(
+                      icon: CupertinoIcons.person,
+                      selectedIcon: CupertinoIcons.person_fill,
+                      label: context.tr('You'),
+                      selected: selectedIndex == 3,
+                      onTap: () => onSelected(3),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          child: Row(
-            children: [
-              _CompactNavigationItem(
-                icon: Icons.home_outlined,
-                selectedIcon: Icons.home_rounded,
-                label: context.tr('Home'),
-                selected: selectedIndex == 0,
-                onTap: () => onSelected(0),
-              ),
-              _CompactNavigationItem(
-                icon: Icons.explore_outlined,
-                selectedIcon: Icons.explore_rounded,
-                label: context.tr('Explore'),
-                selected: selectedIndex == 1,
-                onTap: () => onSelected(1),
-              ),
-              _CreatePostNavigationItem(
-                label: context.tr('Post'),
-                onTap: onCreatePost,
-              ),
-              _CompactNavigationItem(
-                icon: Icons.notifications_outlined,
-                selectedIcon: Icons.notifications_rounded,
-                label: context.tr('Activity'),
-                selected: selectedIndex == 2,
-                onTap: () => onSelected(2),
-              ),
-              _CompactNavigationItem(
-                icon: Icons.person_outline_rounded,
-                selectedIcon: Icons.person_rounded,
-                label: context.tr('You'),
-                selected: selectedIndex == 3,
-                onTap: () => onSelected(3),
-              ),
-            ],
+          Align(
+            alignment: Alignment.topCenter,
+            child: _CreatePostNavigationItem(
+              label: context.tr('Post'),
+              onTap: onCreatePost,
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -186,7 +196,7 @@ class _CompactNavigationItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    final color = selected ? scheme.primary : scheme.onSurface;
     return Expanded(
       child: Semantics(
         button: true,
@@ -197,8 +207,8 @@ class _CompactNavigationItem extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(selected ? selectedIcon : icon, size: 22, color: color),
-              const SizedBox(height: 2),
+              Icon(selected ? selectedIcon : icon, size: 20, color: color),
+              const SizedBox(height: 5),
               Text(
                 label,
                 maxLines: 1,
@@ -206,7 +216,7 @@ class _CompactNavigationItem extends StatelessWidget {
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: color,
                   fontSize: 10.5,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
             ],
@@ -226,40 +236,20 @@ class _CreatePostNavigationItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Semantics(
-        button: true,
-        label: label,
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: scheme.primary,
+        elevation: 6,
+        shadowColor: scheme.shadow.withValues(alpha: 0.35),
+        shape: const CircleBorder(),
         child: InkWell(
+          customBorder: const CircleBorder(),
           onTap: onTap,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: scheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.add_rounded,
-                  color: scheme.onPrimary,
-                  size: 26,
-                ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: scheme.primary,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
-                ),
-              ),
-            ],
+          child: SizedBox.square(
+            dimension: 48,
+            child: Icon(CupertinoIcons.plus, color: scheme.onPrimary, size: 24),
           ),
         ),
       ),
@@ -285,12 +275,14 @@ class _HomeFeedData {
     required this.communities,
     required this.posts,
     required this.categories,
+    required this.members,
     required this.onlineMembers,
   });
 
   final List<Community> communities;
   final List<CommunityPost> posts;
   final Map<String, CommunityCategory> categories;
+  final List<CommunityMember> members;
   final List<CommunityMember> onlineMembers;
 }
 
@@ -298,14 +290,24 @@ class _HomeTabState extends State<_HomeTab> {
   late Future<_HomeFeedData> _data;
   Timer? _searchDelay;
 
+  final _feedScroll = ScrollController();
+  bool _compactHeader = false;
+  List<Town> _headerTowns = [];
+  Town? _headerTown;
+
   String _category = 'All';
   String _query = '';
+  String? _selectedTownId;
   bool _showSearch = false;
 
   @override
   void initState() {
     super.initState();
     _reload();
+    _feedScroll.addListener(() {
+      final compact = _feedScroll.offset > 80;
+      if (compact != _compactHeader) setState(() => _compactHeader = compact);
+    });
   }
 
   void _reload() {
@@ -315,6 +317,7 @@ class _HomeTabState extends State<_HomeTab> {
   @override
   void dispose() {
     _searchDelay?.cancel();
+    _feedScroll.dispose();
     super.dispose();
   }
 
@@ -328,7 +331,6 @@ class _HomeTabState extends State<_HomeTab> {
 
   Future<_HomeFeedData> _loadData() async {
     final communities = await widget.repository.listJoinedCommunities();
-    final profileFuture = widget.repository.getProfile();
     final memberFutures = communities.map(
       (community) => widget.repository.listMembers(community.id),
     );
@@ -339,11 +341,18 @@ class _HomeTabState extends State<_HomeTab> {
       ),
     ]);
     final memberLists = await Future.wait(memberFutures);
-    final profile = await profileFuture;
+    final membersByUserId = <String, CommunityMember>{};
     final onlineByUserId = <String, CommunityMember>{};
     for (final member in memberLists.expand((members) => members)) {
-      if (member.isOnline && member.userId != profile.id) {
-        onlineByUserId.putIfAbsent(member.userId, () => member);
+      membersByUserId.putIfAbsent(
+        '${member.communityId}:${member.userId}',
+        () => member,
+      );
+      if (member.isOnline) {
+        onlineByUserId.putIfAbsent(
+          '${member.communityId}:${member.userId}',
+          () => member,
+        );
       }
     }
     final posts = results.first.cast<CommunityPost>();
@@ -357,6 +366,7 @@ class _HomeTabState extends State<_HomeTab> {
       communities: communities,
       posts: posts,
       categories: categories,
+      members: membersByUserId.values.toList(growable: false),
       onlineMembers: onlineByUserId.values.toList(growable: false),
     );
   }
@@ -398,6 +408,34 @@ class _HomeTabState extends State<_HomeTab> {
         );
         return;
       }
+      final selectedCategory = await showModalBottomSheet<CommunityCategory>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Text(
+                  sheetContext.tr('What do you want to publish?'),
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
+                ),
+              ),
+              for (final category in categories)
+                ListTile(
+                  leading: Text(
+                    category.icon,
+                    style: const TextStyle(fontSize: 24),
+                  ),
+                  title: Text(sheetContext.tr(category.name)),
+                  onTap: () => Navigator.pop(sheetContext, category),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (selectedCategory == null || !mounted) return;
       final post = await Navigator.push<CommunityPost>(
         context,
         MaterialPageRoute(
@@ -405,6 +443,7 @@ class _HomeTabState extends State<_HomeTab> {
             community: community,
             repository: widget.repository,
             categories: categories,
+            initialCategory: selectedCategory,
           ),
         ),
       );
@@ -451,18 +490,99 @@ class _HomeTabState extends State<_HomeTab> {
     if (selected != null && mounted) await _createPost(selected);
   }
 
-  Future<void> _openCommunity(Community community) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            CommunityPage(community: community, repository: widget.repository),
+  Future<void> _chooseTown(List<Town> towns, String? currentTownId) async {
+    if (towns.isEmpty) return;
+    final selected = await showModalBottomSheet<Town>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: 12),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: Text(
+                sheetContext.tr('Choose a town'),
+                style: Theme.of(
+                  sheetContext,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            for (final town in towns)
+              ListTile(
+                leading: const Icon(Icons.location_on_outlined),
+                title: Text(town.name),
+                trailing: town.id == currentTownId
+                    ? const Icon(Icons.check_rounded)
+                    : null,
+                onTap: () => Navigator.pop(sheetContext, town),
+              ),
+          ],
+        ),
       ),
     );
-    if (!mounted) return;
-    setState(_reload);
-    widget.onCommunitiesChanged();
+    if (selected != null && mounted) {
+      setState(() {
+        _selectedTownId = selected.id;
+        _category = 'All';
+      });
+    }
   }
+
+  Future<void> _showMembers(List<CommunityMember> members) =>
+      showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.only(bottom: 12),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: Text(
+                  sheetContext.tr('Neighbors'),
+                  style: Theme.of(
+                    sheetContext,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              for (final member in members)
+                ListTile(
+                  leading: Badge(
+                    isLabelVisible: member.isOnline,
+                    backgroundColor: Colors.green,
+                    smallSize: 10,
+                    child: UserAvatar(
+                      name: member.name,
+                      imageUrl: member.avatarUrl,
+                      radius: 21,
+                    ),
+                  ),
+                  title: Text(member.name),
+                  subtitle: member.isOnline
+                      ? Text(sheetContext.tr('Online now'))
+                      : member.lastActiveAt != null
+                      ? Text(sheetContext.tr('Active recently'))
+                      : null,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MemberProfilePage(
+                          repository: widget.repository,
+                          userId: member.userId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -470,7 +590,38 @@ class _HomeTabState extends State<_HomeTab> {
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
-        title: const WicchuTitle(),
+        toolbarHeight: 48,
+        title: _compactHeader
+            ? InkWell(
+                onTap: () => _chooseTown(_headerTowns, _headerTown?.id),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Wicchu',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 20,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        _headerTown?.name ?? context.tr('Your town'),
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.titleMedium,
+                      ),
+                    ),
+                    const Icon(Icons.keyboard_arrow_down, size: 20),
+                  ],
+                ),
+              )
+            : const WicchuTitle(),
         actions: [
           IconButton(
             tooltip: context.tr(_showSearch ? 'Close search' : 'Search posts'),
@@ -484,8 +635,8 @@ class _HomeTabState extends State<_HomeTab> {
             }),
             icon: Icon(_showSearch ? Icons.close : Icons.search_rounded),
           ),
-          const ThemeMenu(),
-          const LanguageMenu(),
+          if (!_compactHeader) const ThemeMenu(),
+          if (!_compactHeader) const LanguageMenu(),
           const SizedBox(width: 8),
         ],
       ),
@@ -503,18 +654,64 @@ class _HomeTabState extends State<_HomeTab> {
           }
           final data = snapshot.data!;
           final communities = data.communities;
-          final towns = communities.map((item) => item.town.id).toSet();
-          final town = communities.firstOrNull?.town.name;
+          final townsById = {
+            for (final community in communities)
+              community.town.id: community.town,
+          };
+          final towns = townsById.values.toList(growable: false);
+          final activeTownId = townsById.containsKey(_selectedTownId)
+              ? _selectedTownId
+              : towns.firstOrNull?.id;
+          final activeTown = activeTownId == null
+              ? null
+              : townsById[activeTownId];
+          _headerTowns = towns;
+          _headerTown = activeTown;
+          final visibleCommunities = communities
+              .where(
+                (community) =>
+                    activeTownId == null || community.town.id == activeTownId,
+              )
+              .toList(growable: false);
+          final visibleCommunityIds = visibleCommunities
+              .map((community) => community.id)
+              .toSet();
+          final visibleOnlineMembers = {
+            for (final member in data.onlineMembers)
+              if (visibleCommunityIds.contains(member.communityId))
+                member.userId: member,
+          }.values.toList(growable: false);
+          final visibleMembers = {
+            for (final member in data.members)
+              if (visibleCommunityIds.contains(member.communityId))
+                member.userId: member,
+          }.values.toList(growable: false);
           final normalizedQuery = _query.trim().toLowerCase();
           final categoryNames = [
             'All',
-            ...data.categories.values.map((category) => category.name).toSet(),
+            ...data.categories.values
+                .where(
+                  (category) =>
+                      visibleCommunityIds.contains(category.communityId),
+                )
+                .map((category) => category.name)
+                .toSet(),
           ];
+          const categoryOrder = ['All', 'General', 'News', 'Events', 'Housing'];
+          int categoryRank(String name) {
+            final rank = categoryOrder.indexOf(name);
+            return rank < 0 ? categoryOrder.length : rank;
+          }
+
+          categoryNames.sort(
+            (a, b) => categoryRank(a).compareTo(categoryRank(b)),
+          );
           final communityById = {
             for (final community in communities) community.id: community,
           };
           final filteredPosts = data.posts.where((post) {
             final category = data.categories[post.categoryId];
+            final matchesTown = visibleCommunityIds.contains(post.communityId);
             final matchesCategory =
                 _category == 'All' || category?.name == _category;
             final matchesQuery =
@@ -523,7 +720,7 @@ class _HomeTabState extends State<_HomeTab> {
                 post.authorName.toLowerCase().contains(normalizedQuery) ||
                 (category?.name.toLowerCase().contains(normalizedQuery) ??
                     false);
-            return matchesCategory && matchesQuery;
+            return matchesTown && matchesCategory && matchesQuery;
           }).toList();
 
           return RefreshIndicator(
@@ -533,358 +730,341 @@ class _HomeTabState extends State<_HomeTab> {
                 await _data;
               } catch (_) {}
             },
-            child: ListView(
+            child: CustomScrollView(
+              controller: _feedScroll,
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 108),
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 18,
-                      color: scheme.primary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      context.tr('YOUR NEIGHBORHOOD'),
-                      style: textTheme.labelSmall?.copyWith(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  context.tr('Good things happen nearby.'),
-                  style: textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  towns.length == 1 && town != null
-                      ? context.tr(
-                          'The latest from {town} and your communities.',
-                          {'town': town},
-                        )
-                      : context.tr('The latest from your communities.'),
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                if (data.onlineMembers.isNotEmpty) ...[
-                  Row(
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList.list(
                     children: [
-                      Text(
-                        context.tr('Online in your communities'),
-                        style: textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 82,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: data.onlineMembers.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 14),
-                      itemBuilder: (context, index) {
-                        final member = data.onlineMembers[index];
-                        final avatar = member.avatarUrl?.trim();
-                        return InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => MemberProfilePage(
-                                repository: widget.repository,
-                                userId: member.userId,
-                              ),
-                            ),
-                          ),
-                          child: SizedBox(
-                            width: 64,
-                            child: Column(
+                      Semantics(
+                        button: true,
+                        label: context.tr('Choose a town'),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => _chooseTown(towns, activeTownId),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 24,
-                                      foregroundImage:
-                                          avatar != null && avatar.isNotEmpty
-                                          ? NetworkImage(avatar)
-                                          : null,
-                                      child: Text(
-                                        member.name.isEmpty
-                                            ? '?'
-                                            : member.name[0].toUpperCase(),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      right: -1,
-                                      bottom: -1,
-                                      child: Container(
-                                        width: 14,
-                                        height: 14,
-                                        decoration: BoxDecoration(
-                                          color: Colors.green,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: scheme.surface,
-                                            width: 2,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                Icon(
+                                  Icons.location_on_outlined,
+                                  size: 28,
+                                  color: scheme.primary,
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  member.name.split(' ').first,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: textTheme.labelSmall,
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    activeTown?.name ?? context.tr('Your town'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: textTheme.titleLarge?.copyWith(
+                                      color: scheme.primary,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: scheme.primary,
                                 ),
                               ],
                             ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                ],
-                Text(
-                  context.tr('Your communities'),
-                  style: textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (communities.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Text(
-                        context.tr(
-                          'Join a community to see local updates here.',
                         ),
-                        style: textTheme.bodyMedium,
                       ),
-                    ),
-                  )
-                else
-                  for (final community in communities) ...[
-                    Card(
-                      color: scheme.primaryContainer,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: () => _openCommunity(community),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          child: Row(
-                            children: [
-                              CommunityAvatar(community: community, radius: 20),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      community.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                        color: scheme.onPrimaryContainer,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      context.trCount(
-                                        community.memberCount,
-                                        singular: '{count} neighbor',
-                                        plural: '{count} neighbors',
-                                      ),
-                                      style: textTheme.bodySmall?.copyWith(
-                                        color: scheme.onPrimaryContainer,
-                                      ),
-                                    ),
-                                  ],
+                      Text(
+                        context.tr('Good things happen nearby.'),
+                        style: textTheme.bodyLarge?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (visibleOnlineMembers.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            Container(
+                              width: 9,
+                              height: 9,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF59C36A),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                context.tr(
+                                  visibleOnlineMembers.length == 1
+                                      ? '1 neighbor online'
+                                      : '{count} neighbors online',
+                                  {'count': '${visibleOnlineMembers.length}'},
+                                ),
+                                style: textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              Icon(
-                                Icons.arrow_forward_ios_rounded,
-                                size: 17,
-                                color: scheme.onPrimaryContainer,
+                            ),
+                            TextButton.icon(
+                              onPressed: () => _showMembers(visibleMembers),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                visualDensity: VisualDensity.compact,
                               ),
-                            ],
+                              label: Text(context.tr('View all')),
+                              iconAlignment: IconAlignment.end,
+                              icon: const Icon(Icons.chevron_right_rounded),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        SizedBox(
+                          height:
+                              56 +
+                              MediaQuery.textScalerOf(context).scale(12) * 1.5,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: visibleOnlineMembers.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 12),
+                            itemBuilder: (context, index) {
+                              final member = visibleOnlineMembers[index];
+                              return InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => MemberProfilePage(
+                                      repository: widget.repository,
+                                      userId: member.userId,
+                                    ),
+                                  ),
+                                ),
+                                child: SizedBox(
+                                  width: 58,
+                                  child: Column(
+                                    children: [
+                                      Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          UserAvatar(
+                                            name: member.name,
+                                            imageUrl: member.avatarUrl,
+                                            radius: 24,
+                                          ),
+                                          Positioned(
+                                            right: -1,
+                                            bottom: -1,
+                                            child: Container(
+                                              width: 14,
+                                              height: 14,
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF45B95C),
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: scheme.surface,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        member.name.split(' ').first,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: textTheme.labelSmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
                           ),
+                        ),
+                        const SizedBox(height: 2),
+                      ],
+                      if (communities.isEmpty) ...[
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Text(
+                              context.tr(
+                                'Join a community to see local updates here.',
+                              ),
+                              style: textTheme.bodyMedium,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (_showSearch) ...[
+                        const SizedBox(height: 16),
+                        TextField(
+                          autofocus: true,
+                          onChanged: _updateSearch,
+                          decoration: InputDecoration(
+                            hintText: context.tr('Search local posts'),
+                            prefixIcon: const Icon(Icons.search_rounded),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _FeedFiltersHeader(
+                    height: 48,
+                    child: ColoredBox(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _CategoryFilterStrip(
+                          key: ValueKey(activeTownId),
+                          categories: categoryNames,
+                          selected: _category,
+                          onSelected: (category) =>
+                              setState(() => _category = category),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                  ],
-                const SizedBox(height: 18),
-                Text(
-                  context.tr('Neighborhood feed'),
-                  style: textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  context.tr('Updates and finds from around you'),
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                if (_showSearch) ...[
-                  const SizedBox(height: 16),
-                  TextField(
-                    autofocus: true,
-                    onChanged: _updateSearch,
-                    decoration: InputDecoration(
-                      hintText: context.tr('Search local posts'),
-                      prefixIcon: const Icon(Icons.search_rounded),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                _CategoryFilterStrip(
-                  categories: categoryNames,
-                  selected: _category,
-                  onSelected: (category) =>
-                      setState(() => _category = category),
-                ),
-                const SizedBox(height: 16),
-                for (final post in filteredPosts) ...[
-                  PostCard(
-                    onTap: () =>
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PostDetailPage(
-                              postId: post.id,
-                              repository: widget.repository,
-                              initialPost: post,
-                              category:
-                                  data.categories[post.categoryId]?.name ??
-                                  'Post',
-                              icon:
-                                  data.categories[post.categoryId]?.icon ??
-                                  '💬',
-                              community:
-                                  communityById[post.communityId]?.name ??
-                                  'Wicchu',
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                  sliver: SliverList.list(
+                    children: [
+                      for (final post in filteredPosts) ...[
+                        PostCard(
+                          key: ValueKey(post.id),
+                          collapseText: true,
+                          onTap: () =>
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PostDetailPage(
+                                    postId: post.id,
+                                    repository: widget.repository,
+                                    initialPost: post,
+                                    category:
+                                        data
+                                            .categories[post.categoryId]
+                                            ?.name ??
+                                        'Post',
+                                    icon:
+                                        data
+                                            .categories[post.categoryId]
+                                            ?.icon ??
+                                        '💬',
+                                    community:
+                                        communityById[post.communityId]?.name ??
+                                        'Wicchu',
+                                  ),
+                                ),
+                              ).then((_) {
+                                if (mounted) setState(_reload);
+                              }),
+                          category:
+                              data.categories[post.categoryId]?.name ?? 'Post',
+                          icon: data.categories[post.categoryId]?.icon ?? '💬',
+                          community:
+                              communityById[post.communityId]?.name ?? 'Wicchu',
+                          author: post.authorName,
+                          authorAvatarUrl: post.authorAvatarUrl,
+                          onAuthorTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MemberProfilePage(
+                                userId: post.authorId,
+                                repository: widget.repository,
+                              ),
                             ),
                           ),
-                        ).then((_) {
-                          if (mounted) setState(_reload);
-                        }),
-                    category: data.categories[post.categoryId]?.name ?? 'Post',
-                    icon: data.categories[post.categoryId]?.icon ?? '💬',
-                    community:
-                        communityById[post.communityId]?.name ?? 'Wicchu',
-                    author: post.authorName,
-                    authorAvatarUrl: post.authorAvatarUrl,
-                    onAuthorTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MemberProfilePage(
-                          userId: post.authorId,
-                          repository: widget.repository,
+                          time: formatPostTime(context, post.createdAt),
+                          text: post.text,
+                          likes: post.reactionCount,
+                          comments: post.commentCount,
+                          media: post.media,
+                          poll: post.poll,
+                          onPollVote: (optionId) =>
+                              widget.repository.voteOnPost(post.id, optionId),
+                          promotion: post.promotion,
+                          onPromotionImpression: post.promotion == null
+                              ? null
+                              : () =>
+                                    widget.repository.recordPromotionImpression(
+                                      post.promotion!.id,
+                                    ),
+                          onPromotionClick: post.promotion == null
+                              ? null
+                              : () => widget.repository.recordPromotionClick(
+                                  post.promotion!.id,
+                                ),
+                          reacted: post.reactedByMe,
+                          onReaction: (reacted) => widget.repository
+                              .setPostReaction(post.id, reacted: reacted),
+                          onComments: () => showPostComments(
+                            context,
+                            widget.repository,
+                            post,
+                          ),
+                          saved: post.savedByMe,
+                          onSaved: (saved) => widget.repository.setPostSaved(
+                            post.id,
+                            saved: saved,
+                          ),
+                          onReport: (reason) =>
+                              widget.repository.reportPost(post.id, reason),
+                          onShare: () => sharePost(
+                            widget.repository,
+                            post,
+                            communityName:
+                                communityById[post.communityId]?.name ??
+                                'Wicchu',
+                          ),
                         ),
-                      ),
-                    ),
-                    time: formatPostTime(context, post.createdAt),
-                    text: post.text,
-                    likes: post.reactionCount,
-                    comments: post.commentCount,
-                    media: post.media,
-                    poll: post.poll,
-                    onPollVote: (optionId) =>
-                        widget.repository.voteOnPost(post.id, optionId),
-                    promotion: post.promotion,
-                    onPromotionImpression: post.promotion == null
-                        ? null
-                        : () => widget.repository.recordPromotionImpression(
-                            post.promotion!.id,
-                          ),
-                    onPromotionClick: post.promotion == null
-                        ? null
-                        : () => widget.repository.recordPromotionClick(
-                            post.promotion!.id,
-                          ),
-                    reacted: post.reactedByMe,
-                    onReaction: (reacted) => widget.repository.setPostReaction(
-                      post.id,
-                      reacted: reacted,
-                    ),
-                    onComments: () =>
-                        showPostComments(context, widget.repository, post),
-                    saved: post.savedByMe,
-                    onSaved: (saved) =>
-                        widget.repository.setPostSaved(post.id, saved: saved),
-                    onReport: (reason) =>
-                        widget.repository.reportPost(post.id, reason),
-                    onShare: () => sharePost(
-                      widget.repository,
-                      post,
-                      communityName:
-                          communityById[post.communityId]?.name ?? 'Wicchu',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                if (filteredPosts.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.search_off_rounded,
-                            size: 32,
-                            color: scheme.primary,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            context.tr('No posts found'),
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
+                        const SizedBox(height: 12),
+                      ],
+                      if (filteredPosts.isEmpty)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.search_off_rounded,
+                                  size: 32,
+                                  color: scheme.primary,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  context.tr('No posts found'),
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  context.tr('Try another search or category.'),
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            context.tr('Try another search or category.'),
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
+                    ],
                   ),
+                ),
               ],
             ),
           );
@@ -894,8 +1074,27 @@ class _HomeTabState extends State<_HomeTab> {
   }
 }
 
+class _FeedFiltersHeader extends SliverPersistentHeaderDelegate {
+  _FeedFiltersHeader({required this.child, required this.height});
+  final Widget child;
+  final double height;
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => child;
+  @override
+  bool shouldRebuild(covariant _FeedFiltersHeader oldDelegate) => true;
+}
+
 class _CategoryFilterStrip extends StatefulWidget {
   const _CategoryFilterStrip({
+    super.key,
     required this.categories,
     required this.selected,
     required this.onSelected,
@@ -910,8 +1109,9 @@ class _CategoryFilterStrip extends StatefulWidget {
 }
 
 class _CategoryFilterStripState extends State<_CategoryFilterStrip> {
-  final _scrollController = ScrollController();
+  final _scrollController = ScrollController(keepScrollOffset: false);
   bool _canScrollNext = false;
+  bool _hasScrolled = false;
 
   @override
   void initState() {
@@ -928,6 +1128,9 @@ class _CategoryFilterStripState extends State<_CategoryFilterStrip> {
   void _updateScrollHint() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
+    if (position.pixels > 4 && !_hasScrolled) {
+      setState(() => _hasScrolled = true);
+    }
     final canScrollNext = position.maxScrollExtent - position.pixels > 4;
     if (canScrollNext != _canScrollNext && mounted) {
       setState(() => _canScrollNext = canScrollNext);
@@ -961,6 +1164,8 @@ class _CategoryFilterStripState extends State<_CategoryFilterStrip> {
               children: [
                 for (final category in widget.categories) ...[
                   ChoiceChip(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     label: Text(context.tr(category)),
                     selected: widget.selected == category,
                     showCheckmark: false,
@@ -978,7 +1183,7 @@ class _CategoryFilterStripState extends State<_CategoryFilterStrip> {
             ),
           ),
         ),
-        if (widget.categories.length > 3)
+        if (widget.categories.length > 3 && !_hasScrolled)
           IconButton(
             tooltip: context.tr('More categories'),
             onPressed: _canScrollNext ? _scrollNext : null,
@@ -1562,6 +1767,28 @@ class _ProfileTabState extends State<_ProfileTab> {
     }
   }
 
+  Future<void> _openMyProfile(String userId) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            MemberProfilePage(userId: userId, repository: widget.repository),
+      ),
+    );
+    if (mounted) await _refreshProfile();
+  }
+
+  Widget _accountSection(String title) => Padding(
+    padding: const EdgeInsets.only(top: 16, bottom: 4),
+    child: Text(
+      context.tr(title),
+      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(context.tr('You'))),
@@ -1586,35 +1813,44 @@ class _ProfileTabState extends State<_ProfileTab> {
                 );
               }
               final profile = snapshot.data!;
-              return Column(
-                children: [
-                  CircleAvatar(
-                    radius: 42,
-                    backgroundImage: profile.avatarUrl == null
-                        ? null
-                        : NetworkImage(profile.avatarUrl!),
-                    child: profile.avatarUrl == null
-                        ? const Icon(Icons.person, size: 40)
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    profile.name,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+              return InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => _openMyProfile(profile.id),
+                child: Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 42,
+                      backgroundImage: profile.avatarUrl == null
+                          ? null
+                          : NetworkImage(profile.avatarUrl!),
+                      child: profile.avatarUrl == null
+                          ? const Icon(Icons.person, size: 40)
+                          : null,
                     ),
-                  ),
-                  Text('@${profile.userName}'),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${context.trCount(profile.communityCount, singular: '{count} community', plural: '{count} communities')} · '
-                    '${context.trCount(profile.postCount, singular: '{count} post', plural: '{count} posts')}',
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Text(
+                      profile.name,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Text('@${profile.userName}'),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${context.trCount(profile.communityCount, singular: '{count} community', plural: '{count} communities')} · '
+                      '${context.trCount(profile.postCount, singular: '{count} post', plural: '{count} posts')}',
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _openMyProfile(profile.id),
+                      icon: const Icon(Icons.person_outline, size: 18),
+                      label: Text(context.tr('View my profile')),
+                    ),
+                  ],
+                ),
               );
             },
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 16),
+          _accountSection('My content'),
           _ProfileRow(
             icon: Icons.groups_outlined,
             label: 'My communities',
@@ -1634,17 +1870,7 @@ class _ProfileTabState extends State<_ProfileTab> {
             onTap: () =>
                 _openPosts('Saved posts', widget.repository.listSavedPosts),
           ),
-          _ProfileRow(
-            icon: Icons.campaign_outlined,
-            label: 'Promote locally',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PromotionsPage(repository: widget.repository),
-              ),
-            ),
-          ),
-          const Divider(height: 28),
+          _accountSection('Management'),
           _ProfileRow(
             icon: Icons.shield_outlined,
             label: 'Communities I manage',
@@ -1658,6 +1884,17 @@ class _ProfileTabState extends State<_ProfileTab> {
             label: 'Create a community',
             onTap: _createCommunity,
           ),
+          _ProfileRow(
+            icon: Icons.campaign_outlined,
+            label: 'Promote locally',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PromotionsPage(repository: widget.repository),
+              ),
+            ),
+          ),
+          _accountSection('Preferences'),
           _ProfileRow(
             icon: Icons.settings_outlined,
             label: 'Settings',

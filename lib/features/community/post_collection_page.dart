@@ -63,6 +63,7 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
             itemBuilder: (context, index) {
               final post = posts[index];
               return PostCard(
+                collapseText: true,
                 onTap: () =>
                     Navigator.push(
                       context,
@@ -81,9 +82,15 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                 community: 'Wicchu',
                 author: post.authorName,
                 authorAvatarUrl: post.authorAvatarUrl,
-                onAuthorTap: () => Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
-                )),
+                onAuthorTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MemberProfilePage(
+                      userId: post.authorId,
+                      repository: widget.repository,
+                    ),
+                  ),
+                ),
                 time: formatPostTime(context, post.createdAt),
                 text: post.text,
                 likes: post.reactionCount,

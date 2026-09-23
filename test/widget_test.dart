@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,8 @@ import 'package:wicchu/features/admin/create_community_page.dart';
 import 'package:wicchu/features/community/post_card.dart';
 import 'package:wicchu/localization/app_language.dart';
 import 'package:wicchu/main.dart';
+import 'package:wicchu/features/profile/member_profile_page.dart';
+import 'package:wicchu/features/profile/edit_profile_links.dart';
 
 class _FakeAuthGateway implements AuthGateway {
   _FakeAuthGateway({required this.signedIn});
@@ -98,7 +101,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Wicchu'), findsOneWidget);
-    expect(find.text('Your communities'), findsOneWidget);
+    expect(find.text('Town X'), findsOneWidget);
+    expect(find.text('Good things happen nearby.'), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Explore'), findsOneWidget);
     expect(find.text('Activity'), findsOneWidget);
@@ -132,7 +136,7 @@ void main() {
     await tester.tap(find.text('Continue with Facebook'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('Your communities'), findsOneWidget);
+    expect(find.text('Town X'), findsOneWidget);
   });
 
   testWidgets('home uses the central post action across multiple towns', (
@@ -163,17 +167,56 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Lo último de tus comunidades.'), findsOneWidget);
+    expect(find.text('Lo bueno pasa cerca de ti.'), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsNothing);
-    expect(find.text('Publicar'), findsOneWidget);
-    expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.plus), findsOneWidget);
 
-    await tester.tap(find.text('Publicar'));
+    await tester.tap(find.byIcon(CupertinoIcons.plus));
     await tester.pumpAndSettle();
     expect(find.text('Elige una comunidad'), findsOneWidget);
     await tester.tap(find.text('Echeandía').last);
     await tester.pumpAndSettle();
+    expect(find.text('¿Qué quieres publicar?'), findsOneWidget);
+    await tester.tap(find.text('General').last);
+    await tester.pumpAndSettle();
     expect(find.text('Crear publicación'), findsOneWidget);
+  });
+
+  testWidgets('account hub opens the canonical profile with owner editing', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'language': 'es'});
+    final repository = DemoCommunityRepository();
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: repository,
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tú'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver mi perfil'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MemberProfilePage), findsOneWidget);
+    expect(find.text('Perfil'), findsOneWidget);
+    expect(find.text('Editar perfil'), findsOneWidget);
+    await tester.tap(find.text('Editar perfil'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EditProfilePage), findsOneWidget);
+  });
+
+  testWidgets('another user profile hides edit controls', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemberProfilePage(
+          userId: 'another-user',
+          repository: DemoCommunityRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.edit_outlined), findsNothing);
   });
 
   testWidgets('translates the current user label on a post', (tester) async {
@@ -209,6 +252,8 @@ void main() {
         authGateway: _FakeAuthGateway(signedIn: true),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Explore'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Town X Community').first);
     await tester.pumpAndSettle();
@@ -325,6 +370,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Explore'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Town X Community').first);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('News').first);
@@ -391,7 +438,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Español'));
     await tester.pumpAndSettle();
-    expect(find.text('Tus comunidades'), findsOneWidget);
+    expect(find.text('Lo bueno pasa cerca de ti.'), findsOneWidget);
     expect(find.text('Inicio'), findsOneWidget);
     expect(find.text('Noticias'), findsOneWidget);
 
@@ -424,7 +471,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('English'));
     await tester.pumpAndSettle();
-    expect(find.text('Your communities'), findsOneWidget);
+    expect(find.text('Good things happen nearby.'), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
   });
 
@@ -438,6 +485,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Explorar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Town X Community').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Administrar comunidad'));
