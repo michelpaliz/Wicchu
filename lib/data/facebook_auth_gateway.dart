@@ -33,7 +33,7 @@ class FacebookAuthGateway implements AuthGateway {
   static const _googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
     defaultValue:
-        '109878335777-b5ifpb5bl635974b2f8p0hhovtuq18dc.apps.googleusercontent.com',
+        '414702659593-94b8of4j0mgj16pr0r13a6a1dpm9mvpu.apps.googleusercontent.com',
   );
 
   @override
