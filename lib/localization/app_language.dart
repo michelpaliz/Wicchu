@@ -359,7 +359,6 @@ const _spanish = <String, String>{
   'Discard': 'Descartar',
   'Enter a phone number with country code.':
       'Introduce un teléfono con prefijo internacional.',
-  'Enter a valid email address.': 'Introduce un correo electrónico válido.',
   'Use a valid HTTPS profile link.': 'Usa un enlace de perfil HTTPS válido.',
   'Enter a username or profile link.':
       'Introduce un usuario o enlace de perfil.',
@@ -497,7 +496,6 @@ const _spanish = <String, String>{
   'Invite by email': 'Invitar por correo electrónico',
   'Invitations expire after 14 days. Invited members join directly.':
       'Las invitaciones vencen después de 14 días. Los miembros invitados ingresan directamente.',
-  'Email address': 'Correo electrónico',
   'Send invitation': 'Enviar invitación',
   'Invitation history': 'Historial de invitaciones',
   'No invitations yet': 'Todavía no hay invitaciones',
