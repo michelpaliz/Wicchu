@@ -229,10 +229,18 @@ void main() {
           .selectedIndex,
       0,
     );
+    expect(tester.widget<FeedFilterBar>(find.byType(FeedFilterBar).first).labels.length, 3);
+    await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Media'));
+    await tester.pumpAndSettle();
+    expect(find.text('No media yet'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.drag(find.byType(NestedScrollView), const Offset(0, -450));
     await tester.pumpAndSettle();
     expect(find.byType(PostCard), findsWidgets);
-    await tester.tap(find.widgetWithText(FloatingActionButton, 'New post'));
+    await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     expect(find.byType(CreatePostPage), findsOneWidget);
     expect(
@@ -285,14 +293,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add rule'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('Enter a rule title.'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'Be respectful');
     await tester.enterText(
       find.byType(TextField).last,
       'Respect your neighbors',
     );
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
     expect(find.text('Be respectful'), findsOneWidget);

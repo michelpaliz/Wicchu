@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../widgets/feed_filter_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/community_models.dart';
@@ -72,7 +74,15 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(toolbarHeight: 48, title: Text(context.tr('Profile'))),
+    appBar: AppBar(
+      toolbarHeight: 48,
+      title: Text(
+        context.tr('Profile'),
+        style: Theme.of(
+          context,
+        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+      ),
+    ),
     body: RefreshIndicator(
       onRefresh: () async {
         _reload();
@@ -96,10 +106,33 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      UserAvatar(
-                        name: profile.name,
-                        imageUrl: profile.avatarUrl,
-                        radius: 28,
+                      Stack(
+                        children: [
+                          UserAvatar(
+                            name: profile.name,
+                            imageUrl: profile.avatarUrl,
+                            radius: 32,
+                          ),
+                          if (profile.isOnline)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -166,7 +199,7 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                                     Icons.edit_outlined,
                                     size: 16,
                                   ),
-                                  label: Text(context.tr('Edit profile')),
+                                  label: Text(context.tr('Edit')),
                                   onPressed: () async {
                                     await editProfileLinks(
                                       context,
@@ -179,13 +212,26 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                       ),
                     ],
                   ),
-                  if (!profile.socialLinks.isEmpty) ...[
+                  ...[
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       children: [
                         if (profile.socialLinks.whatsapp.isNotEmpty)
                           ActionChip(
+                            shape: const StadiumBorder(),
+                            side: BorderSide(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.10),
+                            ),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             label: const Text('WhatsApp'),
                             avatar: const Icon(Icons.chat_outlined, size: 18),
                             onPressed: () => _openSocial(
@@ -195,6 +241,19 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                           ),
                         if (profile.socialLinks.facebook.isNotEmpty)
                           ActionChip(
+                            shape: const StadiumBorder(),
+                            side: BorderSide(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.10),
+                            ),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             label: const Text('Facebook'),
                             avatar: const Icon(Icons.facebook, size: 18),
                             onPressed: () => _openSocial(
@@ -204,6 +263,19 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                           ),
                         if (profile.socialLinks.instagram.isNotEmpty)
                           ActionChip(
+                            shape: const StadiumBorder(),
+                            side: BorderSide(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.10),
+                            ),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             label: const Text('Instagram'),
                             avatar: const Icon(
                               Icons.camera_alt_outlined,
@@ -216,11 +288,45 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                           ),
                         if (profile.socialLinks.email.isNotEmpty)
                           ActionChip(
+                            shape: const StadiumBorder(),
+                            side: BorderSide(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.10),
+                            ),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             label: const Text('Email'),
                             avatar: const Icon(Icons.email_outlined, size: 18),
                             onPressed: () =>
                                 _openSocial('email', profile.socialLinks.email),
                           ),
+                        ActionChip(
+                          label: Text(context.tr('Share profile')),
+                          avatar: const Icon(
+                            Icons.ios_share_outlined,
+                            size: 18,
+                          ),
+                          shape: const StadiumBorder(),
+                          side: BorderSide(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.10),
+                          ),
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          onPressed: () => _shareProfile(profile),
+                        ),
                       ],
                     ),
                   ],
@@ -229,38 +335,18 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
             },
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final kind in const ['all', 'media', 'polls'])
-                ChoiceChip(
-                  showCheckmark: false,
-                  visualDensity: VisualDensity.compact,
-                  selectedColor: Theme.of(context).colorScheme.primaryContainer,
-                  side: BorderSide(color: Theme.of(context).dividerColor),
-                  labelStyle: TextStyle(
-                    fontSize: 12,
-                    color: _kind == kind
-                        ? Theme.of(context).colorScheme.onPrimaryContainer
-                        : Theme.of(context).colorScheme.onSurface,
-                    fontWeight: _kind == kind
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                  ),
-                  label: Text(
-                    context.tr(switch (kind) {
-                      'media' => 'Media',
-                      'polls' => 'Polls',
-                      _ => 'Posts',
-                    }),
-                  ),
-                  selected: _kind == kind,
-                  onSelected: (_) => setState(() {
-                    _kind = kind;
-                    _posts = _loadPosts();
-                  }),
-                ),
+          FeedFilterBar(
+            style: FeedNavigationStyle.underline,
+            labels: [
+              context.tr('Posts'),
+              context.tr('Media'),
+              context.tr('Polls'),
             ],
+            selectedIndex: const ['all', 'media', 'polls'].indexOf(_kind),
+            onSelected: (index) => setState(() {
+              _kind = const ['all', 'media', 'polls'][index];
+              _posts = _loadPosts();
+            }),
           ),
           Align(
             alignment: Alignment.centerRight,
@@ -375,6 +461,28 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
       ),
     ),
   );
+
+  Future<void> _shareProfile(PublicMemberProfile profile) async {
+    try {
+      final box = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          subject: context.tr('Share profile'),
+          text:
+              '${profile.name} · Wicchu${profile.userName.isEmpty ? '' : '\n@${profile.userName}'}',
+          sharePositionOrigin: box == null
+              ? null
+              : box.localToGlobal(Offset.zero) & box.size,
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
 
   Future<void> _openSocial(String network, String value) async {
     final uri = switch (network) {

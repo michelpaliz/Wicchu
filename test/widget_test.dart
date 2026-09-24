@@ -263,8 +263,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(MemberProfilePage), findsOneWidget);
     expect(find.text('Perfil'), findsOneWidget);
-    expect(find.text('Editar perfil'), findsOneWidget);
-    await tester.tap(find.text('Editar perfil'));
+    expect(find.text('Editar'), findsOneWidget);
+    await tester.tap(find.text('Editar'));
     await tester.pumpAndSettle();
     expect(find.byType(EditProfilePage), findsOneWidget);
   });

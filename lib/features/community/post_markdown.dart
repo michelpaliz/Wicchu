@@ -25,10 +25,20 @@ class _PostMarkdownState extends State<PostMarkdown> {
   @override
   Widget build(BuildContext context) {
     if (!widget.collapsible) return _markdown(context);
-    final style = Theme.of(context).textTheme.bodyLarge!.copyWith(height: 1.3);
+    final style = Theme.of(context).textTheme.bodyLarge!.copyWith(
+      fontSize: 16,
+      fontWeight: FontWeight.w400,
+      height: 1.3,
+    );
     final preview = widget.data
         .replaceAllMapped(RegExp(r'!?\[([^\]]*)\]\([^)]*\)'), (m) => m[1]!)
-        .replaceAll(RegExp(r'[*_`#>]'), '');
+        .replaceAll(RegExp(r'[*_`#>]'), '')
+        .replaceAll(RegExp(r'\n[ \t]*\n+'), '\n');
+    final firstParagraph = widget.data.trim().split(RegExp(r'\n\s*\n')).first;
+    final hasHeadline =
+        widget.data.trim().contains(RegExp(r'\n\s*\n')) &&
+        firstParagraph.length <= 120 &&
+        !firstParagraph.contains('\n');
     return LayoutBuilder(
       builder: (context, constraints) {
         final actionStyle = style.copyWith(
@@ -50,8 +60,12 @@ class _PostMarkdownState extends State<PostMarkdown> {
                           fontSize: 13,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         )
-                      : announcement && i == 1
-                      ? style.copyWith(fontWeight: FontWeight.w600)
+                      : (announcement && i == 1) || (hasHeadline && i == 0)
+                      ? style.copyWith(
+                          fontSize: 19,
+                          height: 1.2,
+                          fontWeight: FontWeight.w700,
+                        )
                       : null,
                 ),
               if (more)
@@ -124,18 +138,38 @@ class _PostMarkdownState extends State<PostMarkdown> {
     );
   }
 
+  // Present a short standalone opening paragraph as a headline without
+  // changing the stored post or treating ordinary single-paragraph posts as titles.
+  String get _displayMarkdown {
+    final paragraphs = widget.data.trim().split(RegExp(r'\n\s*\n'));
+    if (paragraphs.length > 1 &&
+        paragraphs.first.length <= 120 &&
+        !paragraphs.first.contains('\n') &&
+        !RegExp(r'^[#>*\-]|^\d+\.').hasMatch(paragraphs.first)) {
+      return '### ${paragraphs.first}\n\n${paragraphs.skip(1).join('\n\n')}';
+    }
+    return widget.data;
+  }
+
   Widget _markdown(BuildContext context) {
     final theme = Theme.of(context);
     return MarkdownBody(
-      data: widget.data,
+      data: _displayMarkdown,
       selectable: true,
       softLineBreak: true,
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
         p: theme.textTheme.bodyLarge?.copyWith(
+          fontSize: 16,
           height: widget.collapsible ? 1.3 : 1.45,
         ),
         strong: theme.textTheme.bodyLarge?.copyWith(
+          fontSize: 16,
           height: widget.collapsible ? 1.3 : 1.45,
+          fontWeight: FontWeight.w700,
+        ),
+        h3: theme.textTheme.titleMedium?.copyWith(
+          fontSize: 19,
+          height: 1.2,
           fontWeight: FontWeight.w700,
         ),
         blockSpacing: 8,

@@ -242,7 +242,8 @@ class _PostCardState extends State<PostCard> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -252,6 +253,7 @@ class _PostCardState extends State<PostCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 13,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
@@ -286,7 +288,8 @@ class _PostCardState extends State<PostCard> {
                   '${widget.icon} ${context.tr(widget.category)}',
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: accent,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),

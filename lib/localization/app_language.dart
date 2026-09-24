@@ -160,6 +160,17 @@ const _spanish = <String, String>{
   'Owner': 'Propietario',
   'Save post': 'Guardar publicación',
   'Unsave post': 'Quitar de guardados',
+  'Edit': 'Editar',
+  'Edit community': 'Editar comunidad',
+  'About {name}': 'Acerca de {name}',
+  'Community rating': 'Valoración de la comunidad',
+  'Useful links': 'Enlaces útiles',
+  'Directions': 'Cómo llegar',
+  'Unable to open link. Please try again.':
+      'No se pudo abrir el enlace. Inténtalo de nuevo.',
+  'Enter a rule title.': 'Introduce un título para la regla.',
+  'Describe this rule.': 'Describe esta regla.',
+  'Share profile': 'Compartir perfil',
   'More options': 'Más opciones',
   'Like': 'Me gusta',
   'Unlike': 'Ya no me gusta',
@@ -446,8 +457,10 @@ const _spanish = <String, String>{
   'Not really': 'No mucho',
   'Thanks for your feedback.': 'Gracias por tu opinión.',
   'Community feedback': 'Opinión sobre la comunidad',
-  'Is the information relevant to your local area?': '¿La información es relevante para tu zona?',
-  'Do you feel safe participating here?': '¿Te sientes seguro participando aquí?',
+  'Is the information relevant to your local area?':
+      '¿La información es relevante para tu zona?',
+  'Do you feel safe participating here?':
+      '¿Te sientes seguro participando aquí?',
   'Is the community well organized?': '¿La comunidad está bien organizada?',
   'Would you recommend this community to someone nearby?':
       '¿Recomendarías esta comunidad a alguien de tu zona?',
@@ -457,7 +470,8 @@ const _spanish = <String, String>{
   'Answer the short survey': 'Responder la encuesta breve',
   'Invite people': 'Invitar personas',
   'Create and share invitation link': 'Crear y compartir enlace de invitación',
-  'Or invite a specific person by email': 'O invita a una persona específica por correo',
+  'Or invite a specific person by email':
+      'O invita a una persona específica por correo',
   'Shareable invitation link': 'Enlace de invitación compartible',
   'Community invitation': 'Invitación a la comunidad',
   'You joined the community.': 'Te uniste a la comunidad.',
@@ -466,7 +480,8 @@ const _spanish = <String, String>{
   'Display current conditions for the community town.':
       'Muestra las condiciones actuales de la localidad de la comunidad.',
   'Local weather': 'Clima local',
-  'Weather is temporarily unavailable.': 'El clima no está disponible temporalmente.',
+  'Weather is temporarily unavailable.':
+      'El clima no está disponible temporalmente.',
   'High {high}° · Low {low}°': 'Máx. {high}° · Mín. {low}°',
   'Provided by': 'Proporcionado por',
   'Updated {time}': 'Actualizado a las {time}',

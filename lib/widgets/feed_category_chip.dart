@@ -22,10 +22,12 @@ class FeedCategoryChip extends StatelessWidget {
         label: Text(label),
         selected: selected,
         showCheckmark: false,
-        side: BorderSide.none,
+        side: selected
+            ? BorderSide.none
+            : BorderSide(color: scheme.onSurface.withValues(alpha: 0.08)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
         backgroundColor: Colors.transparent,
-        selectedColor: scheme.primaryContainer,
+        selectedColor: scheme.primary,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         pressElevation: 0,
@@ -34,8 +36,9 @@ class FeedCategoryChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         labelPadding: const EdgeInsets.symmetric(horizontal: 10),
         labelStyle: TextStyle(
-          color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
         ),
         onSelected: (_) => onSelected(),
       ),

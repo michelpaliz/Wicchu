@@ -29,7 +29,7 @@ class PostMediaGallery extends StatelessWidget {
     if (media.isEmpty) return const SizedBox.shrink();
     final count = media.length > 2 ? 2 : media.length;
     return SizedBox(
-      height: 200,
+      height: 180,
       child: Row(
         children: [
           for (var index = 0; index < count; index++) ...[
@@ -62,32 +62,27 @@ class PostMediaGallery extends StatelessWidget {
                             child: Icon(Icons.play_arrow_rounded),
                           ),
                         ),
-                      Positioned(
-                        right: 8,
-                        bottom: 8,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: index == 1 && media.length > 2
-                                ? Text(
-                                    '+${media.length - 2}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.open_in_full,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
+                      if (index == 1 && media.length > 2)
+                        Positioned(
+                          right: 8,
+                          bottom: 8,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: Text(
+                                '+${media.length - 2}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
                       Material(
                         color: Colors.transparent,
                         child: InkWell(
@@ -425,14 +420,42 @@ class _MediaVideoState extends State<_MediaVideo> with WidgetsBindingObserver {
         builder: (context, value, _) {
           if (value.hasError) return _MediaError(onRetry: _retry);
           if (widget.preview) {
-            return FittedBox(
-              fit: BoxFit.cover,
-              clipBehavior: Clip.hardEdge,
-              child: SizedBox(
-                width: value.size.width,
-                height: value.size.height,
-                child: VideoPlayer(_controller),
-              ),
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                FittedBox(
+                  fit: BoxFit.cover,
+                  clipBehavior: Clip.hardEdge,
+                  child: SizedBox(
+                    width: value.size.width,
+                    height: value.size.height,
+                    child: VideoPlayer(_controller),
+                  ),
+                ),
+                Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        _time(value.duration),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             );
           }
           return Column(

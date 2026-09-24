@@ -220,8 +220,8 @@ class _CompactNavigationItem extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: color,
-                  fontSize: 10.5,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
