@@ -1,3 +1,4 @@
+import '../../widgets/feed_filter_bar.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -38,7 +39,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   late Future<List<CommunityPost>> _posts;
   late Future<CommunityRules> _rules;
   bool _savingMembership = false;
+  bool _openingComposer = false;
   String? _categoryId;
+  int _sectionIndex = 0;
 
   bool get _canManage =>
       _community.myRole == CommunityRole.owner ||
@@ -48,8 +51,34 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   @override
   void initState() {
     super.initState();
+    _tabs.addListener(_sectionChanged);
     _reload();
   }
+
+  void _sectionChanged() {
+    if (_sectionIndex != _tabs.index) {
+      setState(() => _sectionIndex = _tabs.index);
+    }
+  }
+
+  Widget _categoryFilters() => FutureBuilder<List<CommunityCategory>>(
+    future: _categories,
+    builder: (context, snapshot) {
+      final categories = snapshot.data ?? const <CommunityCategory>[];
+      return FeedFilterBar(
+        labels: [
+          context.tr('All'),
+          for (final category in categories) context.tr(category.name),
+        ],
+        selectedIndex: _categoryId == null
+            ? 0
+            : categories.indexWhere((c) => c.id == _categoryId) + 1,
+        onSelected: (index) => setState(
+          () => _categoryId = index == 0 ? null : categories[index - 1].id,
+        ),
+      );
+    },
+  );
 
   void _reload() {
     _categories = widget.repository.listCategories(_community.id);
@@ -137,8 +166,65 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     }
   }
 
+  Future<void> _createPost() async {
+    if (!_joined || _openingComposer) return;
+    setState(() => _openingComposer = true);
+    try {
+      final categories = await _categories;
+      if (!mounted) return;
+      if (categories.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('No categories found'))),
+        );
+        return;
+      }
+      final post = await Navigator.push<CommunityPost>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreatePostPage(
+            community: _community,
+            repository: widget.repository,
+            categories: categories,
+            initialCategory: categories
+                .where((c) => c.id == _categoryId)
+                .firstOrNull,
+          ),
+        ),
+      );
+      if (post != null && mounted) {
+        setState(() {
+          // Keep the new publication visible if its category changed in the composer.
+          if (_categoryId != null) _categoryId = post.categoryId;
+          _reload();
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _openingComposer = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
+    floatingActionButton: _joined && _sectionIndex == 0
+        ? FloatingActionButton.extended(
+            onPressed: _openingComposer || _savingMembership
+                ? null
+                : _createPost,
+            icon: _openingComposer
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.add),
+            label: Text(context.tr('New post')),
+          )
+        : null,
     appBar: AppBar(
       automaticallyImplyLeading: false,
       leading: IconButton(
@@ -146,7 +232,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         onPressed: () => Navigator.pop(context, _community),
         icon: const Icon(Icons.arrow_back),
       ),
-      title: Text(context.tr('Community profile')),
+      title: Text(
+        _community.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       actions: [
         IconButton(
           tooltip: context.tr('Share'),
@@ -161,17 +251,26 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         SliverPersistentHeader(
           pinned: true,
           delegate: _TabHeaderDelegate(
-            TabBar(
-              controller: _tabs,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: [
-                Tab(text: context.tr('Posts')),
-                Tab(text: context.tr('About')),
-                Tab(text: context.tr('Members')),
-                Tab(text: context.tr('Media')),
+            Column(
+              children: [
+                AnimatedBuilder(
+                  animation: _tabs,
+                  builder: (context, _) => FeedFilterBar(
+                    style: FeedNavigationStyle.underline,
+                    labels: [
+                      context.tr('Posts'),
+                      context.tr('About'),
+                      context.tr('Members'),
+                      context.tr('Media'),
+                    ],
+                    selectedIndex: _tabs.index,
+                    onSelected: _tabs.animateTo,
+                  ),
+                ),
+                if (_sectionIndex == 0 && _joined) _categoryFilters(),
               ],
             ),
+            height: _sectionIndex == 0 && _joined ? 96 : 48,
           ),
         ),
       ],
@@ -184,90 +283,102 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   Widget _buildHeader(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isOwner = _community.myRole == CommunityRole.owner;
     return Column(
       children: [
         SizedBox(
-          height: 190,
+          height: _community.imageUrl == null ? 120 : 160,
           child: Stack(
-            clipBehavior: Clip.none,
             fit: StackFit.expand,
             children: [
-              Container(
+              ColoredBox(
                 color: scheme.primaryContainer,
                 child: _community.imageUrl == null
-                    ? Icon(
-                        Icons.groups_rounded,
-                        size: 72,
-                        color: scheme.primary,
-                      )
-                    : Image.network(_community.imageUrl!, fit: BoxFit.cover),
+                    ? null
+                    : Image.network(
+                        _community.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
               ),
               Positioned(
-                left: 20,
-                bottom: -32,
+                left: 16,
+                bottom: 12,
                 child: Container(
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
                     color: scheme.surface,
                     shape: BoxShape.circle,
                   ),
-                  child: CommunityAvatar(community: _community, radius: 38),
+                  child: CommunityAvatar(community: _community, radius: 28),
                 ),
               ),
             ],
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 44, 20, 16),
-          child: Column(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _community.name,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${_community.town.name} · ${context.trCount(_community.memberCount, singular: '{count} member', plural: '{count} members')}',
-                style: TextStyle(color: scheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed:
-                          _savingMembership ||
-                              _community.myRole == CommunityRole.owner
-                          ? null
-                          : _toggleMembership,
-                      icon: _savingMembership
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Icon(_joined ? Icons.check : Icons.add),
-                      label: Text(
-                        context.tr(
-                          _community.myRole == CommunityRole.owner
-                              ? 'Owner'
-                              : (_joined ? 'Joined' : 'Join'),
-                        ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _community.name,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ),
-                  if (_canManage) ...[
-                    const SizedBox(width: 10),
-                    IconButton.filledTonal(
-                      tooltip: context.tr('Manage community'),
-                      onPressed: _openManagement,
-                      icon: const Icon(Icons.admin_panel_settings_outlined),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${context.trCount(_community.memberCount, singular: '{count} member', plural: '{count} members')} · ${context.tr(_community.visibility == CommunityVisibility.public ? 'Public community' : 'Private community')}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
+                    const SizedBox(height: 6),
+                    if (isOwner)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check, size: 14, color: scheme.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            context.tr('Owner'),
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: scheme.primary),
+                          ),
+                        ],
+                      )
+                    else
+                      TextButton.icon(
+                        onPressed: _savingMembership ? null : _toggleMembership,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: _savingMembership
+                            ? const SizedBox.square(
+                                dimension: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(_joined ? Icons.check : Icons.add, size: 16),
+                        label: Text(context.tr(_joined ? 'Joined' : 'Join')),
+                      ),
                   ],
-                ],
+                ),
               ),
+              if (_canManage)
+                IconButton(
+                  tooltip: context.tr('Manage community'),
+                  onPressed: _openManagement,
+                  icon: const Icon(Icons.admin_panel_settings_outlined),
+                  color: scheme.primary,
+                ),
             ],
           ),
         ),
@@ -296,37 +407,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             key: const PageStorageKey('community-profile-posts'),
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              SliverToBoxAdapter(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(context.tr('All')),
-                          selected: _categoryId == null,
-                          onSelected: (_) => setState(() => _categoryId = null),
-                        ),
-                      ),
-                      for (final category in categories)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(context.tr(category.name)),
-                            selected: _categoryId == category.id,
-                            onSelected: (_) =>
-                                setState(() => _categoryId = category.id),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
               FutureBuilder<List<CommunityPost>>(
                 future: _posts,
                 builder: (context, snapshot) {
@@ -364,7 +444,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     );
                   }
                   return SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                     sliver: SliverList.builder(
                       itemCount: posts.length,
                       itemBuilder: (context, index) {
@@ -674,15 +754,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           itemBuilder: (context, index) {
             final item = media[index];
             return InkWell(
-              onTap: () => showDialog<void>(
-                context: context,
-                builder: (_) => Dialog(
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: PostMediaGallery(media: [item]),
-                  ),
-                ),
-              ),
+              onTap: () =>
+                  openPostMediaViewer(context, media, initialIndex: index),
               child: item.type == 'image'
                   ? Image.network(item.url, fit: BoxFit.cover)
                   : Container(
@@ -740,13 +813,14 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _TabHeaderDelegate(this.tabBar);
-  final TabBar tabBar;
+  const _TabHeaderDelegate(this.tabBar, {this.height = 48});
+  final double height;
+  final Widget tabBar;
 
   @override
-  double get minExtent => tabBar.preferredSize.height;
+  double get minExtent => height;
   @override
-  double get maxExtent => tabBar.preferredSize.height;
+  double get maxExtent => height;
   @override
   Widget build(
     BuildContext context,
@@ -755,5 +829,5 @@ class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
   ) => Material(color: Theme.of(context).colorScheme.surface, child: tabBar);
   @override
   bool shouldRebuild(covariant _TabHeaderDelegate oldDelegate) =>
-      oldDelegate.tabBar != tabBar;
+      oldDelegate.tabBar != tabBar || oldDelegate.height != height;
 }

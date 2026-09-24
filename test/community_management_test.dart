@@ -1,3 +1,5 @@
+import 'package:wicchu/features/community/create_post_page.dart';
+import 'package:wicchu/widgets/feed_filter_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
@@ -46,7 +48,102 @@ class RulesApi extends AuthenticatedApiClient {
   }
 }
 
+class CategoryApi extends AuthenticatedApiClient {
+  Map<String, dynamic>? sent;
+  @override
+  Future<Map<String, dynamic>> post(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    sent = body;
+    return {
+      'category': {'id': 'category-1', 'communityId': 'community-1', ...?body},
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? body,
+  }) => post(path, body: body);
+}
+
 void main() {
+  test(
+    'category requests send icons and omit an unchanged optional icon',
+    () async {
+      final api = CategoryApi();
+      final repository = HttpCommunityRepository(apiClient: api);
+      final category = await repository.createCategory(
+        'community-1',
+        name: 'News',
+        icon: '📰',
+      );
+      expect(api.sent?['icon'], '📰');
+      expect(category.icon, '📰');
+      final updated = await repository.updateCategory(
+        'community-1',
+        category,
+        name: 'Events',
+        description: '',
+        icon: '📅',
+      );
+      expect(api.sent?['icon'], '📅');
+      expect(updated.icon, '📅');
+      await repository.updateCategory(
+        'community-1',
+        updated,
+        name: 'Events',
+        description: 'Local',
+      );
+      expect(api.sent!.containsKey('icon'), isFalse);
+    },
+  );
+
+  testWidgets(
+    'category editor validates and saves without losing the category',
+    (tester) async {
+      final repository = DemoCommunityRepository();
+      final community = (await repository.listJoinedCommunities()).first;
+      final category = (await repository.listCategories(community.id)).first;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CategoryManagementPage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(category.name).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('category-icon-📰')));
+      await tester.enterText(find.byType(TextFormField).first, '');
+      await tester.ensureVisible(find.text('Save changes'));
+      await tester.tap(find.text('Save changes'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a category name.'), findsOneWidget);
+      await tester.enterText(find.byType(TextFormField).first, 'Neighborhood');
+      await tester.ensureVisible(find.text('Save changes'));
+      await tester.tap(find.text('Save changes'));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit category'), findsNothing);
+      expect(
+        (await repository.listCategories(
+          community.id,
+        )).firstWhere((item) => item.id == category.id).name,
+        'Neighborhood',
+      );
+      expect(
+        (await repository.listCategories(
+          community.id,
+        )).firstWhere((item) => item.id == category.id).icon,
+        '📰',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test(
     'rule edits use dedicated endpoints and preserve rule identity',
     () async {
@@ -126,10 +223,42 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+    expect(
+      tester
+          .widget<FeedFilterBar>(find.byType(FeedFilterBar).first)
+          .selectedIndex,
+      0,
+    );
     await tester.drag(find.byType(NestedScrollView), const Offset(0, -450));
     await tester.pumpAndSettle();
     expect(find.byType(PostCard), findsWidgets);
+    await tester.tap(find.widgetWithText(FloatingActionButton, 'New post'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CreatePostPage), findsOneWidget);
+    expect(
+      tester.widget<CreatePostPage>(find.byType(CreatePostPage)).community.id,
+      community.id,
+    );
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('About'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(
+      tester
+          .widget<FeedFilterBar>(find.byType(FeedFilterBar).first)
+          .selectedIndex,
+      1,
+    );
+    await tester.drag(find.byType(TabBarView), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FeedFilterBar>(find.byType(FeedFilterBar).first)
+          .selectedIndex,
+      2,
+    );
     expect(tester.takeException(), isNull);
   });
 

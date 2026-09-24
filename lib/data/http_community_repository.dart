@@ -409,10 +409,11 @@ class HttpCommunityRepository implements CommunityRepository {
     String communityId, {
     required String name,
     String description = '',
+    String? icon,
   }) async {
     final body = await _api.post(
       '/api/community/v1/communities/$communityId/categories',
-      body: {'name': name, 'description': description},
+      body: {'name': name, 'description': description, 'icon': ?icon},
     );
     return _categoryFromJson(_object(body, 'category'));
   }
@@ -423,10 +424,11 @@ class HttpCommunityRepository implements CommunityRepository {
     CommunityCategory category, {
     required String name,
     required String description,
+    String? icon,
   }) async {
     final body = await _api.patch(
       '/api/community/v1/communities/$communityId/categories/${category.id}',
-      body: {'name': name, 'description': description},
+      body: {'name': name, 'description': description, 'icon': ?icon},
     );
     return _categoryFromJson(_object(body, 'category'));
   }

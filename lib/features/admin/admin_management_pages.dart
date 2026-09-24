@@ -50,25 +50,81 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
           return Center(child: Text(context.tr('No categories')));
         }
         return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: items.length,
-          separatorBuilder: (_, _) => const Divider(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
+          itemCount: items.length + 1,
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
-            final category = items[index];
-            return ListTile(
-              leading: Text(
-                category.icon,
-                style: const TextStyle(fontSize: 24),
-              ),
-              title: Text(category.name),
-              subtitle: category.description.isEmpty
-                  ? null
-                  : Text(category.description),
-              onTap: () => _edit(category),
-              trailing: IconButton(
-                tooltip: context.tr('Delete'),
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => _delete(category),
+            final theme = Theme.of(context);
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.community.name,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      context.tr(
+                        'Organize conversations in your community. Tap a category to edit it.',
+                      ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            final category = items[index - 1];
+            return Material(
+              color: theme.colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 4,
+                ),
+                leading: CircleAvatar(
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  child: Text(
+                    category.icon,
+                    style: const TextStyle(fontSize: 22),
+                  ),
+                ),
+                title: Text(
+                  context.tr(category.name),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: category.description.isEmpty
+                    ? null
+                    : Text(
+                        category.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                onTap: () => _edit(category),
+                trailing: PopupMenuButton<String>(
+                  tooltip: context.tr('Category options'),
+                  onSelected: (value) =>
+                      value == 'edit' ? _edit(category) : _delete(category),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Text(context.tr('Edit category')),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Text(
+                        context.tr('Delete'),
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -78,67 +134,18 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
   );
 
   Future<void> _edit([CommunityCategory? category]) async {
-    final name = TextEditingController(text: category?.name);
-    final description = TextEditingController(text: category?.description);
-    final save = await showDialog<bool>(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          context.tr(category == null ? 'Add category' : 'Edit category'),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: name,
-              decoration: InputDecoration(labelText: context.tr('Name')),
-            ),
-            TextField(
-              controller: description,
-              decoration: InputDecoration(labelText: context.tr('Description')),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(context.tr('Cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(context.tr('Save')),
-          ),
-        ],
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _CategoryEditor(
+        category: category,
+        community: widget.community,
+        repository: widget.repository,
       ),
     );
-    if (save == true && name.text.trim().isNotEmpty) {
-      try {
-        if (category == null) {
-          await widget.repository.createCategory(
-            widget.community.id,
-            name: name.text.trim(),
-            description: description.text.trim(),
-          );
-        } else {
-          await widget.repository.updateCategory(
-            widget.community.id,
-            category,
-            name: name.text.trim(),
-            description: description.text.trim(),
-          );
-        }
-        _reload();
-      } catch (error) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(context.trError(error))));
-        }
-      }
-    }
-    name.dispose();
-    description.dispose();
+    if (saved == true && mounted) _reload();
   }
 
   Future<void> _delete(CommunityCategory category) async {
@@ -165,8 +172,252 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
       ),
     );
     if (confirmed != true) return;
-    await widget.repository.deleteCategory(widget.community.id, category.id);
-    _reload();
+    try {
+      await widget.repository.deleteCategory(widget.community.id, category.id);
+      if (mounted) _reload();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
+}
+
+class _CategoryEditor extends StatefulWidget {
+  const _CategoryEditor({
+    this.category,
+    required this.community,
+    required this.repository,
+  });
+  final CommunityCategory? category;
+  final Community community;
+  final CommunityRepository repository;
+  @override
+  State<_CategoryEditor> createState() => _CategoryEditorState();
+}
+
+class _CategoryEditorState extends State<_CategoryEditor> {
+  final _form = GlobalKey<FormState>();
+  late final _name = TextEditingController(text: widget.category?.name);
+  late final _description = TextEditingController(
+    text: widget.category?.description,
+  );
+  late String _icon = widget.category?.icon ?? '💬';
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_saving || !_form.currentState!.validate()) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      if (widget.category == null) {
+        await widget.repository.createCategory(
+          widget.community.id,
+          name: _name.text.trim(),
+          description: _description.text.trim(),
+          icon: _icon,
+        );
+      } else {
+        await widget.repository.updateCategory(
+          widget.community.id,
+          widget.category!,
+          name: _name.text.trim(),
+          description: _description.text.trim(),
+          icon: _icon,
+        );
+      }
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = context.trError(error);
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return PopScope(
+      canPop: !_saving,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: SafeArea(
+            top: false,
+            child: Form(
+              key: _form,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.tr(
+                      widget.category == null
+                          ? 'Add category'
+                          : 'Edit category',
+                    ),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.community.name,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    context.tr('Category icon'),
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final option in {
+                        '💬': 'General',
+                        '📰': 'News',
+                        '📅': 'Events',
+                        '🏠': 'Housing',
+                        '💼': 'Jobs',
+                        '⚽': 'Sports',
+                        '🛒': 'Marketplace',
+                        '📍': 'Local Businesses',
+                        '🔎': 'Lost & Found',
+                        '🌿': 'Nature',
+                        '🐾': 'Pets',
+                        '📢': 'Announcements',
+                        if (!const [
+                          '💬',
+                          '📰',
+                          '📅',
+                          '🏠',
+                          '💼',
+                          '⚽',
+                          '🛒',
+                          '📍',
+                          '🔎',
+                          '🌿',
+                          '🐾',
+                          '📢',
+                        ].contains(_icon))
+                          _icon: 'Current icon',
+                      }.entries)
+                        Semantics(
+                          label: context.tr(option.value),
+                          selected: _icon == option.key,
+                          button: true,
+                          child: Tooltip(
+                            message: context.tr(option.value),
+                            child: ChoiceChip(
+                              key: ValueKey('category-icon-${option.key}'),
+                              label: Text(
+                                option.key,
+                                style: const TextStyle(fontSize: 23),
+                              ),
+                              selected: _icon == option.key,
+                              showCheckmark: true,
+                              selectedColor: theme.colorScheme.primaryContainer,
+                              side: BorderSide.none,
+                              onSelected: _saving
+                                  ? null
+                                  : (_) => setState(() => _icon = option.key),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _name,
+                    enabled: !_saving,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      labelText: context.tr('Name'),
+                      helperText: context.tr('Choose a short, clear name.'),
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? context.tr('Enter a category name.')
+                        : null,
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _description,
+                    enabled: !_saving,
+                    minLines: 3,
+                    maxLines: 5,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      labelText: context.tr('Description (optional)'),
+                      hintText: context.tr('What should neighbors post here?'),
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: _saving
+                            ? null
+                            : () => Navigator.pop(context),
+                        child: Text(context.tr('Cancel')),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _saving ? null : _save,
+                          icon: _saving
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.check),
+                          label: Text(
+                            context.tr(_saving ? 'Saving…' : 'Save changes'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

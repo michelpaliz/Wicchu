@@ -1,3 +1,4 @@
+import '../../widgets/feed_filter_bar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -1020,15 +1021,15 @@ class _HomeTabState extends State<_HomeTab> {
                     height: 48,
                     child: ColoredBox(
                       color: Theme.of(context).scaffoldBackgroundColor,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _CategoryFilterStrip(
-                          key: ValueKey(_selectedCommunityId),
-                          categories: categoryNames,
-                          selected: _category,
-                          onSelected: (category) =>
-                              setState(() => _category = category),
-                        ),
+                      child: FeedFilterBar(
+                        key: ValueKey(_selectedCommunityId),
+                        labels: [
+                          for (final category in categoryNames)
+                            context.tr(category),
+                        ],
+                        selectedIndex: categoryNames.indexOf(_category),
+                        onSelected: (index) =>
+                            setState(() => _category = categoryNames[index]),
                       ),
                     ),
                   ),
@@ -1203,108 +1204,6 @@ class _FeedFiltersHeader extends SliverPersistentHeaderDelegate {
   ) => SizedBox.expand(child: child);
   @override
   bool shouldRebuild(covariant _FeedFiltersHeader oldDelegate) => true;
-}
-
-class _CategoryFilterStrip extends StatefulWidget {
-  const _CategoryFilterStrip({
-    super.key,
-    required this.categories,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final List<String> categories;
-  final String selected;
-  final ValueChanged<String> onSelected;
-
-  @override
-  State<_CategoryFilterStrip> createState() => _CategoryFilterStripState();
-}
-
-class _CategoryFilterStripState extends State<_CategoryFilterStrip> {
-  final _scrollController = ScrollController(keepScrollOffset: false);
-  bool _canScrollNext = false;
-  bool _hasScrolled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_updateScrollHint);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _updateScrollHint() {
-    if (!_scrollController.hasClients) return;
-    final position = _scrollController.position;
-    if (position.pixels > 4 && !_hasScrolled) {
-      setState(() => _hasScrolled = true);
-    }
-    final canScrollNext = position.maxScrollExtent - position.pixels > 4;
-    if (canScrollNext != _canScrollNext && mounted) {
-      setState(() => _canScrollNext = canScrollNext);
-    }
-  }
-
-  void _scrollNext() {
-    if (!_scrollController.hasClients) return;
-    final position = _scrollController.position;
-    _scrollController.animateTo(
-      (position.pixels + position.viewportDimension * .75).clamp(
-        0.0,
-        position.maxScrollExtent,
-      ),
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollHint());
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final category in widget.categories) ...[
-                  ChoiceChip(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    label: Text(context.tr(category)),
-                    selected: widget.selected == category,
-                    showCheckmark: false,
-                    selectedColor: scheme.primaryContainer,
-                    labelStyle: TextStyle(
-                      color: widget.selected == category
-                          ? scheme.onPrimaryContainer
-                          : scheme.onSurface,
-                    ),
-                    onSelected: (_) => widget.onSelected(category),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-              ],
-            ),
-          ),
-        ),
-        if (widget.categories.length > 3 && !_hasScrolled)
-          IconButton(
-            tooltip: context.tr('More categories'),
-            onPressed: _canScrollNext ? _scrollNext : null,
-            icon: const Icon(Icons.chevron_right),
-          ),
-      ],
-    );
-  }
 }
 
 class _ExploreTab extends StatefulWidget {
@@ -1657,11 +1556,10 @@ class _ActivityTabState extends State<_ActivityTab> {
   @override
   void initState() {
     super.initState();
-    _notificationSubscription = PushNotificationService.instance.received.listen(
-      (_) {
-        if (mounted) setState(_reload);
-      },
-    );
+    _notificationSubscription = PushNotificationService.instance.received
+        .listen((_) {
+          if (mounted) setState(_reload);
+        });
   }
 
   @override
@@ -1819,7 +1717,8 @@ class _ActivityTabState extends State<_ActivityTab> {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => MyCommunityInvitationsPage(repository: widget.repository),
+          builder: (_) =>
+              MyCommunityInvitationsPage(repository: widget.repository),
         ),
       );
       if (mounted) setState(_reload);
@@ -2020,7 +1919,8 @@ class _ProfileTabState extends State<_ProfileTab> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => MyCommunityInvitationsPage(repository: widget.repository),
+                builder: (_) =>
+                    MyCommunityInvitationsPage(repository: widget.repository),
               ),
             ),
           ),

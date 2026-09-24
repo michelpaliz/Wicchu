@@ -192,8 +192,10 @@ permissions. Rules are saved separately from general community settings.
 Category creation body:
 
 ```json
-{ "name": "News", "description": "Local announcements" }
+{ "name": "News", "description": "Local announcements", "icon": "📰" }
 ```
+
+**Category icon integration — backend support pending verification:** The frontend now sends an optional `icon` string (Unicode emoji) in category POST/PATCH requests. The server must validate and persist this field and return it in category creation, update, listing, and embedded post-category responses. On PATCH, omitting `icon` must preserve the existing value. On POST, omitting it should retain the server default. Enforce the existing category-management permissions. This repository contains the Flutter client; server persistence has not been verified.
 
 Role update body:
 

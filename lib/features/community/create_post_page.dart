@@ -6,8 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
-import 'post_format_toolbar.dart';
-import 'post_markdown.dart';
+import 'post_rich_text_editor.dart';
 import 'post_share.dart';
 
 class CreatePostPage extends StatefulWidget {
@@ -32,7 +31,7 @@ class CreatePostPage extends StatefulWidget {
 
 class _CreatePostPageState extends State<CreatePostPage> {
   CommunityCategory? _category;
-  final _textController = TextEditingController();
+  late final PostTextController _textController;
   bool _saving = false;
   bool _uploading = false;
   final _attachments = <_PostAttachment>[];
@@ -45,13 +44,13 @@ class _CreatePostPageState extends State<CreatePostPage> {
   void initState() {
     super.initState();
     final existingPost = widget.existingPost;
+    _textController = PostTextController(existingPost?.text ?? '');
     _category = existingPost == null
         ? widget.initialCategory ?? widget.categories.firstOrNull
         : widget.categories
               .where((category) => category.id == existingPost.categoryId)
               .firstOrNull;
     if (existingPost != null) {
-      _textController.text = existingPost.text;
       _attachments.addAll(
         existingPost.media.map((media) => _PostAttachment(media, null)),
       );
@@ -162,58 +161,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             onChanged: (value) => setState(() => _category = value),
           ),
           const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-            ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 0),
-                  child: PostFormatToolbar(controller: _textController),
-                ),
-                Divider(
-                  height: 1,
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-                TextField(
-                  controller: _textController,
-                  minLines: 5,
-                  maxLines: 10,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    hintText: context.tr('What would you like to share?'),
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(18),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _textController,
-            builder: (context, value, _) {
-              if (value.text.trim().isEmpty) return const SizedBox.shrink();
-              return ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: Text(context.tr('Preview')),
-                childrenPadding: const EdgeInsets.only(bottom: 12),
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: PostMarkdown(data: value.text),
-                  ),
-                ],
-              );
-            },
-          ),
+          PostRichTextEditor(controller: _textController),
           const SizedBox(height: 14),
           OutlinedButton.icon(
             onPressed: _pollLocked
@@ -290,7 +238,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                               child: Text('${index + 1}'),
                             ),
                           ),
-                          suffixIcon: !_pollLocked && _pollControllers.length > 2
+                          suffixIcon:
+                              !_pollLocked && _pollControllers.length > 2
                               ? IconButton(
                                   tooltip: context.tr('Remove option'),
                                   onPressed: () => setState(() {

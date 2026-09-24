@@ -122,12 +122,14 @@ abstract interface class CommunityRepository {
     String communityId, {
     required String name,
     String description,
+    String? icon,
   });
   Future<CommunityCategory> updateCategory(
     String communityId,
     CommunityCategory category, {
     required String name,
     required String description,
+    String? icon,
   });
   Future<void> deleteCategory(String communityId, String categoryId);
   Future<List<CommunityMember>> listMembers(String communityId);

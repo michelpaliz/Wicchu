@@ -228,23 +228,39 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<void> joinCommunity(String communityId) async {}
 
   @override
-  Future<CommunityInvitation> createCommunityInvitation(String communityId, String email) async => CommunityInvitation(
-    id: 'invite-${DateTime.now().millisecondsSinceEpoch}', communityId: communityId,
-    email: email, status: 'pending', expiresAt: DateTime.now().add(const Duration(days: 14)),
-    createdAt: DateTime.now(), invitationUrl: 'https://hexora.dev/wicchu/invitations/demo',
+  Future<CommunityInvitation> createCommunityInvitation(
+    String communityId,
+    String email,
+  ) async => CommunityInvitation(
+    id: 'invite-${DateTime.now().millisecondsSinceEpoch}',
+    communityId: communityId,
+    email: email,
+    status: 'pending',
+    expiresAt: DateTime.now().add(const Duration(days: 14)),
+    createdAt: DateTime.now(),
+    invitationUrl: 'https://hexora.dev/wicchu/invitations/demo',
   );
 
   @override
-  Future<List<CommunityInvitation>> listCommunityInvitations(String communityId) async => const [];
+  Future<List<CommunityInvitation>> listCommunityInvitations(
+    String communityId,
+  ) async => const [];
 
   @override
-  Future<List<CommunityInvitation>> listMyCommunityInvitations() async => const [];
+  Future<List<CommunityInvitation>> listMyCommunityInvitations() async =>
+      const [];
 
   @override
-  Future<void> respondToCommunityInvitation(String invitationId, {required bool accept}) async {}
+  Future<void> respondToCommunityInvitation(
+    String invitationId, {
+    required bool accept,
+  }) async {}
 
   @override
-  Future<void> revokeCommunityInvitation(String communityId, String invitationId) async {}
+  Future<void> revokeCommunityInvitation(
+    String communityId,
+    String invitationId,
+  ) async {}
 
   @override
   Future<void> leaveCommunity(String communityId) async {}
@@ -315,13 +331,14 @@ class DemoCommunityRepository implements CommunityRepository {
     String communityId, {
     required String name,
     String description = '',
+    String? icon,
   }) async {
     final category = CommunityCategory(
       id: 'category-${DateTime.now().microsecondsSinceEpoch}',
       communityId: communityId,
       name: name,
       description: description,
-      icon: _iconFor(name),
+      icon: icon ?? _iconFor(name),
     );
     _categories.putIfAbsent(communityId, () => []).add(category);
     return category;
@@ -333,13 +350,14 @@ class DemoCommunityRepository implements CommunityRepository {
     CommunityCategory category, {
     required String name,
     required String description,
+    String? icon,
   }) async {
     final updated = CommunityCategory(
       id: category.id,
       communityId: communityId,
       name: name,
       description: description,
-      icon: category.icon,
+      icon: icon ?? category.icon,
       rules: category.rules,
     );
     final items = _categories[communityId] ?? [];

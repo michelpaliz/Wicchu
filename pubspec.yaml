@@ -53,6 +53,9 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
   socket_io_client: ^3.1.6
+  flutter_quill: ^11.6.0
+  markdown_quill: ^4.3.0
+  markdown: ^7.3.1
 
 dev_dependencies:
   flutter_test:
