@@ -75,6 +75,7 @@ abstract interface class CommunityRepository {
   Future<void> registerDeviceToken(String token, {required String platform});
   Future<void> unregisterDeviceToken(String token);
   Future<List<Community>> listCommunities({String? query});
+  Future<Community> getCommunity(String communityId);
   Future<List<Community>> listJoinedCommunities();
   Future<List<Community>> listManagedCommunities();
   Future<List<Community>> listNearbyCommunities({
@@ -157,6 +158,7 @@ abstract interface class CommunityRepository {
     required CommunityVisibility visibility,
     required bool approvalRequired,
     required bool showWeather,
+    required List<CommunityLink> links,
     String? imageUrl,
     String? imageBlobName,
   });

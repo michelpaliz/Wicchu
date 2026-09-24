@@ -1,5 +1,6 @@
 import '../../widgets/feed_filter_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
@@ -271,6 +272,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           showWeather: _community.showWeather,
           distanceKm: _community.distanceKm,
           rules: _community.rules,
+          links: _community.links,
         );
         _reload();
       });
@@ -887,6 +889,23 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               : _community.description,
         ),
       ),
+      if (_community.links.isNotEmpty)
+        _Section(
+          title: context.tr('Official links'),
+          child: Column(
+            children: [
+              for (final link in _community.links)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.link),
+                  title: Text(link.label),
+                  subtitle: Text(link.url, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: const Icon(Icons.open_in_new),
+                  onTap: () => launchUrl(Uri.parse(link.url), mode: LaunchMode.externalApplication),
+                ),
+            ],
+          ),
+        ),
       _Section(
         title: context.tr('Details'),
         child: Column(

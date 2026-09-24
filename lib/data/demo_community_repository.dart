@@ -165,6 +165,10 @@ class DemoCommunityRepository implements CommunityRepository {
       );
 
   @override
+  Future<Community> getCommunity(String communityId) async =>
+      _communities.firstWhere((community) => community.id == communityId);
+
+  @override
   Future<List<Community>> listJoinedCommunities() async =>
       List.unmodifiable(_communities);
 
@@ -460,6 +464,7 @@ class DemoCommunityRepository implements CommunityRepository {
     required CommunityVisibility visibility,
     required bool approvalRequired,
     required bool showWeather,
+    required List<CommunityLink> links,
     String? imageUrl,
     String? imageBlobName,
   }) async {
@@ -478,6 +483,7 @@ class DemoCommunityRepository implements CommunityRepository {
       showWeather: showWeather,
       distanceKm: community.distanceKm,
       rules: community.rules,
+      links: List.unmodifiable(links),
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;

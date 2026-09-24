@@ -180,6 +180,7 @@ class Community {
     this.showWeather = false,
     this.distanceKm,
     this.rules = const [],
+    this.links = const [],
   });
 
   final String id;
@@ -196,8 +197,15 @@ class Community {
   final bool showWeather;
   final double? distanceKm;
   final List<CommunityRule> rules;
+  final List<CommunityLink> links;
 
   bool get isJoined => myRole != null;
+}
+
+class CommunityLink {
+  const CommunityLink({required this.label, required this.url});
+  final String label;
+  final String url;
 }
 
 class CommunityWeather {
