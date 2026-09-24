@@ -47,9 +47,16 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
   final _homeKey = GlobalKey<_HomeTabState>();
+  final _communityPostRequest = ValueNotifier<int>(0);
   int _exploreRevision = 0;
   int _profileRevision = 0;
-  int _activityRevision = 0;
+  int _communitiesRevision = 0;
+
+  @override
+  void dispose() {
+    _communityPostRequest.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +67,7 @@ class _MainShellState extends State<MainShell> {
         repository: widget.repository,
         onCommunitiesChanged: () => setState(() {
           _exploreRevision++;
+          _communitiesRevision++;
           _profileRevision++;
         }),
       ),
@@ -68,13 +76,23 @@ class _MainShellState extends State<MainShell> {
         repository: widget.repository,
         onCommunitiesChanged: () {
           _homeKey.currentState?.refresh();
-          setState(() => _profileRevision++);
+          setState(() {
+            _profileRevision++;
+            _communitiesRevision++;
+          });
         },
       ),
-      _ActivityTab(
-        key: ValueKey('activity-$_activityRevision'),
-        repository: widget.repository,
-      ),
+      if (_index == 2)
+        _ActiveCommunityTab(
+          key: ValueKey('communities-$_communitiesRevision'),
+          repository: widget.repository,
+          loadCommunities: _loadMyCommunities,
+          postRequest: _communityPostRequest,
+          onExplore: () => _selectDestination(1),
+          onChanged: () => _homeKey.currentState?.refresh(),
+        )
+      else
+        const SizedBox.shrink(),
       _ProfileTab(
         repository: widget.repository,
         authGateway: widget.authGateway,
@@ -91,18 +109,191 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: _CompactBottomNavigation(
         selectedIndex: _index,
         onSelected: _selectDestination,
-        onCreatePost: () => _homeKey.currentState?.startPost(),
+        onCreatePost: () {
+          if (_index == 2) {
+            _communityPostRequest.value++;
+          } else {
+            _homeKey.currentState?.startPost();
+          }
+        },
       ),
     );
   }
 
+  Future<List<Community>> _loadMyCommunities() async {
+    final lists = await Future.wait([
+      widget.repository.listJoinedCommunities(),
+      widget.repository.listManagedCommunities(),
+    ]);
+    return {
+      for (final community in lists.expand((items) => items))
+        community.id: community,
+    }.values.toList();
+  }
+
   void _selectDestination(int value) {
+    if (value == 0) _homeKey.currentState?.refresh();
     setState(() {
       _index = value;
-      if (value == 2) _activityRevision++;
+      if (value == 2) _communitiesRevision++;
       if (value == 3) _profileRevision++;
     });
   }
+}
+
+class _ActiveCommunityTab extends StatefulWidget {
+  const _ActiveCommunityTab({
+    super.key,
+    required this.repository,
+    required this.loadCommunities,
+    required this.postRequest,
+    required this.onExplore,
+    required this.onChanged,
+  });
+
+  final CommunityRepository repository;
+  final Future<List<Community>> Function() loadCommunities;
+  final VoidCallback onExplore;
+  final VoidCallback onChanged;
+  final Listenable postRequest;
+
+  @override
+  State<_ActiveCommunityTab> createState() => _ActiveCommunityTabState();
+}
+
+class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
+  late Future<List<Community>> _data = _load();
+  String? _selectedId;
+  String? _preferenceKey;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.postRequest.addListener(_handleEmptyPostRequest);
+  }
+
+  void _handleEmptyPostRequest() {
+    if (_selectedId == null) widget.onExplore();
+  }
+
+  @override
+  void dispose() {
+    widget.postRequest.removeListener(_handleEmptyPostRequest);
+    super.dispose();
+  }
+
+  Future<List<Community>> _load() async {
+    final communities = await widget.loadCommunities();
+    final profile = await widget.repository.getProfile();
+    final preferences = await SharedPreferences.getInstance();
+    _preferenceKey = 'currentCommunityId:${profile.id}';
+    final saved = preferences.getString(_preferenceKey!);
+    _selectedId = communities.any((c) => c.id == saved)
+        ? saved
+        : communities.firstOrNull?.id;
+    if (_selectedId != null) {
+      await preferences.setString(_preferenceKey!, _selectedId!);
+    } else {
+      await preferences.remove(_preferenceKey!);
+    }
+    return communities;
+  }
+
+  Future<void> _choose(List<Community> communities) async {
+    final selected = await showModalBottomSheet<Community>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Text(
+                context.tr('My communities'),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            for (final community in communities)
+              ListTile(
+                leading: CommunityAvatar(community: community),
+                title: Text(community.name),
+                selected: community.id == _selectedId,
+                trailing: community.id == _selectedId
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(sheetContext, community),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_preferenceKey!, selected.id);
+    if (!mounted) return;
+    setState(() => _selectedId = selected.id);
+    widget.onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Community>>(
+    future: _data,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (snapshot.hasError) {
+        return _LoadError(
+          error: snapshot.error!,
+          onRetry: () => setState(() => _data = _load()),
+        );
+      }
+      final communities = snapshot.data ?? [];
+      final active = communities.where((c) => c.id == _selectedId).firstOrNull;
+      if (active == null) {
+        return Scaffold(
+          appBar: AppBar(title: Text(context.tr('Communities'))),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.holiday_village_outlined,
+                    size: 56,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    context.tr('Find your community'),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: widget.onExplore,
+                    icon: const Icon(Icons.explore_outlined),
+                    label: Text(context.tr('Explore communities')),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+      return CommunityProfilePage(
+        key: ValueKey(active.id),
+        community: active,
+        repository: widget.repository,
+        embedded: true,
+        postRequest: widget.postRequest,
+        onSwitchCommunity: communities.length > 1
+            ? () => _choose(communities)
+            : null,
+      );
+    },
+  );
 }
 
 class _CompactBottomNavigation extends StatelessWidget {
@@ -152,9 +343,9 @@ class _CompactBottomNavigation extends StatelessWidget {
                     ),
                     const Spacer(),
                     _CompactNavigationItem(
-                      icon: CupertinoIcons.bell,
-                      selectedIcon: CupertinoIcons.bell_fill,
-                      label: context.tr('Activity'),
+                      icon: CupertinoIcons.person_2,
+                      selectedIcon: CupertinoIcons.person_2_fill,
+                      label: context.tr('Community'),
                       selected: selectedIndex == 2,
                       onTap: () => onSelected(2),
                     ),
@@ -295,6 +486,13 @@ class _HomeFeedData {
 
 class _HomeTabState extends State<_HomeTab> {
   late Future<_HomeFeedData> _data;
+  late Future<NotificationFeed> _notifications;
+  StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
+
+  void _reloadNotifications() {
+    _notifications = widget.repository.listNotifications();
+  }
+
   Timer? _searchDelay;
 
   final _feedScroll = ScrollController();
@@ -308,6 +506,11 @@ class _HomeTabState extends State<_HomeTab> {
   @override
   void initState() {
     super.initState();
+    _reloadNotifications();
+    _notificationSubscription = PushNotificationService.instance.received
+        .listen((_) {
+          if (mounted) setState(_reloadNotifications);
+        });
     _reload();
   }
 
@@ -318,6 +521,7 @@ class _HomeTabState extends State<_HomeTab> {
   @override
   void dispose() {
     _searchDelay?.cancel();
+    _notificationSubscription?.cancel();
     _feedScroll.dispose();
     super.dispose();
   }
@@ -389,7 +593,13 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   void refresh() {
-    if (mounted) setState(_reload);
+    if (mounted) {
+      setState(() {
+        _selectedCommunityId = null;
+        _reload();
+        _reloadNotifications();
+      });
+    }
   }
 
   Future<void> startPost() async {
@@ -768,29 +978,26 @@ class _HomeTabState extends State<_HomeTab> {
                   }),
             icon: Icon(_showSearch ? Icons.close : Icons.search_rounded),
           ),
-          FutureBuilder<_HomeFeedData>(
-            future: _data,
+          FutureBuilder<NotificationFeed>(
+            future: _notifications,
             builder: (context, snapshot) {
-              final active = snapshot.data?.communities
-                  .where((c) => c.id == _selectedCommunityId)
-                  .firstOrNull;
-              if (active == null) return const SizedBox.shrink();
+              final unread = snapshot.data?.unreadCount ?? 0;
               return IconButton(
-                tooltip: context.tr('Community details'),
-                icon: const Icon(Icons.holiday_village_outlined),
+                tooltip: context.tr('Notifications'),
+                icon: Badge.count(
+                  count: unread,
+                  isLabelVisible: unread > 0,
+                  child: const Icon(CupertinoIcons.bell),
+                ),
                 onPressed: () async {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => CommunityProfilePage(
-                        community: active,
-                        repository: widget.repository,
-                      ),
+                      builder: (_) =>
+                          _ActivityTab(repository: widget.repository),
                     ),
                   );
-                  if (!mounted) return;
-                  widget.onCommunitiesChanged();
-                  setState(_reload);
+                  if (mounted) setState(_reloadNotifications);
                 },
               );
             },
@@ -1234,6 +1441,8 @@ class _ExploreTabState extends State<_ExploreTab> {
   Timer? _searchDelay;
   bool _showSearch = false;
   String _query = '';
+  int _filter = 0;
+  Position? _position;
   bool _usingLocation = false;
   bool _locating = false;
 
@@ -1244,8 +1453,19 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   void _reload() {
-    _communities = widget.repository.listCommunities(query: _query);
-    _usingLocation = false;
+    if (_filter == 2) {
+      _communities = widget.repository.listJoinedCommunities();
+    } else if (_filter == 1) {
+      final position = _position;
+      _communities = position == null
+          ? Future.value([])
+          : widget.repository.listNearbyCommunities(
+              latitude: position.latitude,
+              longitude: position.longitude,
+            );
+    } else {
+      _communities = widget.repository.listCommunities(query: _query);
+    }
   }
 
   Future<void> _findNearby() async {
@@ -1306,7 +1526,8 @@ class _ExploreTabState extends State<_ExploreTab> {
       if (!mounted) return;
       setState(() {
         _usingLocation = true;
-        _communities = Future.value(nearby);
+        _position = position;
+        if (_filter == 1) _communities = Future.value(nearby);
       });
     } on TimeoutException {
       _showLocationIssue('Could not get your location. Try again.');
@@ -1341,7 +1562,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   Future<void> _refresh() async {
-    if (_usingLocation) {
+    if (_filter == 1) {
       await _findNearby();
       return;
     }
@@ -1368,31 +1589,244 @@ class _ExploreTabState extends State<_ExploreTab> {
     });
   }
 
+  void _selectFilter(int index) {
+    _searchDelay?.cancel();
+    setState(() {
+      _filter = index;
+      _reload();
+    });
+    if (index == 1 && !_usingLocation) _findNearby();
+  }
+
+  Future<void> _createCommunity() async {
+    final created = await Navigator.push<Community>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateCommunityPage(repository: widget.repository),
+      ),
+    );
+    if (created == null || !mounted) return;
+    setState(_reload);
+    widget.onCommunitiesChanged();
+    await _openCommunity(created);
+  }
+
+  Future<void> _openCommunity(Community community) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CommunityProfilePage(
+          community: community,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(_reload);
+    widget.onCommunitiesChanged();
+  }
+
+  Widget _emptyState() {
+    final searching = _query.trim().isNotEmpty;
+    final title = searching
+        ? 'No communities found'
+        : _filter == 1
+        ? 'No communities nearby yet'
+        : _filter == 2
+        ? 'Find your community'
+        : 'No communities to explore yet';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 150,
+            height: 140,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 124,
+                  height: 124,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withValues(alpha: .5),
+                  ),
+                  child: Icon(
+                    Icons.groups_rounded,
+                    size: 76,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: .6),
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Icon(
+                    Icons.search_rounded,
+                    size: 68,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            context.tr(title),
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.tr(
+              searching
+                  ? 'Try another name or location.'
+                  : _filter == 2
+                  ? 'Discover communities nearby and connect with your neighbors.'
+                  : 'Be the first to create a community and connect with people in your area.',
+            ),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (!searching)
+            FilledButton.icon(
+              onPressed: _filter == 2
+                  ? () => _selectFilter(0)
+                  : _createCommunity,
+              icon: Icon(_filter == 2 ? Icons.explore_outlined : Icons.add),
+              label: Text(
+                context.tr(
+                  _filter == 2 ? 'Explore communities' : 'Create community',
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _communityCard(Community community) {
+    final scheme = Theme.of(context).colorScheme;
+    final owner = community.myRole == CommunityRole.owner;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .5)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _openCommunity(community),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              CommunityAvatar(community: community, radius: 32),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      community.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      context.trCount(
+                        community.memberCount,
+                        singular: '{count} member',
+                        plural: '{count} members',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 15,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '${community.town.name}${community.distanceKm == null ? '' : ' · ${community.distanceKm!.toStringAsFixed(1)} km'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (owner || community.isJoined)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    context.tr(owner ? 'Owner' : 'Joined'),
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                )
+              else
+                OutlinedButton(
+                  onPressed: _saving.contains(community.id)
+                      ? null
+                      : () => _toggleMembership(community),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: scheme.primary,
+                    side: BorderSide(color: scheme.primary),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: _saving.contains(community.id)
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(context.tr('Join')),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(context.tr('Explore')),
+      title: Text(
+        context.tr('Explore'),
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
       actions: [
-        IconButton(
-          tooltip: context.tr(
-            _locating
-                ? 'Finding nearby communities…'
-                : _usingLocation
-                ? 'Show all communities'
-                : 'Use my location',
-          ),
-          onPressed: _locating
-              ? null
-              : _usingLocation
-              ? () => setState(_reload)
-              : _findNearby,
-          icon: _locating
-              ? const SizedBox.square(
-                  dimension: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(_usingLocation ? Icons.location_on : Icons.my_location),
-        ),
         IconButton(
           tooltip: context.tr(
             _showSearch ? 'Close search' : 'Search communities',
@@ -1409,14 +1843,24 @@ class _ExploreTabState extends State<_ExploreTab> {
         ),
       ],
     ),
-    body: RefreshIndicator(
-      onRefresh: _refresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (_showSearch) ...[
-            TextField(
+    body: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              context.tr('Discover and join communities in your area.'),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+        if (_showSearch)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: TextField(
               autofocus: true,
               onChanged: _search,
               decoration: InputDecoration(
@@ -1424,104 +1868,90 @@ class _ExploreTabState extends State<_ExploreTab> {
                 prefixIcon: const Icon(Icons.search),
               ),
             ),
-            const SizedBox(height: 20),
-          ],
-          Text(
-            '📍 ${context.tr(_locating
-                ? 'Finding nearby communities…'
-                : _usingLocation
-                ? 'Nearby communities'
-                : 'Explore communities')}',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
-          if (_usingLocation) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.location_on_outlined, size: 18),
-                const SizedBox(width: 4),
-                Expanded(child: Text(context.tr('Using your location'))),
-                TextButton(
-                  onPressed: () => setState(_reload),
-                  child: Text(context.tr('Show all')),
-                ),
-              ],
-            ),
+        FeedFilterBar(
+          labels: [
+            context.tr('All communities'),
+            context.tr('Near you'),
+            context.tr('My communities'),
           ],
-          const SizedBox(height: 14),
-          FutureBuilder<List<Community>>(
-            future: _communities,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return _LoadError(
-                  error: snapshot.error!,
-                  onRetry: () => setState(_reload),
-                );
-              }
-              final communities = snapshot.data ?? const <Community>[];
-              if (communities.isEmpty) {
-                return Text(context.tr('No communities found'));
-              }
-              return Column(
-                children: [
-                  for (final community in communities)
-                    Card(
-                      child: ListTile(
-                        onTap: () =>
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => CommunityPage(
-                                  community: community,
-                                  repository: widget.repository,
-                                ),
-                              ),
-                            ).then((_) {
-                              if (!mounted) return;
-                              setState(_reload);
-                              widget.onCommunitiesChanged();
-                            }),
-                        leading: CommunityAvatar(community: community),
-                        title: Text(community.name),
-                        subtitle: Text(
-                          '${context.trCount(community.memberCount, singular: '{count} member', plural: '{count} members')}${community.distanceKm == null ? '' : ' · ${community.distanceKm!.toStringAsFixed(1)} km'}',
+          selectedIndex: _filter,
+          onSelected: _selectFilter,
+          style: FeedNavigationStyle.underline,
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            child: FutureBuilder<List<Community>>(
+              future: _communities,
+              builder: (context, snapshot) {
+                Widget? status;
+                if (_filter == 1 && !_usingLocation) {
+                  status = Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        if (_locating)
+                          const CircularProgressIndicator()
+                        else
+                          const Icon(Icons.location_on_outlined, size: 48),
+                        const SizedBox(height: 16),
+                        Text(
+                          context.tr(
+                            _locating
+                                ? 'Finding nearby communities…'
+                                : 'Use your location to find nearby communities.',
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        trailing: FilledButton.tonal(
-                          onPressed:
-                              _saving.contains(community.id) ||
-                                  community.myRole == CommunityRole.owner
-                              ? null
-                              : () => _toggleMembership(community),
-                          child: _saving.contains(community.id)
-                              ? const SizedBox.square(
-                                  dimension: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(
-                                  context.tr(
-                                    community.myRole == CommunityRole.owner
-                                        ? 'Owner'
-                                        : community.isJoined
-                                        ? 'Joined'
-                                        : 'Join',
-                                  ),
-                                ),
-                        ),
-                      ),
+                        if (!_locating)
+                          TextButton(
+                            onPressed: _findNearby,
+                            child: Text(context.tr('Use my location')),
+                          ),
+                      ],
                     ),
-                ],
-              );
-            },
+                  );
+                } else if (snapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  status = const Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                } else if (snapshot.hasError) {
+                  status = _LoadError(
+                    error: snapshot.error!,
+                    onRetry: _refresh,
+                  );
+                }
+                final query = _query.trim().toLowerCase();
+                final communities = (snapshot.data ?? <Community>[])
+                    .where(
+                      (community) =>
+                          query.isEmpty ||
+                          community.name.toLowerCase().contains(query) ||
+                          community.town.name.toLowerCase().contains(query),
+                    )
+                    .toList();
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    if (status != null)
+                      status
+                    else if (communities.isEmpty)
+                      _emptyState()
+                    else
+                      ...communities.map(_communityCard),
+                  ],
+                );
+              },
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     ),
   );
 
@@ -1550,7 +1980,7 @@ class _ExploreTabState extends State<_ExploreTab> {
 }
 
 class _ActivityTab extends StatefulWidget {
-  const _ActivityTab({super.key, required this.repository});
+  const _ActivityTab({required this.repository});
 
   final CommunityRepository repository;
 
@@ -1591,7 +2021,7 @@ class _ActivityTabState extends State<_ActivityTab> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(context.tr('Activity')),
+      title: Text(context.tr('Notifications')),
       actions: [
         FutureBuilder<NotificationFeed>(
           future: _feed,
@@ -2161,7 +2591,7 @@ class _CommunityCollectionPageState extends State<_CommunityCollectionPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => CommunityPage(
+                          builder: (_) => CommunityProfilePage(
                             community: community,
                             repository: widget.repository,
                           ),

@@ -22,10 +22,16 @@ class CommunityProfilePage extends StatefulWidget {
     super.key,
     required this.community,
     required this.repository,
+    this.embedded = false,
+    this.postRequest,
+    this.onSwitchCommunity,
   });
 
   final Community community;
   final CommunityRepository repository;
+  final bool embedded;
+  final Listenable? postRequest;
+  final VoidCallback? onSwitchCommunity;
 
   @override
   State<CommunityProfilePage> createState() => _CommunityProfilePageState();
@@ -58,6 +64,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   void initState() {
     super.initState();
     _tabs.addListener(_sectionChanged);
+    widget.postRequest?.addListener(_createPost);
     _reload();
   }
 
@@ -242,6 +249,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   @override
   void dispose() {
+    widget.postRequest?.removeListener(_createPost);
     _tabs.dispose();
     super.dispose();
   }
@@ -308,7 +316,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   Future<void> _createPost() async {
-    if (!_joined || _openingComposer) return;
+    if (_openingComposer || _savingMembership) return;
+    if (!_joined) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('Join a community before creating a post.')),
+        ),
+      );
+      return;
+    }
     setState(() => _openingComposer = true);
     try {
       final categories = await _categories;
@@ -352,7 +368,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    floatingActionButton: _joined && _sectionIndex == 0
+    floatingActionButton: !widget.embedded && _joined && _sectionIndex == 0
         ? FloatingActionButton.extended(
             onPressed: _openingComposer || _savingMembership
                 ? null
@@ -372,16 +388,35 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         : null,
     appBar: AppBar(
       automaticallyImplyLeading: false,
-      leading: IconButton(
-        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-        onPressed: () => Navigator.pop(context, _community),
-        icon: const Icon(Icons.arrow_back),
-      ),
-      title: Text(
-        _community.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      leading: widget.embedded
+          ? null
+          : IconButton(
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              onPressed: () => Navigator.pop(context, _community),
+              icon: const Icon(Icons.arrow_back),
+            ),
+      title: widget.onSwitchCommunity == null
+          ? Text(_community.name, maxLines: 1, overflow: TextOverflow.ellipsis)
+          : InkWell(
+              onTap: widget.onSwitchCommunity,
+              borderRadius: BorderRadius.circular(12),
+              child: Tooltip(
+                message: context.tr('Choose a community'),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _community.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.keyboard_arrow_down),
+                  ],
+                ),
+              ),
+            ),
       actions: [
         IconButton(
           tooltip: context.tr('Share'),

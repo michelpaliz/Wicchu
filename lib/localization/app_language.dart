@@ -42,7 +42,9 @@ extension AppTranslation on BuildContext {
     if (english.startsWith(invitationPrefix)) {
       return 'te invitó a unirte a ${english.substring(invitationPrefix.length)}';
     }
-    final roleChange = RegExp(r'^changed your role to (.+) in (.+)$').firstMatch(english);
+    final roleChange = RegExp(
+      r'^changed your role to (.+) in (.+)$',
+    ).firstMatch(english);
     if (roleChange != null) {
       final role = switch (roleChange.group(1)) {
         'an administrator' => 'administrador',
@@ -120,6 +122,7 @@ const _spanish = <String, String>{
   'Home': 'Inicio',
   'Explore': 'Explorar',
   'Activity': 'Actividad',
+  'Communities': 'Comunidades',
   'You': 'Tú',
   'Close search': 'Cerrar búsqueda',
   'Search posts': 'Buscar publicaciones',
@@ -140,6 +143,29 @@ const _spanish = <String, String>{
   'Finding nearby communities…': 'Buscando comunidades cercanas…',
   'Using your location': 'Usando tu ubicación',
   'Show all': 'Mostrar todas',
+  'Optional': 'Opcional',
+  'Discard community draft?': '¿Descartar el borrador de la comunidad?',
+  'Your changes will not be saved.': 'Tus cambios no se guardarán.',
+  'Step {current} of {total}': 'Paso {current} de {total}',
+  'Creating…': 'Creando…',
+  'Rules and review': 'Normas y revisión',
+  'Choose the topics for your community. You can change them later.':
+      'Elige los temas de tu comunidad. Puedes cambiarlos más adelante.',
+  'Rules are optional. You can add or edit them later.':
+      'Las normas son opcionales. Puedes añadirlas o editarlas más adelante.',
+  'Review your community': 'Revisa tu comunidad',
+  'Use your location to find nearby communities.':
+      'Usa tu ubicación para encontrar comunidades cercanas.',
+  'Be the first to create a community and connect with people in your area.':
+      'Sé el primero en crear una comunidad y empieza a conectar con personas de tu zona.',
+  'Discover communities nearby and connect with your neighbors.':
+      'Descubre comunidades cercanas y conecta con tus vecinos.',
+  'Try another name or location.': 'Prueba con otro nombre o ubicación.',
+  'No communities nearby yet': 'Aún no hay comunidades cerca de ti',
+  'No communities to explore yet': 'Aún no hay comunidades para explorar',
+  'Discover and join communities in your area.':
+      'Descubre y únete a comunidades de tu zona.',
+  'All communities': 'Todas',
   'Open settings': 'Abrir ajustes',
   'Could not get your location. Try again.':
       'No se pudo obtener tu ubicación. Inténtalo de nuevo.',
@@ -201,8 +227,10 @@ const _spanish = <String, String>{
   'Welcome back': 'Te damos la bienvenida',
   'Join your neighborhood': 'Conecta con tu comunidad',
   'Recover access to your account': 'Recupera el acceso a tu cuenta',
-  'Enter your email and we will send you a reset link.': 'Introduce tu correo y te enviaremos un enlace para restablecer la contraseña.',
-  'Connect with your neighbors and discover what is happening nearby.': 'Conecta con tus vecinos y descubre qué pasa cerca de ti.',
+  'Enter your email and we will send you a reset link.':
+      'Introduce tu correo y te enviaremos un enlace para restablecer la contraseña.',
+  'Connect with your neighbors and discover what is happening nearby.':
+      'Conecta con tus vecinos y descubre qué pasa cerca de ti.',
   'Show password': 'Mostrar contraseña',
   'Hide password': 'Ocultar contraseña',
   'Enter your password.': 'Introduce tu contraseña.',
@@ -337,7 +365,8 @@ const _spanish = <String, String>{
   'All fields are required': 'Todos los campos son obligatorios',
   'Email already in use': 'El correo electrónico ya está en uso',
   'Username already in use': 'El nombre de usuario ya está en uso',
-  'Email and password are required': 'El correo y la contraseña son obligatorios',
+  'Email and password are required':
+      'El correo y la contraseña son obligatorios',
   'Enter a valid name and email address':
       'Escribe un nombre y un correo electrónico válidos',
   'Username must be 3 to 40 letters, numbers, dots, underscores, or hyphens':
@@ -636,8 +665,7 @@ const _spanish = <String, String>{
   'removed your comment': 'eliminó tu comentario',
   'restricted your community membership':
       'restringió tu membresía en la comunidad',
-  'restored your community membership':
-      'restauró tu membresía en la comunidad',
+  'restored your community membership': 'restauró tu membresía en la comunidad',
   'approved your membership request': 'aprobó tu solicitud de membresía',
   'rejected your membership request': 'rechazó tu solicitud de membresía',
   'approved your promotion': 'aprobó tu promoción',

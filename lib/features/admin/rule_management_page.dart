@@ -36,7 +36,7 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
     final saved = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => _RuleEditorPage(
+        builder: (_) => CommunityRuleEditorPage(
           rule: rule,
           communityName: widget.community.name,
           onSave: (title, description) async {
@@ -255,8 +255,9 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
   );
 }
 
-class _RuleEditorPage extends StatefulWidget {
-  const _RuleEditorPage({
+class CommunityRuleEditorPage extends StatefulWidget {
+  const CommunityRuleEditorPage({
+    super.key,
     this.rule,
     required this.communityName,
     required this.onSave,
@@ -265,10 +266,11 @@ class _RuleEditorPage extends StatefulWidget {
   final String communityName;
   final Future<void> Function(String title, String description) onSave;
   @override
-  State<_RuleEditorPage> createState() => _RuleEditorPageState();
+  State<CommunityRuleEditorPage> createState() =>
+      CommunityRuleEditorPageState();
 }
 
-class _RuleEditorPageState extends State<_RuleEditorPage> {
+class CommunityRuleEditorPageState extends State<CommunityRuleEditorPage> {
   final _form = GlobalKey<FormState>();
   late final title = TextEditingController(text: widget.rule?.title);
   late final description = TextEditingController(
