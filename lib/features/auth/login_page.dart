@@ -4,6 +4,7 @@ import '../../domain/auth_gateway.dart';
 import '../../localization/app_language.dart';
 import '../../theme/theme_menu.dart';
 import '../../widgets/wicchu_logo.dart';
+import 'email_auth_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -77,6 +78,16 @@ class _LoginPageState extends State<LoginPage> {
                     width: double.infinity,
                     height: 52,
                     child: OutlinedButton.icon(
+                      onPressed: _loadingProvider != null ? null : _openEmail,
+                      icon: const Icon(Icons.email_outlined),
+                      label: Text(context.tr('Continue with email')),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton.icon(
                       onPressed: _loadingProvider != null
                           ? null
                           : _signInGoogle,
@@ -118,6 +129,18 @@ class _LoginPageState extends State<LoginPage> {
     action: widget.authGateway.signInWithFacebook,
     unavailableMessage: 'Facebook sign-in is unavailable.',
   );
+
+  Future<void> _openEmail() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EmailAuthPage(
+          authGateway: widget.authGateway,
+          onSignedIn: widget.onSignedIn,
+        ),
+      ),
+    );
+  }
 
   Future<void> _signInGoogle() => _signIn(
     provider: 'google',

@@ -293,6 +293,48 @@ const _spanish = <String, String>{
   'Help': 'Ayuda',
   'Continue with Facebook': 'Continuar con Facebook',
   'Continue with Google': 'Continuar con Google',
+  'Continue with email': 'Continuar con correo electrónico',
+  'Sign in with email': 'Iniciar sesión con correo',
+  'Sign in': 'Iniciar sesión',
+  'Register': 'Registrarse',
+  'Create account': 'Crear cuenta',
+  'Full name': 'Nombre completo',
+  'Username': 'Nombre de usuario',
+  'Email address': 'Correo electrónico',
+  'Password': 'Contraseña',
+  'Confirm password': 'Confirmar contraseña',
+  'Passwords do not match.': 'Las contraseñas no coinciden.',
+  'Enter your name.': 'Escribe tu nombre.',
+  'Use at least 3 characters.': 'Usa al menos 3 caracteres.',
+  'Use only letters, numbers, dots, underscores, or hyphens.':
+      'Usa solo letras, números, puntos, guiones bajos o guiones.',
+  'Enter a valid email address.': 'Escribe un correo electrónico válido.',
+  'At least 8 characters': 'Al menos 8 caracteres',
+  'Password must be at least 8 characters.':
+      'La contraseña debe tener al menos 8 caracteres.',
+  'Forgot password?': '¿Olvidaste tu contraseña?',
+  'Reset password': 'Restablecer contraseña',
+  'Send reset link': 'Enviar enlace',
+  'Check your email': 'Revisa tu correo',
+  'We sent you a verification link. Verify your email before signing in.':
+      'Te enviamos un enlace de verificación. Verifica tu correo antes de iniciar sesión.',
+  'If an account exists, a password reset email has been sent.':
+      'Si existe una cuenta, se ha enviado un correo para restablecer la contraseña.',
+  'All fields are required': 'Todos los campos son obligatorios',
+  'Email already in use': 'El correo electrónico ya está en uso',
+  'Username already in use': 'El nombre de usuario ya está en uso',
+  'Email and password are required': 'El correo y la contraseña son obligatorios',
+  'Enter a valid name and email address':
+      'Escribe un nombre y un correo electrónico válidos',
+  'Username must be 3 to 40 letters, numbers, dots, underscores, or hyphens':
+      'El nombre de usuario debe tener entre 3 y 40 letras, números, puntos, guiones bajos o guiones',
+  'Password must be 8 to 128 characters':
+      'La contraseña debe tener entre 8 y 128 caracteres',
+  'Invalid credentials': 'Credenciales incorrectas',
+  'Email not verified. Please verify your email before logging in.':
+      'El correo no está verificado. Verifícalo antes de iniciar sesión.',
+  'Email not verified. A new verification link has been sent.':
+      'El correo no está verificado. Se ha enviado un nuevo enlace de verificación.',
   'Your community, closer.': 'Tu comunidad, más cerca.',
   'By continuing, you agree to Wicchu’s Terms and Privacy Policy.':
       'Al continuar, aceptas los Términos y la Política de privacidad de Wicchu.',

@@ -125,6 +125,61 @@ class FacebookAuthGateway implements AuthGateway {
     return _saveSession(body);
   }
 
+  @override
+  Future<AuthSession> signInWithEmail(String email, String password) async {
+    final body = await _postAuth('/api/auth/login', {
+      'email': email.trim().toLowerCase(),
+      'password': password,
+    });
+    return _saveSession(body);
+  }
+
+  @override
+  Future<void> registerWithEmail({
+    required String name,
+    required String userName,
+    required String email,
+    required String password,
+  }) async {
+    await _postAuth('/api/auth/register', {
+      'name': name.trim(),
+      'userName': userName.trim(),
+      'email': email.trim().toLowerCase(),
+      'password': password,
+    }, successCodes: const {201});
+  }
+
+  @override
+  Future<void> requestPasswordReset(String email) async {
+    await _postAuth('/api/auth/forgot-password', {
+      'email': email.trim().toLowerCase(),
+    });
+  }
+
+  Future<Map<String, dynamic>> _postAuth(
+    String path,
+    Map<String, dynamic> payload, {
+    Set<int> successCodes = const {200},
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_apiBaseUrl$path'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    final decoded = jsonDecode(response.body);
+    final body = decoded is Map<String, dynamic>
+        ? decoded
+        : const <String, dynamic>{};
+    if (!successCodes.contains(response.statusCode)) {
+      throw AuthException(
+        body['message'] as String? ??
+            body['error'] as String? ??
+            'Unable to complete the request.',
+      );
+    }
+    return body;
+  }
+
   Future<AuthSession> _saveSession(Map<String, dynamic> body) async {
     final session = AuthSession(
       accessToken: body['accessToken'] as String,

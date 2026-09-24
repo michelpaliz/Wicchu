@@ -18,6 +18,14 @@ abstract interface class AuthGateway {
   Future<bool> hasSession();
   Future<AuthSession> signInWithFacebook();
   Future<AuthSession> signInWithGoogle();
+  Future<AuthSession> signInWithEmail(String email, String password);
+  Future<void> registerWithEmail({
+    required String name,
+    required String userName,
+    required String email,
+    required String password,
+  });
+  Future<void> requestPasswordReset(String email);
   Future<void> signOut();
 }
 

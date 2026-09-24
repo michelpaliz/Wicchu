@@ -34,6 +34,16 @@ class _FakeAuthGateway implements AuthGateway {
   Future<AuthSession> signInWithGoogle() => signInWithFacebook();
 
   @override
+  Future<AuthSession> signInWithEmail(String email, String password) =>
+      signInWithFacebook();
+
+  @override
+  Future<void> registerWithEmail({required String name, required String userName, required String email, required String password}) async {}
+
+  @override
+  Future<void> requestPasswordReset(String email) async {}
+
+  @override
   Future<void> signOut() async {}
 }
 
