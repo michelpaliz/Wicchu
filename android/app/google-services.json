@@ -12,7 +12,20 @@
           "package_name": "com.wicchu.wicchu"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "414702659593-j2uaga1cgappip70urfmsmhq37r37i4s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wicchu.wicchu",
+            "certificate_hash": "0aaadf2bbaf49c85e53fa31fa8e0c16ec8b8bc89"
+          }
+        },
+        {
+          "client_id": "414702659593-94b8of4j0mgj16pr0r13a6a1dpm9mvpu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB8kgwDfg66zpVhzGW8EG3UEHgxXRxt3b0"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "414702659593-94b8of4j0mgj16pr0r13a6a1dpm9mvpu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
