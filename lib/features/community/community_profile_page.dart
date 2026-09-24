@@ -733,6 +733,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                             community: _community.name,
                             author: post.authorName,
                             authorAvatarUrl: post.authorAvatarUrl,
+                            isAnonymousAuthor: post.isAnonymous,
                             onAuthorTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(

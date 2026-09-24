@@ -83,6 +83,7 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                 community: 'Wicchu',
                 author: post.authorName,
                 authorAvatarUrl: post.authorAvatarUrl,
+                isAnonymousAuthor: post.isAnonymous,
                 onAuthorTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -94,7 +95,12 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                 ),
                 onMentionTap: (userId) => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => MemberProfilePage(userId: userId, repository: widget.repository)),
+                  MaterialPageRoute(
+                    builder: (_) => MemberProfilePage(
+                      userId: userId,
+                      repository: widget.repository,
+                    ),
+                  ),
                 ),
                 time: formatPostTime(context, post.createdAt),
                 edited: post.editedAt != null,

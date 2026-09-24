@@ -41,6 +41,7 @@ class CreatePostInput {
     this.media = const [],
     this.pollOptions = const [],
     this.mentionedUserIds = const [],
+    this.anonymousAsAdmin = false,
   });
 
   final String categoryId;
@@ -48,6 +49,7 @@ class CreatePostInput {
   final List<PostMedia> media;
   final List<String> pollOptions;
   final List<String> mentionedUserIds;
+  final bool anonymousAsAdmin;
 }
 
 abstract interface class CommunityRepository {
@@ -107,7 +109,10 @@ abstract interface class CommunityRepository {
   );
   Future<CommunityInvitation> createCommunityInvitationLink(String communityId);
   Future<CommunityInvitation> getCommunityInvitationLink(String token);
-  Future<void> respondToCommunityInvitationLink(String token, {required bool accept});
+  Future<void> respondToCommunityInvitationLink(
+    String token, {
+    required bool accept,
+  });
   Future<List<CommunityInvitation>> listCommunityInvitations(
     String communityId,
   );
@@ -151,12 +156,21 @@ abstract interface class CommunityRepository {
     String? icon,
   });
   Future<void> deleteCategory(String communityId, String categoryId);
-  Future<List<CommunityMember>> listMembers(String communityId);
+  Future<List<CommunityMember>> listMembers(
+    String communityId, {
+    bool includeInactive = false,
+  });
   Future<void> setMemberRole(
     String communityId,
     String userId,
     CommunityRole role,
   );
+  Future<void> setMemberAccess(
+    String communityId,
+    String userId, {
+    required String action,
+    String? reason,
+  });
   Future<Community> updateCommunity(
     Community community, {
     required String name,

@@ -1283,6 +1283,7 @@ class _HomeTabState extends State<_HomeTab> {
                               communityById[post.communityId]?.name ?? 'Wicchu',
                           author: post.authorName,
                           authorAvatarUrl: post.authorAvatarUrl,
+                          isAnonymousAuthor: post.isAnonymous,
                           onAuthorTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -2100,6 +2101,7 @@ class _ActivityTabState extends State<_ActivityTab> {
                 CommunityNotificationType.postRejected ||
                 CommunityNotificationType.postRemoved ||
                 CommunityNotificationType.membershipRejected ||
+                CommunityNotificationType.memberRemoved ||
                 CommunityNotificationType.memberBanned ||
                 CommunityNotificationType.promotionRejected =>
                   Icons.error_outline,

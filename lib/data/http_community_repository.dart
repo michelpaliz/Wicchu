@@ -280,8 +280,12 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<CommunityHelpfulness> getCommunityHelpfulness(String communityId) async {
-    final body = await _api.get('/api/community/v1/communities/$communityId/feedback');
+  Future<CommunityHelpfulness> getCommunityHelpfulness(
+    String communityId,
+  ) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/feedback',
+    );
     return _helpfulnessFromJson(_object(body, 'feedback'));
   }
 
@@ -323,8 +327,12 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<CommunityInvitation> createCommunityInvitationLink(String communityId) async {
-    final body = await _api.post('/api/community/v1/communities/$communityId/invitations/link');
+  Future<CommunityInvitation> createCommunityInvitationLink(
+    String communityId,
+  ) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/$communityId/invitations/link',
+    );
     return _invitationFromJson(
       _object(body, 'invitation'),
       invitationUrl: body['invitationUrl']?.toString(),
@@ -333,19 +341,33 @@ class HttpCommunityRepository implements CommunityRepository {
 
   @override
   Future<CommunityInvitation> getCommunityInvitationLink(String token) async {
-    final body = await _api.get('/api/community/v1/invitations/link/${Uri.encodeComponent(token)}');
+    final body = await _api.get(
+      '/api/community/v1/invitations/link/${Uri.encodeComponent(token)}',
+    );
     return _invitationFromJson(_object(body, 'invitation'));
   }
 
   @override
-  Future<void> respondToCommunityInvitationLink(String token, {required bool accept}) async {
-    await _api.post('/api/community/v1/invitations/link/${Uri.encodeComponent(token)}/${accept ? 'accept' : 'decline'}');
+  Future<void> respondToCommunityInvitationLink(
+    String token, {
+    required bool accept,
+  }) async {
+    await _api.post(
+      '/api/community/v1/invitations/link/${Uri.encodeComponent(token)}/${accept ? 'accept' : 'decline'}',
+    );
   }
 
   @override
-  Future<List<CommunityInvitation>> listCommunityInvitations(String communityId) async {
-    final body = await _api.get('/api/community/v1/communities/$communityId/invitations');
-    return _list(body, 'invitations').map(_invitationFromJson).toList(growable: false);
+  Future<List<CommunityInvitation>> listCommunityInvitations(
+    String communityId,
+  ) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/invitations',
+    );
+    return _list(
+      body,
+      'invitations',
+    ).map(_invitationFromJson).toList(growable: false);
   }
 
   @override
@@ -493,9 +515,12 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<List<CommunityMember>> listMembers(String communityId) async {
+  Future<List<CommunityMember>> listMembers(
+    String communityId, {
+    bool includeInactive = false,
+  }) async {
     final body = await _api.get(
-      '/api/community/v1/communities/$communityId/members',
+      '/api/community/v1/communities/$communityId/members${includeInactive ? '?includeInactive=true' : ''}',
     );
     return _list(body, 'members')
         .map((json) {
@@ -540,6 +565,19 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<void> setMemberAccess(
+    String communityId,
+    String userId, {
+    required String action,
+    String? reason,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/communities/$communityId/admin/members/$userId/access',
+      body: {'action': action, if (reason != null) 'reason': reason},
+    );
+  }
+
+  @override
   Future<Community> updateCommunity(
     Community community, {
     required String name,
@@ -559,7 +597,9 @@ class HttpCommunityRepository implements CommunityRepository {
         'visibility': visibility.name,
         'approvalRequired': approvalRequired,
         'showWeather': showWeather,
-        'links': links.map((link) => {'label': link.label, 'url': link.url}).toList(),
+        'links': links
+            .map((link) => {'label': link.label, 'url': link.url})
+            .toList(),
         'imageBlobName': ?imageBlobName,
       },
     );
@@ -573,13 +613,16 @@ class HttpCommunityRepository implements CommunityRepository {
 
   @override
   Future<CommunityWeather?> getCommunityWeather(String communityId) async {
-    final body = await _api.get('/api/community/v1/communities/$communityId/weather');
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/weather',
+    );
     if (body['enabled'] != true) return null;
     final weather = _object(body, 'weather');
     return CommunityWeather(
       townName: body['townName']?.toString() ?? '',
       temperature: (weather['temperature'] as num?)?.toDouble() ?? 0,
-      apparentTemperature: (weather['apparentTemperature'] as num?)?.toDouble() ?? 0,
+      apparentTemperature:
+          (weather['apparentTemperature'] as num?)?.toDouble() ?? 0,
       minTemperature: (weather['minTemperature'] as num?)?.toDouble() ?? 0,
       maxTemperature: (weather['maxTemperature'] as num?)?.toDouble() ?? 0,
       weatherCode: (weather['weatherCode'] as num?)?.toInt() ?? 0,
@@ -683,6 +726,7 @@ class HttpCommunityRepository implements CommunityRepository {
             .toList(),
         if (input.pollOptions.isNotEmpty) 'pollOptions': input.pollOptions,
         'mentionedUserIds': input.mentionedUserIds,
+        'anonymousAsAdmin': input.anonymousAsAdmin,
       },
     );
     return _postFromJson(_object(body, 'post'));
@@ -706,6 +750,7 @@ class HttpCommunityRepository implements CommunityRepository {
             .toList(),
         'pollOptions': input.pollOptions,
         'mentionedUserIds': input.mentionedUserIds,
+        'anonymousAsAdmin': input.anonymousAsAdmin,
       },
     );
     return _postFromJson(_object(body, 'post'));
@@ -1071,10 +1116,12 @@ class HttpCommunityRepository implements CommunityRepository {
           .toList(growable: false),
       links: (json['links'] as List? ?? const [])
           .whereType<Map<String, dynamic>>()
-          .map((link) => CommunityLink(
-                label: link['label']?.toString() ?? '',
-                url: link['url']?.toString() ?? '',
-              ))
+          .map(
+            (link) => CommunityLink(
+              label: link['label']?.toString() ?? '',
+              url: link['url']?.toString() ?? '',
+            ),
+          )
           .where((link) => link.label.isNotEmpty && link.url.isNotEmpty)
           .toList(growable: false),
     );
@@ -1141,6 +1188,7 @@ class HttpCommunityRepository implements CommunityRepository {
       mentionedUserIds: (json['mentionedUserIds'] as List? ?? const [])
           .map((value) => value.toString())
           .toList(growable: false),
+      isAnonymous: authorJson['isAnonymous'] as bool? ?? false,
     );
   }
 
@@ -1266,6 +1314,7 @@ class HttpCommunityRepository implements CommunityRepository {
     'comment_approved' => CommunityNotificationType.commentApproved,
     'comment_rejected' => CommunityNotificationType.commentRejected,
     'comment_removed' => CommunityNotificationType.commentRemoved,
+    'member_removed' => CommunityNotificationType.memberRemoved,
     'member_banned' => CommunityNotificationType.memberBanned,
     'member_unbanned' => CommunityNotificationType.memberUnbanned,
     'membership_approved' => CommunityNotificationType.membershipApproved,
@@ -1325,7 +1374,8 @@ class HttpCommunityRepository implements CommunityRepository {
       );
 
   static CommunitySurveyResponse? _surveyResponseFromJson(Object? value) {
-    if (value is! Map<String, dynamic> || value['helpful'] is! bool) return null;
+    if (value is! Map<String, dynamic> || value['helpful'] is! bool)
+      return null;
     return CommunitySurveyResponse(
       helpful: value['helpful'] as bool,
       locallyRelevant: value['locallyRelevant']?.toString(),
@@ -1335,14 +1385,21 @@ class HttpCommunityRepository implements CommunityRepository {
     );
   }
 
-  static Map<String, CommunityFeedbackInsight> _feedbackInsightsFromJson(Object? value) {
+  static Map<String, CommunityFeedbackInsight> _feedbackInsightsFromJson(
+    Object? value,
+  ) {
     if (value is! Map<String, dynamic>) return const {};
     return value.map((key, item) {
-      final json = item is Map<String, dynamic> ? item : const <String, dynamic>{};
-      return MapEntry(key, CommunityFeedbackInsight(
-        total: (json['total'] as num?)?.toInt() ?? 0,
-        yesPercentage: (json['yesPercentage'] as num?)?.toInt(),
-      ));
+      final json = item is Map<String, dynamic>
+          ? item
+          : const <String, dynamic>{};
+      return MapEntry(
+        key,
+        CommunityFeedbackInsight(
+          total: (json['total'] as num?)?.toInt() ?? 0,
+          yesPercentage: (json['yesPercentage'] as num?)?.toInt(),
+        ),
+      );
     });
   }
 

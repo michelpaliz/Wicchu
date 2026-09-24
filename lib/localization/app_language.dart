@@ -663,9 +663,24 @@ const _spanish = <String, String>{
   'approved your comment': 'aprobó tu comentario',
   'rejected your comment': 'rechazó tu comentario',
   'removed your comment': 'eliminó tu comentario',
+  'removed you from the community': 'te eliminó de la comunidad',
   'restricted your community membership':
       'restringió tu membresía en la comunidad',
   'restored your community membership': 'restauró tu membresía en la comunidad',
+  'Member actions': 'Acciones del miembro',
+  'Publish as Community Admin': 'Publicar como administrador de la comunidad',
+  'Members will not see your personal profile. Your identity remains available for security and auditing.':
+      'Los miembros no verán tu perfil personal. Tu identidad seguirá disponible para seguridad y auditoría.',
+  'Community Admin': 'Administrador de la comunidad',
+  'Remove member': 'Eliminar miembro',
+  'Ban member': 'Bloquear miembro',
+  'Unban member': 'Desbloquear miembro',
+  'Banned': 'Bloqueado',
+  'Unban': 'Desbloquear',
+  'This member can request to join the community again.':
+      'Este miembro podrá solicitar unirse nuevamente a la comunidad.',
+  'This member will regain access to the community.':
+      'Este miembro recuperará el acceso a la comunidad.',
   'approved your membership request': 'aprobó tu solicitud de membresía',
   'rejected your membership request': 'rechazó tu solicitud de membresía',
   'approved your promotion': 'aprobó tu promoción',

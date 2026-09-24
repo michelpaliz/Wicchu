@@ -456,7 +456,15 @@ class MemberManagementPage extends StatefulWidget {
 class _MemberManagementPageState extends State<MemberManagementPage> {
   late Future<List<CommunityMember>> _members = widget.repository.listMembers(
     widget.community.id,
+    includeInactive: true,
   );
+
+  void _reload() => setState(() {
+    _members = widget.repository.listMembers(
+      widget.community.id,
+      includeInactive: true,
+    );
+  });
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -507,7 +515,9 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
               ),
               title: Text(member.name),
               subtitle: Text(
-                member.isOnline
+                member.status == MembershipStatus.banned
+                    ? context.tr('Banned')
+                    : member.isOnline
                     ? context.tr('Online now')
                     : member.lastActiveAt != null
                     ? context.tr('Active recently')
@@ -515,23 +525,51 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
               ),
               trailing: member.role == CommunityRole.owner
                   ? Chip(label: Text(context.tr('Owner')))
-                  : DropdownButton<CommunityRole>(
-                      value: member.role,
-                      items:
-                          const [
-                                CommunityRole.admin,
-                                CommunityRole.moderator,
-                                CommunityRole.member,
-                              ]
-                              .map(
-                                (role) => DropdownMenuItem(
-                                  value: role,
-                                  child: Text(context.tr(role.name)),
-                                ),
-                              )
-                              .toList(),
-                      onChanged: (role) =>
-                          role == null ? null : _setRole(member, role),
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (member.status == MembershipStatus.active)
+                          DropdownButton<CommunityRole>(
+                            value: member.role,
+                            items:
+                                const [
+                                      CommunityRole.admin,
+                                      CommunityRole.moderator,
+                                      CommunityRole.member,
+                                    ]
+                                    .map(
+                                      (role) => DropdownMenuItem(
+                                        value: role,
+                                        child: Text(context.tr(role.name)),
+                                      ),
+                                    )
+                                    .toList(),
+                            onChanged: (role) =>
+                                role == null ? null : _setRole(member, role),
+                          ),
+                        PopupMenuButton<String>(
+                          tooltip: context.tr('Member actions'),
+                          onSelected: (action) => _changeAccess(member, action),
+                          itemBuilder: (context) =>
+                              member.status == MembershipStatus.banned
+                              ? [
+                                  PopupMenuItem(
+                                    value: 'unban',
+                                    child: Text(context.tr('Unban member')),
+                                  ),
+                                ]
+                              : [
+                                  PopupMenuItem(
+                                    value: 'remove',
+                                    child: Text(context.tr('Remove member')),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'ban',
+                                    child: Text(context.tr('Ban member')),
+                                  ),
+                                ],
+                        ),
+                      ],
                     ),
             );
           },
@@ -547,9 +585,88 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         member.userId,
         role,
       );
-      setState(
-        () => _members = widget.repository.listMembers(widget.community.id),
+      _reload();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
+
+  Future<void> _changeAccess(CommunityMember member, String action) async {
+    String? reason;
+    if (action == 'ban') {
+      final controller = TextEditingController();
+      reason = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(dialogContext.tr('Ban member')),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 1000,
+            maxLines: 3,
+            decoration: InputDecoration(labelText: dialogContext.tr('Reason')),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(dialogContext.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: () {
+                final value = controller.text.trim();
+                if (value.isNotEmpty) Navigator.pop(dialogContext, value);
+              },
+              child: Text(dialogContext.tr('Ban member')),
+            ),
+          ],
+        ),
       );
+      controller.dispose();
+      if (reason == null) return;
+    } else {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            dialogContext.tr(
+              action == 'remove' ? 'Remove member' : 'Unban member',
+            ),
+          ),
+          content: Text(
+            dialogContext.tr(
+              action == 'remove'
+                  ? 'This member can request to join the community again.'
+                  : 'This member will regain access to the community.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(dialogContext.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(
+                dialogContext.tr(action == 'remove' ? 'Remove' : 'Unban'),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    try {
+      await widget.repository.setMemberAccess(
+        widget.community.id,
+        member.userId,
+        action: action,
+        reason: reason,
+      );
+      _reload();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(

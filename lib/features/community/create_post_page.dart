@@ -40,9 +40,15 @@ class _CreatePostPageState extends State<CreatePostPage> {
     ...?widget.existingPost?.mentionedUserIds,
   };
   bool _hasPoll = false;
+  late bool _anonymousAsAdmin = widget.existingPost?.isAnonymous ?? false;
   final _pollControllers = [TextEditingController(), TextEditingController()];
   bool get _isEditing => widget.existingPost != null;
   bool get _pollLocked => (widget.existingPost?.poll?.totalVotes ?? 0) > 0;
+  bool get _canPublishAnonymously => const {
+    CommunityRole.owner,
+    CommunityRole.admin,
+    CommunityRole.moderator,
+  }.contains(widget.community.myRole);
 
   Future<void> _chooseMentions() async {
     final members = await widget.repository.listMembers(widget.community.id);
@@ -256,6 +262,23 @@ class _CreatePostPageState extends State<CreatePostPage> {
             onChanged: (value) => setState(() => _category = value),
           ),
           const SizedBox(height: 16),
+          if (_canPublishAnonymously) ...[
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: _anonymousAsAdmin,
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(() => _anonymousAsAdmin = value),
+              secondary: const Icon(Icons.admin_panel_settings_outlined),
+              title: Text(context.tr('Publish as Community Admin')),
+              subtitle: Text(
+                context.tr(
+                  'Members will not see your personal profile. Your identity remains available for security and auditing.',
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           PostRichTextEditor(controller: _textController),
           const SizedBox(height: 10),
           Wrap(
@@ -263,7 +286,16 @@ class _CreatePostPageState extends State<CreatePostPage> {
             runSpacing: 8,
             children: [
               OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.25),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 onPressed: _saving ? null : _chooseMentions,
                 icon: const Icon(Icons.alternate_email),
                 label: Text(
@@ -276,7 +308,16 @@ class _CreatePostPageState extends State<CreatePostPage> {
               ),
 
               OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.25),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 onPressed: _pollLocked
                     ? null
                     : () => setState(() => _hasPoll = !_hasPoll),
@@ -551,6 +592,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         media: _attachments.map((item) => item.media).toList(),
         pollOptions: pollOptions,
         mentionedUserIds: _mentionedUserIds.toList(growable: false),
+        anonymousAsAdmin: _anonymousAsAdmin,
       );
       final post = _isEditing
           ? await widget.repository.updatePost(widget.existingPost!.id, input)

@@ -439,7 +439,10 @@ class DemoCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<List<CommunityMember>> listMembers(String communityId) async => [
+  Future<List<CommunityMember>> listMembers(
+    String communityId, {
+    bool includeInactive = false,
+  }) async => [
     CommunityMember(
       userId: 'current-user',
       communityId: communityId,
@@ -456,6 +459,14 @@ class DemoCommunityRepository implements CommunityRepository {
     String userId,
     CommunityRole role,
   ) async {}
+
+  @override
+  Future<void> setMemberAccess(
+    String communityId,
+    String userId, {
+    required String action,
+    String? reason,
+  }) async {}
 
   @override
   Future<Community> updateCommunity(
@@ -577,7 +588,8 @@ class DemoCommunityRepository implements CommunityRepository {
       communityId: communityId,
       categoryId: input.categoryId,
       authorId: 'current-user',
-      authorName: 'You',
+      authorName: input.anonymousAsAdmin ? 'Community Admin' : 'You',
+      isAnonymous: input.anonymousAsAdmin,
       text: input.text,
       status: PostStatus.published,
       createdAt: DateTime.now(),
@@ -610,8 +622,11 @@ class DemoCommunityRepository implements CommunityRepository {
         communityId: current.communityId,
         categoryId: input.categoryId,
         authorId: current.authorId,
-        authorName: current.authorName,
-        authorAvatarUrl: current.authorAvatarUrl,
+        authorName: input.anonymousAsAdmin ? 'Community Admin' : 'You',
+        authorAvatarUrl: input.anonymousAsAdmin
+            ? null
+            : current.authorAvatarUrl,
+        isAnonymous: input.anonymousAsAdmin,
         text: input.text,
         status: current.status,
         createdAt: current.createdAt,
