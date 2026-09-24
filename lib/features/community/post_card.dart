@@ -34,6 +34,7 @@ class PostCard extends StatefulWidget {
     required this.community,
     required this.author,
     this.authorAvatarUrl,
+    this.isAnonymousAuthor = false,
     required this.time,
     required this.text,
     this.price,
@@ -68,6 +69,7 @@ class PostCard extends StatefulWidget {
   final String community;
   final String author;
   final String? authorAvatarUrl;
+  final bool isAnonymousAuthor;
   final String time;
   final String text;
   final String? price;
@@ -222,7 +224,7 @@ class _PostCardState extends State<PostCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   InkWell(
-                    onTap: widget.onAuthorTap,
+                    onTap: widget.isAnonymousAuthor ? null : widget.onAuthorTap,
                     customBorder: const CircleBorder(),
                     child: UserAvatar(
                       name: context.tr(widget.author),
@@ -238,7 +240,9 @@ class _PostCardState extends State<PostCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         InkWell(
-                          onTap: widget.onAuthorTap,
+                          onTap: widget.isAnonymousAuthor
+                              ? null
+                              : widget.onAuthorTap,
                           child: Text(
                             context.tr(widget.author),
                             maxLines: 1,

@@ -149,12 +149,25 @@ class _CategoryPageState extends State<CategoryPage> {
                         community: widget.community.name,
                         author: post.authorName,
                         authorAvatarUrl: post.authorAvatarUrl,
-                        onAuthorTap: () => Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
-                        )),
-                        onMentionTap: (userId) => Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => MemberProfilePage(userId: userId, repository: widget.repository),
-                        )),
+                        isAnonymousAuthor: post.isAnonymous,
+                        onAuthorTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MemberProfilePage(
+                              userId: post.authorId,
+                              repository: widget.repository,
+                            ),
+                          ),
+                        ),
+                        onMentionTap: (userId) => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MemberProfilePage(
+                              userId: userId,
+                              repository: widget.repository,
+                            ),
+                          ),
+                        ),
                         time: formatPostTime(context, post.createdAt),
                         edited: post.editedAt != null,
                         onEdit: post.ownedByMe

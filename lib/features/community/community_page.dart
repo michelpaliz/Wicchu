@@ -97,9 +97,9 @@ class _CommunityPageState extends State<CommunityPage> {
       if (accepted == true) {
         await repository.acceptRules(community.id, result.rulesVersion);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.tr('Rules accepted'))),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(context.tr('Rules accepted'))));
         }
       } else {
         Navigator.pop(context);
@@ -160,10 +160,8 @@ class _CommunityPageState extends State<CommunityPage> {
     final updated = await Navigator.push<Community>(
       context,
       MaterialPageRoute(
-        builder: (_) => CommunityProfilePage(
-          community: community,
-          repository: repository,
-        ),
+        builder: (_) =>
+            CommunityProfilePage(community: community, repository: repository),
       ),
     );
     if (!mounted) return;
@@ -365,15 +363,14 @@ class _CommunityPageState extends State<CommunityPage> {
                       child: _MembershipButton(
                         community: community,
                         repository: repository,
-                        onChanged: (joined) =>
-                            setState(() {
-                              _isJoined = joined;
-                              if (joined) {
-                                WidgetsBinding.instance.addPostFrameCallback(
-                                  (_) => _checkRules(),
-                                );
-                              }
-                            }),
+                        onChanged: (joined) => setState(() {
+                          _isJoined = joined;
+                          if (joined) {
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              (_) => _checkRules(),
+                            );
+                          }
+                        }),
                       ),
                     ),
                   if (community.myRole != CommunityRole.owner)
@@ -529,6 +526,7 @@ class _CommunityPageState extends State<CommunityPage> {
                               community: community.name,
                               author: post.authorName,
                               authorAvatarUrl: post.authorAvatarUrl,
+                              isAnonymousAuthor: post.isAnonymous,
                               onAuthorTap: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -540,7 +538,12 @@ class _CommunityPageState extends State<CommunityPage> {
                               ),
                               onMentionTap: (userId) => Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => MemberProfilePage(userId: userId, repository: repository)),
+                                MaterialPageRoute(
+                                  builder: (_) => MemberProfilePage(
+                                    userId: userId,
+                                    repository: repository,
+                                  ),
+                                ),
                               ),
                               time: formatPostTime(context, post.createdAt),
                               edited: post.editedAt != null,

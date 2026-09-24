@@ -23,6 +23,7 @@ enum CommunityNotificationType {
   commentApproved,
   commentRejected,
   commentRemoved,
+  memberRemoved,
   memberBanned,
   memberUnbanned,
   membershipApproved,
@@ -121,7 +122,11 @@ class SocialLinks {
   final String instagram;
   final String email;
   final bool showOnlineStatus;
-  bool get isEmpty => whatsapp.isEmpty && facebook.isEmpty && instagram.isEmpty && email.isEmpty;
+  bool get isEmpty =>
+      whatsapp.isEmpty &&
+      facebook.isEmpty &&
+      instagram.isEmpty &&
+      email.isEmpty;
 }
 
 class CommunityNotification {
@@ -436,6 +441,7 @@ class CommunityPost {
     this.promotion,
     this.poll,
     this.mentionedUserIds = const [],
+    this.isAnonymous = false,
   });
 
   final String id;
@@ -457,6 +463,7 @@ class CommunityPost {
   final PostPromotion? promotion;
   final PostPoll? poll;
   final List<String> mentionedUserIds;
+  final bool isAnonymous;
 }
 
 enum PromotionStatus { pending, active, rejected, completed, cancelled }
