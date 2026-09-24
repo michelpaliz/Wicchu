@@ -49,6 +49,7 @@ class _WicchuAppState extends State<WicchuApp> {
   StreamSubscription<Uri>? _linkSubscription;
   String? _pendingPostId;
   bool _pendingInvitations = false;
+  String? _pendingInvitationToken;
   bool _pendingPromotions = false;
   late Future<bool> _hasSession;
   String _languageCode = 'en';
@@ -151,6 +152,11 @@ class _WicchuAppState extends State<WicchuApp> {
   }
 
   void _queueLink(Uri uri) {
+    final invitationToken = _invitationTokenFromUri(uri);
+    if (invitationToken != null) {
+      if (mounted) setState(() => _pendingInvitationToken = invitationToken);
+      return;
+    }
     if ((uri.scheme == 'wicchu' && uri.host == 'invitations') ||
         ((uri.scheme == 'http' || uri.scheme == 'https') &&
             uri.host == 'hexora.dev' &&
@@ -163,6 +169,25 @@ class _WicchuAppState extends State<WicchuApp> {
     final postId = _postIdFromUri(uri);
     if (postId == null || !mounted) return;
     setState(() => _pendingPostId = postId);
+  }
+
+  String? _invitationTokenFromUri(Uri uri) {
+    if (uri.scheme == 'wicchu' &&
+        uri.host == 'invitations' &&
+        uri.pathSegments.length >= 2 &&
+        uri.pathSegments[0] == 'link') {
+      return uri.pathSegments[1];
+    }
+    final segments = uri.pathSegments;
+    if ((uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host == 'hexora.dev' &&
+        segments.length >= 4 &&
+        segments[0] == 'wicchu' &&
+        segments[1] == 'invitations' &&
+        segments[2] == 'link') {
+      return segments[3];
+    }
+    return null;
   }
 
   String? _postIdFromUri(Uri uri) {
@@ -183,6 +208,21 @@ class _WicchuAppState extends State<WicchuApp> {
   }
 
   void _openPendingPost() {
+    final invitationToken = _pendingInvitationToken;
+    if (invitationToken != null) {
+      _pendingInvitationToken = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (_) => CommunityInvitationLinkPage(
+              token: invitationToken,
+              repository: widget.repository,
+            ),
+          ),
+        );
+      });
+      return;
+    }
     if (_pendingInvitations) {
       _pendingInvitations = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {

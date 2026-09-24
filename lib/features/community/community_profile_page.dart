@@ -37,8 +37,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   late Future<List<CommunityCategory>> _categories;
   late Future<List<CommunityPost>> _posts;
   late Future<CommunityRules> _rules;
+  late Future<CommunityHelpfulness> _helpfulness;
   bool _savingMembership = false;
   String? _categoryId;
+  bool _savingHelpfulness = false;
 
   bool get _canManage =>
       _community.myRole == CommunityRole.owner ||
@@ -52,6 +54,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   void _reload() {
+    _helpfulness = widget.repository.getCommunityHelpfulness(_community.id);
     _categories = widget.repository.listCategories(_community.id);
     _rules = _joined
         ? widget.repository.listRules(_community.id)
@@ -70,6 +73,102 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     _members = _joined
         ? widget.repository.listMembers(_community.id)
         : Future.value(const <CommunityMember>[]);
+  }
+
+  Future<void> _rateHelpfulness(bool helpful) async {
+    if (_savingHelpfulness) return;
+    setState(() => _savingHelpfulness = true);
+    try {
+      final result = await widget.repository.setCommunityHelpfulness(
+        _community.id,
+        helpful: helpful,
+      );
+      if (!mounted) return;
+      setState(() => _helpfulness = Future.value(result));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Thanks for your feedback.'))),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.trError(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingHelpfulness = false);
+    }
+  }
+
+  Future<void> _openCommunitySurvey(CommunityHelpfulness feedback) async {
+    final current = feedback.myVote;
+    var helpful = current?.helpful ?? true;
+    var locallyRelevant = current?.locallyRelevant ?? 'yes';
+    var safeParticipation = current?.safeParticipation ?? 'yes';
+    var wellOrganized = current?.wellOrganized ?? 'yes';
+    var recommend = current?.recommend ?? true;
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(context.tr('Community feedback')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _SurveyChoice<bool>(
+                  question: 'Do you find this community helpful?', value: helpful,
+                  choices: const {true: 'Yes', false: 'Not really'},
+                  onChanged: (value) => setDialogState(() => helpful = value),
+                ),
+                _SurveyChoice<String>(
+                  question: 'Is the information relevant to your local area?', value: locallyRelevant,
+                  choices: const {'yes': 'Yes', 'sometimes': 'Sometimes', 'no': 'No'},
+                  onChanged: (value) => setDialogState(() => locallyRelevant = value),
+                ),
+                _SurveyChoice<String>(
+                  question: 'Do you feel safe participating here?', value: safeParticipation,
+                  choices: const {'yes': 'Yes', 'sometimes': 'Sometimes', 'no': 'No'},
+                  onChanged: (value) => setDialogState(() => safeParticipation = value),
+                ),
+                _SurveyChoice<String>(
+                  question: 'Is the community well organized?', value: wellOrganized,
+                  choices: const {'yes': 'Yes', 'somewhat': 'Somewhat', 'no': 'No'},
+                  onChanged: (value) => setDialogState(() => wellOrganized = value),
+                ),
+                _SurveyChoice<bool>(
+                  question: 'Would you recommend this community to someone nearby?', value: recommend,
+                  choices: const {true: 'Yes', false: 'No'},
+                  onChanged: (value) => setDialogState(() => recommend = value),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(context.tr('Cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(context.tr('Submit'))),
+          ],
+        ),
+      ),
+    );
+    if (submitted != true || !mounted) return;
+    setState(() => _savingHelpfulness = true);
+    try {
+      final result = await widget.repository.setCommunityHelpfulness(
+        _community.id,
+        helpful: helpful,
+        locallyRelevant: locallyRelevant,
+        safeParticipation: safeParticipation,
+        wellOrganized: wellOrganized,
+        recommend: recommend,
+      );
+      if (!mounted) return;
+      setState(() => _helpfulness = Future.value(result));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('Thanks for your feedback.'))));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    } finally {
+      if (mounted) setState(() => _savingHelpfulness = false);
+    }
   }
 
   @override
@@ -483,6 +582,87 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     padding: const EdgeInsets.all(20),
     children: [
       _Section(
+        title: context.tr('Helpful to members'),
+        child: FutureBuilder<CommunityHelpfulness>(
+          future: _helpfulness,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LinearProgressIndicator();
+            }
+            if (snapshot.hasError) {
+              return Text(context.trError(snapshot.error!));
+            }
+            final feedback = snapshot.data!;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (feedback.isPublic)
+                  Text(
+                    context.tr('{percentage}% of members find this community helpful', {
+                      'percentage': '${feedback.helpfulPercentage ?? 0}',
+                    }),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                else
+                  Text(context.trCount(
+                    feedback.minimumResponses - feedback.responseCount,
+                    singular: '{count} more response is needed to show the community score.',
+                    plural: '{count} more responses are needed to show the community score.',
+                  )),
+                if (feedback.responseCount > 0) ...[
+                  const SizedBox(height: 4),
+                  Text(context.trCount(
+                    feedback.responseCount,
+                    singular: 'Based on {count} response',
+                    plural: 'Based on {count} responses',
+                  )),
+                ],
+                if (feedback.eligible) ...[
+                  const SizedBox(height: 14),
+                  Text(context.tr('Do you find this community helpful?')),
+                  const SizedBox(height: 8),
+                  SegmentedButton<bool>(
+                    segments: [
+                      ButtonSegment(value: true, icon: const Icon(Icons.thumb_up_outlined), label: Text(context.tr('Yes'))),
+                      ButtonSegment(value: false, icon: const Icon(Icons.thumb_down_outlined), label: Text(context.tr('Not really'))),
+                    ],
+                    selected: feedback.myVote == null ? const <bool>{} : {feedback.myVote!.helpful},
+                    emptySelectionAllowed: true,
+                    onSelectionChanged: _savingHelpfulness
+                        ? null
+                        : (selection) {
+                            if (selection.isNotEmpty) _rateHelpfulness(selection.first);
+                          },
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _savingHelpfulness ? null : () => _openCommunitySurvey(feedback),
+                    icon: const Icon(Icons.rate_review_outlined),
+                    label: Text(context.tr('Answer the short survey')),
+                  ),
+                ],
+                if (feedback.insights.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Text(context.tr('Anonymous member insights'), style: Theme.of(context).textTheme.titleSmall),
+                  for (final entry in feedback.insights.entries)
+                    _DetailRow(
+                      icon: Icons.insights_outlined,
+                      label: '${context.tr(switch (entry.key) {
+                        'locallyRelevant' => 'Locally relevant',
+                        'safeParticipation' => 'Safe to participate',
+                        'wellOrganized' => 'Well organized',
+                        _ => 'Would recommend',
+                      })}: ${entry.value.yesPercentage ?? 0}%',
+                    ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+      _Section(
         title: context.tr('About this community'),
         child: Text(
           _community.description.trim().isEmpty
@@ -717,6 +897,25 @@ class _Section extends StatelessWidget {
         const SizedBox(height: 10),
         child,
       ],
+    ),
+  );
+}
+
+class _SurveyChoice<T> extends StatelessWidget {
+  const _SurveyChoice({required this.question, required this.value, required this.choices, required this.onChanged});
+  final String question;
+  final T value;
+  final Map<T, String> choices;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: DropdownButtonFormField<T>(
+      initialValue: value,
+      decoration: InputDecoration(labelText: context.tr(question), border: const OutlineInputBorder()),
+      items: choices.entries.map((entry) => DropdownMenuItem(value: entry.key, child: Text(context.tr(entry.value)))).toList(),
+      onChanged: (value) { if (value != null) onChanged(value); },
     ),
   );
 }

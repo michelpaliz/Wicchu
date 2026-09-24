@@ -85,10 +85,22 @@ abstract interface class CommunityRepository {
   Future<Community> createCommunity(CreateCommunityInput input);
   Future<void> joinCommunity(String communityId);
   Future<void> leaveCommunity(String communityId);
+  Future<CommunityHelpfulness> getCommunityHelpfulness(String communityId);
+  Future<CommunityHelpfulness> setCommunityHelpfulness(
+    String communityId, {
+    required bool helpful,
+    String? locallyRelevant,
+    String? safeParticipation,
+    String? wellOrganized,
+    bool? recommend,
+  });
   Future<CommunityInvitation> createCommunityInvitation(
     String communityId,
     String email,
   );
+  Future<CommunityInvitation> createCommunityInvitationLink(String communityId);
+  Future<CommunityInvitation> getCommunityInvitationLink(String token);
+  Future<void> respondToCommunityInvitationLink(String token, {required bool accept});
   Future<List<CommunityInvitation>> listCommunityInvitations(
     String communityId,
   );
