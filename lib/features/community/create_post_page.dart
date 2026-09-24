@@ -8,6 +8,7 @@ import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'post_rich_text_editor.dart';
 import 'post_share.dart';
+import 'post_media_gallery.dart';
 
 class CreatePostPage extends StatefulWidget {
   const CreatePostPage({
@@ -58,7 +59,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
               children: [
                 ListTile(
                   title: Text(context.tr('Tag members')),
-                  subtitle: Text(context.tr('Tagged members receive a notification when the post is published.')),
+                  subtitle: Text(
+                    context.tr(
+                      'Tagged members receive a notification when the post is published.',
+                    ),
+                  ),
                   trailing: FilledButton(
                     onPressed: () => Navigator.pop(sheetContext, selected),
                     child: Text(context.tr('Done')),
@@ -74,12 +79,18 @@ class _CreatePostPageState extends State<CreatePostPage> {
                         value: selected.contains(member.userId),
                         title: Text(member.name),
                         secondary: CircleAvatar(
-                          backgroundImage: member.avatarUrl == null ? null : NetworkImage(member.avatarUrl!),
-                          child: member.avatarUrl == null ? Text(member.name.characters.firstOrNull ?? '?') : null,
+                          backgroundImage: member.avatarUrl == null
+                              ? null
+                              : NetworkImage(member.avatarUrl!),
+                          child: member.avatarUrl == null
+                              ? Text(member.name.characters.firstOrNull ?? '?')
+                              : null,
                         ),
                         onChanged: (checked) => setSheetState(() {
                           if (checked == true) {
-                            if (selected.length < 20) selected.add(member.userId);
+                            if (selected.length < 20) {
+                              selected.add(member.userId);
+                            }
                           } else {
                             selected.remove(member.userId);
                           }
@@ -98,7 +109,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
     final newlySelected = result.difference(_mentionedUserIds);
     for (final userId in newlySelected) {
       final member = members.where((item) => item.userId == userId).firstOrNull;
-      if (member != null) _textController.insertMention(member.userId, member.name);
+      if (member != null) {
+        _textController.insertMention(member.userId, member.name);
+      }
     }
     setState(() {
       _mentionedUserIds
@@ -155,6 +168,20 @@ class _CreatePostPageState extends State<CreatePostPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(context.tr(_isEditing ? 'Edit post' : 'Create post')),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: FilledButton(
+              onPressed: _saving || _uploading ? null : _publish,
+              child: _saving
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(context.tr(_isEditing ? 'Save' : 'Publish')),
+            ),
+          ),
+        ],
       ),
       body: ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -204,19 +231,20 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            context.tr('Post details'),
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 10),
           DropdownButtonFormField<CommunityCategory>(
             initialValue: _category,
             isExpanded: true,
             decoration: InputDecoration(
               labelText: context.tr('Category'),
-              prefixIcon: const Icon(Icons.category_outlined),
+              filled: false,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.15),
+                ),
+              ),
             ),
             items: [
               for (final item in categories)
@@ -230,22 +258,32 @@ class _CreatePostPageState extends State<CreatePostPage> {
           const SizedBox(height: 16),
           PostRichTextEditor(controller: _textController),
           const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: _saving ? null : _chooseMentions,
-            icon: const Icon(Icons.alternate_email),
-            label: Text(
-              _mentionedUserIds.isEmpty
-                  ? context.tr('Tag members')
-                  : context.tr('Tagged members: {count}', {'count': '${_mentionedUserIds.length}'}),
-            ),
-          ),
-          const SizedBox(height: 14),
-          OutlinedButton.icon(
-            onPressed: _pollLocked
-                ? null
-                : () => setState(() => _hasPoll = !_hasPoll),
-            icon: Icon(_hasPoll ? Icons.close : Icons.poll_outlined),
-            label: Text(context.tr(_hasPoll ? 'Remove poll' : 'Add poll')),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: _saving ? null : _chooseMentions,
+                icon: const Icon(Icons.alternate_email),
+                label: Text(
+                  _mentionedUserIds.isEmpty
+                      ? context.tr('Tag members')
+                      : context.tr('Tagged members: {count}', {
+                          'count': '${_mentionedUserIds.length}',
+                        }),
+                ),
+              ),
+
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: _pollLocked
+                    ? null
+                    : () => setState(() => _hasPoll = !_hasPoll),
+                icon: Icon(_hasPoll ? Icons.close : Icons.poll_outlined),
+                label: Text(context.tr(_hasPoll ? 'Remove poll' : 'Add poll')),
+              ),
+            ],
           ),
           if (_hasPoll) ...[
             const SizedBox(height: 12),
@@ -356,116 +394,132 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ),
             const SizedBox(height: 12),
           ],
-          const SizedBox(height: 8),
-          Text(
-            context.tr('Add to your post'),
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          const SizedBox(height: 24),
+          Row(
             children: [
-              OutlinedButton.icon(
-                onPressed: _uploading ? null : () => _pickMedia(video: false),
-                icon: const Icon(Icons.photo_camera_outlined),
-                label: Text(context.tr('Photo')),
+              Expanded(
+                child: Text(
+                  context.tr('Media'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
               ),
-              OutlinedButton.icon(
-                onPressed: _uploading ? null : () => _pickMedia(video: true),
-                icon: const Icon(Icons.videocam_outlined),
-                label: Text(context.tr('Video')),
+              Text(
+                '${_attachments.length}/10',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),
-          if (_uploading) ...[
-            const SizedBox(height: 12),
-            const LinearProgressIndicator(),
-          ],
-          if (_attachments.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 92,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _attachments.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final attachment = _attachments[index];
-                  return Stack(
+          const SizedBox(height: 12),
+          if (_uploading) const LinearProgressIndicator(),
+          SizedBox(
+            height: 116,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount:
+                  _attachments.length + (_attachments.length < 10 ? 1 : 0),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                if (index == _attachments.length) {
+                  return SizedBox(
+                    width: 108,
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: BorderSide(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      onPressed: _saving || _uploading ? null : _chooseMedia,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.add, size: 30),
+                          const SizedBox(height: 8),
+                          Text(context.tr('Add')),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                final attachment = _attachments[index];
+                return SizedBox(
+                  width: 108,
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: attachment.media.type == 'image'
-                            ? attachment.bytes != null
-                                  ? Image.memory(
-                                      attachment.bytes!,
-                                      width: 92,
-                                      height: 92,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Image.network(
-                                      attachment.media.url,
-                                      width: 92,
-                                      height: 92,
-                                      fit: BoxFit.cover,
-                                    )
-                            : Container(
-                                width: 92,
-                                height: 92,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.primaryContainer,
-                                child: const Icon(
-                                  Icons.play_circle_outline,
-                                  size: 38,
-                                ),
-                              ),
+                        child:
+                            attachment.bytes != null &&
+                                attachment.media.type == 'image'
+                            ? Image.memory(attachment.bytes!, fit: BoxFit.cover)
+                            : PostMediaGallery(media: [attachment.media]),
                       ),
                       Positioned(
                         right: 2,
                         top: 2,
                         child: IconButton.filled(
+                          tooltip: context.tr('Remove'),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black54,
+                            foregroundColor: Colors.white,
+                          ),
                           visualDensity: VisualDensity.compact,
-                          onPressed: () =>
-                              setState(() => _attachments.removeAt(index)),
-                          icon: const Icon(Icons.close, size: 16),
+                          onPressed: _saving
+                              ? null
+                              : () => setState(
+                                  () => _attachments.removeAt(index),
+                                ),
+                          icon: const Icon(Icons.close, size: 18),
                         ),
                       ),
                     ],
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
-          ],
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _saving ? null : _publish,
-              icon: _saving
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send_rounded),
-              label: Text(
-                context.tr(
-                  _saving
-                      ? (_isEditing ? 'Saving…' : 'Publishing…')
-                      : (_isEditing ? 'Save changes' : 'Publish'),
-                ),
-              ),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.tr('A post supports up to 10 files.'),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _chooseMedia() async {
+    final video = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_outlined),
+              title: Text(context.tr('Photo')),
+              onTap: () => Navigator.pop(context, false),
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam_outlined),
+              title: Text(context.tr('Video')),
+              onTap: () => Navigator.pop(context, true),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (video != null && mounted) await _pickMedia(video: video);
   }
 
   Future<void> _publish() async {

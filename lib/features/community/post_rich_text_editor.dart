@@ -42,7 +42,11 @@ class PostTextController extends quill.QuillController {
     final offset = selection.baseOffset.clamp(0, document.length - 1);
     final label = '@$name';
     document.insert(offset, '$label ');
-    formatText(offset, label.length, quill.LinkAttribute('wicchu://user/$userId'));
+    formatText(
+      offset,
+      label.length,
+      quill.LinkAttribute('wicchu://user/$userId'),
+    );
     updateSelection(
       TextSelection.collapsed(offset: offset + label.length + 1),
       quill.ChangeSource.local,
@@ -64,7 +68,9 @@ class PostRichTextEditor extends StatelessWidget {
           color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.12),
           ),
         ),
         child: Column(
@@ -75,7 +81,9 @@ class PostRichTextEditor extends StatelessWidget {
             ),
             Divider(
               height: 1,
-              color: Theme.of(context).colorScheme.outlineVariant,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.12),
             ),
             quill.QuillEditor.basic(
               controller: controller,

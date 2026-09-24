@@ -354,6 +354,7 @@ const _spanish = <String, String>{
   'Link': 'Enlace',
   'Web address': 'Dirección web',
   'Add': 'Añadir',
+  'Remove': 'Quitar',
   'link text': 'texto del enlace',
   'Bring your community together': 'Reúne a tu comunidad',
   'Create an organized place for local news, jobs, events and conversations.':
