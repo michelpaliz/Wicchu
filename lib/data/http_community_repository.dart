@@ -573,7 +573,7 @@ class HttpCommunityRepository implements CommunityRepository {
   }) async {
     await _api.patch(
       '/api/community/v1/communities/$communityId/admin/members/$userId/access',
-      body: {'action': action, if (reason != null) 'reason': reason},
+      body: {'action': action, 'reason': ?reason},
     );
   }
 
@@ -1374,8 +1374,9 @@ class HttpCommunityRepository implements CommunityRepository {
       );
 
   static CommunitySurveyResponse? _surveyResponseFromJson(Object? value) {
-    if (value is! Map<String, dynamic> || value['helpful'] is! bool)
+    if (value is! Map<String, dynamic> || value['helpful'] is! bool) {
       return null;
+    }
     return CommunitySurveyResponse(
       helpful: value['helpful'] as bool,
       locallyRelevant: value['locallyRelevant']?.toString(),
