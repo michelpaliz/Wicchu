@@ -74,7 +74,11 @@ abstract interface class CommunityRepository {
     bool? communityActivity,
     bool? promotions,
   });
-  Future<void> registerDeviceToken(String token, {required String platform});
+  Future<void> registerDeviceToken(
+    String token, {
+    required String platform,
+    String languageCode = 'en',
+  });
   Future<void> unregisterDeviceToken(String token);
   Future<List<Community>> listCommunities({String? query});
   Future<Community> getCommunity(String communityId);

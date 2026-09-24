@@ -143,10 +143,15 @@ class HttpCommunityRepository implements CommunityRepository {
   Future<void> registerDeviceToken(
     String token, {
     required String platform,
+    String languageCode = 'en',
   }) async {
     await _api.post(
       '/api/community/v1/me/devices',
-      body: {'token': token, 'platform': platform},
+      body: {
+        'token': token,
+        'platform': platform,
+        'languageCode': languageCode,
+      },
     );
   }
 
@@ -1199,6 +1204,11 @@ class HttpCommunityRepository implements CommunityRepository {
       authorAvatarUrl: authorJson['avatarUrl'] as String?,
       text: json['text'] as String? ?? '',
       parentCommentId: json['parentCommentId']?.toString(),
+      replyToCommentId: json['replyToCommentId']?.toString(),
+      replyToUserId: json['replyToUserId']?.toString(),
+      replyToName: json['replyToUser'] is Map<String, dynamic>
+          ? (json['replyToUser'] as Map<String, dynamic>)['name'] as String?
+          : null,
       reactionCount: (json['reactionCount'] as num?)?.toInt() ?? 0,
       reactedByMe: json['reactedByMe'] == true,
       createdAt:

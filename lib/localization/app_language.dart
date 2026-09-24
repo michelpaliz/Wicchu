@@ -34,6 +34,27 @@ extension AppTranslation on BuildContext {
     return result;
   }
 
+  String trNotification(String english) {
+    if (!isSpanish) return english;
+    final exact = _spanish[english];
+    if (exact != null) return exact;
+    const invitationPrefix = 'invited you to join ';
+    if (english.startsWith(invitationPrefix)) {
+      return 'te invitó a unirte a ${english.substring(invitationPrefix.length)}';
+    }
+    final roleChange = RegExp(r'^changed your role to (.+) in (.+)$').firstMatch(english);
+    if (roleChange != null) {
+      final role = switch (roleChange.group(1)) {
+        'an administrator' => 'administrador',
+        'a moderator' => 'moderador',
+        'a member' => 'miembro',
+        final value => value ?? '',
+      };
+      return 'cambió tu rol a $role en ${roleChange.group(2)}';
+    }
+    return english;
+  }
+
   String trError(Object error) {
     final message = error.toString();
     if (!isSpanish) return message;
@@ -548,6 +569,20 @@ const _spanish = <String, String>{
   'Promotions': 'Promociones',
   'Promotion approval updates': 'Novedades sobre la aprobación de promociones',
   'Update received': 'Actualización recibida',
+  'reacted to your post': 'reaccionó a tu publicación',
+  'commented on your post': 'comentó tu publicación',
+  'mentioned you in a post': 'te mencionó en una publicación',
+  'approved your post': 'aprobó tu publicación',
+  'rejected your post': 'rechazó tu publicación',
+  'removed your post': 'eliminó tu publicación',
+  'restored your post': 'restauró tu publicación',
+  'approved your comment': 'aprobó tu comentario',
+  'rejected your comment': 'rechazó tu comentario',
+  'removed your comment': 'eliminó tu comentario',
+  'restricted your community membership':
+      'restringió tu membresía en la comunidad',
+  'restored your community membership':
+      'restauró tu membresía en la comunidad',
   'approved your membership request': 'aprobó tu solicitud de membresía',
   'rejected your membership request': 'rechazó tu solicitud de membresía',
   'approved your promotion': 'aprobó tu promoción',
