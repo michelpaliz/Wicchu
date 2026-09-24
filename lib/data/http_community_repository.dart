@@ -677,6 +677,7 @@ class HttpCommunityRepository implements CommunityRepository {
             )
             .toList(),
         if (input.pollOptions.isNotEmpty) 'pollOptions': input.pollOptions,
+        'mentionedUserIds': input.mentionedUserIds,
       },
     );
     return _postFromJson(_object(body, 'post'));
@@ -699,6 +700,7 @@ class HttpCommunityRepository implements CommunityRepository {
             )
             .toList(),
         'pollOptions': input.pollOptions,
+        'mentionedUserIds': input.mentionedUserIds,
       },
     );
     return _postFromJson(_object(body, 'post'));
@@ -1131,6 +1133,9 @@ class HttpCommunityRepository implements CommunityRepository {
       poll: json['poll'] is Map<String, dynamic>
           ? _pollFromJson(json['poll'] as Map<String, dynamic>)
           : null,
+      mentionedUserIds: (json['mentionedUserIds'] as List? ?? const [])
+          .map((value) => value.toString())
+          .toList(growable: false),
     );
   }
 
@@ -1243,6 +1248,7 @@ class HttpCommunityRepository implements CommunityRepository {
     'post_comment' || 'postComment' => CommunityNotificationType.postComment,
     'comment_reaction' => CommunityNotificationType.commentReaction,
     'comment_reply' => CommunityNotificationType.commentReply,
+    'post_mention' => CommunityNotificationType.postMention,
     'post_approved' => CommunityNotificationType.postApproved,
     'post_rejected' => CommunityNotificationType.postRejected,
     'post_removed' => CommunityNotificationType.postRemoved,

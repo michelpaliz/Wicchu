@@ -538,6 +538,10 @@ class _CommunityPageState extends State<CommunityPage> {
                                   ),
                                 ),
                               ),
+                              onMentionTap: (userId) => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => MemberProfilePage(userId: userId, repository: repository)),
+                              ),
                               time: formatPostTime(context, post.createdAt),
                               edited: post.editedAt != null,
                               onEdit: post.ownedByMe

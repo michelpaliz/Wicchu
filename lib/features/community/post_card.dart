@@ -60,6 +60,7 @@ class PostCard extends StatefulWidget {
     this.edited = false,
     this.onEdit,
     this.onDelete,
+    this.onMentionTap,
   });
 
   final String category;
@@ -93,6 +94,7 @@ class PostCard extends StatefulWidget {
   final bool edited;
   final VoidCallback? onEdit;
   final Future<void> Function()? onDelete;
+  final ValueChanged<String>? onMentionTap;
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -291,7 +293,11 @@ class _PostCardState extends State<PostCard> {
                 ),
               ),
               const SizedBox(height: 8),
-              PostMarkdown(data: widget.text, collapsible: widget.collapseText),
+              PostMarkdown(
+                data: widget.text,
+                collapsible: widget.collapseText,
+                onUserTap: widget.onMentionTap,
+              ),
               if (widget.price != null) ...[
                 const SizedBox(height: 6),
                 Text(

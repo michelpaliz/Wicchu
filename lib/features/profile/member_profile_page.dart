@@ -318,6 +318,10 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                       icon: _categories[post.categoryId]?.icon ?? '💬',
                       community: _communityNames[post.communityId] ?? 'Wicchu',
                       author: post.authorName,
+                      onMentionTap: (userId) => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => MemberProfilePage(userId: userId, repository: widget.repository)),
+                      ),
                       time: formatPostTime(context, post.createdAt),
                       edited: post.editedAt != null,
                       onEdit: post.ownedByMe

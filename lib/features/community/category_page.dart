@@ -152,6 +152,9 @@ class _CategoryPageState extends State<CategoryPage> {
                         onAuthorTap: () => Navigator.push(context, MaterialPageRoute(
                           builder: (_) => MemberProfilePage(userId: post.authorId, repository: widget.repository),
                         )),
+                        onMentionTap: (userId) => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => MemberProfilePage(userId: userId, repository: widget.repository),
+                        )),
                         time: formatPostTime(context, post.createdAt),
                         edited: post.editedAt != null,
                         onEdit: post.ownedByMe

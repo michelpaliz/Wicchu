@@ -35,10 +35,77 @@ class _CreatePostPageState extends State<CreatePostPage> {
   bool _saving = false;
   bool _uploading = false;
   final _attachments = <_PostAttachment>[];
+  late final Set<String> _mentionedUserIds = {
+    ...?widget.existingPost?.mentionedUserIds,
+  };
   bool _hasPoll = false;
   final _pollControllers = [TextEditingController(), TextEditingController()];
   bool get _isEditing => widget.existingPost != null;
   bool get _pollLocked => (widget.existingPost?.poll?.totalVotes ?? 0) > 0;
+
+  Future<void> _chooseMentions() async {
+    final members = await widget.repository.listMembers(widget.community.id);
+    if (!mounted) return;
+    final selected = {..._mentionedUserIds};
+    final result = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * .72,
+            child: Column(
+              children: [
+                ListTile(
+                  title: Text(context.tr('Tag members')),
+                  subtitle: Text(context.tr('Tagged members receive a notification when the post is published.')),
+                  trailing: FilledButton(
+                    onPressed: () => Navigator.pop(sheetContext, selected),
+                    child: Text(context.tr('Done')),
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: members.length,
+                    itemBuilder: (context, index) {
+                      final member = members[index];
+                      return CheckboxListTile(
+                        value: selected.contains(member.userId),
+                        title: Text(member.name),
+                        secondary: CircleAvatar(
+                          backgroundImage: member.avatarUrl == null ? null : NetworkImage(member.avatarUrl!),
+                          child: member.avatarUrl == null ? Text(member.name.characters.firstOrNull ?? '?') : null,
+                        ),
+                        onChanged: (checked) => setSheetState(() {
+                          if (checked == true) {
+                            if (selected.length < 20) selected.add(member.userId);
+                          } else {
+                            selected.remove(member.userId);
+                          }
+                        }),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    final newlySelected = result.difference(_mentionedUserIds);
+    for (final userId in newlySelected) {
+      final member = members.where((item) => item.userId == userId).firstOrNull;
+      if (member != null) _textController.insertMention(member.userId, member.name);
+    }
+    setState(() {
+      _mentionedUserIds
+        ..clear()
+        ..addAll(result);
+    });
+  }
 
   @override
   void initState() {
@@ -162,6 +229,16 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ),
           const SizedBox(height: 16),
           PostRichTextEditor(controller: _textController),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _chooseMentions,
+            icon: const Icon(Icons.alternate_email),
+            label: Text(
+              _mentionedUserIds.isEmpty
+                  ? context.tr('Tag members')
+                  : context.tr('Tagged members: {count}', {'count': '${_mentionedUserIds.length}'}),
+            ),
+          ),
           const SizedBox(height: 14),
           OutlinedButton.icon(
             onPressed: _pollLocked
@@ -419,6 +496,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         text: text,
         media: _attachments.map((item) => item.media).toList(),
         pollOptions: pollOptions,
+        mentionedUserIds: _mentionedUserIds.toList(growable: false),
       );
       final post = _isEditing
           ? await widget.repository.updatePost(widget.existingPost!.id, input)

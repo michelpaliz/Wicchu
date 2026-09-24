@@ -37,6 +37,17 @@ class PostTextController extends quill.QuillController {
     if (document.toPlainText().trim().isEmpty) return '';
     return DeltaToMarkdown().convert(delta).trimRight();
   }
+
+  void insertMention(String userId, String name) {
+    final offset = selection.baseOffset.clamp(0, document.length - 1);
+    final label = '@$name';
+    document.insert(offset, '$label ');
+    formatText(offset, label.length, quill.LinkAttribute('wicchu://user/$userId'));
+    updateSelection(
+      TextSelection.collapsed(offset: offset + label.length + 1),
+      quill.ChangeSource.local,
+    );
+  }
 }
 
 class PostRichTextEditor extends StatelessWidget {

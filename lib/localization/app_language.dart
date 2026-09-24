@@ -187,6 +187,10 @@ const _spanish = <String, String>{
   'What should neighbors post here?': '¿Qué pueden publicar los vecinos aquí?',
   'Choose a category and add text.':
       'Elige una categoría y escribe el contenido.',
+  'Tag members': 'Etiquetar miembros',
+  'Tagged members receive a notification when the post is published.':
+      'Los miembros etiquetados recibirán una notificación cuando se publique.',
+  'Tagged members: {count}': 'Miembros etiquetados: {count}',
   'Post submitted for approval': 'Publicación enviada para aprobación',
   'A community moderator will review it before publication.':
       'Un moderador de la comunidad la revisará antes de publicarla.',

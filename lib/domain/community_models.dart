@@ -15,6 +15,7 @@ enum CommunityNotificationType {
   commentReaction,
   postComment,
   commentReply,
+  postMention,
   postApproved,
   postRejected,
   postRemoved,
@@ -434,6 +435,7 @@ class CommunityPost {
     this.editedAt,
     this.promotion,
     this.poll,
+    this.mentionedUserIds = const [],
   });
 
   final String id;
@@ -454,6 +456,7 @@ class CommunityPost {
   final DateTime? editedAt;
   final PostPromotion? promotion;
   final PostPoll? poll;
+  final List<String> mentionedUserIds;
 }
 
 enum PromotionStatus { pending, active, rejected, completed, cancelled }

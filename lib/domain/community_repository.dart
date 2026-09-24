@@ -40,12 +40,14 @@ class CreatePostInput {
     required this.text,
     this.media = const [],
     this.pollOptions = const [],
+    this.mentionedUserIds = const [],
   });
 
   final String categoryId;
   final String text;
   final List<PostMedia> media;
   final List<String> pollOptions;
+  final List<String> mentionedUserIds;
 }
 
 abstract interface class CommunityRepository {
