@@ -177,6 +177,7 @@ class Community {
     this.memberCount = 0,
     this.myRole,
     this.approvalRequired = false,
+    this.showWeather = false,
     this.distanceKm,
     this.rules = const [],
   });
@@ -192,17 +193,45 @@ class Community {
   final int memberCount;
   final CommunityRole? myRole;
   final bool approvalRequired;
+  final bool showWeather;
   final double? distanceKm;
   final List<CommunityRule> rules;
 
   bool get isJoined => myRole != null;
 }
 
+class CommunityWeather {
+  const CommunityWeather({
+    required this.townName,
+    required this.temperature,
+    required this.apparentTemperature,
+    required this.minTemperature,
+    required this.maxTemperature,
+    required this.weatherCode,
+    required this.description,
+    required this.isDay,
+    required this.observedAt,
+    required this.provider,
+  });
+
+  final String townName;
+  final double temperature;
+  final double apparentTemperature;
+  final double minTemperature;
+  final double maxTemperature;
+  final int weatherCode;
+  final String description;
+  final bool isDay;
+  final DateTime? observedAt;
+  final String provider;
+}
+
 class CommunityInvitation {
   const CommunityInvitation({
     required this.id,
     required this.communityId,
-    required this.email,
+    this.type = 'email',
+    this.email,
     required this.status,
     required this.expiresAt,
     required this.createdAt,
@@ -213,13 +242,57 @@ class CommunityInvitation {
 
   final String id;
   final String communityId;
-  final String email;
+  final String type;
+  final String? email;
   final String status;
   final DateTime expiresAt;
   final DateTime createdAt;
   final String? communityName;
   final String? communityImageUrl;
   final String? invitationUrl;
+
+  bool get isLink => type == 'link';
+}
+
+class CommunityHelpfulness {
+  const CommunityHelpfulness({
+    required this.responseCount,
+    required this.minimumResponses,
+    required this.isPublic,
+    required this.eligible,
+    this.helpfulPercentage,
+    this.myVote,
+    this.insights = const {},
+  });
+
+  final int responseCount;
+  final int minimumResponses;
+  final int? helpfulPercentage;
+  final bool isPublic;
+  final bool eligible;
+  final CommunitySurveyResponse? myVote;
+  final Map<String, CommunityFeedbackInsight> insights;
+}
+
+class CommunitySurveyResponse {
+  const CommunitySurveyResponse({
+    required this.helpful,
+    this.locallyRelevant,
+    this.safeParticipation,
+    this.wellOrganized,
+    this.recommend,
+  });
+  final bool helpful;
+  final String? locallyRelevant;
+  final String? safeParticipation;
+  final String? wellOrganized;
+  final bool? recommend;
+}
+
+class CommunityFeedbackInsight {
+  const CommunityFeedbackInsight({required this.total, this.yesPercentage});
+  final int total;
+  final int? yesPercentage;
 }
 
 class CommunityRule {

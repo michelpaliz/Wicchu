@@ -45,6 +45,7 @@ class DemoCommunityRepository implements CommunityRepository {
   final List<PromotionCampaign> _promotions = [];
   final Map<String, List<Comment>> _comments = {};
   final Set<String> _savedPostIds = {};
+  final Map<String, CommunitySurveyResponse> _helpfulnessVotes = {};
   SocialLinks _socialLinks = const SocialLinks();
   NotificationPreferences _notificationPreferences =
       const NotificationPreferences();
@@ -228,6 +229,36 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<void> joinCommunity(String communityId) async {}
 
   @override
+  Future<CommunityHelpfulness> getCommunityHelpfulness(
+    String communityId,
+  ) async => CommunityHelpfulness(
+    responseCount: _helpfulnessVotes.containsKey(communityId) ? 1 : 0,
+    minimumResponses: 10,
+    isPublic: false,
+    eligible: true,
+    myVote: _helpfulnessVotes[communityId],
+  );
+
+  @override
+  Future<CommunityHelpfulness> setCommunityHelpfulness(
+    String communityId, {
+    required bool helpful,
+    String? locallyRelevant,
+    String? safeParticipation,
+    String? wellOrganized,
+    bool? recommend,
+  }) async {
+    _helpfulnessVotes[communityId] = CommunitySurveyResponse(
+      helpful: helpful,
+      locallyRelevant: locallyRelevant,
+      safeParticipation: safeParticipation,
+      wellOrganized: wellOrganized,
+      recommend: recommend,
+    );
+    return getCommunityHelpfulness(communityId);
+  }
+
+  @override
   Future<CommunityInvitation> createCommunityInvitation(
     String communityId,
     String email,
@@ -240,6 +271,37 @@ class DemoCommunityRepository implements CommunityRepository {
     createdAt: DateTime.now(),
     invitationUrl: 'https://hexora.dev/wicchu/invitations/demo',
   );
+
+  @override
+  Future<CommunityInvitation> createCommunityInvitationLink(
+    String communityId,
+  ) async => CommunityInvitation(
+    id: 'link-${DateTime.now().millisecondsSinceEpoch}',
+    communityId: communityId,
+    type: 'link',
+    status: 'pending',
+    expiresAt: DateTime.now().add(const Duration(days: 14)),
+    createdAt: DateTime.now(),
+    invitationUrl: 'https://hexora.dev/wicchu/invitations/demo-token',
+  );
+
+  @override
+  Future<CommunityInvitation> getCommunityInvitationLink(String token) async =>
+      CommunityInvitation(
+        id: 'link-demo',
+        communityId: 'community-1',
+        type: 'link',
+        status: 'pending',
+        expiresAt: DateTime.now().add(const Duration(days: 14)),
+        createdAt: DateTime.now(),
+        communityName: 'Wicchu community',
+      );
+
+  @override
+  Future<void> respondToCommunityInvitationLink(
+    String token, {
+    required bool accept,
+  }) async {}
 
   @override
   Future<List<CommunityInvitation>> listCommunityInvitations(
@@ -397,6 +459,7 @@ class DemoCommunityRepository implements CommunityRepository {
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
+    required bool showWeather,
     String? imageUrl,
     String? imageBlobName,
   }) async {
@@ -412,6 +475,7 @@ class DemoCommunityRepository implements CommunityRepository {
       memberCount: community.memberCount,
       myRole: community.myRole,
       approvalRequired: approvalRequired,
+      showWeather: showWeather,
       distanceKm: community.distanceKm,
       rules: community.rules,
     );
@@ -419,6 +483,21 @@ class DemoCommunityRepository implements CommunityRepository {
     if (index >= 0) _communities[index] = updated;
     return updated;
   }
+
+  @override
+  Future<CommunityWeather?> getCommunityWeather(String communityId) async =>
+      CommunityWeather(
+        townName: 'Echeandía',
+        temperature: 27,
+        apparentTemperature: 29,
+        minTemperature: 21,
+        maxTemperature: 30,
+        weatherCode: 2,
+        description: 'Partly cloudy',
+        isDay: true,
+        observedAt: DateTime.now(),
+        provider: 'Open-Meteo',
+      );
 
   @override
   Future<List<CommunityPost>> listPosts(

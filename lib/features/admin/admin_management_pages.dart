@@ -565,6 +565,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   );
   late CommunityVisibility _visibility = widget.community.visibility;
   late bool _approvalRequired = widget.community.approvalRequired;
+  late bool _showWeather = widget.community.showWeather;
   late String? _imageUrl = widget.community.imageUrl;
   String? _imageBlobName;
   bool _saving = false;
@@ -664,6 +665,14 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           value: _approvalRequired,
           onChanged: (value) => setState(() => _approvalRequired = value),
         ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.cloud_outlined),
+          title: Text(context.tr('Show local weather')),
+          subtitle: Text(context.tr('Display current conditions for the community town.')),
+          value: _showWeather,
+          onChanged: (value) => setState(() => _showWeather = value),
+        ),
         const SizedBox(height: 24),
         ListTile(
           contentPadding: EdgeInsets.zero,
@@ -707,6 +716,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         description: _description.text.trim(),
         visibility: _visibility,
         approvalRequired: _approvalRequired,
+        showWeather: _showWeather,
         imageUrl: _imageUrl,
         imageBlobName: _imageBlobName,
       );
