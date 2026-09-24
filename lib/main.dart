@@ -124,7 +124,8 @@ class _WicchuAppState extends State<WicchuApp> {
           ..showSnackBar(
             SnackBar(
               content: Text(message),
-              action: !openableTypes.contains(type) ||
+              action:
+                  !openableTypes.contains(type) ||
                       postId == null ||
                       postId.isEmpty
                   ? null
@@ -148,7 +149,10 @@ class _WicchuAppState extends State<WicchuApp> {
       final links = AppLinks();
       final initial = await links.getInitialLink();
       if (initial != null) _queueLink(initial);
-      _linkSubscription = links.uriLinkStream.listen(_queueLink);
+      _linkSubscription = links.uriLinkStream.listen((uri) {
+        _queueLink(uri);
+        _openPendingPost();
+      });
     } catch (_) {
       // Deep links are unavailable on unsupported platforms and in widget tests.
     }
@@ -276,7 +280,8 @@ class _WicchuAppState extends State<WicchuApp> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _navigatorKey.currentState?.push(
           MaterialPageRoute(
-            builder: (_) => MyCommunityInvitationsPage(repository: widget.repository),
+            builder: (_) =>
+                MyCommunityInvitationsPage(repository: widget.repository),
           ),
         );
       });
