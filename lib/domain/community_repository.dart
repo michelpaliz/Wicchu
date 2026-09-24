@@ -154,9 +154,11 @@ abstract interface class CommunityRepository {
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
+    required bool showWeather,
     String? imageUrl,
     String? imageBlobName,
   });
+  Future<CommunityWeather?> getCommunityWeather(String communityId);
   Future<List<CommunityPost>> listPosts(
     String communityId, {
     String? categoryId,

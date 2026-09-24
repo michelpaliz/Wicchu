@@ -533,6 +533,7 @@ class HttpCommunityRepository implements CommunityRepository {
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
+    required bool showWeather,
     String? imageUrl,
     String? imageBlobName,
   }) async {
@@ -543,6 +544,7 @@ class HttpCommunityRepository implements CommunityRepository {
         'description': description,
         'visibility': visibility.name,
         'approvalRequired': approvalRequired,
+        'showWeather': showWeather,
         'imageBlobName': ?imageBlobName,
       },
     );
@@ -552,6 +554,25 @@ class HttpCommunityRepository implements CommunityRepository {
       'memberCount': community.memberCount,
       'myRole': community.myRole?.name,
     });
+  }
+
+  @override
+  Future<CommunityWeather?> getCommunityWeather(String communityId) async {
+    final body = await _api.get('/api/community/v1/communities/$communityId/weather');
+    if (body['enabled'] != true) return null;
+    final weather = _object(body, 'weather');
+    return CommunityWeather(
+      townName: body['townName']?.toString() ?? '',
+      temperature: (weather['temperature'] as num?)?.toDouble() ?? 0,
+      apparentTemperature: (weather['apparentTemperature'] as num?)?.toDouble() ?? 0,
+      minTemperature: (weather['minTemperature'] as num?)?.toDouble() ?? 0,
+      maxTemperature: (weather['maxTemperature'] as num?)?.toDouble() ?? 0,
+      weatherCode: (weather['weatherCode'] as num?)?.toInt() ?? 0,
+      description: weather['description']?.toString() ?? '',
+      isDay: weather['isDay'] == true,
+      observedAt: DateTime.tryParse(weather['observedAt']?.toString() ?? ''),
+      provider: weather['provider']?.toString() ?? 'Open-Meteo',
+    );
   }
 
   @override
@@ -1017,6 +1038,7 @@ class HttpCommunityRepository implements CommunityRepository {
         _ => null,
       },
       approvalRequired: json['approvalRequired'] as bool? ?? false,
+      showWeather: json['showWeather'] as bool? ?? false,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       rules: (json['rules'] as List? ?? const [])
           .whereType<Map<String, dynamic>>()

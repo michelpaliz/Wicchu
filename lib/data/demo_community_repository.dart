@@ -426,6 +426,7 @@ class DemoCommunityRepository implements CommunityRepository {
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
+    required bool showWeather,
     String? imageUrl,
     String? imageBlobName,
   }) async {
@@ -441,6 +442,7 @@ class DemoCommunityRepository implements CommunityRepository {
       memberCount: community.memberCount,
       myRole: community.myRole,
       approvalRequired: approvalRequired,
+      showWeather: showWeather,
       distanceKm: community.distanceKm,
       rules: community.rules,
     );
@@ -448,6 +450,13 @@ class DemoCommunityRepository implements CommunityRepository {
     if (index >= 0) _communities[index] = updated;
     return updated;
   }
+
+  @override
+  Future<CommunityWeather?> getCommunityWeather(String communityId) async => CommunityWeather(
+    townName: 'Echeandía', temperature: 27, apparentTemperature: 29,
+    minTemperature: 21, maxTemperature: 30, weatherCode: 2,
+    description: 'Partly cloudy', isDay: true, observedAt: DateTime.now(), provider: 'Open-Meteo',
+  );
 
   @override
   Future<List<CommunityPost>> listPosts(

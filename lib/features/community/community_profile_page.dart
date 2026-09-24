@@ -38,6 +38,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   late Future<List<CommunityPost>> _posts;
   late Future<CommunityRules> _rules;
   late Future<CommunityHelpfulness> _helpfulness;
+  Future<CommunityWeather?>? _weather;
   bool _savingMembership = false;
   String? _categoryId;
   bool _savingHelpfulness = false;
@@ -55,6 +56,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   void _reload() {
     _helpfulness = widget.repository.getCommunityHelpfulness(_community.id);
+    _weather = _community.showWeather
+        ? widget.repository.getCommunityWeather(_community.id)
+        : null;
     _categories = widget.repository.listCategories(_community.id);
     _rules = _joined
         ? widget.repository.listRules(_community.id)
@@ -202,6 +206,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           memberCount: nextMemberCount < 0 ? 0 : nextMemberCount,
           myRole: _joined ? CommunityRole.member : null,
           approvalRequired: _community.approvalRequired,
+          showWeather: _community.showWeather,
           distanceKm: _community.distanceKm,
           rules: _community.rules,
         );
@@ -581,6 +586,66 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   Widget _aboutTab(BuildContext context) => ListView(
     padding: const EdgeInsets.all(20),
     children: [
+      if (_community.showWeather && _weather != null)
+        _Section(
+          title: context.tr('Local weather'),
+          child: FutureBuilder<CommunityWeather?>(
+            future: _weather,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const LinearProgressIndicator();
+              }
+              if (snapshot.hasError) {
+                return Row(children: [
+                  const Icon(Icons.cloud_off_outlined),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(context.tr('Weather is temporarily unavailable.'))),
+                ]);
+              }
+              final weather = snapshot.data;
+              if (weather == null) return const SizedBox.shrink();
+              return Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(_weatherIcon(weather.weatherCode, weather.isDay), size: 46),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${weather.temperature.round()}°C · ${context.tr(weather.description)}',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                            Text(context.tr('High {high}° · Low {low}°', {
+                              'high': '${weather.maxTemperature.round()}',
+                              'low': '${weather.minTemperature.round()}',
+                            })),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${weather.townName} · ${context.tr('Provided by')} ${weather.provider}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            if (weather.observedAt != null)
+                              Text(
+                                context.tr('Updated {time}', {
+                                  'time': TimeOfDay.fromDateTime(weather.observedAt!.toLocal()).format(context),
+                                }),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       _Section(
         title: context.tr('Helpful to members'),
         child: FutureBuilder<CommunityHelpfulness>(
@@ -744,6 +809,16 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       ),
     ],
   );
+
+  IconData _weatherIcon(int code, bool isDay) {
+    if (code == 0) return isDay ? Icons.wb_sunny_outlined : Icons.nightlight_outlined;
+    if (code <= 3) return Icons.cloud_outlined;
+    if (code == 45 || code == 48) return Icons.foggy;
+    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return Icons.water_drop_outlined;
+    if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return Icons.ac_unit;
+    if (code >= 95) return Icons.thunderstorm_outlined;
+    return Icons.cloud_outlined;
+  }
 
   Widget _membersTab() {
     if (!_joined) {

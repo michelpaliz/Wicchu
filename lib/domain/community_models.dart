@@ -177,6 +177,7 @@ class Community {
     this.memberCount = 0,
     this.myRole,
     this.approvalRequired = false,
+    this.showWeather = false,
     this.distanceKm,
     this.rules = const [],
   });
@@ -192,10 +193,37 @@ class Community {
   final int memberCount;
   final CommunityRole? myRole;
   final bool approvalRequired;
+  final bool showWeather;
   final double? distanceKm;
   final List<CommunityRule> rules;
 
   bool get isJoined => myRole != null;
+}
+
+class CommunityWeather {
+  const CommunityWeather({
+    required this.townName,
+    required this.temperature,
+    required this.apparentTemperature,
+    required this.minTemperature,
+    required this.maxTemperature,
+    required this.weatherCode,
+    required this.description,
+    required this.isDay,
+    required this.observedAt,
+    required this.provider,
+  });
+
+  final String townName;
+  final double temperature;
+  final double apparentTemperature;
+  final double minTemperature;
+  final double maxTemperature;
+  final int weatherCode;
+  final String description;
+  final bool isDay;
+  final DateTime? observedAt;
+  final String provider;
 }
 
 class CommunityInvitation {
