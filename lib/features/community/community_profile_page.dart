@@ -519,6 +519,25 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     }
   }
 
+  Widget _expandableCommunityImage(Widget child) {
+    final url = _community.imageUrl;
+    if (url == null || url.trim().isEmpty) return child;
+    return Semantics(
+      button: true,
+      label: context.tr('View community image'),
+      child: Tooltip(
+        message: context.tr('View community image'),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => openPostMediaViewer(context, [
+            PostMedia(url: url, type: 'image'),
+          ]),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isOwner = _community.myRole == CommunityRole.owner;
@@ -529,15 +548,17 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              ColoredBox(
-                color: scheme.primaryContainer,
-                child: _community.imageUrl == null
-                    ? null
-                    : Image.network(
-                        _community.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                      ),
+              _expandableCommunityImage(
+                ColoredBox(
+                  color: scheme.primaryContainer,
+                  child: _community.imageUrl == null
+                      ? null
+                      : Image.network(
+                          _community.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                        ),
+                ),
               ),
               if (_community.myRole == CommunityRole.owner ||
                   _community.myRole == CommunityRole.admin)
@@ -564,7 +585,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     color: scheme.surface,
                     shape: BoxShape.circle,
                   ),
-                  child: CommunityAvatar(community: _community, radius: 28),
+                  child: _expandableCommunityImage(
+                    CommunityAvatar(community: _community, radius: 28),
+                  ),
                 ),
               ),
             ],

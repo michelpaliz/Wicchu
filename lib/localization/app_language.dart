@@ -166,6 +166,7 @@ const _spanish = <String, String>{
   'Discover and join communities in your area.':
       'Descubre y únete a comunidades de tu zona.',
   'All communities': 'Todas',
+  'View community image': 'Ver imagen de la comunidad',
   'Open settings': 'Abrir ajustes',
   'Could not get your location. Try again.':
       'No se pudo obtener tu ubicación. Inténtalo de nuevo.',
