@@ -81,6 +81,7 @@ class _WicchuAppState extends State<WicchuApp> {
     _pushActivationStarted = true;
     PushNotificationService.instance.activate(
       widget.repository,
+      languageCode: _languageCode,
       onTap: (data) {
         final type = data['type']?.toString() ?? '';
         if (type.startsWith('promotion_')) {
@@ -333,6 +334,10 @@ class _WicchuAppState extends State<WicchuApp> {
     if (code != 'en' && code != 'es') return;
     _languageChangedByUser = true;
     setState(() => _languageCode = code);
+    await PushNotificationService.instance.updateLanguage(
+      widget.repository,
+      code,
+    );
     try {
       final preferences = await SharedPreferences.getInstance();
       await preferences.setString('language', code);

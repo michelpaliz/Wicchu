@@ -541,6 +541,9 @@ class Comment {
     this.authorName = 'Wicchu member',
     this.authorAvatarUrl,
     this.parentCommentId,
+    this.replyToCommentId,
+    this.replyToUserId,
+    this.replyToName,
     this.reactionCount = 0,
     this.reactedByMe = false,
   });
@@ -553,6 +556,9 @@ class Comment {
   final String authorName;
   final String? authorAvatarUrl;
   final String? parentCommentId;
+  final String? replyToCommentId;
+  final String? replyToUserId;
+  final String? replyToName;
   final int reactionCount;
   final bool reactedByMe;
 }

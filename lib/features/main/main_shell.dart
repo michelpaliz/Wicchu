@@ -1685,7 +1685,7 @@ class _ActivityTabState extends State<_ActivityTab> {
                       : null,
                 ),
                 title: Text(
-                  '${notification.actorName} ${context.tr(notification.message)}',
+                  '${notification.actorName} ${context.trNotification(notification.message)}',
                 ),
                 subtitle: Text(formatPostTime(context, notification.createdAt)),
                 trailing: notification.isRead

@@ -174,10 +174,12 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             padding: const EdgeInsets.only(left: 34),
                             child: _CommentItem(
                               comment: reply,
+                              canReply: true,
                               savingReaction: _savingReactions.contains(
                                 reply.id,
                               ),
                               onReaction: () => _toggleReaction(reply),
+                              onReply: () => setState(() => _replyingTo = reply),
                             ),
                           ),
                         ],
@@ -400,6 +402,16 @@ class _CommentItem extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 5),
+                if (comment.replyToName != null) ...[
+                  Text(
+                    context.tr('Replying to {name}', {'name': comment.replyToName!}),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                ],
                 Text(comment.text, style: theme.textTheme.bodyMedium),
                 Row(
                   children: [

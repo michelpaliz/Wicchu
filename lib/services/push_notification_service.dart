@@ -15,6 +15,8 @@ class PushNotificationService {
   StreamSubscription<RemoteMessage>? _foregroundSubscription;
   final _receivedController = StreamController<Map<String, dynamic>>.broadcast();
   bool _active = false;
+  String? _currentToken;
+  String _languageCode = 'en';
 
   static const _apiKey = String.fromEnvironment('FIREBASE_API_KEY');
   static const _appId = String.fromEnvironment('FIREBASE_APP_ID');
@@ -33,10 +35,12 @@ class PushNotificationService {
 
   Future<void> activate(
     CommunityRepository repository, {
+    required String languageCode,
     required void Function(Map<String, dynamic> data) onTap,
     void Function(String message, Map<String, dynamic> data)? onForeground,
   }) async {
     if (_active || !isConfigured) return;
+    _languageCode = languageCode == 'es' ? 'es' : 'en';
     try {
       if (Firebase.apps.isEmpty) {
         if (kIsWeb) {
@@ -56,10 +60,22 @@ class PushNotificationService {
       await messaging.requestPermission(alert: true, badge: true, sound: true);
       final token = await messaging.getToken();
       if (token != null && token.isNotEmpty) {
-        await repository.registerDeviceToken(token, platform: _platform);
+        _currentToken = token;
+        await repository.registerDeviceToken(
+          token,
+          platform: _platform,
+          languageCode: _languageCode,
+        );
       }
       _tokenSubscription = messaging.onTokenRefresh.listen(
-        (token) => repository.registerDeviceToken(token, platform: _platform),
+        (token) {
+          _currentToken = token;
+          repository.registerDeviceToken(
+            token,
+            platform: _platform,
+            languageCode: _languageCode,
+          );
+        },
       );
       _tapSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
         (message) => onTap(message.data),
@@ -77,6 +93,20 @@ class PushNotificationService {
     } catch (error) {
       debugPrint('Wicchu push notifications unavailable: $error');
     }
+  }
+
+  Future<void> updateLanguage(
+    CommunityRepository repository,
+    String languageCode,
+  ) async {
+    _languageCode = languageCode == 'es' ? 'es' : 'en';
+    final token = _currentToken;
+    if (token == null || token.isEmpty) return;
+    await repository.registerDeviceToken(
+      token,
+      platform: _platform,
+      languageCode: _languageCode,
+    );
   }
 
   String get _platform => switch (defaultTargetPlatform) {

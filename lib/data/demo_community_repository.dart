@@ -130,6 +130,7 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<void> registerDeviceToken(
     String token, {
     required String platform,
+    String languageCode = 'en',
   }) async {}
 
   @override
