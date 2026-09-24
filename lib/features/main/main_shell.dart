@@ -1087,7 +1087,12 @@ class _HomeTabState extends State<_HomeTab> {
                           ),
                           onMentionTap: (userId) => Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => MemberProfilePage(userId: userId, repository: widget.repository)),
+                            MaterialPageRoute(
+                              builder: (_) => MemberProfilePage(
+                                userId: userId,
+                                repository: widget.repository,
+                              ),
+                            ),
                           ),
                           time: formatPostTime(context, post.createdAt),
                           edited: post.editedAt != null,
@@ -1632,7 +1637,7 @@ class _ActivityTabState extends State<_ActivityTab> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             itemCount: notifications.length,
-            separatorBuilder: (_, _) => const Divider(),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final notification = notifications[index];
               final icon = switch (notification.type) {
@@ -1670,13 +1675,23 @@ class _ActivityTabState extends State<_ActivityTab> {
                   Icons.error_outline,
               };
               return ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 tileColor: notification.isRead
                     ? null
-                    : Theme.of(context).colorScheme.primaryContainer,
+                    : Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer.withValues(alpha: .35),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
                 leading: CircleAvatar(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
+                  foregroundColor: Theme.of(context).colorScheme.primary,
                   backgroundImage: notification.actorAvatarUrl == null
                       ? null
                       : NetworkImage(notification.actorAvatarUrl!),
@@ -1686,11 +1701,30 @@ class _ActivityTabState extends State<_ActivityTab> {
                 ),
                 title: Text(
                   '${notification.actorName} ${context.trNotification(notification.message)}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontSize: 15,
+                    height: 1.35,
+                    fontWeight: notification.isRead
+                        ? FontWeight.w400
+                        : FontWeight.w600,
+                  ),
                 ),
-                subtitle: Text(formatPostTime(context, notification.createdAt)),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 5),
+                  child: Text(
+                    formatPostTime(context, notification.createdAt),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
                 trailing: notification.isRead
                     ? null
-                    : const Icon(Icons.circle, size: 10),
+                    : Icon(
+                        Icons.circle,
+                        size: 8,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                 onTap: () => _openNotification(notification),
               );
             },

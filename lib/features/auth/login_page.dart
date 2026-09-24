@@ -39,7 +39,7 @@ class _LoginPageState extends State<LoginPage> {
                     children: [ThemeMenu(), LanguageMenu()],
                   ),
                   const SizedBox(height: 24),
-                  const WicchuLogo(size: 112),
+                  const WicchuLogo(size: 88),
                   const SizedBox(height: 20),
                   Text(
                     'Wicchu',
@@ -52,7 +52,18 @@ class _LoginPageState extends State<LoginPage> {
                     context.tr('Your community, closer.'),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 12),
+                  Text(
+                    context.tr(
+                      'Connect with your neighbors and discover what is happening nearby.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
                   SizedBox(
                     width: double.infinity,
                     height: 52,
@@ -78,6 +89,16 @@ class _LoginPageState extends State<LoginPage> {
                     width: double.infinity,
                     height: 52,
                     child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: .15),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
                       onPressed: _loadingProvider != null ? null : _openEmail,
                       icon: const Icon(Icons.email_outlined),
                       label: Text(context.tr('Continue with email')),
@@ -88,6 +109,16 @@ class _LoginPageState extends State<LoginPage> {
                     width: double.infinity,
                     height: 52,
                     child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: .15),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
                       onPressed: _loadingProvider != null
                           ? null
                           : _signInGoogle,

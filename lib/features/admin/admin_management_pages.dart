@@ -156,7 +156,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
         content: Text(
           context.tr(
             'Existing posts in {category} will remain, but the category will no longer be available.',
-            {'category': category.name},
+            {'category': context.tr(category.name)},
           ),
         ),
         actions: [
@@ -200,13 +200,27 @@ class _CategoryEditor extends StatefulWidget {
 
 class _CategoryEditorState extends State<_CategoryEditor> {
   final _form = GlobalKey<FormState>();
-  late final _name = TextEditingController(text: widget.category?.name);
+  final _name = TextEditingController();
+  String? _displayName;
   late final _description = TextEditingController(
     text: widget.category?.description,
   );
   late String _icon = widget.category?.icon ?? '💬';
   bool _saving = false;
   String? _error;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final localized = widget.category == null
+        ? ''
+        : context.tr(widget.category!.name);
+    // Refresh an untouched field when the language changes, preserving drafts.
+    if (_displayName == null || _name.text == _displayName) {
+      _name.text = localized;
+    }
+    _displayName = localized;
+  }
 
   @override
   void dispose() {
@@ -225,7 +239,9 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       if (widget.category == null) {
         await widget.repository.createCategory(
           widget.community.id,
-          name: _name.text.trim(),
+          name: widget.category != null && _name.text.trim() == _displayName
+              ? widget.category!.name
+              : _name.text.trim(),
           description: _description.text.trim(),
           icon: _icon,
         );
@@ -233,7 +249,9 @@ class _CategoryEditorState extends State<_CategoryEditor> {
         await widget.repository.updateCategory(
           widget.community.id,
           widget.category!,
-          name: _name.text.trim(),
+          name: widget.category != null && _name.text.trim() == _displayName
+              ? widget.category!.name
+              : _name.text.trim(),
           description: _description.text.trim(),
           icon: _icon,
         );
@@ -670,14 +688,21 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           contentPadding: EdgeInsets.zero,
           secondary: const Icon(Icons.cloud_outlined),
           title: Text(context.tr('Show local weather')),
-          subtitle: Text(context.tr('Display current conditions for the community town.')),
+          subtitle: Text(
+            context.tr('Display current conditions for the community town.'),
+          ),
           value: _showWeather,
           onChanged: (value) => setState(() => _showWeather = value),
         ),
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: Text(context.tr('Official links'), style: Theme.of(context).textTheme.titleMedium)),
+            Expanded(
+              child: Text(
+                context.tr('Official links'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
             IconButton(
               tooltip: context.tr('Add link'),
               onPressed: _links.length >= 10 ? null : () => _editLink(),
@@ -685,13 +710,21 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             ),
           ],
         ),
-        Text(context.tr('Add a website, social network, contact page, or another official link.')),
+        Text(
+          context.tr(
+            'Add a website, social network, contact page, or another official link.',
+          ),
+        ),
         for (final (index, link) in _links.indexed)
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.link),
             title: Text(link.label),
-            subtitle: Text(link.url, maxLines: 1, overflow: TextOverflow.ellipsis),
+            subtitle: Text(
+              link.url,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             onTap: () => _editLink(index: index),
             trailing: IconButton(
               tooltip: context.tr('Remove'),
@@ -760,34 +793,58 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   }
 
   Future<void> _editLink({int? index}) async {
-    final label = TextEditingController(text: index == null ? '' : _links[index].label);
-    final url = TextEditingController(text: index == null ? '' : _links[index].url);
+    final label = TextEditingController(
+      text: index == null ? '' : _links[index].label,
+    );
+    final url = TextEditingController(
+      text: index == null ? '' : _links[index].url,
+    );
     final result = await showDialog<CommunityLink>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(context.tr(index == null ? 'Add official link' : 'Edit official link')),
+        title: Text(
+          context.tr(
+            index == null ? 'Add official link' : 'Edit official link',
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: label,
               maxLength: 60,
-              decoration: InputDecoration(labelText: context.tr('Label'), hintText: context.tr('Website, Facebook, WhatsApp…')),
+              decoration: InputDecoration(
+                labelText: context.tr('Label'),
+                hintText: context.tr('Website, Facebook, WhatsApp…'),
+              ),
             ),
             TextField(
               controller: url,
               keyboardType: TextInputType.url,
-              decoration: const InputDecoration(labelText: 'HTTPS URL', hintText: 'https://'),
+              decoration: const InputDecoration(
+                labelText: 'HTTPS URL',
+                hintText: 'https://',
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(context.tr('Cancel'))),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(context.tr('Cancel')),
+          ),
           FilledButton(
             onPressed: () {
               final parsed = Uri.tryParse(url.text.trim());
-              if (label.text.trim().isEmpty || parsed?.scheme != 'https' || parsed?.host.isEmpty != false) return;
-              Navigator.pop(dialogContext, CommunityLink(label: label.text.trim(), url: parsed.toString()));
+              if (label.text.trim().isEmpty ||
+                  parsed?.scheme != 'https' ||
+                  parsed?.host.isEmpty != false) {
+                return;
+              }
+              Navigator.pop(
+                dialogContext,
+                CommunityLink(label: label.text.trim(), url: parsed.toString()),
+              );
             },
             child: Text(context.tr('Save')),
           ),

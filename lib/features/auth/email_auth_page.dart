@@ -25,6 +25,9 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
   bool _registering = false;
+  bool _resetting = false;
+  String? _error;
+  bool _resetSent = false;
   bool _loading = false;
   bool _obscurePassword = true;
 
@@ -41,11 +44,32 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(context.tr(_registering ? 'Create account' : 'Sign in with email')),
+      title: Text(
+        context.tr(
+          _resetting
+              ? 'Reset password'
+              : _registering
+              ? 'Create account'
+              : 'Sign in with email',
+        ),
+      ),
+      leading: _resetting
+          ? BackButton(
+              onPressed: _loading
+                  ? null
+                  : () => setState(() {
+                      _resetting = false;
+                      _error = null;
+                      _resetSent = false;
+                    }),
+            )
+          : null,
     ),
     body: SafeArea(
-      child: Center(
+      child: Align(
+        alignment: Alignment.topCenter,
         child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
@@ -55,24 +79,62 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SegmentedButton<bool>(
-                      segments: [
-                        ButtonSegment(value: false, label: Text(context.tr('Sign in'))),
-                        ButtonSegment(value: true, label: Text(context.tr('Register'))),
-                      ],
-                      selected: {_registering},
-                      onSelectionChanged: _loading
-                          ? null
-                          : (selection) => setState(() => _registering = selection.first),
+                    Text(
+                      context.tr(
+                        _resetting
+                            ? 'Recover access to your account'
+                            : _registering
+                            ? 'Join your neighborhood'
+                            : 'Welcome back',
+                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      context.tr(
+                        _resetting
+                            ? 'Enter your email and we will send you a reset link.'
+                            : 'Connect with your neighbors and discover what is happening nearby.',
+                      ),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    if (_registering) ...[
+                    if (!_resetting)
+                      SegmentedButton<bool>(
+                        segments: [
+                          ButtonSegment(
+                            value: false,
+                            label: Text(context.tr('Sign in')),
+                          ),
+                          ButtonSegment(
+                            value: true,
+                            label: Text(context.tr('Register')),
+                          ),
+                        ],
+                        selected: {_registering},
+                        onSelectionChanged: _loading
+                            ? null
+                            : (selection) => setState(() {
+                                _registering = selection.first;
+                                _error = null;
+                                _formKey.currentState?.reset();
+                              }),
+                      ),
+                    const SizedBox(height: 24),
+                    if (_registering && !_resetting) ...[
                       TextFormField(
                         controller: _name,
+                        textInputAction: TextInputAction.next,
                         enabled: !_loading,
                         textCapitalization: TextCapitalization.words,
                         autofillHints: const [AutofillHints.name],
-                        decoration: InputDecoration(labelText: context.tr('Full name')),
+                        decoration: InputDecoration(
+                          labelText: context.tr('Full name'),
+                        ),
                         validator: (value) => (value?.trim().isEmpty ?? true)
                             ? context.tr('Enter your name.')
                             : null,
@@ -80,16 +142,25 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _userName,
+                        textInputAction: TextInputAction.next,
                         enabled: !_loading,
                         autocorrect: false,
                         textCapitalization: TextCapitalization.none,
                         autofillHints: const [AutofillHints.newUsername],
-                        decoration: InputDecoration(labelText: context.tr('Username')),
+                        decoration: InputDecoration(
+                          labelText: context.tr('Username'),
+                        ),
                         validator: (value) {
                           final normalized = value?.trim() ?? '';
-                          if (normalized.length < 3) return context.tr('Use at least 3 characters.');
-                          if (!RegExp(r'^[a-zA-Z0-9._-]+$').hasMatch(normalized)) {
-                            return context.tr('Use only letters, numbers, dots, underscores, or hyphens.');
+                          if (normalized.length < 3) {
+                            return context.tr('Use at least 3 characters.');
+                          }
+                          if (!RegExp(
+                            r'^[a-zA-Z0-9._-]+$',
+                          ).hasMatch(normalized)) {
+                            return context.tr(
+                              'Use only letters, numbers, dots, underscores, or hyphens.',
+                            );
                           }
                           return null;
                         },
@@ -98,69 +169,147 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                     ],
                     TextFormField(
                       controller: _email,
+                      textInputAction: _resetting
+                          ? TextInputAction.done
+                          : TextInputAction.next,
+                      onFieldSubmitted: _resetting ? (_) => _submit() : null,
                       enabled: !_loading,
                       keyboardType: TextInputType.emailAddress,
                       autocorrect: false,
                       textCapitalization: TextCapitalization.none,
                       autofillHints: const [AutofillHints.email],
-                      decoration: InputDecoration(labelText: context.tr('Email address')),
-                      validator: (value) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value?.trim() ?? '')
+                      decoration: InputDecoration(
+                        labelText: context.tr('Email address'),
+                      ),
+                      validator: (value) =>
+                          RegExp(
+                            r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                          ).hasMatch(value?.trim() ?? '')
                           ? null
                           : context.tr('Enter a valid email address.'),
                     ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _password,
-                      enabled: !_loading,
-                      obscureText: _obscurePassword,
-                      autofillHints: [_registering ? AutofillHints.newPassword : AutofillHints.password],
-                      decoration: InputDecoration(
-                        labelText: context.tr('Password'),
-                        helperText: _registering ? context.tr('At least 8 characters') : null,
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                          icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                        ),
-                      ),
-                      validator: (value) => (value?.length ?? 0) < 8
-                          ? context.tr('Password must be at least 8 characters.')
-                          : null,
-                      onFieldSubmitted: (_) => _submit(),
-                    ),
-                    if (_registering) ...[
+                    if (!_resetting) ...[
                       const SizedBox(height: 14),
                       TextFormField(
-                        controller: _confirmPassword,
+                        controller: _password,
                         enabled: !_loading,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        textInputAction: _registering
+                            ? TextInputAction.next
+                            : TextInputAction.done,
                         obscureText: _obscurePassword,
-                        autofillHints: const [AutofillHints.newPassword],
+                        autofillHints: [
+                          _registering
+                              ? AutofillHints.newPassword
+                              : AutofillHints.password,
+                        ],
                         decoration: InputDecoration(
-                          labelText: context.tr('Confirm password'),
+                          labelText: context.tr('Password'),
+                          helperText: _registering
+                              ? context.tr('At least 8 characters')
+                              : null,
+                          suffixIcon: IconButton(
+                            tooltip: context.tr(
+                              _obscurePassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                            ),
+                            onPressed: _loading
+                                ? null
+                                : () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                          ),
                         ),
-                        validator: (value) => value == _password.text
-                            ? null
-                            : context.tr('Passwords do not match.'),
-                        onFieldSubmitted: (_) => _submit(),
+                        validator: (value) => _registering
+                            ? ((value?.length ?? 0) < 8
+                                  ? context.tr(
+                                      'Password must be at least 8 characters.',
+                                    )
+                                  : null)
+                            : ((value?.isEmpty ?? true)
+                                  ? context.tr('Enter your password.')
+                                  : null),
+                        onFieldSubmitted: (_) {
+                          if (!_registering) _submit();
+                        },
                       ),
+                      if (_registering && !_resetting) ...[
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _confirmPassword,
+                          enabled: !_loading,
+                          obscureText: _obscurePassword,
+                          autofillHints: const [AutofillHints.newPassword],
+                          decoration: InputDecoration(
+                            labelText: context.tr('Confirm password'),
+                          ),
+                          validator: (value) => value == _password.text
+                              ? null
+                              : context.tr('Passwords do not match.'),
+                          onFieldSubmitted: (_) => _submit(),
+                        ),
+                      ],
                     ],
-                    if (!_registering)
+                    if (!_registering && !_resetting)
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: _loading ? null : _forgotPassword,
+                          onPressed: _loading
+                              ? null
+                              : () => setState(() {
+                                  _resetting = true;
+                                  _error = null;
+                                }),
                           child: Text(context.tr('Forgot password?')),
                         ),
                       )
                     else
                       const SizedBox(height: 20),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    if (_resetSent)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          context.tr(
+                            'If an account exists, a password reset email has been sent.',
+                          ),
+                        ),
+                      ),
                     FilledButton(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                      ),
                       onPressed: _loading ? null : _submit,
                       child: _loading
                           ? const SizedBox.square(
                               dimension: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Text(context.tr(_registering ? 'Create account' : 'Sign in')),
+                          : Text(
+                              context.tr(
+                                _resetting
+                                    ? 'Send reset link'
+                                    : _registering
+                                    ? 'Create account'
+                                    : 'Sign in',
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -174,13 +323,20 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
 
   Future<void> _submit() async {
     if (_loading || !_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      if (_registering) {
+      if (_resetting) {
+        await widget.authGateway.requestPasswordReset(_email.text.trim());
+        if (mounted) setState(() => _resetSent = true);
+      } else if (_registering) {
         await widget.authGateway.registerWithEmail(
           name: _name.text,
           userName: _userName.text,
-          email: _email.text,
+          email: _email.text.trim(),
           password: _password.text,
         );
         if (!mounted) return;
@@ -189,7 +345,11 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
           builder: (dialogContext) => AlertDialog(
             icon: const Icon(Icons.mark_email_read_outlined),
             title: Text(dialogContext.tr('Check your email')),
-            content: Text(dialogContext.tr('We sent you a verification link. Verify your email before signing in.')),
+            content: Text(
+              dialogContext.tr(
+                'We sent you a verification link. Verify your email before signing in.',
+              ),
+            ),
             actions: [
               FilledButton(
                 onPressed: () => Navigator.pop(dialogContext),
@@ -203,58 +363,14 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
         _confirmPassword.clear();
         setState(() => _registering = false);
       } else {
-        await widget.authGateway.signInWithEmail(_email.text, _password.text);
+        await widget.authGateway.signInWithEmail(
+          _email.text.trim(),
+          _password.text,
+        );
         widget.onSignedIn();
       }
-    } on AuthException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.trError(error))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _forgotPassword() async {
-    final controller = TextEditingController(text: _email.text);
-    final email = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(dialogContext.tr('Reset password')),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.emailAddress,
-          autofocus: true,
-          decoration: InputDecoration(labelText: dialogContext.tr('Email address')),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(dialogContext.tr('Cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
-            child: Text(dialogContext.tr('Send reset link')),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (email == null || email.isEmpty || !mounted) return;
-    setState(() => _loading = true);
-    try {
-      await widget.authGateway.requestPasswordReset(email);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('If an account exists, a password reset email has been sent.'))),
-        );
-      }
-    } on AuthException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.trError(error))));
-      }
+    } catch (error) {
+      if (mounted) setState(() => _error = context.trError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

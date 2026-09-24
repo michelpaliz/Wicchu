@@ -47,7 +47,13 @@ class _CommentsSheet extends StatefulWidget {
 
 class _CommentsSheetState extends State<_CommentsSheet> {
   final _controller = TextEditingController();
+  final _inputFocus = FocusNode();
+  late final Future<WicchuProfile?> _viewer = widget.repository
+      .getProfile()
+      .then<WicchuProfile?>((value) => value)
+      .catchError((Object _) => null);
   final _savingReactions = <String>{};
+  final _expandedThreads = <String>{};
   late Future<List<Comment>> _comments;
   late int _count = widget.post.commentCount;
   bool _saving = false;
@@ -61,13 +67,14 @@ class _CommentsSheetState extends State<_CommentsSheet> {
 
   @override
   void dispose() {
+    _inputFocus.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   Future<List<Comment>> _loadComments() async {
     final comments = await widget.repository.listComments(widget.post.id);
-    _count = comments.length;
+    if (mounted) setState(() => _count = comments.length);
     widget.onCountChanged(_count);
     return comments;
   }
@@ -77,213 +84,333 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SizedBox(
-      height: MediaQuery.sizeOf(context).height * .78,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 2, 12, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Text(
-                        context.tr('Comments'),
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          '$_count',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: theme.dividerColor),
-          Expanded(
-            child: FutureBuilder<List<Comment>>(
-              future: _comments,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return _CommentsError(
-                    message: context.trError(snapshot.error!),
-                    onRetry: _retry,
-                  );
-                }
-                final comments = snapshot.data ?? const [];
-                if (comments.isEmpty) return const _EmptyComments();
-                final ids = comments.map((comment) => comment.id).toSet();
-                final roots = comments
-                    .where(
-                      (comment) =>
-                          comment.parentCommentId == null ||
-                          !ids.contains(comment.parentCommentId),
-                    )
-                    .toList(growable: false);
-                return ListView.separated(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                  itemCount: roots.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final root = roots[index];
-                    final replies = comments
-                        .where((comment) => comment.parentCommentId == root.id)
-                        .toList(growable: false);
-                    return Column(
-                      children: [
-                        _CommentItem(
-                          comment: root,
-                          canReply: true,
-                          savingReaction: _savingReactions.contains(root.id),
-                          onReaction: () => _toggleReaction(root),
-                          onReply: () => setState(() => _replyingTo = root),
-                        ),
-                        for (final reply in replies) ...[
-                          const SizedBox(height: 12),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 34),
-                            child: _CommentItem(
-                              comment: reply,
-                              canReply: true,
-                              savingReaction: _savingReactions.contains(
-                                reply.id,
-                              ),
-                              onReaction: () => _toggleReaction(reply),
-                              onReply: () => setState(() => _replyingTo = reply),
-                            ),
-                          ),
-                        ],
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          Divider(height: 1, color: theme.dividerColor),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                _replyingTo == null ? 12 : 6,
-                16,
-                12 + MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SizedBox(
+        height:
+            (MediaQuery.sizeOf(context).height -
+                MediaQuery.viewInsetsOf(context).bottom) *
+            .94,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 2, 12, 12),
+              child: Row(
                 children: [
-                  if (_replyingTo != null)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.only(left: 12),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer.withValues(
-                          alpha: .55,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Text(
+                          context.tr('Comments'),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.reply_rounded, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              context.tr('Replying to {name}', {
-                                'name': _replyingTo!.authorName,
-                              }),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelLarge,
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '$_count',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          IconButton(
-                            tooltip: MaterialLocalizations.of(
-                              context,
-                            ).closeButtonTooltip,
-                            onPressed: () => setState(() => _replyingTo = null),
-                            icon: const Icon(Icons.close, size: 18),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          enabled: !_saving,
-                          minLines: 1,
-                          maxLines: 4,
-                          maxLength: 5000,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: InputDecoration(
-                            hintText: context.tr(
-                              _replyingTo == null
-                                  ? 'Write a comment'
-                                  : 'Write a reply',
-                            ),
-                            counterText: '',
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      IconButton.filled(
-                        tooltip: context.tr('Send comment'),
-                        onPressed: _saving ? null : _submit,
-                        icon: _saving
-                            ? const SizedBox.square(
-                                dimension: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.send_rounded),
-                      ),
-                    ],
+                  ),
+                  IconButton(
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).closeButtonTooltip,
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            Divider(
+              height: 1,
+              color: theme.colorScheme.onSurface.withValues(alpha: .08),
+            ),
+            Expanded(
+              child: FutureBuilder<List<Comment>>(
+                future: _comments,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return _CommentsError(
+                      message: context.trError(snapshot.error!),
+                      onRetry: _retry,
+                    );
+                  }
+                  final comments = snapshot.data ?? const [];
+                  if (comments.isEmpty) return const _EmptyComments();
+                  final ids = comments.map((comment) => comment.id).toSet();
+                  String? parentOf(Comment comment) {
+                    final target = comment.replyToCommentId;
+                    if (target != null &&
+                        target != comment.id &&
+                        ids.contains(target)) {
+                      return target;
+                    }
+                    return comment.parentCommentId;
+                  }
+
+                  final roots = comments
+                      .where(
+                        (comment) =>
+                            parentOf(comment) == null ||
+                            !ids.contains(parentOf(comment)),
+                      )
+                      .toList(growable: false);
+                  return ListView.separated(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                    itemCount: roots.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final root = roots[index];
+                      final replies = <(Comment, int)>[];
+                      final visited = <String>{root.id};
+                      void collect(String parentId, int depth) {
+                        for (final comment in comments.where(
+                          (c) => parentOf(c) == parentId,
+                        )) {
+                          if (visited.add(comment.id)) {
+                            replies.add((comment, depth));
+                            collect(comment.id, depth + 1);
+                          }
+                        }
+                      }
+
+                      collect(root.id, 1);
+                      return Column(
+                        children: [
+                          _CommentItem(
+                            comment: root,
+                            canReply: true,
+                            savingReaction: _savingReactions.contains(root.id),
+                            onReaction: () => _toggleReaction(root),
+                            onReply: () => _startReply(root),
+                          ),
+                          if (replies.isNotEmpty)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 40),
+                                child: TextButton.icon(
+                                  key: ValueKey('replies-${root.id}'),
+                                  onPressed: () => setState(() {
+                                    if (!_expandedThreads.add(root.id)) {
+                                      _expandedThreads.remove(root.id);
+                                    }
+                                  }),
+                                  icon: Icon(
+                                    _expandedThreads.contains(root.id)
+                                        ? Icons.expand_less
+                                        : Icons.subdirectory_arrow_right,
+                                    size: 18,
+                                  ),
+                                  label: Text(
+                                    _expandedThreads.contains(root.id)
+                                        ? context.trCount(
+                                            replies.length,
+                                            singular: 'Hide {count} reply',
+                                            plural: 'Hide {count} replies',
+                                          )
+                                        : context.trCount(
+                                            replies.length,
+                                            singular: 'View {count} reply',
+                                            plural: 'View {count} replies',
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (_expandedThreads.contains(root.id))
+                            for (final (reply, depth) in replies) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                key: ValueKey('comment-thread-${reply.id}'),
+                                margin: EdgeInsets.only(
+                                  left: 16 + 24.0 * (depth.clamp(1, 3) - 1),
+                                ),
+                                padding: const EdgeInsets.only(
+                                  left: 18,
+                                  top: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: .14),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                child: _CommentItem(
+                                  comment: reply,
+                                  compact: true,
+                                  canReply: true,
+                                  savingReaction: _savingReactions.contains(
+                                    reply.id,
+                                  ),
+                                  onReaction: () => _toggleReaction(reply),
+                                  onReply: () => _startReply(reply),
+                                ),
+                              ),
+                            ],
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            Divider(
+              height: 1,
+              color: theme.colorScheme.onSurface.withValues(alpha: .08),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  _replyingTo == null ? 12 : 6,
+                  16,
+                  12,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_replyingTo != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.only(left: 12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer.withValues(
+                            alpha: .55,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.reply_rounded, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                context.tr('Replying to {name}', {
+                                  'name': _replyingTo!.authorName,
+                                }),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelLarge,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: MaterialLocalizations.of(
+                                context,
+                              ).closeButtonTooltip,
+                              onPressed: () =>
+                                  setState(() => _replyingTo = null),
+                              icon: const Icon(Icons.close, size: 18),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10, bottom: 6),
+                          child: FutureBuilder<WicchuProfile?>(
+                            future: _viewer,
+                            builder: (context, snapshot) => UserAvatar(
+                              name: snapshot.data?.name ?? context.tr('You'),
+                              imageUrl: snapshot.data?.avatarUrl,
+                              radius: 18,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _inputFocus,
+                            onChanged: (_) => setState(() {}),
+                            enabled: !_saving,
+                            minLines: 1,
+                            maxLines: 4,
+                            maxLength: 5000,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: InputDecoration(
+                              hintText: context.tr(
+                                _replyingTo == null
+                                    ? 'Write a comment'
+                                    : 'Write a reply',
+                              ),
+                              counterText: '',
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(22),
+                                borderSide: BorderSide(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: .12,
+                                  ),
+                                ),
+                              ),
+                              filled: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        IconButton.filled(
+                          tooltip: context.tr('Send comment'),
+                          onPressed: _saving || _controller.text.trim().isEmpty
+                              ? null
+                              : _submit,
+                          icon: _saving
+                              ? const SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.send_rounded),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  void _startReply(Comment comment) {
+    setState(() {
+      _replyingTo = comment;
+      _expandedThreads.add(comment.id);
+    });
+    _inputFocus.requestFocus();
   }
 
   Future<void> _toggleReaction(Comment comment) async {
@@ -343,9 +470,11 @@ class _CommentItem extends StatelessWidget {
     required this.savingReaction,
     required this.onReaction,
     this.canReply = false,
+    this.compact = false,
     this.onReply,
   });
 
+  final bool compact;
   final Comment comment;
   final bool savingReaction;
   final VoidCallback onReaction;
@@ -361,16 +490,16 @@ class _CommentItem extends StatelessWidget {
         UserAvatar(
           name: comment.authorName,
           imageUrl: comment.authorAvatarUrl,
-          radius: 18,
+          radius: compact ? 14 : 16,
           backgroundColor: theme.colorScheme.primaryContainer,
           foregroundColor: theme.colorScheme.onPrimaryContainer,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
           child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+            padding: const EdgeInsets.fromLTRB(4, 0, 0, 0),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
+              color: Colors.transparent,
               borderRadius: const BorderRadius.only(
                 topRight: Radius.circular(16),
                 bottomLeft: Radius.circular(16),
@@ -388,7 +517,7 @@ class _CommentItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -404,7 +533,9 @@ class _CommentItem extends StatelessWidget {
                 const SizedBox(height: 5),
                 if (comment.replyToName != null) ...[
                   Text(
-                    context.tr('Replying to {name}', {'name': comment.replyToName!}),
+                    context.tr('Replying to {name}', {
+                      'name': comment.replyToName!,
+                    }),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w700,
@@ -412,11 +543,20 @@ class _CommentItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                 ],
-                Text(comment.text, style: theme.textTheme.bodyMedium),
+                Text(
+                  comment.text,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontSize: 15,
+                    height: 1.35,
+                  ),
+                ),
                 Row(
                   children: [
                     TextButton.icon(
                       style: TextButton.styleFrom(
+                        foregroundColor: comment.reactedByMe
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
                         visualDensity: VisualDensity.compact,
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
@@ -436,6 +576,7 @@ class _CommentItem extends StatelessWidget {
                     if (canReply)
                       TextButton(
                         style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.onSurfaceVariant,
                           visualDensity: VisualDensity.compact,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),

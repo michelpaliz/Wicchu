@@ -1,6 +1,7 @@
 import 'package:wicchu/features/community/create_post_page.dart';
 import 'package:wicchu/widgets/feed_filter_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/data/authenticated_api_client.dart';
@@ -69,6 +70,48 @@ class CategoryApi extends AuthenticatedApiClient {
 }
 
 void main() {
+  testWidgets(
+    'Spanish category editor localizes names without renaming stored categories',
+    (tester) async {
+      final repository = DemoCommunityRepository();
+      final community = (await repository.listJoinedCommunities()).first;
+      final category = (await repository.listCategories(
+        community.id,
+      )).firstWhere((c) => c.name == 'News');
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('es'),
+          supportedLocales: const [Locale('en'), Locale('es')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: CategoryManagementPage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Noticias'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextFormField>(find.byType(TextFormField).first)
+            .controller!
+            .text,
+        'Noticias',
+      );
+      await tester.tap(find.byKey(const ValueKey('category-icon-📅')));
+      await tester.ensureVisible(find.text('Guardar cambios'));
+      await tester.tap(find.text('Guardar cambios'));
+      await tester.pumpAndSettle();
+      final updated = (await repository.listCategories(
+        community.id,
+      )).firstWhere((c) => c.id == category.id);
+      expect(updated.name, 'News');
+      expect(updated.icon, '📅');
+      expect(find.text('Noticias'), findsOneWidget);
+    },
+  );
+
   test(
     'category requests send icons and omit an unchanged optional icon',
     () async {
@@ -229,7 +272,13 @@ void main() {
           .selectedIndex,
       0,
     );
-    expect(tester.widget<FeedFilterBar>(find.byType(FeedFilterBar).first).labels.length, 3);
+    expect(
+      tester
+          .widget<FeedFilterBar>(find.byType(FeedFilterBar).first)
+          .labels
+          .length,
+      3,
+    );
     await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Media'));

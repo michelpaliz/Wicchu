@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wicchu/features/auth/email_auth_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,6 +105,26 @@ class _NoCommunitiesRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets('email recovery validates input and confirms reset without password fields', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: EmailAuthPage(authGateway: _FakeAuthGateway(signedIn: false), onSignedIn: () {})));
+    await tester.tap(find.byTooltip('Show password'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Hide password'), findsOneWidget);
+    await tester.ensureVisible(find.text('Forgot password?'));
+    await tester.tap(find.text('Forgot password?'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextFormField), findsOneWidget);
+    await tester.tap(find.text('Send reset link'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a valid email address.'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField), 'neighbor@example.com');
+    await tester.ensureVisible(find.text('Send reset link'));
+    await tester.tap(find.text('Send reset link'));
+    await tester.pumpAndSettle();
+    expect(find.text('If an account exists, a password reset email has been sent.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('shows the community-first home navigation', (tester) async {
