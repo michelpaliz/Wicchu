@@ -198,6 +198,10 @@ const _spanish = <String, String>{
   'What should neighbors post here?': '¿Qué pueden publicar los vecinos aquí?',
   'Choose a category and add text.':
       'Elige una categoría y escribe el contenido.',
+  'Tag members': 'Etiquetar miembros',
+  'Tagged members receive a notification when the post is published.':
+      'Los miembros etiquetados recibirán una notificación cuando se publique.',
+  'Tagged members: {count}': 'Miembros etiquetados: {count}',
   'Post submitted for approval': 'Publicación enviada para aprobación',
   'A community moderator will review it before publication.':
       'Un moderador de la comunidad la revisará antes de publicarla.',
@@ -348,7 +352,6 @@ const _spanish = <String, String>{
   'Numbered list': 'Lista numerada',
   'List item': 'Elemento de la lista',
   'Link': 'Enlace',
-  'Add link': 'Añadir enlace',
   'Web address': 'Dirección web',
   'Add': 'Añadir',
   'link text': 'texto del enlace',
@@ -499,6 +502,14 @@ const _spanish = <String, String>{
   'Snow showers': 'Chubascos de nieve',
   'Thunderstorm': 'Tormenta eléctrica',
   'Current conditions': 'Condiciones actuales',
+  'Official links': 'Enlaces oficiales',
+  'Add link': 'Añadir enlace',
+  'Add a website, social network, contact page, or another official link.':
+      'Añade un sitio web, red social, página de contacto u otro enlace oficial.',
+  'Add official link': 'Añadir enlace oficial',
+  'Edit official link': 'Editar enlace oficial',
+  'Label': 'Etiqueta',
+  'Website, Facebook, WhatsApp…': 'Sitio web, Facebook, WhatsApp…',
   'Anonymous member insights': 'Opiniones anónimas de los miembros',
   'Locally relevant': 'Relevante para la zona',
   'Safe to participate': 'Segura para participar',

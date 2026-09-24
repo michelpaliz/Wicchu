@@ -274,6 +274,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           showWeather: _community.showWeather,
           distanceKm: _community.distanceKm,
           rules: _community.rules,
+          links: _community.links,
         );
         _reload();
       });
@@ -706,6 +707,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                 ),
                               ),
                             ),
+                            onMentionTap: (userId) => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MemberProfilePage(
+                                  userId: userId,
+                                  repository: widget.repository,
+                                ),
+                              ),
+                            ),
                             time: formatPostTime(context, post.createdAt),
                             edited: post.editedAt != null,
                             onEdit: post.ownedByMe
@@ -1081,12 +1091,27 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       _Section(
         title: context.tr('Useful links'),
         icon: Icons.link,
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.map_outlined),
-          title: Text(context.tr('Directions')),
-          trailing: const Icon(Icons.open_in_new, size: 20),
-          onTap: _openDirections,
+        child: Column(
+          children: [
+            for (final link in _community.links)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.link),
+                title: Text(link.label),
+                trailing: const Icon(Icons.open_in_new, size: 20),
+                onTap: () => launchUrl(
+                  Uri.parse(link.url),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.map_outlined),
+              title: Text(context.tr('Directions')),
+              trailing: const Icon(Icons.open_in_new, size: 20),
+              onTap: _openDirections,
+            ),
+          ],
         ),
       ),
     ],

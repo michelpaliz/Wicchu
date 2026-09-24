@@ -40,12 +40,14 @@ class CreatePostInput {
     required this.text,
     this.media = const [],
     this.pollOptions = const [],
+    this.mentionedUserIds = const [],
   });
 
   final String categoryId;
   final String text;
   final List<PostMedia> media;
   final List<String> pollOptions;
+  final List<String> mentionedUserIds;
 }
 
 abstract interface class CommunityRepository {
@@ -75,6 +77,7 @@ abstract interface class CommunityRepository {
   Future<void> registerDeviceToken(String token, {required String platform});
   Future<void> unregisterDeviceToken(String token);
   Future<List<Community>> listCommunities({String? query});
+  Future<Community> getCommunity(String communityId);
   Future<List<Community>> listJoinedCommunities();
   Future<List<Community>> listManagedCommunities();
   Future<List<Community>> listNearbyCommunities({
@@ -157,6 +160,7 @@ abstract interface class CommunityRepository {
     required CommunityVisibility visibility,
     required bool approvalRequired,
     required bool showWeather,
+    required List<CommunityLink> links,
     String? imageUrl,
     String? imageBlobName,
   });

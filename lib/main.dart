@@ -13,6 +13,7 @@ import 'features/auth/login_page.dart';
 import 'features/main/main_shell.dart';
 import 'features/community/shared_post_page.dart';
 import 'features/community/community_invitations_page.dart';
+import 'features/community/community_profile_page.dart';
 import 'features/promotions/promotions_page.dart';
 import 'localization/app_language.dart';
 import 'theme/theme_menu.dart';
@@ -48,6 +49,7 @@ class _WicchuAppState extends State<WicchuApp> {
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<Uri>? _linkSubscription;
   String? _pendingPostId;
+  String? _pendingCommunityId;
   bool _pendingInvitations = false;
   String? _pendingInvitationToken;
   bool _pendingPromotions = false;
@@ -167,8 +169,14 @@ class _WicchuAppState extends State<WicchuApp> {
       return;
     }
     final postId = _postIdFromUri(uri);
-    if (postId == null || !mounted) return;
-    setState(() => _pendingPostId = postId);
+    if (postId != null && mounted) {
+      setState(() => _pendingPostId = postId);
+      return;
+    }
+    final communityId = _communityIdFromUri(uri);
+    if (communityId != null && mounted) {
+      setState(() => _pendingCommunityId = communityId);
+    }
   }
 
   String? _invitationTokenFromUri(Uri uri) {
@@ -207,7 +215,46 @@ class _WicchuAppState extends State<WicchuApp> {
     return null;
   }
 
+  String? _communityIdFromUri(Uri uri) {
+    if (uri.scheme == 'wicchu' &&
+        uri.host == 'communities' &&
+        uri.pathSegments.isNotEmpty) {
+      return uri.pathSegments.first;
+    }
+    final segments = uri.pathSegments;
+    if ((uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host == 'hexora.dev' &&
+        segments.length >= 3 &&
+        segments[0] == 'wicchu' &&
+        segments[1] == 'communities') {
+      return segments[2];
+    }
+    return null;
+  }
+
   void _openPendingPost() {
+    final communityId = _pendingCommunityId;
+    if (communityId != null) {
+      _pendingCommunityId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          final community = await widget.repository.getCommunity(communityId);
+          _navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => CommunityProfilePage(
+                community: community,
+                repository: widget.repository,
+              ),
+            ),
+          );
+        } catch (error) {
+          _scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(error.toString())),
+          );
+        }
+      });
+      return;
+    }
     final invitationToken = _pendingInvitationToken;
     if (invitationToken != null) {
       _pendingInvitationToken = null;

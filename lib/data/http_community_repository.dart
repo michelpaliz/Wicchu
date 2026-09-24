@@ -204,6 +204,12 @@ class HttpCommunityRepository implements CommunityRepository {
   );
 
   @override
+  Future<Community> getCommunity(String communityId) async {
+    final body = await _api.get('/api/community/v1/communities/$communityId');
+    return _communityFromJson(_object(body, 'community'));
+  }
+
+  @override
   Future<List<Community>> listJoinedCommunities() =>
       _listCommunities('?joined=true');
 
@@ -536,6 +542,7 @@ class HttpCommunityRepository implements CommunityRepository {
     required CommunityVisibility visibility,
     required bool approvalRequired,
     required bool showWeather,
+    required List<CommunityLink> links,
     String? imageUrl,
     String? imageBlobName,
   }) async {
@@ -547,6 +554,7 @@ class HttpCommunityRepository implements CommunityRepository {
         'visibility': visibility.name,
         'approvalRequired': approvalRequired,
         'showWeather': showWeather,
+        'links': links.map((link) => {'label': link.label, 'url': link.url}).toList(),
         'imageBlobName': ?imageBlobName,
       },
     );
@@ -669,6 +677,7 @@ class HttpCommunityRepository implements CommunityRepository {
             )
             .toList(),
         if (input.pollOptions.isNotEmpty) 'pollOptions': input.pollOptions,
+        'mentionedUserIds': input.mentionedUserIds,
       },
     );
     return _postFromJson(_object(body, 'post'));
@@ -691,6 +700,7 @@ class HttpCommunityRepository implements CommunityRepository {
             )
             .toList(),
         'pollOptions': input.pollOptions,
+        'mentionedUserIds': input.mentionedUserIds,
       },
     );
     return _postFromJson(_object(body, 'post'));
@@ -1054,6 +1064,14 @@ class HttpCommunityRepository implements CommunityRepository {
           )
           .where((rule) => rule.title.isNotEmpty)
           .toList(growable: false),
+      links: (json['links'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map((link) => CommunityLink(
+                label: link['label']?.toString() ?? '',
+                url: link['url']?.toString() ?? '',
+              ))
+          .where((link) => link.label.isNotEmpty && link.url.isNotEmpty)
+          .toList(growable: false),
     );
   }
 
@@ -1115,6 +1133,9 @@ class HttpCommunityRepository implements CommunityRepository {
       poll: json['poll'] is Map<String, dynamic>
           ? _pollFromJson(json['poll'] as Map<String, dynamic>)
           : null,
+      mentionedUserIds: (json['mentionedUserIds'] as List? ?? const [])
+          .map((value) => value.toString())
+          .toList(growable: false),
     );
   }
 
@@ -1227,6 +1248,7 @@ class HttpCommunityRepository implements CommunityRepository {
     'post_comment' || 'postComment' => CommunityNotificationType.postComment,
     'comment_reaction' => CommunityNotificationType.commentReaction,
     'comment_reply' => CommunityNotificationType.commentReply,
+    'post_mention' => CommunityNotificationType.postMention,
     'post_approved' => CommunityNotificationType.postApproved,
     'post_rejected' => CommunityNotificationType.postRejected,
     'post_removed' => CommunityNotificationType.postRemoved,

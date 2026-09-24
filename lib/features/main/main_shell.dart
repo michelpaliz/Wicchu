@@ -1085,6 +1085,10 @@ class _HomeTabState extends State<_HomeTab> {
                               ),
                             ),
                           ),
+                          onMentionTap: (userId) => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => MemberProfilePage(userId: userId, repository: widget.repository)),
+                          ),
                           time: formatPostTime(context, post.createdAt),
                           edited: post.editedAt != null,
                           onEdit: post.ownedByMe
@@ -1633,6 +1637,7 @@ class _ActivityTabState extends State<_ActivityTab> {
               final notification = notifications[index];
               final icon = switch (notification.type) {
                 CommunityNotificationType.postReaction => Icons.favorite_border,
+                CommunityNotificationType.postMention => Icons.alternate_email,
                 CommunityNotificationType.commentReaction =>
                   Icons.favorite_border,
                 CommunityNotificationType.postComment ||
@@ -1739,6 +1744,7 @@ class _ActivityTabState extends State<_ActivityTab> {
     }
     final postCanOpen = {
       CommunityNotificationType.postReaction,
+      CommunityNotificationType.postMention,
       CommunityNotificationType.commentReaction,
       CommunityNotificationType.postComment,
       CommunityNotificationType.commentReply,

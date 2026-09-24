@@ -566,6 +566,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   late CommunityVisibility _visibility = widget.community.visibility;
   late bool _approvalRequired = widget.community.approvalRequired;
   late bool _showWeather = widget.community.showWeather;
+  late final List<CommunityLink> _links = [...widget.community.links];
   late String? _imageUrl = widget.community.imageUrl;
   String? _imageBlobName;
   bool _saving = false;
@@ -673,6 +674,31 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           value: _showWeather,
           onChanged: (value) => setState(() => _showWeather = value),
         ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: Text(context.tr('Official links'), style: Theme.of(context).textTheme.titleMedium)),
+            IconButton(
+              tooltip: context.tr('Add link'),
+              onPressed: _links.length >= 10 ? null : () => _editLink(),
+              icon: const Icon(Icons.add_link),
+            ),
+          ],
+        ),
+        Text(context.tr('Add a website, social network, contact page, or another official link.')),
+        for (final (index, link) in _links.indexed)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.link),
+            title: Text(link.label),
+            subtitle: Text(link.url, maxLines: 1, overflow: TextOverflow.ellipsis),
+            onTap: () => _editLink(index: index),
+            trailing: IconButton(
+              tooltip: context.tr('Remove'),
+              onPressed: () => setState(() => _links.removeAt(index)),
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ),
         const SizedBox(height: 24),
         ListTile(
           contentPadding: EdgeInsets.zero,
@@ -717,6 +743,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         visibility: _visibility,
         approvalRequired: _approvalRequired,
         showWeather: _showWeather,
+        links: List.unmodifiable(_links),
         imageUrl: _imageUrl,
         imageBlobName: _imageBlobName,
       );
@@ -730,6 +757,53 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _editLink({int? index}) async {
+    final label = TextEditingController(text: index == null ? '' : _links[index].label);
+    final url = TextEditingController(text: index == null ? '' : _links[index].url);
+    final result = await showDialog<CommunityLink>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.tr(index == null ? 'Add official link' : 'Edit official link')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: label,
+              maxLength: 60,
+              decoration: InputDecoration(labelText: context.tr('Label'), hintText: context.tr('Website, Facebook, WhatsApp…')),
+            ),
+            TextField(
+              controller: url,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(labelText: 'HTTPS URL', hintText: 'https://'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(context.tr('Cancel'))),
+          FilledButton(
+            onPressed: () {
+              final parsed = Uri.tryParse(url.text.trim());
+              if (label.text.trim().isEmpty || parsed?.scheme != 'https' || parsed?.host.isEmpty != false) return;
+              Navigator.pop(dialogContext, CommunityLink(label: label.text.trim(), url: parsed.toString()));
+            },
+            child: Text(context.tr('Save')),
+          ),
+        ],
+      ),
+    );
+    label.dispose();
+    url.dispose();
+    if (result == null || !mounted) return;
+    setState(() {
+      if (index == null) {
+        _links.add(result);
+      } else {
+        _links[index] = result;
+      }
+    });
   }
 
   Future<void> _pickImage() async {

@@ -4,10 +4,11 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PostMarkdown extends StatefulWidget {
-  const PostMarkdown({super.key, required this.data, this.collapsible = false});
+  const PostMarkdown({super.key, required this.data, this.collapsible = false, this.onUserTap});
 
   final String data;
   final bool collapsible;
+  final ValueChanged<String>? onUserTap;
 
   @override
   State<PostMarkdown> createState() => _PostMarkdownState();
@@ -178,7 +179,12 @@ class _PostMarkdownState extends State<PostMarkdown> {
       imageBuilder: (uri, title, alt) => Text(alt ?? '[image]'),
       onTapLink: (_, href, _) async {
         final uri = Uri.tryParse(href ?? '');
-        if (uri == null || !{'http', 'https'}.contains(uri.scheme)) return;
+        if (uri == null) return;
+        if (uri.scheme == 'wicchu' && uri.host == 'user' && uri.pathSegments.isNotEmpty) {
+          widget.onUserTap?.call(uri.pathSegments.first);
+          return;
+        }
+        if (!{'http', 'https'}.contains(uri.scheme)) return;
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       },
     );

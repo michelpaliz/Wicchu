@@ -15,6 +15,7 @@ enum CommunityNotificationType {
   commentReaction,
   postComment,
   commentReply,
+  postMention,
   postApproved,
   postRejected,
   postRemoved,
@@ -180,6 +181,7 @@ class Community {
     this.showWeather = false,
     this.distanceKm,
     this.rules = const [],
+    this.links = const [],
   });
 
   final String id;
@@ -196,8 +198,15 @@ class Community {
   final bool showWeather;
   final double? distanceKm;
   final List<CommunityRule> rules;
+  final List<CommunityLink> links;
 
   bool get isJoined => myRole != null;
+}
+
+class CommunityLink {
+  const CommunityLink({required this.label, required this.url});
+  final String label;
+  final String url;
 }
 
 class CommunityWeather {
@@ -426,6 +435,7 @@ class CommunityPost {
     this.editedAt,
     this.promotion,
     this.poll,
+    this.mentionedUserIds = const [],
   });
 
   final String id;
@@ -446,6 +456,7 @@ class CommunityPost {
   final DateTime? editedAt;
   final PostPromotion? promotion;
   final PostPoll? poll;
+  final List<String> mentionedUserIds;
 }
 
 enum PromotionStatus { pending, active, rejected, completed, cancelled }
