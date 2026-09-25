@@ -38,6 +38,14 @@
           }
         },
         {
+          "client_id": "414702659593-rvkk9uc94oku2ge97i9cj575g6g5c7t4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wicchu.wicchu",
+            "certificate_hash": "698282f1e6a926cbed64ffae4583488edfb0843d"
+          }
+        },
+        {
           "client_id": "414702659593-94b8of4j0mgj16pr0r13a6a1dpm9mvpu.apps.googleusercontent.com",
           "client_type": 3
         }
