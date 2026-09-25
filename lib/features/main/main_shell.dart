@@ -14,6 +14,7 @@ import '../../services/push_notification_service.dart';
 import '../../theme/theme_menu.dart';
 import '../../widgets/wicchu_logo.dart';
 import '../admin/create_community_page.dart';
+import '../admin/managed_communities_page.dart';
 import '../community/community_page.dart';
 import '../community/community_profile_page.dart';
 import '../community/community_avatar.dart';
@@ -2019,152 +2020,328 @@ class _ActivityTabState extends State<_ActivityTab> {
     } catch (_) {}
   }
 
+  bool _unreadOnly = false;
+  bool _markingAll = false;
+
+  String _dateGroup(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final local = date.toLocal();
+    if (!local.isBefore(today)) return 'Today';
+    if (!local.isBefore(DateTime(now.year, now.month, now.day - 1))) {
+      return 'Yesterday';
+    }
+    if (!local.isBefore(today.subtract(Duration(days: today.weekday - 1)))) {
+      return 'This week';
+    }
+    return 'Earlier';
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(context.tr('Notifications')),
-      actions: [
-        FutureBuilder<NotificationFeed>(
-          future: _feed,
-          builder: (context, snapshot) => TextButton(
-            onPressed: (snapshot.data?.unreadCount ?? 0) > 0
-                ? _markAllRead
-                : null,
-            child: Text(context.tr('Mark all read')),
+    appBar: AppBar(title: Text(context.tr('Notifications'))),
+    body: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ChoiceChip(
+                side: BorderSide.none,
+                shape: const StadiumBorder(),
+                selectedColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.12),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.04),
+                labelStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                label: Text(context.tr('All notifications')),
+                selected: !_unreadOnly,
+                showCheckmark: false,
+                onSelected: (_) => setState(() => _unreadOnly = false),
+              ),
+              ChoiceChip(
+                side: BorderSide.none,
+                shape: const StadiumBorder(),
+                selectedColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.12),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.04),
+                labelStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                label: Text(context.tr('Unread')),
+                selected: _unreadOnly,
+                showCheckmark: false,
+                onSelected: (_) => setState(() => _unreadOnly = true),
+              ),
+              FutureBuilder<NotificationFeed>(
+                future: _feed,
+                builder: (context, snapshot) => TextButton(
+                  onPressed:
+                      !_markingAll &&
+                          snapshot.connectionState == ConnectionState.done &&
+                          !snapshot.hasError &&
+                          (snapshot.data?.unreadCount ?? 0) > 0
+                      ? _markAllRead
+                      : null,
+                  child: _markingAll
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(context.tr('Mark all read')),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<NotificationFeed>(
+            future: _feed,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return _LoadError(
+                  error: snapshot.error!,
+                  onRetry: () => setState(_reload),
+                );
+              }
+              final notifications =
+                  (snapshot.data?.items ?? const <CommunityNotification>[])
+                      .where((item) => !_unreadOnly || !item.isRead)
+                      .toList()
+                    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+              if (notifications.isEmpty) {
+                return LayoutBuilder(
+                  builder: (context, constraints) => RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(28),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ExcludeSemantics(
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Container(
+                                      width: 136,
+                                      height: 136,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary
+                                            .withValues(alpha: 0.08),
+                                      ),
+                                      child: Icon(
+                                        Icons.notifications_none_rounded,
+                                        size: 76,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 6,
+                                      child: CircleAvatar(
+                                        radius: 24,
+                                        backgroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                        child: Icon(
+                                          Icons.check_circle,
+                                          size: 42,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                context.tr('You’re all caught up'),
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.headlineSmall
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                context.tr('You have no new notifications.'),
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                context.tr(
+                                  'We’ll let you know when there is relevant activity.',
+                                ),
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyLarge
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: notifications.length,
+                  itemBuilder: (context, index) {
+                    final notification = notifications[index];
+                    final group = _dateGroup(notification.createdAt);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (index == 0 ||
+                            group !=
+                                _dateGroup(notifications[index - 1].createdAt))
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                            child: Text(
+                              context.tr(group),
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        _notificationRow(notification),
+                      ],
+                    );
+                  },
+                ),
+              );
+            },
           ),
         ),
       ],
     ),
-    body: FutureBuilder<NotificationFeed>(
-      future: _feed,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return _LoadError(
-            error: snapshot.error!,
-            onRetry: () => setState(_reload),
-          );
-        }
-        final notifications = snapshot.data?.items ?? const [];
-        if (notifications.isEmpty) {
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(child: Text(context.tr('No activity yet'))),
-                ),
-              ],
-            ),
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            itemCount: notifications.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final notification = notifications[index];
-              final icon = switch (notification.type) {
-                CommunityNotificationType.postReaction => Icons.favorite_border,
-                CommunityNotificationType.postMention => Icons.alternate_email,
-                CommunityNotificationType.commentReaction =>
-                  Icons.favorite_border,
-                CommunityNotificationType.postComment ||
-                CommunityNotificationType.commentReply ||
-                CommunityNotificationType.commentApproved ||
-                CommunityNotificationType.commentRejected ||
-                CommunityNotificationType.commentRemoved =>
-                  Icons.chat_bubble_outline,
-                CommunityNotificationType.membershipRequest =>
-                  Icons.person_add_alt_1_outlined,
-                CommunityNotificationType.communityInvitation =>
-                  Icons.mail_outline,
-                CommunityNotificationType.communityRoleChanged =>
-                  Icons.admin_panel_settings_outlined,
-                CommunityNotificationType.postPending ||
-                CommunityNotificationType.commentPending =>
-                  Icons.pending_actions_outlined,
-                CommunityNotificationType.reportCreated => Icons.flag_outlined,
-                CommunityNotificationType.postApproved ||
-                CommunityNotificationType.postRestored ||
-                CommunityNotificationType.membershipApproved ||
-                CommunityNotificationType.memberUnbanned ||
-                CommunityNotificationType.promotionApproved =>
-                  Icons.check_circle_outline,
-                CommunityNotificationType.postRejected ||
-                CommunityNotificationType.postRemoved ||
-                CommunityNotificationType.membershipRejected ||
-                CommunityNotificationType.memberRemoved ||
-                CommunityNotificationType.memberBanned ||
-                CommunityNotificationType.promotionRejected =>
-                  Icons.error_outline,
-              };
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                tileColor: notification.isRead
-                    ? null
-                    : Theme.of(
-                        context,
-                      ).colorScheme.primaryContainer.withValues(alpha: .35),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer,
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                  backgroundImage: notification.actorAvatarUrl == null
-                      ? null
-                      : NetworkImage(notification.actorAvatarUrl!),
-                  child: notification.actorAvatarUrl == null
-                      ? Icon(icon)
-                      : null,
-                ),
-                title: Text(
-                  '${notification.actorName} ${context.trNotification(notification.message)}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontSize: 15,
-                    height: 1.35,
-                    fontWeight: notification.isRead
-                        ? FontWeight.w400
-                        : FontWeight.w600,
-                  ),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 5),
-                  child: Text(
-                    formatPostTime(context, notification.createdAt),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                trailing: notification.isRead
-                    ? null
-                    : Icon(
-                        Icons.circle,
-                        size: 8,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                onTap: () => _openNotification(notification),
-              );
-            },
-          ),
-        );
-      },
-    ),
   );
+
+  Widget _notificationRow(CommunityNotification notification) {
+    final icon = switch (notification.type) {
+      CommunityNotificationType.postReaction => Icons.favorite_border,
+      CommunityNotificationType.postMention => Icons.alternate_email,
+      CommunityNotificationType.commentReaction => Icons.favorite_border,
+      CommunityNotificationType.postComment ||
+      CommunityNotificationType.commentReply ||
+      CommunityNotificationType.commentApproved ||
+      CommunityNotificationType.commentRejected ||
+      CommunityNotificationType.commentRemoved => Icons.chat_bubble_outline,
+      CommunityNotificationType.membershipRequest =>
+        Icons.person_add_alt_1_outlined,
+      CommunityNotificationType.communityInvitation => Icons.mail_outline,
+      CommunityNotificationType.communityRoleChanged =>
+        Icons.admin_panel_settings_outlined,
+      CommunityNotificationType.postPending ||
+      CommunityNotificationType.commentPending =>
+        Icons.pending_actions_outlined,
+      CommunityNotificationType.reportCreated => Icons.flag_outlined,
+      CommunityNotificationType.postApproved ||
+      CommunityNotificationType.postRestored ||
+      CommunityNotificationType.membershipApproved ||
+      CommunityNotificationType.memberUnbanned ||
+      CommunityNotificationType.promotionApproved => Icons.check_circle_outline,
+      CommunityNotificationType.postRejected ||
+      CommunityNotificationType.postRemoved ||
+      CommunityNotificationType.membershipRejected ||
+      CommunityNotificationType.memberRemoved ||
+      CommunityNotificationType.memberBanned ||
+      CommunityNotificationType.promotionRejected => Icons.error_outline,
+    };
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: notification.isRead
+          ? colors.surface
+          : colors.primary.withValues(alpha: 0.07),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
+        leading: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            UserAvatar(
+              name: notification.actorName,
+              imageUrl: notification.actorAvatarUrl,
+              radius: 24,
+            ),
+            Positioned(
+              right: -4,
+              bottom: -4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colors.surface, width: 2),
+                ),
+                child: Icon(icon, size: 14, color: colors.primary),
+              ),
+            ),
+          ],
+        ),
+        title: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: '${notification.actorName} ',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              TextSpan(text: context.trNotification(notification.message)),
+            ],
+          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontSize: 15, height: 1.4),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            formatPostTime(context, notification.createdAt),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        ),
+        trailing: notification.isRead
+            ? null
+            : Icon(Icons.circle, size: 8, color: colors.primary),
+        onTap: () => _openNotification(notification),
+      ),
+    );
+  }
 
   Future<void> _markRead(String id) async {
     try {
@@ -2237,6 +2414,8 @@ class _ActivityTabState extends State<_ActivityTab> {
   }
 
   Future<void> _markAllRead() async {
+    if (_markingAll) return;
+    setState(() => _markingAll = true);
     try {
       await widget.repository.markAllNotificationsRead();
       if (mounted) setState(_reload);
@@ -2246,6 +2425,8 @@ class _ActivityTabState extends State<_ActivityTab> {
           context,
         ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
+    } finally {
+      if (mounted) setState(() => _markingAll = false);
     }
   }
 }
@@ -2301,10 +2482,10 @@ class _ProfileTabState extends State<_ProfileTab> {
   }
 
   Widget _accountSection(String title) => Padding(
-    padding: const EdgeInsets.only(top: 16, bottom: 4),
+    padding: const EdgeInsets.only(top: 16, bottom: 8),
     child: Text(
       context.tr(title),
-      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
         color: Theme.of(context).colorScheme.onSurfaceVariant,
         fontWeight: FontWeight.w700,
       ),
@@ -2313,166 +2494,277 @@ class _ProfileTabState extends State<_ProfileTab> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('You'))),
-    body: RefreshIndicator(
-      onRefresh: _refreshProfile,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(20),
-        children: [
-          FutureBuilder<WicchuProfile>(
-            future: _profile,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return _LoadError(
-                  error: snapshot.error!,
-                  onRetry: () => setState(() {
-                    _profile = widget.repository.getProfile();
-                  }),
-                );
-              }
-              final profile = snapshot.data!;
-              return InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () => _openMyProfile(profile.id),
-                child: Column(
+    backgroundColor: Color.alphaBlend(
+      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.025),
+      Theme.of(context).colorScheme.surface,
+    ),
+    appBar: AppBar(
+      title: Text(context.tr('You')),
+      actions: [
+        IconButton(
+          tooltip: context.tr('Settings'),
+          onPressed: _openSettings,
+          icon: const Icon(Icons.settings_outlined),
+        ),
+      ],
+    ),
+    body: SafeArea(
+      top: false,
+      child: RefreshIndicator(
+        onRefresh: _refreshProfile,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          children: [
+            FutureBuilder<WicchuProfile>(
+              future: _profile,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return _LoadError(
+                    error: snapshot.error!,
+                    onRetry: () => setState(() {
+                      _profile = widget.repository.getProfile();
+                    }),
+                  );
+                }
+                final profile = snapshot.data!;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 42,
-                      backgroundImage: profile.avatarUrl == null
-                          ? null
-                          : NetworkImage(profile.avatarUrl!),
-                      child: profile.avatarUrl == null
-                          ? const Icon(Icons.person, size: 40)
-                          : null,
+                    Semantics(
+                      button: true,
+                      label: context.tr('View profile'),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => _openMyProfile(profile.id),
+                        child: UserAvatar(
+                          name: profile.name,
+                          imageUrl: profile.avatarUrl,
+                          radius: 36,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      profile.name,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    Text('@${profile.userName}'),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${context.trCount(profile.communityCount, singular: '{count} community', plural: '{count} communities')} · '
-                      '${context.trCount(profile.postCount, singular: '{count} post', plural: '{count} posts')}',
-                    ),
-                    TextButton.icon(
-                      onPressed: () => _openMyProfile(profile.id),
-                      icon: const Icon(Icons.person_outline, size: 18),
-                      label: Text(context.tr('View my profile')),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.name,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            '@${profile.userName}',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${context.trCount(profile.communityCount, singular: '{count} community', plural: '{count} communities')} · '
+                            '${context.trCount(profile.postCount, singular: '{count} post', plural: '{count} posts')}',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.tonalIcon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.10),
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            onPressed: () => _openMyProfile(profile.id),
+                            icon: const Icon(Icons.person_outline, size: 18),
+                            label: Text(context.tr('View my profile')),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
+                );
+              },
+            ),
+            _accountSection('My content'),
+            _accountCard([
+              _ProfileRow(
+                icon: Icons.groups_outlined,
+                label: 'My communities',
+                onTap: () => _openCommunities(
+                  'My communities',
+                  widget.repository.listJoinedCommunities,
                 ),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          _accountSection('My content'),
-          _ProfileRow(
-            icon: Icons.groups_outlined,
-            label: 'My communities',
-            onTap: () => _openCommunities(
-              'My communities',
-              widget.repository.listJoinedCommunities,
-            ),
-          ),
-          _ProfileRow(
-            icon: Icons.article_outlined,
-            label: 'My posts',
-            onTap: () => _openPosts('My posts', widget.repository.listMyPosts),
-          ),
-          _ProfileRow(
-            icon: Icons.mail_outline,
-            label: 'Invitations',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    MyCommunityInvitationsPage(repository: widget.repository),
               ),
-            ),
-          ),
-          _ProfileRow(
-            icon: Icons.bookmark_border,
-            label: 'Saved posts',
-            onTap: () =>
-                _openPosts('Saved posts', widget.repository.listSavedPosts),
-          ),
-          _accountSection('Management'),
-          _ProfileRow(
-            icon: Icons.shield_outlined,
-            label: 'Communities I manage',
-            onTap: () => _openCommunities(
-              'Communities I manage',
-              widget.repository.listManagedCommunities,
-            ),
-          ),
-          _ProfileRow(
-            icon: Icons.add_circle_outline,
-            label: 'Create a community',
-            onTap: _createCommunity,
-          ),
-          _ProfileRow(
-            icon: Icons.campaign_outlined,
-            label: 'Promote locally',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PromotionsPage(repository: widget.repository),
+              _ProfileRow(
+                icon: Icons.article_outlined,
+                label: 'My posts',
+                onTap: () =>
+                    _openPosts('My posts', widget.repository.listMyPosts),
               ),
-            ),
-          ),
-          _accountSection('Preferences'),
-          _ProfileRow(
-            icon: Icons.settings_outlined,
-            label: 'Settings',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    AccountSettingsPage(repository: widget.repository),
+              _ProfileRow(
+                icon: Icons.mail_outline,
+                label: 'Invitations',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MyCommunityInvitationsPage(
+                      repository: widget.repository,
+                    ),
+                  ),
+                ),
               ),
+              _ProfileRow(
+                icon: Icons.bookmark_border,
+                label: 'Saved posts',
+                onTap: () =>
+                    _openPosts('Saved posts', widget.repository.listSavedPosts),
+              ),
+            ]),
+            _accountSection('Management'),
+            _accountCard([
+              _ProfileRow(
+                icon: Icons.shield_outlined,
+                label: 'Communities I manage',
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ManagedCommunitiesPage(
+                        repository: widget.repository,
+                        onCommunityCreated: widget.onCommunityCreated,
+                      ),
+                    ),
+                  );
+                  if (mounted) await _refreshProfile();
+                },
+              ),
+              _ProfileRow(
+                icon: Icons.add_circle_outline,
+                label: 'Create a community',
+                onTap: _createCommunity,
+              ),
+              _ProfileRow(
+                icon: Icons.campaign_outlined,
+                label: 'Promote locally',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        PromotionsPage(repository: widget.repository),
+                  ),
+                ),
+              ),
+            ]),
+            _accountSection('Account and app'),
+            _accountCard([
+              _ProfileRow(
+                icon: Icons.settings_outlined,
+                label: 'Settings',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        AccountSettingsPage(repository: widget.repository),
+                  ),
+                ),
+              ),
+              _ProfileRow(
+                icon: Icons.notifications_outlined,
+                label: 'Notifications',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => _ActivityTab(repository: widget.repository),
+                  ),
+                ),
+              ),
+              _ProfileRow(
+                icon: Icons.help_outline,
+                label: 'Help',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HelpPage()),
+                ),
+              ),
+            ]),
+            _accountSection('Preferences'),
+            _accountCard([
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.language_rounded),
+                title: Text(context.tr('Language')),
+                trailing: const LanguageMenu(),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.brightness_6_outlined),
+                title: Text(context.tr('Appearance')),
+                trailing: const ThemeMenu(showLabel: true),
+              ),
+            ]),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: _signingOut
+                  ? const SizedBox.square(
+                      dimension: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.logout),
+              title: Text(context.tr(_signingOut ? 'Signing out…' : 'Log out')),
+              enabled: !_signingOut,
+              onTap: _signingOut ? null : _logout,
             ),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.language_rounded),
-            title: Text(context.tr('Language')),
-            trailing: const LanguageMenu(),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.brightness_6_outlined),
-            title: Text(context.tr('Appearance')),
-            trailing: const ThemeMenu(showLabel: true),
-          ),
-          _ProfileRow(
-            icon: Icons.help_outline,
-            label: 'Help',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const HelpPage()),
-            ),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: _signingOut
-                ? const SizedBox.square(
-                    dimension: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.logout),
-            title: Text(context.tr(_signingOut ? 'Signing out…' : 'Log out')),
-            enabled: !_signingOut,
-            onTap: _signingOut ? null : _logout,
-          ),
-        ],
+          ],
+        ),
       ),
+    ),
+  );
+
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AccountSettingsPage(repository: widget.repository),
+      ),
+    );
+  }
+
+  Widget _accountCard(List<Widget> children) => Material(
+    color: Theme.of(context).colorScheme.surface,
+    borderRadius: BorderRadius.circular(18),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: children[i],
+          ),
+          if (i < children.length - 1)
+            Divider(
+              height: 1,
+              indent: 58,
+              endIndent: 14,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.07),
+            ),
+        ],
+      ],
     ),
   );
 
@@ -2563,6 +2855,33 @@ class _CommunityCollectionPage extends StatefulWidget {
 class _CommunityCollectionPageState extends State<_CommunityCollectionPage> {
   late Future<List<Community>> _communities = widget.loadCommunities();
 
+  bool _showTip = true;
+
+  Future<void> _open(Community community) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CommunityProfilePage(
+          community: community,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (mounted) await _refresh();
+  }
+
+  Future<void> _create() async {
+    final community = await Navigator.push<Community>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateCommunityPage(repository: widget.repository),
+      ),
+    );
+    if (!mounted || community == null) return;
+    await _refresh();
+    if (mounted) await _open(community);
+  }
+
   Future<void> _refresh() async {
     setState(() {
       _communities = widget.loadCommunities();
@@ -2585,44 +2904,201 @@ class _CommunityCollectionPageState extends State<_CommunityCollectionPage> {
           return _LoadError(error: snapshot.error!, onRetry: _refresh);
         }
         final communities = snapshot.data ?? const [];
-        if (communities.isEmpty) {
-          return Center(child: Text(context.tr('No communities found')));
-        }
         return RefreshIndicator(
           onRefresh: _refresh,
-          child: ListView.builder(
+          child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
-            itemCount: communities.length,
-            itemBuilder: (context, index) {
-              final community = communities[index];
-              return Card(
-                child: ListTile(
-                  leading: CommunityAvatar(community: community),
-                  title: Text(community.name),
-                  subtitle: Text(
-                    context.trCount(
-                      community.memberCount,
-                      singular: '{count} member',
-                      plural: '{count} members',
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.trCount(
+                            communities.length,
+                            singular: '{count} community',
+                            plural: '{count} communities',
+                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          context.tr(
+                            'Connect with the communities you belong to.',
+                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
                     ),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () =>
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CommunityProfilePage(
-                            community: community,
-                            repository: widget.repository,
-                          ),
-                        ),
-                      ).then((_) {
-                        if (mounted) _refresh();
-                      }),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    onPressed: _create,
+                    icon: const Icon(Icons.add),
+                    label: Text(context.tr('Create')),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              if (communities.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(context.tr('No communities found')),
                 ),
-              );
-            },
+              for (final community in communities)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Material(
+                    color: Theme.of(context).colorScheme.surface,
+                    elevation: 2,
+                    shadowColor: Theme.of(
+                      context,
+                    ).colorScheme.shadow.withValues(alpha: 0.12),
+                    surfaceTintColor: Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => _open(community),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            CommunityAvatar(community: community, radius: 34),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    community.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 20,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    context.trCount(
+                                      community.memberCount,
+                                      singular: '{count} member',
+                                      plural: '{count} members',
+                                    ),
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  if (community.myRole != null) ...[
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle,
+                                          size: 18,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            context.tr(
+                                              community.myRole ==
+                                                      CommunityRole.owner
+                                                  ? 'Owner'
+                                                  : community.myRole!.name,
+                                            ),
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (_showTip) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
+                        child: Icon(
+                          Icons.lightbulb_outline,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.tr('Tip'),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              context.tr(
+                                'Open a community to read posts, discover events and connect with your neighbors.',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: context.tr('Close'),
+                        onPressed: () => setState(() => _showTip = false),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
         );
       },
@@ -2638,6 +3114,8 @@ class _ProfileRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     contentPadding: EdgeInsets.zero,
+    minTileHeight: 48,
+    visualDensity: const VisualDensity(vertical: -1),
     leading: Icon(icon),
     title: Text(context.tr(label)),
     trailing: const Icon(Icons.chevron_right),

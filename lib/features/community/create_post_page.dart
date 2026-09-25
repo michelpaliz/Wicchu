@@ -277,17 +277,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     ? Icons.admin_panel_settings_outlined
                     : Icons.person_off_outlined,
               ),
-              title: Text(
-                context.tr(
-                  _canPublishAsAdmin
-                      ? 'Publish as Community Admin'
-                      : 'Publish anonymously',
-                ),
-              ),
+              title: Text(context.tr('Publish anonymously')),
               subtitle: Text(
                 context.tr(
                   _canPublishAsAdmin
-                      ? 'Members will not see your personal profile. Your identity remains available for security and auditing.'
+                      ? '“Community Admin” will appear instead of your name. Your identity remains available for security and auditing.'
                       : 'Anonymous posts are always reviewed by a community administrator before publication. Administrators can still identify you for safety.',
                 ),
               ),

@@ -1090,6 +1090,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   bool _uploadingImage = false;
   bool? _anonymousInCommunity;
   bool _savingAnonymity = false;
+  bool _anonymitySaved = false;
+  bool _anonymityLoadFailed = false;
 
   @override
   void initState() {
@@ -1118,7 +1120,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               children: [
                 ClipOval(
                   child: SizedBox.square(
-                    dimension: 112,
+                    dimension: 80,
                     child: _imageUrl == null
                         ? ColoredBox(
                             color: Theme.of(
@@ -1142,7 +1144,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                   right: -8,
                   bottom: -8,
                   child: IconButton.filled(
-                    tooltip: 'Change community photo',
+                    tooltip: context.tr('Change community photo'),
                     onPressed: _uploadingImage ? null : _pickImage,
                     icon: _uploadingImage
                         ? const SizedBox.square(
@@ -1193,6 +1195,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                     'count': '${CommunityInputLimits.description}',
                   })
                 : null,
+            minLines: 2,
             maxLines: 4,
             decoration: InputDecoration(labelText: context.tr('Description')),
           ),
@@ -1219,20 +1222,6 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            secondary: const Icon(Icons.visibility_off_outlined),
-            title: Text(context.tr('Anonymous administrator identity')),
-            subtitle: Text(
-              context.tr(
-                'Members will see Community Admin instead of your profile. Other administrators can still identify you for security and auditing.',
-              ),
-            ),
-            value: _anonymousInCommunity ?? false,
-            onChanged: _anonymousInCommunity == null || _savingAnonymity
-                ? null
-                : _setAnonymity,
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
             secondary: const Icon(Icons.cloud_outlined),
             title: Text(context.tr('Show local weather')),
             subtitle: Text(
@@ -1240,6 +1229,84 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             ),
             value: _showWeather,
             onChanged: (value) => setState(() => _showWeather = value),
+          ),
+          const SizedBox(height: 20),
+          Material(
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.tr('Your identity in this community'),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(context.tr('Hide my identity from members')),
+                    value: _anonymousInCommunity ?? false,
+                    onChanged: _anonymousInCommunity == null || _savingAnonymity
+                        ? null
+                        : _setAnonymity,
+                  ),
+                  Text(
+                    context.tr(
+                      'When enabled, members will see “Community Admin” instead of your name and photo in this community. Other administrators can still identify you.',
+                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_anonymityLoadFailed)
+                    TextButton.icon(
+                      onPressed: _loadAnonymity,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(context.tr('Retry')),
+                    )
+                  else
+                    Row(
+                      children: [
+                        if (_savingAnonymity || _anonymousInCommunity == null)
+                          const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          Icon(
+                            _anonymitySaved
+                                ? Icons.check_circle_outline
+                                : Icons.cloud_done_outlined,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            context.tr(
+                              _savingAnonymity
+                                  ? 'Saving…'
+                                  : _anonymousInCommunity == null
+                                  ? 'Loading…'
+                                  : _anonymitySaved
+                                  ? 'Saved automatically'
+                                  : 'This setting saves automatically.',
+                            ),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -1341,6 +1408,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   }
 
   Future<void> _loadAnonymity() async {
+    setState(() => _anonymityLoadFailed = false);
     try {
       final value = await widget.repository.getAdminAnonymity(
         widget.community.id,
@@ -1348,7 +1416,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       if (mounted) setState(() => _anonymousInCommunity = value);
     } catch (error) {
       if (mounted) {
-        setState(() => _anonymousInCommunity = false);
+        setState(() => _anonymityLoadFailed = true);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.trError(error))));
@@ -1361,13 +1429,19 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     setState(() {
       _anonymousInCommunity = value;
       _savingAnonymity = true;
+      _anonymitySaved = false;
     });
     try {
       final saved = await widget.repository.updateAdminAnonymity(
         widget.community.id,
         anonymousInCommunity: value,
       );
-      if (mounted) setState(() => _anonymousInCommunity = saved);
+      if (mounted) {
+        setState(() {
+          _anonymousInCommunity = saved;
+          _anonymitySaved = true;
+        });
+      }
     } catch (error) {
       if (mounted) {
         setState(() => _anonymousInCommunity = previous);

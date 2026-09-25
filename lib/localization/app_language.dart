@@ -788,25 +788,32 @@ const _spanish = <String, String>{
   'Community overview': 'Resumen de la comunidad',
   'Current statistics': 'Estadísticas actuales',
   'Open reports': 'Denuncias abiertas',
-  'Review pending work in community administration.': 'Revisa las tareas pendientes en la administración de la comunidad.',
+  'Review pending work in community administration.':
+      'Revisa las tareas pendientes en la administración de la comunidad.',
   'Recent posts': 'Publicaciones recientes',
   'No posts yet.': 'Aún no hay publicaciones.',
   'Community information': 'Información de la comunidad',
   'Tip': 'Consejo',
-  'Invite more people to grow your community.': 'Invita a más personas para hacer crecer tu comunidad.',
+  'Invite more people to grow your community.':
+      'Invita a más personas para hacer crecer tu comunidad.',
   'A better space for everyone': 'Un espacio mejor para todos',
-  'These rules help keep your community safe, respectful and active.': 'Estas reglas ayudan a mantener una comunidad segura, respetuosa y activa.',
+  'These rules help keep your community safe, respectful and active.':
+      'Estas reglas ayudan a mantener una comunidad segura, respetuosa y activa.',
   'Rules ({count})': 'Reglas ({count})',
   'Reorder': 'Ordenar',
   'Keep your community safe': 'Mantén tu comunidad segura',
-  'Add clear rules so everyone knows how to participate.': 'Añade reglas claras para que todos sepan cómo participar.',
-  'Use clear, specific rules. Tap Reorder to drag rules into place.': 'Usa reglas claras y específicas. Pulsa Ordenar para reordenarlas arrastrando y soltando.',
+  'Add clear rules so everyone knows how to participate.':
+      'Añade reglas claras para que todos sepan cómo participar.',
+  'Use clear, specific rules. Tap Reorder to drag rules into place.':
+      'Usa reglas claras y específicas. Pulsa Ordenar para reordenarlas arrastrando y soltando.',
   'No community rules yet.': 'Aún no hay reglas para la comunidad.',
   'Active rule': 'Activa',
   'Rule options': 'Opciones de la regla',
   'Everything is in order': 'Todo está en orden',
-  'There are no open reports that need your attention.': 'No hay denuncias abiertas que requieran tu atención.',
-  'New reports will appear here for you to review.': 'Las nuevas denuncias aparecerán aquí para que puedas revisarlas.',
+  'There are no open reports that need your attention.':
+      'No hay denuncias abiertas que requieran tu atención.',
+  'New reports will appear here for you to review.':
+      'Las nuevas denuncias aparecerán aquí para que puedas revisarlas.',
   'View profile': 'Ver perfil',
   'Set role: {role}': 'Asignar rol: {role}',
   'Search members': 'Buscar miembros',
@@ -815,27 +822,35 @@ const _spanish = <String, String>{
   'Active members': 'Miembros activos',
   'Invite': 'Invitar',
   'Invite more people': 'Invita a más personas',
-  'More neighbors, a better community.': 'Cuantos más vecinos, mejor comunidad.',
+  'More neighbors, a better community.':
+      'Cuantos más vecinos, mejor comunidad.',
   'Sort members': 'Ordenar miembros',
-  'No members match your search or filter.': 'No hay miembros que coincidan con la búsqueda o el filtro.',
+  'No members match your search or filter.':
+      'No hay miembros que coincidan con la búsqueda o el filtro.',
   'Offline': 'Sin conexión',
   'Pending': 'Pendiente',
   'Grow your community': 'Haz crecer tu comunidad',
-  'Invite neighbors to start connecting and taking part.': 'Invita a vecinos para empezar a conectar y participar.',
+  'Invite neighbors to start connecting and taking part.':
+      'Invita a vecinos para empezar a conectar y participar.',
   'Invite members': 'Invitar miembros',
-  'An active community is safer, friendlier and more useful for everyone.': 'Una comunidad activa es más segura, agradable y útil para todos.',
+  'An active community is safer, friendlier and more useful for everyone.':
+      'Una comunidad activa es más segura, agradable y útil para todos.',
   'Invite people to {community}': 'Invita personas a {community}',
-  'Share a link or invite by email. Invitations expire after 14 days.': 'Comparte el enlace o invita por correo. Las invitaciones vencen después de 14 días.',
+  'Share a link or invite by email. Invitations expire after 14 days.':
+      'Comparte el enlace o invita por correo. Las invitaciones vencen después de 14 días.',
   'Invitation link': 'Enlace de invitación',
-  'Invite several people with one link.': 'Invita a varias personas con un solo enlace.',
+  'Invite several people with one link.':
+      'Invita a varias personas con un solo enlace.',
   'Link options': 'Opciones del enlace',
   'Create new link': 'Crear nuevo enlace',
   'Share link': 'Compartir enlace',
-  'Create a link when you are ready to invite people.': 'Crea un enlace cuando quieras invitar a más personas.',
+  'Create a link when you are ready to invite people.':
+      'Crea un enlace cuando quieras invitar a más personas.',
   'Expires on {date}': 'Caduca el {date}',
   'Active invitations': 'Invitaciones activas',
   'No active invitations.': 'No hay invitaciones activas.',
-  'Share the link with your neighbors, on social media or via WhatsApp.': 'Comparte el enlace con tus vecinos, en redes sociales o por WhatsApp.',
+  'Share the link with your neighbors, on social media or via WhatsApp.':
+      'Comparte el enlace con tus vecinos, en redes sociales o por WhatsApp.',
   'Active invitation': 'Activo',
   'Expired': 'Caducada',
   'Created on {date}': 'Creado el {date}',
@@ -843,10 +858,13 @@ const _spanish = <String, String>{
   'Copy': 'Copiar',
   'Link copied': 'Enlace copiado',
   'Invitation created.': 'Invitación creada.',
-  'The invitation link is unavailable. Please try again.': 'El enlace de invitación no está disponible. Inténtalo de nuevo.',
+  'The invitation link is unavailable. Please try again.':
+      'El enlace de invitación no está disponible. Inténtalo de nuevo.',
   'Revoke invitation?': '¿Revocar invitación?',
-  'This invitation will no longer allow people to join.': 'Esta invitación ya no permitirá unirse a la comunidad.',
-  'This link is not available to copy. Create a new link to share.': 'Este enlace no está disponible para copiar. Crea uno nuevo para compartir.',
+  'This invitation will no longer allow people to join.':
+      'Esta invitación ya no permitirá unirse a la comunidad.',
+  'This link is not available to copy. Create a new link to share.':
+      'Este enlace no está disponible para copiar. Crea uno nuevo para compartir.',
   'Remove photo': 'Eliminar foto',
   'Use at most {count} characters.': 'Usa un máximo de {count} caracteres.',
   'Manage community': 'Administrar comunidad',
@@ -928,4 +946,63 @@ const _spanish = <String, String>{
   'admin': 'Administrador',
   'moderator': 'Moderador',
   'member': 'Miembro',
+  'Your identity in this community': 'Tu identidad en esta comunidad',
+  'Show me as an administrator': 'Mostrarme como administrador',
+  'Members will see “Community Admin”. Other administrators can identify you.':
+      'Los miembros verán «Administrador de la comunidad». Otros administradores podrán identificarte.',
+  'Saved automatically': 'Guardado automáticamente',
+  'This setting saves automatically.': 'Este ajuste se guarda automáticamente.',
+  'Change community photo': 'Cambiar foto de la comunidad',
+  'Loading…': 'Cargando…',
+  '“Community Admin” will appear instead of your name. Your identity remains available for security and auditing.':
+      'Se mostrará «Administrador de la comunidad» en lugar de tu nombre. Tu identidad seguirá disponible para seguridad y auditoría.',
+  'Hide my identity from members': 'Ocultar mi identidad a los miembros',
+  'When enabled, members will see “Community Admin” instead of your name and photo in this community. Other administrators can still identify you.':
+      'Al activarlo, los miembros verán «Administrador de la comunidad» en lugar de tu nombre y foto en esta comunidad. Otros administradores podrán identificarte.',
+  'Account and app': 'Cuenta y aplicación',
+  "How can we help you?": "¿Cómo podemos ayudarte?",
+  "Find answers about Wicchu.": "Encuentra respuestas sobre Wicchu.",
+  "Search help…": "Buscar en ayuda…",
+  "Frequently asked questions": "Preguntas frecuentes",
+  "Need more help?": "¿Necesitas más ayuda?",
+  "Contact the support team": "Contacta con el equipo de soporte",
+  "Can’t find the answer? Contact the Wicchu team through hexora.dev.":
+      "¿No encuentras la respuesta? Contacta con el equipo de Wicchu a través de hexora.dev.",
+  "Contact support": "Contactar con soporte",
+  "Find more information on our website: hexora.dev.":
+      "Puedes encontrar más información en nuestra web: hexora.dev.",
+  "No answers found. Try another search or contact support.":
+      "No encontramos respuestas. Prueba otra búsqueda o contacta con soporte.",
+  "Could not open the support website. Please visit hexora.dev.":
+      "No se pudo abrir la web de soporte. Visita hexora.dev.",
+  "Open the post’s options menu, select Report, enter a reason, and submit it to the community moderators.":
+      "Abre el menú de opciones de la publicación, selecciona Denunciar, escribe el motivo y envíalo a los moderadores de la comunidad.",
+  'Clear search': 'Borrar búsqueda',
+  "All notifications": "Todas",
+  "Unread": "No leídas",
+  "This week": "Esta semana",
+  "Earlier": "Anteriores",
+  "You’re all caught up": "Estás al día",
+  "You have no new notifications.": "No tienes notificaciones nuevas.",
+  "We’ll let you know when there is relevant activity.":
+      "Te avisaremos cuando haya actividad relevante.",
+  "Checking pending work…": "Comprobando tareas pendientes…",
+  "Retry status": "Reintentar estado",
+  "{count} pending action": "{count} acción pendiente",
+  "{count} pending actions": "{count} acciones pendientes",
+  "Manage the communities you administer.":
+      "Gestiona las comunidades donde eres administrador.",
+  "You don’t manage any communities yet. Create one to get started.":
+      "Aún no administras ninguna comunidad. Crea una para empezar.",
+  "Keep your community active by reviewing posts and membership requests regularly.":
+      "Mantén tu comunidad activa revisando publicaciones y solicitudes de miembros regularmente.",
+  'Create': 'Crear',
+  'Choose which activity you receive.': 'Elige qué actividad quieres recibir.',
+  'Control your information and visibility.':
+      'Controla tu información y visibilidad.',
+  'About the app': 'Sobre la aplicación',
+  'Connect with the communities you belong to.':
+      'Conecta con las comunidades a las que perteneces.',
+  'Open a community to read posts, discover events and connect with your neighbors.':
+      'Abre una comunidad para leer publicaciones, descubrir eventos y conectar con tus vecinos.',
 };

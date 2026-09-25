@@ -195,6 +195,7 @@ void main() {
       350,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Log out'));
     await tester.pump();
     expect(find.text('Signing out…'), findsOneWidget);
@@ -391,6 +392,7 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Log out'));
     await tester.pumpAndSettle();
 
@@ -567,6 +569,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Create a community'));
     await tester.pumpAndSettle();
 
@@ -748,6 +751,15 @@ void main() {
 
     expect(repository.read, isTrue);
     expect(find.text('Meeting tonight'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Unread'));
+    await tester.pumpAndSettle();
+    expect(find.text('You’re all caught up'), findsOneWidget);
+    expect(find.text('Alex commented on your post'), findsNothing);
+    await tester.tap(find.text('All notifications'));
+    await tester.pumpAndSettle();
+    expect(find.text('Alex commented on your post'), findsOneWidget);
   });
 
   testWidgets('offers Facebook and Google registration when signed out', (
@@ -879,6 +891,7 @@ void main() {
       250,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Appearance').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Dark').last);
@@ -892,6 +905,7 @@ void main() {
       'dark',
     );
 
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Appearance').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Light').last);
