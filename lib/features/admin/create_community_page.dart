@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../domain/community_input_limits.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../domain/community_models.dart';
@@ -208,6 +210,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           children: [
             TextFormField(
               controller: _nameController,
+              maxLength: CommunityInputLimits.name,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
               textInputAction: TextInputAction.next,
               textCapitalization: TextCapitalization.words,
               autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -221,6 +225,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
             const SizedBox(height: 12),
             TextField(
               controller: _descriptionController,
+              maxLength: CommunityInputLimits.description,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
               maxLines: 2,
               decoration: InputDecoration(
                 labelText: context.tr('Short description'),

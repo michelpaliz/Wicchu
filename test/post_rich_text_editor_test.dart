@@ -5,6 +5,24 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:wicchu/features/community/post_rich_text_editor.dart';
 
 void main() {
+  test('post limit counts visible graphemes and preserves overlong drafts', () {
+    final controller = PostTextController('**Hola** 👨‍👩‍👧‍👦');
+    addTearDown(controller.dispose);
+    expect(controller.characterCount, 6);
+    controller.replaceText(
+      0,
+      controller.document.length - 1,
+      'a' * PostTextController.maxCharacters,
+      null,
+    );
+    expect(controller.exceedsCharacterLimit, false);
+    controller.replaceText(PostTextController.maxCharacters, 0, 'b', null);
+    expect(controller.exceedsCharacterLimit, true);
+    expect(controller.characterCount, 2001);
+    controller.replaceText(2000, 1, '', null);
+    expect(controller.exceedsCharacterLimit, false);
+  });
+
   test('existing formatting loads visually and untouched posts remain exact', () {
     const original =
         '# Neighbors\n\n**Welcome** and *hello*\n\n- One\n- Two\n\n[Visit](https://example.com)\n';

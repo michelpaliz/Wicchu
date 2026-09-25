@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../domain/community_models.dart';
+import '../../domain/community_input_limits.dart';
+import 'package:flutter/services.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'rule_management_page.dart';
+import '../community/community_invitations_page.dart';
+import '../community/user_avatar.dart';
+import '../profile/member_profile_page.dart';
 
 class CategoryManagementPage extends StatefulWidget {
   const CategoryManagementPage({
@@ -466,9 +471,146 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
     );
   });
 
+  bool _searching = false;
+  String _query = '';
+  String _sort = 'Newest';
+  String _filter = 'All members';
+  bool _showInviteHint = true;
+  bool _showTip = true;
+
+  Future<void> _invite() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CommunityInvitationsPage(
+          community: widget.community,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (mounted) _reload();
+  }
+
+  Future<void> _memberActions(CommunityMember member) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: UserAvatar(
+                  name: member.name,
+                  imageUrl: member.avatarUrl,
+                ),
+                title: Text(member.name),
+                subtitle: Text(
+                  context.tr(
+                    member.role == CommunityRole.owner
+                        ? 'Owner'
+                        : member.role.name,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text(context.tr('View profile')),
+                onTap: () => Navigator.pop(sheetContext, 'profile'),
+              ),
+              if (member.role != CommunityRole.owner) ...[
+                if (member.status == MembershipStatus.active)
+                  for (final role in [
+                    CommunityRole.admin,
+                    CommunityRole.moderator,
+                    CommunityRole.member,
+                  ])
+                    ListTile(
+                      leading: Icon(
+                        role == member.role
+                            ? Icons.check_circle
+                            : Icons.circle_outlined,
+                      ),
+                      title: Text(
+                        context.tr('Set role: {role}', {
+                          'role': context.tr(role.name),
+                        }),
+                      ),
+                      enabled: role != member.role,
+                      onTap: () =>
+                          Navigator.pop(sheetContext, 'role:${role.name}'),
+                    ),
+                if (member.status == MembershipStatus.banned)
+                  ListTile(
+                    leading: const Icon(Icons.lock_open),
+                    title: Text(context.tr('Unban member')),
+                    onTap: () => Navigator.pop(sheetContext, 'unban'),
+                  )
+                else ...[
+                  ListTile(
+                    leading: const Icon(Icons.person_remove_outlined),
+                    title: Text(context.tr('Remove member')),
+                    onTap: () => Navigator.pop(sheetContext, 'remove'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.block),
+                    title: Text(context.tr('Ban member')),
+                    onTap: () => Navigator.pop(sheetContext, 'ban'),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == 'profile') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MemberProfilePage(
+            userId: member.userId,
+            repository: widget.repository,
+          ),
+        ),
+      );
+    } else if (action.startsWith('role:')) {
+      await _setRole(member, CommunityRole.values.byName(action.substring(5)));
+    } else {
+      await _changeAccess(member, action);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Members'))),
+    appBar: AppBar(
+      title: Text(context.tr('Members')),
+      actions: [
+        IconButton(
+          tooltip: context.tr(_searching ? 'Close' : 'Search members'),
+          icon: Icon(_searching ? Icons.close : Icons.search),
+          onPressed: () => setState(() {
+            _searching = !_searching;
+            if (!_searching) _query = '';
+          }),
+        ),
+        PopupMenuButton<String>(
+          tooltip: context.tr('Filter members'),
+          initialValue: _filter,
+          onSelected: (value) => setState(() => _filter = value),
+          itemBuilder: (_) => [
+            for (final value in ['All members', 'Active members', 'Banned'])
+              CheckedPopupMenuItem(
+                value: value,
+                checked: _filter == value,
+                child: Text(context.tr(value)),
+              ),
+          ],
+        ),
+      ],
+    ),
     body: FutureBuilder<List<CommunityMember>>(
       future: _members,
       builder: (context, snapshot) {
@@ -476,107 +618,346 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text(context.trError(snapshot.error!)));
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(context.trError(snapshot.error!)),
+                TextButton(
+                  onPressed: _reload,
+                  child: Text(context.tr('Retry')),
+                ),
+              ],
+            ),
+          );
         }
-        final members = snapshot.data ?? const [];
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: members.length,
-          separatorBuilder: (_, _) => const Divider(),
-          itemBuilder: (context, index) {
-            final member = members[index];
-            return ListTile(
-              leading: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    child: Text(
-                      member.name.isEmpty ? '?' : member.name[0].toUpperCase(),
+        final all = snapshot.data ?? const <CommunityMember>[];
+        final activeCount = all
+            .where((m) => m.status == MembershipStatus.active)
+            .length;
+        final members = all
+            .where(
+              (m) =>
+                  m.name.toLowerCase().contains(_query.trim().toLowerCase()) &&
+                  (_filter == 'All members' ||
+                      (_filter == 'Banned'
+                          ? m.status == MembershipStatus.banned
+                          : m.status == MembershipStatus.active)),
+            )
+            .toList();
+        members.sort(
+          (a, b) => _sort == 'Name'
+              ? a.name.toLowerCase().compareTo(b.name.toLowerCase())
+              : b.joinedAt.compareTo(a.joinedAt),
+        );
+        final colors = Theme.of(context).colorScheme;
+        return ListView(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            24 + MediaQuery.paddingOf(context).bottom,
+          ),
+          children: [
+            if (_searching) ...[
+              TextField(
+                autofocus: true,
+                onChanged: (value) => setState(() => _query = value),
+                decoration: InputDecoration(
+                  hintText: context.tr('Search members'),
+                  prefixIcon: const Icon(Icons.search),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.trCount(
+                      activeCount,
+                      singular: '{count} member',
+                      plural: '{count} members',
+                    ),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: _invite,
+                  icon: const Icon(Icons.person_add_alt_1_outlined, size: 20),
+                  label: Text(context.tr('Invite')),
+                ),
+              ],
+            ),
+            if (_showInviteHint) ...[
+              const SizedBox(height: 16),
+              _memberNotice(
+                Icons.groups_outlined,
+                'Invite more people',
+                'More neighbors, a better community.',
+                () => setState(() => _showInviteHint = false),
+              ),
+            ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${context.tr(_filter == 'All members' ? 'Members' : _filter)} (${members.length})',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: context.tr('Sort members'),
+                  initialValue: _sort,
+                  onSelected: (value) => setState(() => _sort = value),
+                  itemBuilder: (_) => [
+                    for (final value in ['Newest', 'Name'])
+                      CheckedPopupMenuItem(
+                        value: value,
+                        checked: _sort == value,
+                        child: Text(context.tr(value)),
+                      ),
+                  ],
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          context.tr(_sort),
+                          style: TextStyle(color: colors.primary),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(Icons.expand_more, color: colors.primary),
+                      ],
                     ),
                   ),
-                  if (member.isOnline)
-                    Positioned(
-                      right: -1,
-                      bottom: -1,
-                      child: Container(
-                        width: 12,
-                        height: 12,
+                ),
+              ],
+            ),
+            if (members.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  context.tr('No members match your search or filter.'),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            for (final member in members)
+              Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: colors.onSurface.withValues(alpha: .06),
+                  ),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  leading: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      UserAvatar(
+                        name: member.name,
+                        imageUrl: member.avatarUrl,
+                        radius: 24,
+                      ),
+                      if (member.isOnline &&
+                          member.status == MembershipStatus.active)
+                        Positioned(
+                          right: -1,
+                          bottom: -1,
+                          child: Container(
+                            width: 13,
+                            height: 13,
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: colors.surface,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  title: Text(member.name),
+                  subtitle: Text(
+                    context.tr(
+                      member.status == MembershipStatus.banned
+                          ? 'Banned'
+                          : member.status == MembershipStatus.pending
+                          ? 'Pending'
+                          : member.isOnline
+                          ? 'Online now'
+                          : member.lastActiveAt != null
+                          ? 'Active recently'
+                          : 'Offline',
+                    ),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.surface,
-                            width: 2,
+                          color: colors.primary.withValues(alpha: .10),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          context.tr(
+                            member.role == CommunityRole.owner
+                                ? 'Owner'
+                                : member.role.name,
+                          ),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colors.primary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
-                    ),
-                ],
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right, size: 20),
+                    ],
+                  ),
+                  onTap: () => _memberActions(member),
+                ),
               ),
-              title: Text(member.name),
-              subtitle: Text(
-                member.status == MembershipStatus.banned
-                    ? context.tr('Banned')
-                    : member.isOnline
-                    ? context.tr('Online now')
-                    : member.lastActiveAt != null
-                    ? context.tr('Active recently')
-                    : member.userId,
-              ),
-              trailing: member.role == CommunityRole.owner
-                  ? Chip(label: Text(context.tr('Owner')))
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (member.status == MembershipStatus.active)
-                          DropdownButton<CommunityRole>(
-                            value: member.role,
-                            items:
-                                const [
-                                      CommunityRole.admin,
-                                      CommunityRole.moderator,
-                                      CommunityRole.member,
-                                    ]
-                                    .map(
-                                      (role) => DropdownMenuItem(
-                                        value: role,
-                                        child: Text(context.tr(role.name)),
-                                      ),
-                                    )
-                                    .toList(),
-                            onChanged: (role) =>
-                                role == null ? null : _setRole(member, role),
-                          ),
-                        PopupMenuButton<String>(
-                          tooltip: context.tr('Member actions'),
-                          onSelected: (action) => _changeAccess(member, action),
-                          itemBuilder: (context) =>
-                              member.status == MembershipStatus.banned
-                              ? [
-                                  PopupMenuItem(
-                                    value: 'unban',
-                                    child: Text(context.tr('Unban member')),
-                                  ),
-                                ]
-                              : [
-                                  PopupMenuItem(
-                                    value: 'remove',
-                                    child: Text(context.tr('Remove member')),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'ban',
-                                    child: Text(context.tr('Ban member')),
-                                  ),
-                                ],
-                        ),
-                      ],
+            if (activeCount <= 1 &&
+                _query.isEmpty &&
+                _filter == 'All members') ...[
+              const SizedBox(height: 40),
+              Center(
+                child: Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Container(
+                      width: 136,
+                      height: 136,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colors.primary.withValues(alpha: .07),
+                      ),
+                      child: Icon(
+                        Icons.groups_rounded,
+                        size: 88,
+                        color: colors.primary,
+                      ),
                     ),
-            );
-          },
+                    CircleAvatar(
+                      radius: 23,
+                      backgroundColor: colors.primary,
+                      child: Icon(Icons.add, color: colors.onPrimary, size: 30),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                context.tr('Grow your community'),
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.tr(
+                  'Invite neighbors to start connecting and taking part.',
+                ),
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: colors.onSurfaceVariant),
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(200, 50),
+                  ),
+                  onPressed: _invite,
+                  icon: const Icon(Icons.person_add_alt_1_outlined),
+                  label: Text(context.tr('Invite members')),
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
+            if (_showTip) ...[
+              const SizedBox(height: 20),
+              _memberNotice(
+                Icons.lightbulb_outline,
+                'Tip',
+                'An active community is safer, friendlier and more useful for everyone.',
+                () => setState(() => _showTip = false),
+              ),
+            ],
+          ],
         );
       },
     ),
   );
+
+  Widget _memberNotice(
+    IconData icon,
+    String title,
+    String body,
+    VoidCallback onClose,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: colors.primary, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.tr(title),
+                  style: TextStyle(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.tr(body),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(height: 1.5),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: context.tr('Close'),
+            onPressed: onClose,
+            icon: const Icon(Icons.close, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _setRole(CommunityMember member, CommunityRole role) async {
     try {
@@ -585,7 +966,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         member.userId,
         role,
       );
-      _reload();
+      if (mounted) _reload();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -666,7 +1047,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         action: action,
         reason: reason,
       );
-      _reload();
+      if (mounted) _reload();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -692,6 +1073,7 @@ class CommunitySettingsPage extends StatefulWidget {
 }
 
 class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
+  final _form = GlobalKey<FormState>();
   late final TextEditingController _name = TextEditingController(
     text: widget.community.name,
   );
@@ -717,173 +1099,200 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(context.tr('Community settings'))),
-    body: ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Center(
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              ClipOval(
-                child: SizedBox.square(
-                  dimension: 112,
-                  child: _imageUrl == null
-                      ? ColoredBox(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          child: const Icon(Icons.groups_outlined, size: 48),
-                        )
-                      : Image.network(
-                          _imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => ColoredBox(
-                            color: Theme.of(context).colorScheme.errorContainer,
-                            child: const Icon(Icons.broken_image_outlined),
+    body: Form(
+      key: _form,
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Center(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipOval(
+                  child: SizedBox.square(
+                    dimension: 112,
+                    child: _imageUrl == null
+                        ? ColoredBox(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
+                            child: const Icon(Icons.groups_outlined, size: 48),
+                          )
+                        : Image.network(
+                            _imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => ColoredBox(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.errorContainer,
+                              child: const Icon(Icons.broken_image_outlined),
+                            ),
                           ),
-                        ),
+                  ),
+                ),
+                Positioned(
+                  right: -8,
+                  bottom: -8,
+                  child: IconButton.filled(
+                    tooltip: 'Change community photo',
+                    onPressed: _uploadingImage ? null : _pickImage,
+                    icon: _uploadingImage
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.photo_camera_outlined),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_imageUrl != null)
+            TextButton(
+              onPressed: _uploadingImage
+                  ? null
+                  : () => setState(() {
+                      _imageUrl = null;
+                      _imageBlobName = '';
+                    }),
+              child: Text(context.tr('Remove photo')),
+            ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _name,
+            maxLength: CommunityInputLimits.name,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? context.tr('Add a community name.')
+                : value.characters.length > CommunityInputLimits.name
+                ? context.tr('Use at most {count} characters.', {
+                    'count': '${CommunityInputLimits.name}',
+                  })
+                : null,
+            decoration: InputDecoration(labelText: context.tr('Name')),
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _description,
+            maxLength: CommunityInputLimits.description,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            validator: (value) =>
+                (value ?? '').characters.length >
+                    CommunityInputLimits.description
+                ? context.tr('Use at most {count} characters.', {
+                    'count': '${CommunityInputLimits.description}',
+                  })
+                : null,
+            maxLines: 4,
+            decoration: InputDecoration(labelText: context.tr('Description')),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<CommunityVisibility>(
+            initialValue: _visibility,
+            decoration: InputDecoration(labelText: context.tr('Visibility')),
+            items: CommunityVisibility.values
+                .map(
+                  (value) => DropdownMenuItem(
+                    value: value,
+                    child: Text(context.tr(value.name)),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) =>
+                setState(() => _visibility = value ?? _visibility),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.tr('Require post approval')),
+            value: _approvalRequired,
+            onChanged: (value) => setState(() => _approvalRequired = value),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.cloud_outlined),
+            title: Text(context.tr('Show local weather')),
+            subtitle: Text(
+              context.tr('Display current conditions for the community town.'),
+            ),
+            value: _showWeather,
+            onChanged: (value) => setState(() => _showWeather = value),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.tr('Official links'),
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              Positioned(
-                right: -8,
-                bottom: -8,
-                child: IconButton.filled(
-                  tooltip: 'Change community photo',
-                  onPressed: _uploadingImage ? null : _pickImage,
-                  icon: _uploadingImage
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.photo_camera_outlined),
-                ),
+              IconButton(
+                tooltip: context.tr('Add link'),
+                onPressed: _links.length >= 10 ? null : () => _editLink(),
+                icon: const Icon(Icons.add_link),
               ),
             ],
           ),
-        ),
-        if (_imageUrl != null)
-          TextButton(
-            onPressed: _uploadingImage
-                ? null
-                : () => setState(() {
-                    _imageUrl = null;
-                    _imageBlobName = '';
-                  }),
-            child: const Text('Remove photo'),
+          Text(
+            context.tr(
+              'Add a website, social network, contact page, or another official link.',
+            ),
           ),
-        const SizedBox(height: 20),
-        TextField(
-          controller: _name,
-          decoration: InputDecoration(labelText: context.tr('Name')),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _description,
-          maxLines: 4,
-          decoration: InputDecoration(labelText: context.tr('Description')),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<CommunityVisibility>(
-          initialValue: _visibility,
-          decoration: InputDecoration(labelText: context.tr('Visibility')),
-          items: CommunityVisibility.values
-              .map(
-                (value) => DropdownMenuItem(
-                  value: value,
-                  child: Text(context.tr(value.name)),
-                ),
-              )
-              .toList(),
-          onChanged: (value) =>
-              setState(() => _visibility = value ?? _visibility),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(context.tr('Require post approval')),
-          value: _approvalRequired,
-          onChanged: (value) => setState(() => _approvalRequired = value),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.cloud_outlined),
-          title: Text(context.tr('Show local weather')),
-          subtitle: Text(
-            context.tr('Display current conditions for the community town.'),
-          ),
-          value: _showWeather,
-          onChanged: (value) => setState(() => _showWeather = value),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                context.tr('Official links'),
-                style: Theme.of(context).textTheme.titleMedium,
+          for (final (index, link) in _links.indexed)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.link),
+              title: Text(link.label),
+              subtitle: Text(
+                link.url,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () => _editLink(index: index),
+              trailing: IconButton(
+                tooltip: context.tr('Remove'),
+                onPressed: () => setState(() => _links.removeAt(index)),
+                icon: const Icon(Icons.delete_outline),
               ),
             ),
-            IconButton(
-              tooltip: context.tr('Add link'),
-              onPressed: _links.length >= 10 ? null : () => _editLink(),
-              icon: const Icon(Icons.add_link),
-            ),
-          ],
-        ),
-        Text(
-          context.tr(
-            'Add a website, social network, contact page, or another official link.',
-          ),
-        ),
-        for (final (index, link) in _links.indexed)
+          const SizedBox(height: 24),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.link),
-            title: Text(link.label),
-            subtitle: Text(
-              link.url,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            onTap: () => _editLink(index: index),
-            trailing: IconButton(
-              tooltip: context.tr('Remove'),
-              onPressed: () => setState(() => _links.removeAt(index)),
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ),
-        const SizedBox(height: 24),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.rule_outlined),
-          title: Text(context.tr('Community rules')),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: _saving
-              ? null
-              : () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RuleManagementPage(
-                      community: widget.community,
-                      repository: widget.repository,
+            leading: const Icon(Icons.rule_outlined),
+            title: Text(context.tr('Community rules')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _saving
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RuleManagementPage(
+                        community: widget.community,
+                        repository: widget.repository,
+                      ),
                     ),
                   ),
-                ),
-        ),
-        const SizedBox(height: 24),
-        FilledButton.icon(
-          onPressed: _saving || _uploadingImage ? null : _save,
-          icon: _saving
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.save_outlined),
-          label: Text(context.tr('Save changes')),
-        ),
-      ],
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: _saving || _uploadingImage ? null : _save,
+            icon: _saving
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: Text(context.tr('Save changes')),
+          ),
+        ],
+      ),
     ),
   );
 
   Future<void> _save() async {
-    if (_name.text.trim().isEmpty) return;
+    if (_saving || !_form.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
       final updated = await widget.repository.updateCommunity(
@@ -929,7 +1338,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           children: [
             TextField(
               controller: label,
-              maxLength: 60,
+              maxLength: CommunityInputLimits.linkLabel,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
               decoration: InputDecoration(
                 labelText: context.tr('Label'),
                 hintText: context.tr('Website, Facebook, WhatsApp…'),
@@ -937,6 +1347,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             ),
             TextField(
               controller: url,
+              maxLength: CommunityInputLimits.linkUrl,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
               keyboardType: TextInputType.url,
               decoration: const InputDecoration(
                 labelText: 'HTTPS URL',
@@ -953,7 +1365,10 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           FilledButton(
             onPressed: () {
               final parsed = Uri.tryParse(url.text.trim());
-              if (label.text.trim().isEmpty ||
+              if (label.text.characters.length >
+                      CommunityInputLimits.linkLabel ||
+                  url.text.characters.length > CommunityInputLimits.linkUrl ||
+                  label.text.trim().isEmpty ||
                   parsed?.scheme != 'https' ||
                   parsed?.host.isEmpty != false) {
                 return;

@@ -27,6 +27,19 @@ class PostTextController extends quill.QuillController {
     _originalDelta = jsonEncode(document.toDelta().toJson());
   }
 
+  static const maxCharacters = 2000;
+
+  /// Quill requires a final newline that is not part of the user's content.
+  int get characterCount {
+    final plainText = document.toPlainText();
+    final content = plainText.endsWith('\n')
+        ? plainText.substring(0, plainText.length - 1)
+        : plainText;
+    return content.characters.length;
+  }
+
+  bool get exceedsCharacterLimit => characterCount > maxCharacters;
+
   final String originalText;
   late final String _originalDelta;
 
@@ -94,6 +107,38 @@ class PostRichTextEditor extends StatelessWidget {
                 placeholder: context.tr('What would you like to share?'),
                 textCapitalization: TextCapitalization.sentences,
                 embedBuilders: const [_PostImageEmbed()],
+              ),
+            ),
+            ListenableBuilder(
+              listenable: controller,
+              builder: (context, _) => Padding(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: controller.exceedsCharacterLimit
+                          ? Text(
+                              context.tr('Use at most {count} characters.', {
+                                'count': '${PostTextController.maxCharacters}',
+                              }),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${controller.characterCount}/${PostTextController.maxCharacters}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: controller.exceedsCharacterLimit
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

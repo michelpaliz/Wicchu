@@ -564,6 +564,19 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
   Future<void> _publish() async {
+    if (_saving) return;
+    if (_textController.exceedsCharacterLimit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.tr('Use at most {count} characters.', {
+              'count': '${PostTextController.maxCharacters}',
+            }),
+          ),
+        ),
+      );
+      return;
+    }
     final text = _textController.text.trim();
     final pollOptions = _hasPoll
         ? _pollControllers.map((controller) => controller.text.trim()).toList()

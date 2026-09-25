@@ -21,6 +21,8 @@ class RuleManagementPage extends StatefulWidget {
 class _RuleManagementPageState extends State<RuleManagementPage> {
   late Future<CommunityRules> _rules;
   bool _reordering = false;
+  bool _orderMode = false;
+  bool _showTip = true;
 
   @override
   void initState() {
@@ -29,7 +31,17 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
   }
 
   void _reload() {
-    _rules = widget.repository.listRules(widget.community.id);
+    _rules = widget.repository.listRules(widget.community.id).then((data) {
+      final sorted = [...data.rules]
+        ..sort((a, b) => a.position.compareTo(b.position));
+      return CommunityRules(
+        rules: sorted,
+        rulesVersion: data.rulesVersion,
+        acceptedRulesVersion: data.acceptedRulesVersion,
+        acceptanceRequired: data.acceptanceRequired,
+        canManage: data.canManage,
+      );
+    });
   }
 
   Future<void> _openEditor([CommunityRule? rule]) async {
@@ -185,11 +197,6 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
         ),
       ],
     ),
-    floatingActionButton: FloatingActionButton.extended(
-      onPressed: _reordering ? null : () => _openEditor(),
-      icon: const Icon(Icons.add),
-      label: Text(context.tr('Add rule')),
-    ),
     body: FutureBuilder<CommunityRules>(
       future: _rules,
       builder: (context, snapshot) {
@@ -197,53 +204,263 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text(context.trError(snapshot.error!)));
-        }
-        final rules = snapshot.data!.rules;
-        if (rules.isEmpty) {
           return Center(
             child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Text(
-                context.tr(
-                  'Add clear rules so members know what is expected in this community.',
-                ),
-                textAlign: TextAlign.center,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(context.trError(snapshot.error!)),
+                  TextButton(
+                    onPressed: () => setState(_reload),
+                    child: Text(context.tr('Retry')),
+                  ),
+                ],
               ),
             ),
           );
         }
+        final rules = snapshot.data!.rules;
+        final canManage = snapshot.data!.canManage;
+        final colors = Theme.of(context).colorScheme;
         return ReorderableListView.builder(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            24 + MediaQuery.paddingOf(context).bottom,
+          ),
+          buildDefaultDragHandles: false,
+          header: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _notice(
+                icon: Icons.verified_user_outlined,
+                title: 'A better space for everyone',
+                description:
+                    'These rules help keep your community safe, respectful and active.',
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.tr('Rules ({count})', {
+                        'count': '${rules.length}',
+                      }),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (canManage && rules.length > 1)
+                    TextButton.icon(
+                      onPressed: _reordering
+                          ? null
+                          : () => setState(() => _orderMode = !_orderMode),
+                      icon: Icon(
+                        _orderMode ? Icons.check : Icons.swap_vert,
+                        size: 20,
+                      ),
+                      label: Text(context.tr(_orderMode ? 'Done' : 'Reorder')),
+                    ),
+                ],
+              ),
+              if (_reordering) const LinearProgressIndicator(),
+              const SizedBox(height: 12),
+            ],
+          ),
+          footer: Column(
+            children: [
+              if (canManage) ...[
+                const SizedBox(height: 28),
+                if (rules.length < 2) ...[
+                  Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      Container(
+                        width: 96,
+                        height: 96,
+                        decoration: BoxDecoration(
+                          color: colors.primary.withValues(alpha: .08),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Icon(
+                          Icons.article_outlined,
+                          size: 54,
+                          color: colors.primary,
+                        ),
+                      ),
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: colors.primary,
+                        child: Icon(
+                          Icons.verified_user_outlined,
+                          color: colors.onPrimary,
+                          size: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    context.tr('Keep your community safe'),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.tr(
+                      'Add clear rules so everyone knows how to participate.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(200, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: _reordering ? null : () => _openEditor(),
+                  icon: const Icon(Icons.add),
+                  label: Text(context.tr('Add rule')),
+                ),
+                if (_showTip) ...[
+                  const SizedBox(height: 24),
+                  _notice(
+                    icon: Icons.lightbulb_outline,
+                    title: 'Tip',
+                    description:
+                        'Use clear, specific rules. Tap Reorder to drag rules into place.',
+                    onClose: () => setState(() => _showTip = false),
+                  ),
+                ],
+              ] else if (rules.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(context.tr('No community rules yet.')),
+                ),
+            ],
+          ),
           itemCount: rules.length,
-          onReorderItem: (oldIndex, newIndex) =>
-              _reorder(rules, oldIndex, newIndex),
+          onReorderItem: (oldIndex, newIndex) {
+            if (canManage && _orderMode && !_reordering) {
+              _reorder(rules, oldIndex, newIndex);
+            }
+          },
           itemBuilder: (context, index) {
             final rule = rules[index];
             return Card(
               key: ValueKey(rule.id),
-              child: ListTile(
-                leading: CircleAvatar(child: Text('${index + 1}')),
-                title: Text(rule.title),
-                subtitle: Text(
-                  rule.description,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+              margin: const EdgeInsets.only(bottom: 12),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: colors.onSurface.withValues(alpha: .08),
                 ),
-                trailing: PopupMenuButton<String>(
-                  onSelected: (action) {
-                    if (action == 'edit') _openEditor(rule);
-                    if (action == 'delete') _delete(rule);
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Text(context.tr('Edit rule')),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: colors.primary.withValues(alpha: .12),
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Text(context.tr('Delete rule')),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            rule.title,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            rule.description,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.copyWith(height: 1.5),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.primary.withValues(alpha: .10),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.check_circle,
+                                  size: 16,
+                                  color: colors.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  context.tr('Active rule'),
+                                  style: TextStyle(
+                                    color: colors.primary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                    if (canManage && _orderMode)
+                      ReorderableDragStartListener(
+                        index: index,
+                        enabled: !_reordering,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Icon(Icons.drag_handle, color: colors.primary),
+                        ),
+                      ),
+                    if (canManage && !_orderMode)
+                      PopupMenuButton<String>(
+                        enabled: !_reordering,
+                        tooltip: context.tr('Rule options'),
+                        onSelected: (action) {
+                          if (action == 'edit') _openEditor(rule);
+                          if (action == 'delete') _delete(rule);
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Text(context.tr('Edit rule')),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Text(context.tr('Delete rule')),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -253,6 +470,55 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
       },
     ),
   );
+  Widget _notice({
+    required IconData icon,
+    required String title,
+    required String description,
+    VoidCallback? onClose,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: colors.primary, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.tr(title),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.tr(description),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          if (onClose != null)
+            IconButton(
+              onPressed: onClose,
+              tooltip: context.tr('Close'),
+              icon: const Icon(Icons.close, size: 18),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class CommunityRuleEditorPage extends StatefulWidget {

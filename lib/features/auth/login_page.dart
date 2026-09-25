@@ -64,79 +64,60 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 28),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF1877F2),
-                        foregroundColor: Colors.white,
+                  _signInButton(
+                    provider: 'google',
+                    label: 'Continue with Google',
+                    onPressed: _signInGoogle,
+                    filled: true,
+                    backgroundColor: const Color(0xFFC62828),
+                    foregroundColor: Colors.white,
+                    icon: const Text(
+                      'G',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
-                      onPressed: _loadingProvider != null
-                          ? null
-                          : _signInFacebook,
-                      icon: _loadingProvider == 'facebook'
-                          ? const SizedBox.square(
-                              dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.facebook),
-                      label: Text(context.tr('Continue with Facebook')),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: .15),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: _loadingProvider != null ? null : _openEmail,
-                      icon: const Icon(Icons.email_outlined),
-                      label: Text(context.tr('Continue with email')),
+                  _signInButton(
+                    provider: 'facebook',
+                    label: 'Continue with Facebook',
+                    onPressed: _signInFacebook,
+                    icon: const Icon(
+                      Icons.facebook,
+                      color: Color(0xFF1877F2),
+                      size: 24,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: .15),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            context.tr('or'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: _loadingProvider != null
-                          ? null
-                          : _signInGoogle,
-                      icon: _loadingProvider == 'google'
-                          ? const SizedBox.square(
-                              dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text(
-                              'G',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF4285F4),
-                              ),
-                            ),
-                      label: Text(context.tr('Continue with Google')),
+                        const Expanded(child: Divider()),
+                      ],
                     ),
+                  ),
+                  _signInButton(
+                    provider: 'email',
+                    label: 'Continue with email',
+                    onPressed: _openEmail,
+                    icon: const Icon(Icons.mail_outline_rounded, size: 22),
+                    filled: true,
                   ),
                   const SizedBox(height: 18),
                   Text(
@@ -155,10 +136,98 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  Widget _signInButton({
+    required String provider,
+    required String label,
+    required VoidCallback onPressed,
+    required Widget icon,
+    bool filled = false,
+    Color? backgroundColor,
+    Color? foregroundColor,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final isLoading = _loadingProvider == provider;
+    final foreground =
+        foregroundColor ?? (filled ? colors.onPrimary : colors.onSurface);
+    final style = ButtonStyle(
+      minimumSize: const WidgetStatePropertyAll(Size(double.infinity, 54)),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      ),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      foregroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled) && !isLoading) {
+          return colors.onSurface.withValues(alpha: .38);
+        }
+        return foreground;
+      }),
+      backgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (filled) {
+          return states.contains(WidgetState.disabled) && !isLoading
+              ? colors.onSurface.withValues(alpha: .12)
+              : (backgroundColor ?? colors.primary);
+        }
+        return colors.surface;
+      }),
+      side: WidgetStatePropertyAll(
+        filled ? BorderSide.none : BorderSide(color: colors.outlineVariant),
+      ),
+      textStyle: const WidgetStatePropertyAll(
+        TextStyle(fontSize: 15, fontWeight: FontWeight.w600, height: 1.3),
+      ),
+    );
+    final content = Row(
+      children: [
+        SizedBox.square(
+          dimension: 24,
+          child: Center(
+            child: isLoading
+                ? SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: foreground,
+                    ),
+                  )
+                : Opacity(
+                    opacity: _loadingProvider != null ? .4 : 1,
+                    child: icon,
+                  ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            context.tr(isLoading ? 'Signing in…' : label),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        const SizedBox(width: 36),
+      ],
+    );
+    return Semantics(
+      liveRegion: isLoading,
+      child: filled
+          ? FilledButton(
+              style: style,
+              onPressed: _loadingProvider == null ? onPressed : null,
+              child: content,
+            )
+          : OutlinedButton(
+              style: style,
+              onPressed: _loadingProvider == null ? onPressed : null,
+              child: content,
+            ),
+    );
+  }
+
   Future<void> _signInFacebook() => _signIn(
     provider: 'facebook',
     action: widget.authGateway.signInWithFacebook,
-    unavailableMessage: 'Facebook sign-in is unavailable.',
+    unavailableMessage:
+        'Facebook sign-in will be available soon. In the meantime, use Google or email and password.',
   );
 
   Future<void> _openEmail() async {
@@ -190,15 +259,28 @@ class _LoginPageState extends State<LoginPage> {
       widget.onSignedIn();
     } on AuthException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+        final facebookFailed =
+            provider == 'facebook' &&
+            error.message != 'Facebook sign-in was cancelled.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              facebookFailed
+                  ? context.tr(unavailableMessage)
+                  : context.trError(error),
+            ),
+            duration: Duration(seconds: facebookFailed ? 7 : 4),
+          ),
+        );
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.tr(unavailableMessage))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr(unavailableMessage)),
+            duration: Duration(seconds: provider == 'facebook' ? 7 : 4),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _loadingProvider = null);
