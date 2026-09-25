@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "414702659593-2av2t00mo1o30lftl6ne4jc2bh0e616d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wicchu.wicchu",
+            "certificate_hash": "0fd3942f08a302b291f7229b175368d09ca965cf"
+          }
+        },
+        {
+          "client_id": "414702659593-3jjkkoc7bpghcjje3t8pq7lghl72ea2t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wicchu.wicchu",
+            "certificate_hash": "635f3ebf9664d4a9695c63c90da32b2ff5396bbf"
+          }
+        },
+        {
           "client_id": "414702659593-j2uaga1cgappip70urfmsmhq37r37i4s.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
