@@ -40,18 +40,21 @@ class _CreatePostPageState extends State<CreatePostPage> {
     ...?widget.existingPost?.mentionedUserIds,
   };
   bool _hasPoll = false;
-  late bool _anonymousAsAdmin = widget.existingPost?.isAnonymous ?? false;
+  late bool _publishAnonymously = widget.existingPost?.isAnonymous ?? false;
   final _pollControllers = [TextEditingController(), TextEditingController()];
   bool get _isEditing => widget.existingPost != null;
   bool get _pollLocked => (widget.existingPost?.poll?.totalVotes ?? 0) > 0;
-  bool get _canPublishAnonymously => const {
+  bool get _canPublishAsAdmin => const {
     CommunityRole.owner,
     CommunityRole.admin,
     CommunityRole.moderator,
   }.contains(widget.community.myRole);
+  bool get _canPublishAnonymously => widget.community.myRole != null;
 
   Future<void> _chooseMentions() async {
-    final members = await widget.repository.listMembers(widget.community.id);
+    final members = (await widget.repository.listMembers(widget.community.id))
+        .where((member) => !member.isAnonymous && member.userId.isNotEmpty)
+        .toList(growable: false);
     if (!mounted) return;
     final selected = {..._mentionedUserIds};
     final result = await showModalBottomSheet<Set<String>>(
@@ -265,15 +268,27 @@ class _CreatePostPageState extends State<CreatePostPage> {
           if (_canPublishAnonymously) ...[
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              value: _anonymousAsAdmin,
+              value: _publishAnonymously,
               onChanged: _saving
                   ? null
-                  : (value) => setState(() => _anonymousAsAdmin = value),
-              secondary: const Icon(Icons.admin_panel_settings_outlined),
-              title: Text(context.tr('Publish as Community Admin')),
+                  : (value) => setState(() => _publishAnonymously = value),
+              secondary: Icon(
+                _canPublishAsAdmin
+                    ? Icons.admin_panel_settings_outlined
+                    : Icons.person_off_outlined,
+              ),
+              title: Text(
+                context.tr(
+                  _canPublishAsAdmin
+                      ? 'Publish as Community Admin'
+                      : 'Publish anonymously',
+                ),
+              ),
               subtitle: Text(
                 context.tr(
-                  'Members will not see your personal profile. Your identity remains available for security and auditing.',
+                  _canPublishAsAdmin
+                      ? 'Members will not see your personal profile. Your identity remains available for security and auditing.'
+                      : 'Anonymous posts are always reviewed by a community administrator before publication. Administrators can still identify you for safety.',
                 ),
               ),
             ),
@@ -592,7 +607,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
         media: _attachments.map((item) => item.media).toList(),
         pollOptions: pollOptions,
         mentionedUserIds: _mentionedUserIds.toList(growable: false),
-        anonymousAsAdmin: _anonymousAsAdmin,
+        anonymousAsAdmin: _publishAnonymously && _canPublishAsAdmin,
+        anonymousAsMember: _publishAnonymously && !_canPublishAsAdmin,
       );
       final post = _isEditing
           ? await widget.repository.updatePost(widget.existingPost!.id, input)

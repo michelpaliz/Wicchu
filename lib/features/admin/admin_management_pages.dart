@@ -706,6 +706,14 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   String? _imageBlobName;
   bool _saving = false;
   bool _uploadingImage = false;
+  bool? _anonymousInCommunity;
+  bool _savingAnonymity = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAnonymity();
+  }
 
   @override
   void dispose() {
@@ -800,6 +808,20 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           title: Text(context.tr('Require post approval')),
           value: _approvalRequired,
           onChanged: (value) => setState(() => _approvalRequired = value),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.visibility_off_outlined),
+          title: Text(context.tr('Anonymous administrator identity')),
+          subtitle: Text(
+            context.tr(
+              'Members will see Community Admin instead of your profile. Other administrators can still identify you for security and auditing.',
+            ),
+          ),
+          value: _anonymousInCommunity ?? false,
+          onChanged: _anonymousInCommunity == null || _savingAnonymity
+              ? null
+              : _setAnonymity,
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
@@ -906,6 +928,46 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _loadAnonymity() async {
+    try {
+      final value = await widget.repository.getAdminAnonymity(
+        widget.community.id,
+      );
+      if (mounted) setState(() => _anonymousInCommunity = value);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _anonymousInCommunity = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
+
+  Future<void> _setAnonymity(bool value) async {
+    final previous = _anonymousInCommunity ?? false;
+    setState(() {
+      _anonymousInCommunity = value;
+      _savingAnonymity = true;
+    });
+    try {
+      final saved = await widget.repository.updateAdminAnonymity(
+        widget.community.id,
+        anonymousInCommunity: value,
+      );
+      if (mounted) setState(() => _anonymousInCommunity = saved);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _anonymousInCommunity = previous);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _savingAnonymity = false);
     }
   }
 

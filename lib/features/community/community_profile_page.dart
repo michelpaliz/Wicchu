@@ -1277,15 +1277,17 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       style: const TextStyle(color: Colors.green),
                     )
                   : null,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MemberProfilePage(
-                    userId: member.userId,
-                    repository: widget.repository,
-                  ),
-                ),
-              ),
+              onTap: member.isAnonymous || member.userId.isEmpty
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MemberProfilePage(
+                          userId: member.userId,
+                          repository: widget.repository,
+                        ),
+                      ),
+                    ),
             );
           },
         );

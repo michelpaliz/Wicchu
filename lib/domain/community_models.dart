@@ -350,6 +350,7 @@ class CommunityMember {
     this.avatarUrl,
     this.isOnline = false,
     this.lastActiveAt,
+    this.isAnonymous = false,
   });
 
   final String userId;
@@ -361,6 +362,7 @@ class CommunityMember {
   final String? avatarUrl;
   final bool isOnline;
   final DateTime? lastActiveAt;
+  final bool isAnonymous;
 }
 
 class CommunityCategory {

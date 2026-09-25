@@ -30,8 +30,23 @@ class _PreviewAuthGateway implements AuthGateway {
       throw UnimplementedError('Email login is unavailable in the preview.');
 
   @override
-  Future<void> registerWithEmail({required String name, required String userName, required String email, required String password}) =>
-      throw UnimplementedError('Email registration is unavailable in the preview.');
+  Future<void> registerWithEmail({
+    required String name,
+    required String userName,
+    required String email,
+    required String password,
+    required String locale,
+  }) => throw UnimplementedError(
+    'Email registration is unavailable in the preview.',
+  );
+
+  @override
+  Future<void> resendVerificationEmail(
+    String email, {
+    required String locale,
+  }) => throw UnimplementedError(
+    'Email verification is unavailable in the preview.',
+  );
 
   @override
   Future<void> requestPasswordReset(String email) =>

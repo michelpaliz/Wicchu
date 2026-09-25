@@ -468,6 +468,26 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<bool> getAdminAnonymity(String communityId) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/membership/anonymity',
+    );
+    return body['anonymousInCommunity'] == true;
+  }
+
+  @override
+  Future<bool> updateAdminAnonymity(
+    String communityId, {
+    required bool anonymousInCommunity,
+  }) async {
+    final body = await _api.patch(
+      '/api/community/v1/communities/$communityId/membership/anonymity',
+      body: {'anonymousInCommunity': anonymousInCommunity},
+    );
+    return body['anonymousInCommunity'] == true;
+  }
+
+  @override
   Future<List<CommunityCategory>> listCategories(String communityId) async {
     final body = await _api.get(
       '/api/community/v1/communities/$communityId/categories',
@@ -547,6 +567,7 @@ class HttpCommunityRepository implements CommunityRepository {
                 DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
             isOnline: json['isOnline'] == true,
             lastActiveAt: _optionalDate(json['lastActiveAt']),
+            isAnonymous: json['isAnonymous'] == true,
           );
         })
         .toList(growable: false);
@@ -727,6 +748,7 @@ class HttpCommunityRepository implements CommunityRepository {
         if (input.pollOptions.isNotEmpty) 'pollOptions': input.pollOptions,
         'mentionedUserIds': input.mentionedUserIds,
         'anonymousAsAdmin': input.anonymousAsAdmin,
+        'anonymousAsMember': input.anonymousAsMember,
       },
     );
     return _postFromJson(_object(body, 'post'));
@@ -751,6 +773,7 @@ class HttpCommunityRepository implements CommunityRepository {
         'pollOptions': input.pollOptions,
         'mentionedUserIds': input.mentionedUserIds,
         'anonymousAsAdmin': input.anonymousAsAdmin,
+        'anonymousAsMember': input.anonymousAsMember,
       },
     );
     return _postFromJson(_object(body, 'post'));

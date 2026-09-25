@@ -24,7 +24,9 @@ abstract interface class AuthGateway {
     required String userName,
     required String email,
     required String password,
+    required String locale,
   });
+  Future<void> resendVerificationEmail(String email, {required String locale});
   Future<void> requestPasswordReset(String email);
   Future<void> signOut();
 }
