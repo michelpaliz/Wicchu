@@ -59,12 +59,19 @@ android {
 
     buildTypes {
         release {
-            // Local preview builds use the debug key until a release key is configured.
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+// Never build an unsigned or debug-signed release when local upload credentials are missing.
+gradle.taskGraph.whenReady {
+    if (!releaseKeystoreFile.exists() &&
+        allTasks.any { it.project == project && it.name.contains("Release", ignoreCase = true) }) {
+        throw GradleException("Release signing requires android/key.properties and the upload keystore.")
+    }
 }

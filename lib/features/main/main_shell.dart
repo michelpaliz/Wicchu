@@ -2269,6 +2269,7 @@ class _ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<_ProfileTab> {
+  bool _signingOut = false;
   late Future<WicchuProfile> _profile = widget.repository.getProfile();
 
   Future<void> _refreshProfile() async {
@@ -2460,9 +2461,15 @@ class _ProfileTabState extends State<_ProfileTab> {
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.logout),
-            title: Text(context.tr('Log out')),
-            onTap: _logout,
+            leading: _signingOut
+                ? const SizedBox.square(
+                    dimension: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.logout),
+            title: Text(context.tr(_signingOut ? 'Signing out…' : 'Log out')),
+            enabled: !_signingOut,
+            onTap: _signingOut ? null : _logout,
           ),
         ],
       ),
@@ -2520,8 +2527,20 @@ class _ProfileTabState extends State<_ProfileTab> {
   }
 
   Future<void> _logout() async {
-    await widget.authGateway.signOut();
-    if (mounted) widget.onSignedOut();
+    if (_signingOut) return;
+    setState(() => _signingOut = true);
+    try {
+      await widget.authGateway.signOut();
+      if (mounted) widget.onSignedOut();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _signingOut = false);
+    }
   }
 }
 

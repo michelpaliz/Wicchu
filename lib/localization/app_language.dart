@@ -199,6 +199,7 @@ const _spanish = <String, String>{
   'No activity yet': 'Todavía no hay actividad',
   'Mark all read': 'Marcar todo como leído',
   'Log out': 'Cerrar sesión',
+  'Signing out…': 'Cerrando sesión…',
   '{communities} Communities · {posts} Posts':
       '{communities} comunidades · {posts} publicaciones',
   '{count} community': '{count} comunidad',

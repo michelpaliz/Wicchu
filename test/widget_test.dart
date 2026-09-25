@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:wicchu/features/community/category_page.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
 import 'package:flutter/material.dart';
@@ -116,6 +117,18 @@ class _EmptyExploreRepository extends DemoCommunityRepository {
   Future<List<Community>> listJoinedCommunities() async => [];
 }
 
+class _DelayedLogoutGateway extends _FakeAuthGateway {
+  _DelayedLogoutGateway() : super(signedIn: true);
+  final completion = Completer<void>();
+  int calls = 0;
+  @override
+  Future<void> signOut() async {
+    calls++;
+    await completion.future;
+    await super.signOut();
+  }
+}
+
 void main() {
   testWidgets('email recovery validates input and confirms reset without password fields', (tester) async {
     await tester.pumpWidget(MaterialApp(home: EmailAuthPage(authGateway: _FakeAuthGateway(signedIn: false), onSignedIn: () {})));
@@ -135,6 +148,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('If an account exists, a password reset email has been sent.'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('logout shows progress and restores the button on failure', (tester) async {
+    final auth = _DelayedLogoutGateway();
+    await tester.pumpWidget(WicchuApp(
+      repository: DemoCommunityRepository(), authGateway: auth));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('You'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Log out'), 350,
+        scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text('Log out'));
+    await tester.pump();
+    expect(find.text('Signing out…'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    await tester.tap(find.text('Signing out…'));
+    expect(auth.calls, 1);
+    auth.completion.completeError(Exception('Connection failed'));
+    await tester.pumpAndSettle();
+    expect(find.text('Log out'), findsOneWidget);
+    expect(find.textContaining('Connection failed'), findsOneWidget);
   });
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
