@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "414702659593-fah50l7lhobmach3e1j75rla2prm09dd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wicchu.wicchu",
+            "certificate_hash": "6074969e0167f287b4035a2d72f88cb0c9f569ae"
+          }
+        },
+        {
           "client_id": "414702659593-j2uaga1cgappip70urfmsmhq37r37i4s.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
