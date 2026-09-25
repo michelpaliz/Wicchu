@@ -42,6 +42,7 @@ class CreatePostInput {
     this.pollOptions = const [],
     this.mentionedUserIds = const [],
     this.anonymousAsAdmin = false,
+    this.anonymousAsMember = false,
   });
 
   final String categoryId;
@@ -50,6 +51,7 @@ class CreatePostInput {
   final List<String> pollOptions;
   final List<String> mentionedUserIds;
   final bool anonymousAsAdmin;
+  final bool anonymousAsMember;
 }
 
 abstract interface class CommunityRepository {
@@ -94,6 +96,11 @@ abstract interface class CommunityRepository {
   Future<Community> createCommunity(CreateCommunityInput input);
   Future<void> joinCommunity(String communityId);
   Future<void> leaveCommunity(String communityId);
+  Future<bool> getAdminAnonymity(String communityId);
+  Future<bool> updateAdminAnonymity(
+    String communityId, {
+    required bool anonymousInCommunity,
+  });
   Future<CommunityHelpfulness> getCommunityHelpfulness(String communityId);
   Future<CommunityHelpfulness> setCommunityHelpfulness(
     String communityId, {

@@ -333,6 +333,15 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<void> leaveCommunity(String communityId) async {}
 
   @override
+  Future<bool> getAdminAnonymity(String communityId) async => false;
+
+  @override
+  Future<bool> updateAdminAnonymity(
+    String communityId, {
+    required bool anonymousInCommunity,
+  }) async => anonymousInCommunity;
+
+  @override
   Future<CommunityRules> listRules(String communityId) async => CommunityRules(
     rules: List.unmodifiable(_rules[communityId] ?? const []),
     rulesVersion: _ruleVersions[communityId] ?? 0,
@@ -588,10 +597,16 @@ class DemoCommunityRepository implements CommunityRepository {
       communityId: communityId,
       categoryId: input.categoryId,
       authorId: 'current-user',
-      authorName: input.anonymousAsAdmin ? 'Community Admin' : 'You',
-      isAnonymous: input.anonymousAsAdmin,
+      authorName: input.anonymousAsAdmin
+          ? 'Community Admin'
+          : input.anonymousAsMember
+          ? 'Anonymous Member'
+          : 'You',
+      isAnonymous: input.anonymousAsAdmin || input.anonymousAsMember,
       text: input.text,
-      status: PostStatus.published,
+      status: input.anonymousAsMember
+          ? PostStatus.pendingApproval
+          : PostStatus.published,
       createdAt: DateTime.now(),
       media: input.media,
       poll: input.pollOptions.isEmpty
@@ -622,13 +637,19 @@ class DemoCommunityRepository implements CommunityRepository {
         communityId: current.communityId,
         categoryId: input.categoryId,
         authorId: current.authorId,
-        authorName: input.anonymousAsAdmin ? 'Community Admin' : 'You',
-        authorAvatarUrl: input.anonymousAsAdmin
+        authorName: input.anonymousAsAdmin
+            ? 'Community Admin'
+            : input.anonymousAsMember
+            ? 'Anonymous Member'
+            : 'You',
+        authorAvatarUrl: input.anonymousAsAdmin || input.anonymousAsMember
             ? null
             : current.authorAvatarUrl,
-        isAnonymous: input.anonymousAsAdmin,
+        isAnonymous: input.anonymousAsAdmin || input.anonymousAsMember,
         text: input.text,
-        status: current.status,
+        status: input.anonymousAsMember
+            ? PostStatus.pendingApproval
+            : current.status,
         createdAt: current.createdAt,
         editedAt: DateTime.now(),
         ownedByMe: true,

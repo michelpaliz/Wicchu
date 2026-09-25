@@ -28,6 +28,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
   bool _resetting = false;
   String? _error;
   bool _resetSent = false;
+  bool _verificationResent = false;
   bool _loading = false;
   bool _obscurePassword = true;
 
@@ -258,17 +259,25 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                       ],
                     ],
                     if (!_registering && !_resetting)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _loading
-                              ? null
-                              : () => setState(() {
-                                  _resetting = true;
-                                  _error = null;
-                                }),
-                          child: Text(context.tr('Forgot password?')),
-                        ),
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        spacing: 8,
+                        children: [
+                          TextButton(
+                            onPressed: _loading ? null : _resendVerification,
+                            child: Text(context.tr('Resend verification')),
+                          ),
+                          TextButton(
+                            onPressed: _loading
+                                ? null
+                                : () => setState(() {
+                                    _resetting = true;
+                                    _error = null;
+                                    _verificationResent = false;
+                                  }),
+                            child: Text(context.tr('Forgot password?')),
+                          ),
+                        ],
                       )
                     else
                       const SizedBox(height: 20),
@@ -288,6 +297,15 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                         child: Text(
                           context.tr(
                             'If an account exists, a password reset email has been sent.',
+                          ),
+                        ),
+                      ),
+                    if (_verificationResent)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          context.tr(
+                            'If an account exists, a verification email has been sent.',
                           ),
                         ),
                       ),
@@ -338,6 +356,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
           userName: _userName.text,
           email: _email.text.trim(),
           password: _password.text,
+          locale: Localizations.localeOf(context).languageCode,
         );
         if (!mounted) return;
         await showDialog<void>(
@@ -369,6 +388,30 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
         );
         widget.onSignedIn();
       }
+    } catch (error) {
+      if (mounted) setState(() => _error = context.trError(error));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _resendVerification() async {
+    final email = _email.text.trim();
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      setState(() => _error = context.tr('Enter a valid email address.'));
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+      _verificationResent = false;
+    });
+    try {
+      await widget.authGateway.resendVerificationEmail(
+        email,
+        locale: Localizations.localeOf(context).languageCode,
+      );
+      if (mounted) setState(() => _verificationResent = true);
     } catch (error) {
       if (mounted) setState(() => _error = context.trError(error));
     } finally {

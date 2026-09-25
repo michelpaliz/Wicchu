@@ -42,7 +42,19 @@ class _FakeAuthGateway implements AuthGateway {
       signInWithFacebook();
 
   @override
-  Future<void> registerWithEmail({required String name, required String userName, required String email, required String password}) async {}
+  Future<void> registerWithEmail({
+    required String name,
+    required String userName,
+    required String email,
+    required String password,
+    required String locale,
+  }) async {}
+
+  @override
+  Future<void> resendVerificationEmail(
+    String email, {
+    required String locale,
+  }) async {}
 
   @override
   Future<void> requestPasswordReset(String email) async {}
@@ -130,35 +142,59 @@ class _DelayedLogoutGateway extends _FakeAuthGateway {
 }
 
 void main() {
-  testWidgets('email recovery validates input and confirms reset without password fields', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: EmailAuthPage(authGateway: _FakeAuthGateway(signedIn: false), onSignedIn: () {})));
-    await tester.tap(find.byTooltip('Show password'));
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('Hide password'), findsOneWidget);
-    await tester.ensureVisible(find.text('Forgot password?'));
-    await tester.tap(find.text('Forgot password?'));
-    await tester.pumpAndSettle();
-    expect(find.byType(TextFormField), findsOneWidget);
-    await tester.tap(find.text('Send reset link'));
-    await tester.pumpAndSettle();
-    expect(find.text('Enter a valid email address.'), findsOneWidget);
-    await tester.enterText(find.byType(TextFormField), 'neighbor@example.com');
-    await tester.ensureVisible(find.text('Send reset link'));
-    await tester.tap(find.text('Send reset link'));
-    await tester.pumpAndSettle();
-    expect(find.text('If an account exists, a password reset email has been sent.'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'email recovery validates input and confirms reset without password fields',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EmailAuthPage(
+            authGateway: _FakeAuthGateway(signedIn: false),
+            onSignedIn: () {},
+          ),
+        ),
+      );
+      await tester.tap(find.byTooltip('Show password'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Hide password'), findsOneWidget);
+      await tester.ensureVisible(find.text('Forgot password?'));
+      await tester.tap(find.text('Forgot password?'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextFormField), findsOneWidget);
+      await tester.tap(find.text('Send reset link'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a valid email address.'), findsOneWidget);
+      await tester.enterText(
+        find.byType(TextFormField),
+        'neighbor@example.com',
+      );
+      await tester.ensureVisible(find.text('Send reset link'));
+      await tester.tap(find.text('Send reset link'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'If an account exists, a password reset email has been sent.',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-  testWidgets('logout shows progress and restores the button on failure', (tester) async {
+  testWidgets('logout shows progress and restores the button on failure', (
+    tester,
+  ) async {
     final auth = _DelayedLogoutGateway();
-    await tester.pumpWidget(WicchuApp(
-      repository: DemoCommunityRepository(), authGateway: auth));
+    await tester.pumpWidget(
+      WicchuApp(repository: DemoCommunityRepository(), authGateway: auth),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('You'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Log out'), 350,
-        scrollable: find.byType(Scrollable).last);
+    await tester.scrollUntilVisible(
+      find.text('Log out'),
+      350,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.text('Log out'));
     await tester.pump();
     expect(find.text('Signing out…'), findsOneWidget);
@@ -192,17 +228,26 @@ void main() {
     await tester.tap(find.text('Community'));
     await tester.pumpAndSettle();
     expect(find.byType(CommunityProfilePage), findsOneWidget);
-    expect(tester.widget<CommunityProfilePage>(find.byType(CommunityProfilePage)).embedded, isTrue);
+    expect(
+      tester
+          .widget<CommunityProfilePage>(find.byType(CommunityProfilePage))
+          .embedded,
+      isTrue,
+    );
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
     expect(find.byTooltip('Notifications'), findsOneWidget);
   });
 
-  testWidgets('Communities without membership offers discovery', (tester) async {
-    await tester.pumpWidget(WicchuApp(
-      repository: _NoCommunitiesRepository(),
-      authGateway: _FakeAuthGateway(signedIn: true),
-    ));
+  testWidgets('Communities without membership offers discovery', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: _NoCommunitiesRepository(),
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Community'));
     await tester.pumpAndSettle();
@@ -231,43 +276,60 @@ void main() {
     expect(find.text('Town X Community'), findsWidgets);
   });
 
-  testWidgets('community tab switches profiles and shares selection with Home', (tester) async {
-    final repository = DemoCommunityRepository();
-    final second = await repository.createCommunity(
-      const CreateCommunityInput(
-        name: 'Second neighborhood',
-        description: 'Nearby',
-        town: Town(id: 'town-1', name: 'Town X', countryCode: 'EC'),
-        visibility: CommunityVisibility.public,
-        categoryNames: ['General'],
-      ),
-    );
-    await tester.pumpWidget(WicchuApp(
-      repository: repository,
-      authGateway: _FakeAuthGateway(signedIn: true),
-    ));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Community'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Choose a community'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Second neighborhood'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<CommunityProfilePage>(find.byType(CommunityProfilePage)).community.id, second.id);
-    expect(find.byType(FloatingActionButton), findsNothing);
-    await tester.tap(find.bySemanticsLabel('Post'));
-    await tester.pumpAndSettle();
-    expect(find.text('Second neighborhood'), findsOneWidget);
-    expect(find.text('Category'), findsWidgets);
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Home'));
-    await tester.pumpAndSettle();
-    expect(find.text('Second neighborhood'), findsOneWidget);
-    await tester.tap(find.text('Community'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<CommunityProfilePage>(find.byType(CommunityProfilePage)).community.id, second.id);
-  });
+  testWidgets(
+    'community tab switches profiles and shares selection with Home',
+    (tester) async {
+      final repository = DemoCommunityRepository();
+      final second = await repository.createCommunity(
+        const CreateCommunityInput(
+          name: 'Second neighborhood',
+          description: 'Nearby',
+          town: Town(id: 'town-1', name: 'Town X', countryCode: 'EC'),
+          visibility: CommunityVisibility.public,
+          categoryNames: ['General'],
+        ),
+      );
+      await tester.pumpWidget(
+        WicchuApp(
+          repository: repository,
+          authGateway: _FakeAuthGateway(signedIn: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Community'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Choose a community'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Second neighborhood'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<CommunityProfilePage>(find.byType(CommunityProfilePage))
+            .community
+            .id,
+        second.id,
+      );
+      expect(find.byType(FloatingActionButton), findsNothing);
+      await tester.tap(find.bySemanticsLabel('Post'));
+      await tester.pumpAndSettle();
+      expect(find.text('Second neighborhood'), findsOneWidget);
+      expect(find.text('Category'), findsWidgets);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+      expect(find.text('Second neighborhood'), findsOneWidget);
+      await tester.tap(find.text('Community'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<CommunityProfilePage>(find.byType(CommunityProfilePage))
+            .community
+            .id,
+        second.id,
+      );
+    },
+  );
 
   testWidgets('multiple communities require a choice and persist it', (
     tester,
@@ -464,12 +526,20 @@ void main() {
     expect(find.text('About'), findsOneWidget);
     expect(find.text('Members'), findsOneWidget);
     expect(find.byTooltip('Manage community'), findsOneWidget);
-
   });
 
-  testWidgets('community draft is preserved when exit is cancelled', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: CreateCommunityPage(repository: DemoCommunityRepository())));
-    await tester.enterText(find.widgetWithText(TextFormField, 'Community name'), 'Draft group');
+  testWidgets('community draft is preserved when exit is cancelled', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CreateCommunityPage(repository: DemoCommunityRepository()),
+      ),
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Community name'),
+      'Draft group',
+    );
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     expect(find.text('Discard community draft?'), findsOneWidget);
@@ -530,7 +600,10 @@ void main() {
         expect(locationRequests, 0);
         await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
         await tester.pumpAndSettle();
-        expect(find.text('Confirm your current location to continue.'), findsOneWidget);
+        expect(
+          find.text('Confirm your current location to continue.'),
+          findsOneWidget,
+        );
         await tester.tap(find.text('Use my current location'));
         await tester.pumpAndSettle();
       }
@@ -545,8 +618,14 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(find.text('Enter a rule title.'), findsOneWidget);
-    await tester.enterText(find.widgetWithText(TextFormField, 'Rule title'), 'Be kind');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Description'), 'Respect your neighbors.');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Rule title'),
+      'Be kind',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Description'),
+      'Respect your neighbors.',
+    );
     await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
@@ -566,23 +645,29 @@ void main() {
     );
   });
 
-  testWidgets('empty Explore offers creation and joined filter stays distinct', (tester) async {
-    await tester.pumpWidget(WicchuApp(
-      repository: _EmptyExploreRepository(),
-      authGateway: _FakeAuthGateway(signedIn: true)));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Explore'));
-    await tester.pumpAndSettle();
-    expect(find.text('No communities to explore yet'), findsOneWidget);
-    await tester.tap(find.text('My communities'));
-    await tester.pumpAndSettle();
-    expect(find.text('Find your community'), findsOneWidget);
-    await tester.tap(find.text('All communities'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Create community'));
-    await tester.pumpAndSettle();
-    expect(find.byType(CreateCommunityPage), findsOneWidget);
-  });
+  testWidgets(
+    'empty Explore offers creation and joined filter stays distinct',
+    (tester) async {
+      await tester.pumpWidget(
+        WicchuApp(
+          repository: _EmptyExploreRepository(),
+          authGateway: _FakeAuthGateway(signedIn: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Explore'));
+      await tester.pumpAndSettle();
+      expect(find.text('No communities to explore yet'), findsOneWidget);
+      await tester.tap(find.text('My communities'));
+      await tester.pumpAndSettle();
+      expect(find.text('Find your community'), findsOneWidget);
+      await tester.tap(find.text('All communities'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Create community'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CreateCommunityPage), findsOneWidget);
+    },
+  );
 
   testWidgets('searches communities in Explore', (tester) async {
     final repository = DemoCommunityRepository();
@@ -605,7 +690,10 @@ void main() {
 
     await tester.tap(find.text('Explore'));
     await tester.pumpAndSettle();
-    expect(find.text('Discover and join communities in your area.'), findsOneWidget);
+    expect(
+      find.text('Discover and join communities in your area.'),
+      findsOneWidget,
+    );
     expect(find.text('Near you'), findsOneWidget);
     await tester.tap(find.byTooltip('Search communities'));
     await tester.pumpAndSettle();
@@ -621,8 +709,16 @@ void main() {
     final repository = _RecordingRepository();
     final community = (await repository.listCommunities()).first;
     final category = (await repository.listCategories(community.id)).first;
-    await tester.pumpWidget(MaterialApp(home: CategoryPage(
-      community: community, category: category, repository: repository, canPost: true)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CategoryPage(
+          community: community,
+          category: category,
+          repository: repository,
+          canPost: true,
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Popular'));
     await tester.pumpAndSettle();
@@ -752,12 +848,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Administrar comunidad'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Moderación'), 250, scrollable: find.byType(Scrollable).last);
+    await tester.scrollUntilVisible(
+      find.text('Moderación'),
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Moderación'));
     await tester.pumpAndSettle();
 
-    expect(find.text('No hay denuncias abiertas'), findsOneWidget);
+    expect(
+      find.text('No hay denuncias abiertas que requieran tu atención.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('changes and saves the appearance setting', (tester) async {

@@ -140,13 +140,32 @@ class FacebookAuthGateway implements AuthGateway {
     required String userName,
     required String email,
     required String password,
+    required String locale,
   }) async {
-    await _postAuth('/api/auth/register', {
-      'name': name.trim(),
-      'userName': userName.trim(),
+    await _postAuth(
+      '/api/auth/register',
+      {
+        'name': name.trim(),
+        'userName': userName.trim(),
+        'email': email.trim().toLowerCase(),
+        'password': password,
+        'locale': locale == 'es' ? 'es' : 'en',
+        'app': 'wicchu',
+      },
+      successCodes: const {201},
+    );
+  }
+
+  @override
+  Future<void> resendVerificationEmail(
+    String email, {
+    required String locale,
+  }) async {
+    await _postAuth('/api/auth/resend-verification', {
       'email': email.trim().toLowerCase(),
-      'password': password,
-    }, successCodes: const {201});
+      'locale': locale == 'es' ? 'es' : 'en',
+      'app': 'wicchu',
+    });
   }
 
   @override

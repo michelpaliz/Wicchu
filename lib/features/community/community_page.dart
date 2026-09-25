@@ -218,18 +218,20 @@ class _CommunityPageState extends State<CommunityPage> {
                     : member.lastActiveAt != null
                     ? Text(context.tr('Active recently'))
                     : null,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MemberProfilePage(
-                        userId: member.userId,
-                        repository: repository,
-                      ),
-                    ),
-                  );
-                },
+                onTap: member.isAnonymous || member.userId.isEmpty
+                    ? null
+                    : () {
+                        Navigator.pop(sheetContext);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MemberProfilePage(
+                              userId: member.userId,
+                              repository: repository,
+                            ),
+                          ),
+                        );
+                      },
               ),
           ],
         );

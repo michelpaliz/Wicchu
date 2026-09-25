@@ -359,6 +359,9 @@ const _spanish = <String, String>{
   'Password must be at least 8 characters.':
       'La contraseña debe tener al menos 8 caracteres.',
   'Forgot password?': '¿Olvidaste tu contraseña?',
+  'Resend verification': 'Reenviar verificación',
+  'If an account exists, a verification email has been sent.':
+      'Si existe una cuenta, se ha enviado un correo de verificación.',
   'Reset password': 'Restablecer contraseña',
   'Send reset link': 'Enviar enlace',
   'Check your email': 'Revisa tu correo',
@@ -675,9 +678,16 @@ const _spanish = <String, String>{
   'restored your community membership': 'restauró tu membresía en la comunidad',
   'Member actions': 'Acciones del miembro',
   'Publish as Community Admin': 'Publicar como administrador de la comunidad',
+  'Publish anonymously': 'Publicar de forma anónima',
+  'Anonymous posts are always reviewed by a community administrator before publication. Administrators can still identify you for safety.':
+      'Las publicaciones anónimas siempre son revisadas por un administrador de la comunidad antes de publicarse. Los administradores aún pueden identificarte por seguridad.',
   'Members will not see your personal profile. Your identity remains available for security and auditing.':
       'Los miembros no verán tu perfil personal. Tu identidad seguirá disponible para seguridad y auditoría.',
   'Community Admin': 'Administrador de la comunidad',
+  'Anonymous Member': 'Miembro anónimo',
+  'Anonymous administrator identity': 'Identidad de administrador anónima',
+  'Members will see Community Admin instead of your profile. Other administrators can still identify you for security and auditing.':
+      'Los miembros verán Administrador de la comunidad en lugar de tu perfil. Los demás administradores aún podrán identificarte por seguridad y auditoría.',
   'Remove member': 'Eliminar miembro',
   'Ban member': 'Bloquear miembro',
   'Unban member': 'Desbloquear miembro',
