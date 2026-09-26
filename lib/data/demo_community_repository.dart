@@ -488,6 +488,8 @@ class DemoCommunityRepository implements CommunityRepository {
     required List<CommunityLink> links,
     String? imageUrl,
     String? imageBlobName,
+    String? coverImageUrl,
+    String? coverImageBlobName,
   }) async {
     final updated = Community(
       id: community.id,
@@ -498,6 +500,9 @@ class DemoCommunityRepository implements CommunityRepository {
       createdBy: community.createdBy,
       createdAt: community.createdAt,
       imageUrl: imageBlobName == null ? community.imageUrl : imageUrl,
+      coverImageUrl: coverImageBlobName == null
+          ? community.coverImageUrl
+          : coverImageUrl,
       memberCount: community.memberCount,
       myRole: community.myRole,
       approvalRequired: approvalRequired,

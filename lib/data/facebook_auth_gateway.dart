@@ -194,6 +194,7 @@ class FacebookAuthGateway implements AuthGateway {
         body['message'] as String? ??
             body['error'] as String? ??
             'Unable to complete the request.',
+        code: body['code'] as String?,
       );
     }
     return body;

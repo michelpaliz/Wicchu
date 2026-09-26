@@ -389,7 +389,19 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
         widget.onSignedIn();
       }
     } catch (error) {
-      if (mounted) setState(() => _error = context.trError(error));
+      if (mounted) {
+        setState(() {
+          if (error is AuthException &&
+              error.code == 'EMAIL_ALREADY_REGISTERED') {
+            _registering = false;
+            _error = context.tr(
+              'This email already has an account. Sign in below or reset your password.',
+            );
+          } else {
+            _error = context.trError(error);
+          }
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

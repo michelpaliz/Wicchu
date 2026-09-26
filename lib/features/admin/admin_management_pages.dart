@@ -1086,6 +1086,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   late final List<CommunityLink> _links = [...widget.community.links];
   late String? _imageUrl = widget.community.imageUrl;
   String? _imageBlobName;
+  late String? _coverImageUrl = widget.community.coverImageUrl;
+  String? _coverImageBlobName;
   bool _saving = false;
   bool _uploadingImage = false;
   bool? _anonymousInCommunity;
@@ -1114,6 +1116,63 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          Text(
+            context.tr('Community cover photo'),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          AspectRatio(
+            aspectRatio: 16 / 7,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Material(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                child: InkWell(
+                  onTap: _uploadingImage ? null : () => _pickImage(cover: true),
+                  child: _coverImageUrl == null
+                      ? const Center(
+                          child: Icon(Icons.landscape_outlined, size: 48),
+                        )
+                      : Image.network(
+                          _coverImageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const Center(
+                            child: Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton.icon(
+                onPressed: _uploadingImage
+                    ? null
+                    : () => _pickImage(cover: true),
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: Text(context.tr('Change cover photo')),
+              ),
+              if (_coverImageUrl != null)
+                TextButton(
+                  onPressed: _uploadingImage
+                      ? null
+                      : () => setState(() {
+                          _coverImageUrl = null;
+                          _coverImageBlobName = '';
+                        }),
+                  child: Text(context.tr('Remove')),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.tr('Community profile photo'),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
           Center(
             child: Stack(
               clipBehavior: Clip.none,
@@ -1145,7 +1204,9 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                   bottom: -8,
                   child: IconButton.filled(
                     tooltip: context.tr('Change community photo'),
-                    onPressed: _uploadingImage ? null : _pickImage,
+                    onPressed: _uploadingImage
+                        ? null
+                        : () => _pickImage(cover: false),
                     icon: _uploadingImage
                         ? const SizedBox.square(
                             dimension: 18,
@@ -1394,6 +1455,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         links: List.unmodifiable(_links),
         imageUrl: _imageUrl,
         imageBlobName: _imageBlobName,
+        coverImageUrl: _coverImageUrl,
+        coverImageBlobName: _coverImageBlobName,
       );
       if (mounted) Navigator.pop(context, updated);
     } catch (error) {
@@ -1472,13 +1535,43 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Wrap(
+              spacing: 8,
+              children: [
+                ActionChip(
+                  avatar: const Icon(Icons.send_outlined, size: 18),
+                  label: const Text('Telegram'),
+                  onPressed: () {
+                    label.text = 'Telegram';
+                    if (url.text.trim().isEmpty) url.text = 'https://t.me/';
+                  },
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.language, size: 18),
+                  label: Text(context.tr('Website')),
+                  onPressed: () {
+                    label.text = context.tr('Website');
+                    if (url.text.trim().isEmpty) url.text = 'https://';
+                  },
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.add, size: 18),
+                  label: Text(context.tr('Other')),
+                  onPressed: () {
+                    label.clear();
+                    url.clear();
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: label,
               maxLength: CommunityInputLimits.linkLabel,
               maxLengthEnforcement: MaxLengthEnforcement.enforced,
               decoration: InputDecoration(
                 labelText: context.tr('Label'),
-                hintText: context.tr('Website, Facebook, WhatsApp…'),
+                hintText: context.tr('Telegram, website, Facebook, or other'),
               ),
             ),
             TextField(
@@ -1486,9 +1579,11 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               maxLength: CommunityInputLimits.linkUrl,
               maxLengthEnforcement: MaxLengthEnforcement.enforced,
               keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'HTTPS URL',
-                hintText: 'https://',
+                hintText: label.text.trim().toLowerCase() == 'telegram'
+                    ? 'https://t.me/community'
+                    : 'https://',
               ),
             ),
           ],
@@ -1500,13 +1595,24 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           ),
           FilledButton(
             onPressed: () {
-              final parsed = Uri.tryParse(url.text.trim());
+              var normalizedUrl = url.text.trim();
+              if (label.text.trim().toLowerCase() == 'telegram' &&
+                  !normalizedUrl.contains('://')) {
+                normalizedUrl =
+                    'https://t.me/${normalizedUrl.replaceFirst(RegExp(r'^@'), '')}';
+              }
+              final parsed = Uri.tryParse(normalizedUrl);
               if (label.text.characters.length >
                       CommunityInputLimits.linkLabel ||
                   url.text.characters.length > CommunityInputLimits.linkUrl ||
                   label.text.trim().isEmpty ||
                   parsed?.scheme != 'https' ||
-                  parsed?.host.isEmpty != false) {
+                  parsed?.host.isEmpty != false ||
+                  (parsed?.host == 't.me' &&
+                      (parsed?.pathSegments
+                              .where((part) => part.isNotEmpty)
+                              .isEmpty ??
+                          true))) {
                 return;
               }
               Navigator.pop(
@@ -1531,12 +1637,12 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     });
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage({required bool cover}) async {
     final file = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       imageQuality: 88,
-      maxWidth: 1600,
-      maxHeight: 1600,
+      maxWidth: cover ? 2400 : 1600,
+      maxHeight: cover ? 1200 : 1600,
     );
     if (file == null || !mounted) return;
     final bytes = await file.readAsBytes();
@@ -1562,8 +1668,13 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       }
       if (!mounted) return;
       setState(() {
-        _imageUrl = media.url;
-        _imageBlobName = media.blobName;
+        if (cover) {
+          _coverImageUrl = media.url;
+          _coverImageBlobName = media.blobName;
+        } else {
+          _imageUrl = media.url;
+          _imageBlobName = media.blobName;
+        }
       });
     } catch (error) {
       if (mounted) {

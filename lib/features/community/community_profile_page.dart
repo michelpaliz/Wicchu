@@ -276,6 +276,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           createdBy: _community.createdBy,
           createdAt: _community.createdAt,
           imageUrl: _community.imageUrl,
+          coverImageUrl: _community.coverImageUrl,
           memberCount: nextMemberCount < 0 ? 0 : nextMemberCount,
           myRole: _joined ? CommunityRole.member : null,
           approvalRequired: _community.approvalRequired,
@@ -519,8 +520,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     }
   }
 
-  Widget _expandableCommunityImage(Widget child) {
-    final url = _community.imageUrl;
+  Widget _expandableCommunityImage(Widget child, String? url) {
     if (url == null || url.trim().isEmpty) return child;
     return Semantics(
       button: true,
@@ -544,21 +544,22 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     return Column(
       children: [
         SizedBox(
-          height: _community.imageUrl == null ? 86 : 108,
+          height: _community.coverImageUrl == null ? 96 : 150,
           child: Stack(
             fit: StackFit.expand,
             children: [
               _expandableCommunityImage(
                 ColoredBox(
                   color: scheme.primaryContainer,
-                  child: _community.imageUrl == null
+                  child: _community.coverImageUrl == null
                       ? null
                       : Image.network(
-                          _community.imageUrl!,
+                          _community.coverImageUrl!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
                 ),
+                _community.coverImageUrl,
               ),
               if (_community.myRole == CommunityRole.owner ||
                   _community.myRole == CommunityRole.admin)
@@ -592,6 +593,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   ),
                   child: _expandableCommunityImage(
                     CommunityAvatar(community: _community, radius: 28),
+                    _community.imageUrl,
                   ),
                 ),
               ),
@@ -1160,7 +1162,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             for (final link in _community.links)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.link),
+                leading: Icon(
+                  Uri.tryParse(link.url)?.host.toLowerCase() == 't.me'
+                      ? Icons.send_outlined
+                      : Icons.link,
+                ),
                 title: Text(link.label),
                 trailing: const Icon(Icons.open_in_new, size: 20),
                 onTap: () => launchUrl(

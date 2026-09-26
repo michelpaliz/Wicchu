@@ -609,6 +609,8 @@ class HttpCommunityRepository implements CommunityRepository {
     required List<CommunityLink> links,
     String? imageUrl,
     String? imageBlobName,
+    String? coverImageUrl,
+    String? coverImageBlobName,
   }) async {
     final body = await _api.patch(
       '/api/community/v1/communities/${community.id}',
@@ -622,6 +624,7 @@ class HttpCommunityRepository implements CommunityRepository {
             .map((link) => {'label': link.label, 'url': link.url})
             .toList(),
         'imageBlobName': ?imageBlobName,
+        'coverImageBlobName': ?coverImageBlobName,
       },
     );
     return _communityFromJson({
@@ -1107,6 +1110,7 @@ class HttpCommunityRepository implements CommunityRepository {
       description: json['description'] as String? ?? '',
       town: _townFromJson(townJson),
       imageUrl: json['imageUrl'] as String?,
+      coverImageUrl: json['coverImageUrl'] as String?,
       visibility: json['visibility'] == 'private'
           ? CommunityVisibility.private
           : CommunityVisibility.public,

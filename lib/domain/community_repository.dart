@@ -188,6 +188,8 @@ abstract interface class CommunityRepository {
     required List<CommunityLink> links,
     String? imageUrl,
     String? imageBlobName,
+    String? coverImageUrl,
+    String? coverImageBlobName,
   });
   Future<CommunityWeather?> getCommunityWeather(String communityId);
   Future<List<CommunityPost>> listPosts(
