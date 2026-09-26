@@ -413,6 +413,56 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     _inputFocus.requestFocus();
   }
 
+  Future<bool> _ensureRulesAccepted() async {
+    final result = await widget.repository.listRules(widget.post.communityId);
+    if (!result.acceptanceRequired) return true;
+    if (!mounted) return false;
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.tr('Community rules')),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: result.rules.length,
+            itemBuilder: (context, index) {
+              final rule = result.rules[index];
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(child: Text('${index + 1}')),
+                title: Text(rule.title),
+                subtitle: Text(rule.description),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.tr('Not now')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(dialogContext.tr('Accept rules')),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true) return false;
+    await widget.repository.acceptRules(
+      widget.post.communityId,
+      result.rulesVersion,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.tr('Rules accepted'))));
+    }
+    return true;
+  }
+
   Future<void> _toggleReaction(Comment comment) async {
     setState(() => _savingReactions.add(comment.id));
     try {
@@ -440,6 +490,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     FocusScope.of(context).unfocus();
     setState(() => _saving = true);
     try {
+      if (!await _ensureRulesAccepted()) {
+        if (mounted) setState(() => _saving = false);
+        return;
+      }
       await widget.repository.createComment(
         widget.post.id,
         text,
