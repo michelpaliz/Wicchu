@@ -1,3 +1,4 @@
+import 'category_empty_state.dart';
 import '../../widgets/feed_filter_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -74,24 +75,26 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     }
   }
 
-  Widget _categoryFilters() => FutureBuilder<List<CommunityCategory>>(
-    future: _categories,
-    builder: (context, snapshot) {
-      final categories = snapshot.data ?? const <CommunityCategory>[];
-      return FeedFilterBar(
-        labels: [
-          context.tr('All'),
-          for (final category in categories) context.tr(category.name),
-        ],
-        selectedIndex: _categoryId == null
-            ? 0
-            : categories.indexWhere((c) => c.id == _categoryId) + 1,
-        onSelected: (index) => setState(
-          () => _categoryId = index == 0 ? null : categories[index - 1].id,
-        ),
+  Widget _categoryFilters({double height = 48}) =>
+      FutureBuilder<List<CommunityCategory>>(
+        future: _categories,
+        builder: (context, snapshot) {
+          final categories = snapshot.data ?? const <CommunityCategory>[];
+          return FeedFilterBar(
+            height: height,
+            labels: [
+              context.tr('All'),
+              for (final category in categories) context.tr(category.name),
+            ],
+            selectedIndex: _categoryId == null
+                ? 0
+                : categories.indexWhere((c) => c.id == _categoryId) + 1,
+            onSelected: (index) => setState(
+              () => _categoryId = index == 0 ? null : categories[index - 1].id,
+            ),
+          );
+        },
       );
-    },
-  );
 
   void _reload() {
     _helpfulness = widget.repository.getCommunityHelpfulness(_community.id);
@@ -472,25 +475,24 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           SliverPersistentHeader(
             pinned: true,
             delegate: _TabHeaderDelegate(
-              Column(
+              showCategories: _sectionIndex == 0 && _joined,
+              builder: (context, collapse) => Column(
                 children: [
-                  AnimatedBuilder(
-                    animation: _tabs,
-                    builder: (context, _) => FeedFilterBar(
-                      style: FeedNavigationStyle.underline,
-                      labels: [
-                        context.tr('Posts'),
-                        context.tr('About'),
-                        context.tr('Members'),
-                      ],
-                      selectedIndex: _tabs.index,
-                      onSelected: _tabs.animateTo,
-                    ),
+                  FeedFilterBar(
+                    height: 48 - 4 * collapse,
+                    style: FeedNavigationStyle.underline,
+                    labels: [
+                      context.tr('Posts'),
+                      context.tr('About'),
+                      context.tr('Members'),
+                    ],
+                    selectedIndex: _sectionIndex,
+                    onSelected: _tabs.animateTo,
                   ),
-                  if (_sectionIndex == 0 && _joined) _categoryFilters(),
+                  if (_sectionIndex == 0 && _joined)
+                    _categoryFilters(height: 48 - 8 * collapse),
                 ],
               ),
-              height: _sectionIndex == 0 && _joined ? 96 : 48,
             ),
           ),
         ],
@@ -609,11 +611,36 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _community.name,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          _community.name,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        if (isOwner)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: scheme.primary.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              context.tr('Owner'),
+                              style: TextStyle(
+                                color: scheme.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -622,21 +649,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    if (isOwner)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check, size: 14, color: scheme.primary),
-                          const SizedBox(width: 4),
-                          Text(
-                            context.tr('Owner'),
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(color: scheme.primary),
-                          ),
-                        ],
-                      )
-                    else
+                    if (!isOwner)
                       TextButton.icon(
                         onPressed: _savingMembership ? null : _toggleMembership,
                         style: TextButton.styleFrom(
@@ -719,6 +732,24 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                             post.categoryId == _categoryId,
                       )
                       .toList();
+                  if (posts.isEmpty && _categoryId != null) {
+                    final category = categories
+                        .where((c) => c.id == _categoryId)
+                        .firstOrNull;
+                    if (category != null) {
+                      return SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: CategoryEmptyState(
+                            category: category.name,
+                            onPublish: _openingComposer || _savingMembership
+                                ? null
+                                : _createPost,
+                          ),
+                        ),
+                      );
+                    }
+                  }
                   if (posts.isEmpty) {
                     return SliverToBoxAdapter(
                       child: Padding(
@@ -1466,21 +1497,33 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _TabHeaderDelegate(this.tabBar, {this.height = 48});
-  final double height;
-  final Widget tabBar;
+  const _TabHeaderDelegate({
+    required this.builder,
+    required this.showCategories,
+  });
+
+  final Widget Function(BuildContext, double) builder;
+  final bool showCategories;
 
   @override
-  double get minExtent => height;
+  double get minExtent => showCategories ? 84 : 44;
   @override
-  double get maxExtent => height;
+  double get maxExtent => showCategories ? 96 : 48;
   @override
   Widget build(
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
-  ) => Material(color: Theme.of(context).colorScheme.surface, child: tabBar);
+  ) {
+    final collapse = (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: builder(context, collapse),
+    );
+  }
+
   @override
   bool shouldRebuild(covariant _TabHeaderDelegate oldDelegate) =>
-      oldDelegate.tabBar != tabBar || oldDelegate.height != height;
+      oldDelegate.builder != builder ||
+      oldDelegate.showCategories != showCategories;
 }

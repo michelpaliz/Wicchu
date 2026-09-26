@@ -1,3 +1,4 @@
+import 'category_empty_state.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -123,7 +124,12 @@ class _CategoryPageState extends State<CategoryPage> {
                   return Text(context.trError(snapshot.error!));
                 }
                 final posts = snapshot.data ?? const [];
-                if (posts.isEmpty) return Text(context.tr('No posts found'));
+                if (posts.isEmpty) {
+                  return CategoryEmptyState(
+                    category: widget.category.name,
+                    onPublish: widget.canPost ? _createPost : null,
+                  );
+                }
                 return Column(
                   children: [
                     for (final post in posts) ...[

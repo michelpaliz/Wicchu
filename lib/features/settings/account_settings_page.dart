@@ -416,7 +416,7 @@ class _HelpPageState extends State<HelpPage> {
     setState(() => _openingSupport = true);
     try {
       final opened = await launchUrl(
-        Uri.parse('https://hexora.dev'),
+        Uri.parse('https://hexora.dev/wicchu/'),
         mode: LaunchMode.externalApplication,
       );
       if (!opened) throw Exception('Could not open the support website.');
@@ -426,7 +426,7 @@ class _HelpPageState extends State<HelpPage> {
           SnackBar(
             content: Text(
               context.tr(
-                'Could not open the support website. Please visit hexora.dev.',
+                'Could not open the support website. Please visit hexora.dev/wicchu/.',
               ),
             ),
           ),
@@ -616,7 +616,7 @@ class _HelpPageState extends State<HelpPage> {
                             const SizedBox(height: 6),
                             Text(
                               context.tr(
-                                'Can’t find the answer? Contact the Wicchu team through hexora.dev.',
+                                'Can’t find the answer? Contact the Wicchu team through hexora.dev/wicchu/.',
                               ),
                               style: text.bodyMedium?.copyWith(
                                 color: colors.onSurfaceVariant,
@@ -675,7 +675,7 @@ class _HelpPageState extends State<HelpPage> {
                             const SizedBox(height: 4),
                             Text(
                               context.tr(
-                                'Find more information on our website: hexora.dev.',
+                                'Find more information on our website: hexora.dev/wicchu/.',
                               ),
                               style: text.bodyMedium?.copyWith(
                                 color: colors.onSurfaceVariant,

@@ -1,3 +1,4 @@
+import '../community/category_empty_state.dart';
 import '../../widgets/feed_filter_bar.dart';
 import 'dart:async';
 
@@ -48,6 +49,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  WicchuProfile? _navigationProfile;
   final _homeKey = GlobalKey<_HomeTabState>();
   final _communityPostRequest = ValueNotifier<int>(0);
   int _exploreRevision = 0;
@@ -100,6 +102,9 @@ class _MainShellState extends State<MainShell> {
         authGateway: widget.authGateway,
         onSignedOut: widget.onSignedOut,
         refreshVersion: _profileRevision,
+        onProfileLoaded: (profile) {
+          if (mounted) setState(() => _navigationProfile = profile);
+        },
         onBrowsePosts: () => setState(() => _index = 0),
         onCommunityCreated: () {
           _homeKey.currentState?.refresh();
@@ -111,6 +116,7 @@ class _MainShellState extends State<MainShell> {
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: _CompactBottomNavigation(
         selectedIndex: _index,
+        profile: _navigationProfile,
         onSelected: _selectDestination,
         onCreatePost: () {
           if (_index == 2) {
@@ -293,11 +299,13 @@ class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
 class _CompactBottomNavigation extends StatelessWidget {
   const _CompactBottomNavigation({
     required this.selectedIndex,
+    this.profile,
     required this.onSelected,
     required this.onCreatePost,
   });
 
   final int selectedIndex;
+  final WicchuProfile? profile;
   final ValueChanged<int> onSelected;
   final VoidCallback onCreatePost;
 
@@ -346,6 +354,27 @@ class _CompactBottomNavigation extends StatelessWidget {
                     _CompactNavigationItem(
                       icon: CupertinoIcons.person,
                       selectedIcon: CupertinoIcons.person_fill,
+                      customIcon: profile == null
+                          ? null
+                          : ExcludeSemantics(
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: selectedIndex == 3
+                                        ? scheme.primary
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: UserAvatar(
+                                  name: profile!.name,
+                                  imageUrl: profile!.avatarUrl,
+                                  radius: 11,
+                                ),
+                              ),
+                            ),
                       label: context.tr('You'),
                       selected: selectedIndex == 3,
                       onTap: () => onSelected(3),
@@ -372,6 +401,7 @@ class _CompactNavigationItem extends StatelessWidget {
   const _CompactNavigationItem({
     required this.icon,
     required this.selectedIcon,
+    this.customIcon,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -379,6 +409,7 @@ class _CompactNavigationItem extends StatelessWidget {
 
   final IconData icon;
   final IconData selectedIcon;
+  final Widget? customIcon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -397,7 +428,8 @@ class _CompactNavigationItem extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(selected ? selectedIcon : icon, size: 20, color: color),
+              customIcon ??
+                  Icon(selected ? selectedIcon : icon, size: 20, color: color),
               const SizedBox(height: 5),
               Text(
                 label,
@@ -1192,10 +1224,11 @@ class _HomeTabState extends State<_HomeTab> {
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _FeedFiltersHeader(
-                    height: 48,
+                    height: 44,
                     child: ColoredBox(
                       color: Theme.of(context).scaffoldBackgroundColor,
                       child: FeedFilterBar(
+                        height: 44,
                         key: ValueKey(_selectedCommunityId),
                         labels: [
                           for (final category in categoryNames)
@@ -1331,7 +1364,14 @@ class _HomeTabState extends State<_HomeTab> {
                         ),
                         const SizedBox(height: 12),
                       ],
-                      if (filteredPosts.isEmpty)
+                      if (filteredPosts.isEmpty &&
+                          _category != 'All' &&
+                          normalizedQuery.isEmpty)
+                        CategoryEmptyState(
+                          category: _category,
+                          onPublish: startPost,
+                        )
+                      else if (filteredPosts.isEmpty)
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
@@ -2466,6 +2506,7 @@ class _ProfileTab extends StatefulWidget {
     required this.onSignedOut,
     required this.onCommunityCreated,
     required this.refreshVersion,
+    required this.onProfileLoaded,
     required this.onBrowsePosts,
   });
   final CommunityRepository repository;
@@ -2473,6 +2514,7 @@ class _ProfileTab extends StatefulWidget {
   final VoidCallback onSignedOut;
   final VoidCallback onCommunityCreated;
   final int refreshVersion;
+  final ValueChanged<WicchuProfile> onProfileLoaded;
   final VoidCallback onBrowsePosts;
 
   @override
@@ -2481,11 +2523,17 @@ class _ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<_ProfileTab> {
   bool _signingOut = false;
-  late Future<WicchuProfile> _profile = widget.repository.getProfile();
+  late Future<WicchuProfile> _profile = _loadProfile();
+
+  Future<WicchuProfile> _loadProfile() async {
+    final profile = await widget.repository.getProfile();
+    if (mounted) widget.onProfileLoaded(profile);
+    return profile;
+  }
 
   Future<void> _refreshProfile() async {
     setState(() {
-      _profile = widget.repository.getProfile();
+      _profile = _loadProfile();
     });
     try {
       await _profile;
@@ -2496,7 +2544,7 @@ class _ProfileTabState extends State<_ProfileTab> {
   void didUpdateWidget(covariant _ProfileTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.refreshVersion != widget.refreshVersion) {
-      _profile = widget.repository.getProfile();
+      _profile = _loadProfile();
     }
   }
 
@@ -2556,7 +2604,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                   return _LoadError(
                     error: snapshot.error!,
                     onRetry: () => setState(() {
-                      _profile = widget.repository.getProfile();
+                      _profile = _loadProfile();
                     }),
                   );
                 }
@@ -2826,7 +2874,7 @@ class _ProfileTabState extends State<_ProfileTab> {
     );
     if (!mounted || community == null) return;
     setState(() {
-      _profile = widget.repository.getProfile();
+      _profile = _loadProfile();
     });
     widget.onCommunityCreated();
     await Navigator.push(

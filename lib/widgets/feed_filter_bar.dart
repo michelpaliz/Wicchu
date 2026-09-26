@@ -12,9 +12,11 @@ class FeedFilterBar extends StatefulWidget {
     required this.selectedIndex,
     required this.onSelected,
     this.style = FeedNavigationStyle.pills,
+    this.height = 48,
   });
 
   final FeedNavigationStyle style;
+  final double height;
   final List<String> labels;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
@@ -55,7 +57,7 @@ class _FeedFilterBarState extends State<FeedFilterBar> {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 48,
+    height: widget.height,
     child: SingleChildScrollView(
       controller: _controller,
       scrollDirection: Axis.horizontal,
@@ -68,11 +70,13 @@ class _FeedFilterBarState extends State<FeedFilterBar> {
               padding: const EdgeInsets.only(right: 4),
               child: widget.style == FeedNavigationStyle.underline
                   ? _SectionTab(
+                      height: widget.height,
                       label: widget.labels[index],
                       selected: widget.selectedIndex == index,
                       onSelected: () => widget.onSelected(index),
                     )
                   : FeedCategoryChip(
+                      height: widget.height,
                       label: widget.labels[index],
                       selected: widget.selectedIndex == index,
                       onSelected: () => widget.onSelected(index),
@@ -86,11 +90,13 @@ class _FeedFilterBarState extends State<FeedFilterBar> {
 
 class _SectionTab extends StatelessWidget {
   const _SectionTab({
+    required this.height,
     required this.label,
     required this.selected,
     required this.onSelected,
   });
 
+  final double height;
   final String label;
   final bool selected;
   final VoidCallback onSelected;
@@ -104,7 +110,7 @@ class _SectionTab extends StatelessWidget {
       child: InkWell(
         onTap: onSelected,
         child: Container(
-          height: 48,
+          height: height,
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(

@@ -192,6 +192,10 @@ const _spanish = <String, String>{
   'Sports': 'Deportes',
   'Lost & Found': 'Objetos perdidos',
   'Category': 'Categoría',
+  'No posts in {category} yet': 'Aún no hay publicaciones en {category}',
+  'Be the first to share something in this category.':
+      'Sé el primero en publicar algo en esta categoría.',
+  'Post in {category}': 'Publicar en {category}',
   'No posts found': 'No se encontraron publicaciones',
   'Post unavailable': 'Publicación no disponible',
   'No categories found': 'No se encontraron categorías',
@@ -960,8 +964,8 @@ const _spanish = <String, String>{
   'Location is requested only when you choose nearby discovery and is sent to the server to find communities within the selected radius.':
       'La ubicación se solicita solo cuando eliges el descubrimiento cercano y se envía al servidor para buscar comunidades dentro del radio seleccionado.',
   'Support': 'Soporte',
-  'Contact the Wicchu support team through hexora.dev.':
-      'Contacta con el equipo de soporte de Wicchu a través de hexora.dev.',
+  'Contact the Wicchu support team through hexora.dev/wicchu/.':
+      'Contacta con el equipo de soporte de Wicchu a través de hexora.dev/wicchu/.',
   'Add category': 'Añadir categoría',
   'Edit category': 'Editar categoría',
   'No categories': 'No hay categorías',
@@ -1004,15 +1008,15 @@ const _spanish = <String, String>{
   "Frequently asked questions": "Preguntas frecuentes",
   "Need more help?": "¿Necesitas más ayuda?",
   "Contact the support team": "Contacta con el equipo de soporte",
-  "Can’t find the answer? Contact the Wicchu team through hexora.dev.":
-      "¿No encuentras la respuesta? Contacta con el equipo de Wicchu a través de hexora.dev.",
+  "Can’t find the answer? Contact the Wicchu team through hexora.dev/wicchu/.":
+      "¿No encuentras la respuesta? Contacta con el equipo de Wicchu a través de hexora.dev/wicchu/.",
   "Contact support": "Contactar con soporte",
-  "Find more information on our website: hexora.dev.":
-      "Puedes encontrar más información en nuestra web: hexora.dev.",
+  "Find more information on our website: hexora.dev/wicchu/.":
+      "Puedes encontrar más información en nuestra web: hexora.dev/wicchu/.",
   "No answers found. Try another search or contact support.":
       "No encontramos respuestas. Prueba otra búsqueda o contacta con soporte.",
-  "Could not open the support website. Please visit hexora.dev.":
-      "No se pudo abrir la web de soporte. Visita hexora.dev.",
+  "Could not open the support website. Please visit hexora.dev/wicchu/.":
+      "No se pudo abrir la web de soporte. Visita hexora.dev/wicchu/.",
   "Open the post’s options menu, select Report, enter a reason, and submit it to the community moderators.":
       "Abre el menú de opciones de la publicación, selecciona Denunciar, escribe el motivo y envíalo a los moderadores de la comunidad.",
   'Clear search': 'Borrar búsqueda',

@@ -5,10 +5,12 @@ class FeedCategoryChip extends StatelessWidget {
   const FeedCategoryChip({
     super.key,
     required this.label,
+    this.height = 48,
     required this.selected,
     required this.onSelected,
   });
 
+  final double height;
   final String label;
   final bool selected;
   final VoidCallback onSelected;
@@ -17,7 +19,7 @@ class FeedCategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 48,
+      height: height,
       child: ChoiceChip(
         label: Text(label),
         selected: selected,
@@ -31,9 +33,14 @@ class FeedCategoryChip extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         pressElevation: 0,
-        materialTapTargetSize: MaterialTapTargetSize.padded,
+        materialTapTargetSize: height < 48
+            ? MaterialTapTargetSize.shrinkWrap
+            : MaterialTapTargetSize.padded,
         visualDensity: VisualDensity.standard,
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        padding: EdgeInsets.symmetric(
+          horizontal: 2,
+          vertical: height < 48 ? 0 : 2,
+        ),
         labelPadding: const EdgeInsets.symmetric(horizontal: 10),
         labelStyle: TextStyle(
           color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,

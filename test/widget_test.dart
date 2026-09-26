@@ -322,6 +322,35 @@ void main() {
         second.id,
       );
       expect(find.byType(FloatingActionButton), findsNothing);
+      final communityPage = find.byType(CommunityProfilePage);
+      final aboutTab = find.descendant(
+        of: communityPage,
+        matching: find.text('About'),
+      );
+      final allFilter = find.descendant(
+        of: communityPage,
+        matching: find.text('All'),
+      );
+      await tester.drag(
+        find.descendant(
+          of: communityPage,
+          matching: find.byType(NestedScrollView),
+        ),
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+      expect(aboutTab.hitTestable(), findsOneWidget);
+      expect(allFilter.hitTestable(), findsOneWidget);
+      await tester.tap(aboutTab);
+      await tester.pumpAndSettle();
+      expect(allFilter, findsNothing);
+      await tester.tap(
+        find.descendant(of: communityPage, matching: find.text('Posts')),
+      );
+      await tester.pumpAndSettle();
+      expect(allFilter.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
       await tester.tap(find.bySemanticsLabel('Post'));
       await tester.pumpAndSettle();
       expect(
