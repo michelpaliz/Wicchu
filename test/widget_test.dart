@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wicchu/features/community/post_rich_text_editor.dart';
 import 'package:wicchu/features/community/category_page.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
 import 'package:flutter/material.dart';
@@ -323,7 +324,10 @@ void main() {
       expect(find.byType(FloatingActionButton), findsNothing);
       await tester.tap(find.bySemanticsLabel('Post'));
       await tester.pumpAndSettle();
-      expect(find.text('Second neighborhood'), findsOneWidget);
+      expect(
+        find.text('Posting to Second neighborhood', findRichText: true),
+        findsOneWidget,
+      );
       expect(find.text('Category'), findsWidgets);
       await tester.pageBack();
       await tester.pumpAndSettle();
@@ -451,10 +455,29 @@ void main() {
     expect(find.text('Elige una comunidad'), findsOneWidget);
     await tester.tap(find.text('Echeandía').last);
     await tester.pumpAndSettle();
-    expect(find.text('¿Qué quieres publicar?'), findsOneWidget);
-    await tester.tap(find.text('General').last);
-    await tester.pumpAndSettle();
+    expect(find.text('¿Qué quieres publicar?'), findsNothing);
     expect(find.text('Crear publicación'), findsOneWidget);
+    final publish = find.widgetWithText(FilledButton, 'Publicar');
+    expect(tester.widget<FilledButton>(publish).onPressed, isNull);
+    final controller = tester
+        .widget<PostRichTextEditor>(find.byType(PostRichTextEditor))
+        .controller;
+    controller.replaceText(
+      0,
+      0,
+      'A new community post',
+      const TextSelection.collapsed(offset: 20),
+    );
+    await tester.pump();
+    expect(tester.widget<FilledButton>(publish).onPressed, isNotNull);
+    controller.replaceText(
+      0,
+      controller.document.length - 1,
+      '',
+      const TextSelection.collapsed(offset: 0),
+    );
+    await tester.pump();
+    expect(tester.widget<FilledButton>(publish).onPressed, isNull);
   });
 
   testWidgets('account hub opens the canonical profile with owner editing', (
@@ -517,7 +540,11 @@ void main() {
       ),
     );
     expect(find.text('Tú'), findsOneWidget);
-    expect(find.text('Hace 3 min · Echeandía'), findsOneWidget);
+    expect(
+      find.textContaining('Hace 3 min · Echeandía', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('💬 General'), findsOneWidget);
   });
 
   testWidgets('opens a community and its prominent categories', (tester) async {

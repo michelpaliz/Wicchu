@@ -752,7 +752,12 @@ class _MyCommunityInvitationsPageState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Invitations'))),
+    appBar: AppBar(
+      title: Text(
+        context.tr('Invitations'),
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    ),
     body: FutureBuilder<List<CommunityInvitation>>(
       future: _items,
       builder: (context, snapshot) {
@@ -764,7 +769,7 @@ class _MyCommunityInvitationsPageState
         }
         final items = snapshot.data ?? const [];
         if (items.isEmpty) {
-          return Center(child: Text(context.tr('No pending invitations')));
+          return const _InvitationsEmptyState();
         }
         return ListView.separated(
           padding: const EdgeInsets.all(20),
@@ -798,4 +803,152 @@ class _MyCommunityInvitationsPageState
       },
     ),
   );
+}
+
+class _InvitationsEmptyState extends StatelessWidget {
+  const _InvitationsEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 80),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ExcludeSemantics(
+                    child: SizedBox(
+                      width: 220,
+                      height: 180,
+                      child: CustomPaint(
+                        painter: _InvitationIllustration(
+                          colors.primary,
+                          colors.surface,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    context.tr('You have no invitations'),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 360),
+                    child: Text(
+                      context.tr(
+                        'When someone invites you to a community, the invitation will appear here.',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        height: 1.4,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InvitationIllustration extends CustomPainter {
+  const _InvitationIllustration(this.primary, this.surface);
+  final Color primary;
+  final Color surface;
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 220, size.height / 180);
+    final soft = Paint()..color = primary.withValues(alpha: .07);
+    canvas.drawCircle(const Offset(108, 85), 78, soft);
+    canvas.drawOval(const Rect.fromLTWH(35, 161, 158, 14), soft);
+    final envelope = Path()
+      ..moveTo(52, 89)
+      ..lineTo(107, 42)
+      ..quadraticBezierTo(112, 38, 117, 42)
+      ..lineTo(170, 89)
+      ..close();
+    canvas.drawPath(envelope, Paint()..color = primary.withValues(alpha: .55));
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(52, 86, 118, 79),
+        const Radius.circular(8),
+      ),
+      Paint()
+        ..color = Color.alphaBlend(primary.withValues(alpha: .28), surface),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(64, 50, 95, 99),
+        const Radius.circular(8),
+      ),
+      Paint()..color = surface,
+    );
+    final stroke = Paint()
+      ..color = primary.withValues(alpha: .2)
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(80, 77), const Offset(113, 77), stroke);
+    canvas.drawLine(const Offset(80, 93), const Offset(126, 93), stroke);
+    final flap = Path()
+      ..moveTo(52, 88)
+      ..lineTo(108, 126)
+      ..quadraticBezierTo(112, 129, 117, 126)
+      ..lineTo(170, 88)
+      ..lineTo(170, 157)
+      ..quadraticBezierTo(170, 165, 162, 165)
+      ..lineTo(60, 165)
+      ..quadraticBezierTo(52, 165, 52, 157)
+      ..close();
+    canvas.drawPath(
+      flap,
+      Paint()
+        ..color = Color.alphaBlend(primary.withValues(alpha: .28), surface),
+    );
+    final seam = Paint()
+      ..color = primary.withValues(alpha: .18)
+      ..strokeWidth = 1.5;
+    canvas.drawLine(const Offset(55, 162), const Offset(96, 119), seam);
+    canvas.drawLine(const Offset(167, 162), const Offset(128, 119), seam);
+    canvas.drawCircle(const Offset(144, 71), 19, Paint()..color = primary);
+    canvas.drawPath(
+      Path()
+        ..moveTo(135, 71)
+        ..lineTo(142, 78)
+        ..lineTo(154, 64),
+      Paint()
+        ..color = surface
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    final accent = Paint()
+      ..color = primary
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(183, 60), const Offset(192, 50), accent);
+    canvas.drawLine(const Offset(189, 76), const Offset(202, 74), accent);
+    canvas.drawLine(const Offset(36, 76), const Offset(43, 80), accent);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_InvitationIllustration oldDelegate) =>
+      primary != oldDelegate.primary || surface != oldDelegate.surface;
 }

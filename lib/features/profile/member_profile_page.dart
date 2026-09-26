@@ -160,9 +160,11 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                               ),
                             if (profile.isOnline)
                               Text(
-                                '● ${context.tr('Online now')}',
+                                context.tr('Online now'),
                                 style: TextStyle(
-                                  color: Colors.green.shade700,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w500,
                                   fontSize: 12,
                                 ),
@@ -351,6 +353,8 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
           Align(
             alignment: Alignment.centerRight,
             child: DropdownButton<String>(
+              isDense: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
               underline: const SizedBox.shrink(),
               iconSize: 18,
               style: Theme.of(context).textTheme.bodySmall,
@@ -406,7 +410,12 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                       author: post.authorName,
                       onMentionTap: (userId) => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => MemberProfilePage(userId: userId, repository: widget.repository)),
+                        MaterialPageRoute(
+                          builder: (_) => MemberProfilePage(
+                            userId: userId,
+                            repository: widget.repository,
+                          ),
+                        ),
                       ),
                       time: formatPostTime(context, post.createdAt),
                       edited: post.editedAt != null,

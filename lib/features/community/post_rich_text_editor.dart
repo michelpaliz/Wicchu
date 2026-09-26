@@ -105,6 +105,19 @@ class PostRichTextEditor extends StatelessWidget {
                 maxHeight: 320,
                 padding: const EdgeInsets.all(18),
                 placeholder: context.tr('What would you like to share?'),
+                customStyleBuilder: (attribute) {
+                  if (attribute.key == 'link' &&
+                      attribute.value.toString().startsWith('wicchu://user/')) {
+                    final primary = Theme.of(context).colorScheme.primary;
+                    return TextStyle(
+                      color: primary,
+                      backgroundColor: primary.withValues(alpha: .1),
+                      decoration: TextDecoration.none,
+                      fontWeight: FontWeight.w500,
+                    );
+                  }
+                  return const TextStyle();
+                },
                 textCapitalization: TextCapitalization.sentences,
                 embedBuilders: const [_PostImageEmbed()],
               ),

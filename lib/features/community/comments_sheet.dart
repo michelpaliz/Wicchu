@@ -104,7 +104,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                         Text(
                           context.tr('Comments'),
                           style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -213,6 +214,16 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                 padding: const EdgeInsets.only(left: 40),
                                 child: TextButton.icon(
                                   key: ValueKey('replies-${root.id}'),
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                   onPressed: () => setState(() {
                                     if (!_expandedThreads.add(root.id)) {
                                       _expandedThreads.remove(root.id);
@@ -241,38 +252,42 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               ),
                             ),
                           if (_expandedThreads.contains(root.id))
-                            for (final (reply, depth) in replies) ...[
-                              const SizedBox(height: 6),
-                              Container(
-                                key: ValueKey('comment-thread-${reply.id}'),
-                                margin: EdgeInsets.only(
-                                  left: 16 + 24.0 * (depth.clamp(1, 3) - 1),
-                                ),
-                                padding: const EdgeInsets.only(
-                                  left: 18,
-                                  top: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: theme.colorScheme.onSurface
-                                          .withValues(alpha: .14),
-                                      width: 1.5,
-                                    ),
+                            Container(
+                              margin: const EdgeInsets.only(left: 16),
+                              padding: const EdgeInsets.only(left: 14),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: .14),
+                                    width: 1.5,
                                   ),
-                                ),
-                                child: _CommentItem(
-                                  comment: reply,
-                                  compact: true,
-                                  canReply: true,
-                                  savingReaction: _savingReactions.contains(
-                                    reply.id,
-                                  ),
-                                  onReaction: () => _toggleReaction(reply),
-                                  onReply: () => _startReply(reply),
                                 ),
                               ),
-                            ],
+                              child: Column(
+                                children: [
+                                  for (final (reply, _) in replies)
+                                    Padding(
+                                      key: ValueKey(
+                                        'comment-thread-${reply.id}',
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 4,
+                                      ),
+                                      child: _CommentItem(
+                                        comment: reply,
+                                        compact: true,
+                                        canReply: true,
+                                        savingReaction: _savingReactions
+                                            .contains(reply.id),
+                                        onReaction: () =>
+                                            _toggleReaction(reply),
+                                        onReply: () => _startReply(reply),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
                         ],
                       );
                     },
@@ -348,6 +363,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                         Expanded(
                           child: TextField(
                             controller: _controller,
+                            style: const TextStyle(fontSize: 16),
                             focusNode: _inputFocus,
                             onChanged: (_) => setState(() {}),
                             enabled: !_saving,
@@ -571,6 +587,7 @@ class _CommentItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelLarge?.copyWith(
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -579,6 +596,8 @@ class _CommentItem extends StatelessWidget {
                     Text(
                       formatPostTime(context, comment.createdAt),
                       style: theme.textTheme.labelSmall?.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -587,12 +606,11 @@ class _CommentItem extends StatelessWidget {
                 const SizedBox(height: 5),
                 if (comment.replyToName != null) ...[
                   Text(
-                    context.tr('Replying to {name}', {
-                      'name': comment.replyToName!,
-                    }),
+                    '↳ ${comment.replyToName!}',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -600,8 +618,8 @@ class _CommentItem extends StatelessWidget {
                 Text(
                   comment.text,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    fontSize: 15,
-                    height: 1.35,
+                    fontSize: 16,
+                    height: 1.3,
                   ),
                 ),
                 Row(
@@ -609,8 +627,12 @@ class _CommentItem extends StatelessWidget {
                     TextButton.icon(
                       style: TextButton.styleFrom(
                         foregroundColor: comment.reactedByMe
-                            ? theme.colorScheme.primary
+                            ? const Color(0xFFE53945)
                             : theme.colorScheme.onSurfaceVariant,
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                         visualDensity: VisualDensity.compact,
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
@@ -624,13 +646,17 @@ class _CommentItem extends StatelessWidget {
                       label: Text(
                         comment.reactionCount == 0
                             ? context.tr('Like')
-                            : '${comment.reactionCount}',
+                            : '${context.tr('Like')} · ${comment.reactionCount}',
                       ),
                     ),
                     if (canReply)
                       TextButton(
                         style: TextButton.styleFrom(
                           foregroundColor: theme.colorScheme.onSurfaceVariant,
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                           visualDensity: VisualDensity.compact,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),

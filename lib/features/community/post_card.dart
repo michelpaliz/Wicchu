@@ -188,6 +188,10 @@ class _PostCardState extends State<PostCard> {
     final accent = categoryColor(widget.category, context);
     final theme = Theme.of(context);
     return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: .55)),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: widget.onTap == null
@@ -256,13 +260,45 @@ class _PostCardState extends State<PostCard> {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          '${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}${widget.showCommunity ? ' · ${widget.community}' : ''}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 13,
-                            color: theme.colorScheme.onSurfaceVariant,
+                        LayoutBuilder(
+                          builder: (context, constraints) => Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text:
+                                      '${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}${widget.showCommunity ? ' · ${widget.community}' : ''} · ',
+                                ),
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.middle,
+                                  child: Container(
+                                    constraints: BoxConstraints(
+                                      maxWidth: constraints.maxWidth,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: accent.withValues(alpha: .11),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      '${widget.icon} ${context.tr(widget.category)}',
+                                      style: theme.textTheme.labelMedium
+                                          ?.copyWith(
+                                            color: accent,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 13,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       ],
@@ -281,25 +317,6 @@ class _PostCardState extends State<PostCard> {
                       onDelete: widget.onDelete == null ? null : _deletePost,
                     ),
                 ],
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: .11),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '${widget.icon} ${context.tr(widget.category)}',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: accent,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
               ),
               const SizedBox(height: 8),
               PostMarkdown(

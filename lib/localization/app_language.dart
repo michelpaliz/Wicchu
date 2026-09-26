@@ -475,6 +475,26 @@ const _spanish = <String, String>{
       'Crea un espacio organizado para noticias, empleos, eventos y conversaciones locales.',
   'Create a community': 'Crear una comunidad',
   'Needs your attention': 'Requiere tu atención',
+  'Photos and videos · Max. 10 files': 'Fotos y vídeos · Máx. 10 archivos',
+  'Tag': 'Etiquetar',
+  '{count} tagged': '{count} etiquetado(s)',
+  'Discover new communities': 'Descubre nuevas comunidades',
+  'Create your own community': 'Crea tu propia comunidad',
+  'Member': 'Miembro',
+  'Administrator': 'Administrador',
+  'Moderator': 'Moderador',
+  'You have no invitations': 'No tienes invitaciones',
+  'When someone invites you to a community, the invitation will appear here.':
+      'Cuando alguien te invite a una comunidad, la invitación aparecerá aquí.',
+  'You haven’t saved any posts yet': 'Aún no has guardado publicaciones',
+  'Save posts you want to revisit later.':
+      'Guarda publicaciones que quieras consultar más tarde.',
+  'Explore posts': 'Explorar publicaciones',
+  'About anonymous posting': 'Acerca de las publicaciones anónimas',
+  'Shown as Community Admin. Identity retained for auditing.':
+      'Aparecerás como Administrador de la comunidad. Tu identidad se conserva para auditoría.',
+  'Requires approval. Administrators can identify you.':
+      'Requiere aprobación. Los administradores pueden identificarte.',
   'Approval queue': 'Pendientes de aprobación',
   'Pending approval': 'Pendiente de aprobación',
   '{current} of {total} post': '{current} de {total} publicación',

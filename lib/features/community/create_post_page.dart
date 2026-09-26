@@ -67,7 +67,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             child: Column(
               children: [
                 ListTile(
-                  title: Text(context.tr('Tag members')),
+                  title: Text(context.tr('Tag')),
                   subtitle: Text(
                     context.tr(
                       'Tagged members receive a notification when the post is published.',
@@ -134,6 +134,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     super.initState();
     final existingPost = widget.existingPost;
     _textController = PostTextController(existingPost?.text ?? '');
+    _textController.addListener(_refreshValidity);
     _category = existingPost == null
         ? widget.initialCategory ?? widget.categories.firstOrNull
         : widget.categories
@@ -159,8 +160,30 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
   }
 
+  void _refreshValidity() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _canSubmit {
+    if (_saving ||
+        _uploading ||
+        _category == null ||
+        _textController.document.toPlainText().trim().isEmpty ||
+        _textController.exceedsCharacterLimit) {
+      return false;
+    }
+    if (!_hasPoll) return true;
+    final options = _pollControllers
+        .map((controller) => controller.text.trim())
+        .toList();
+    return options.length >= 2 &&
+        options.every((option) => option.isNotEmpty) &&
+        options.toSet().length == options.length;
+  }
+
   @override
   void dispose() {
+    _textController.removeListener(_refreshValidity);
     _textController.dispose();
     for (final controller in _pollControllers) {
       controller.dispose();
@@ -176,12 +199,21 @@ class _CreatePostPageState extends State<CreatePostPage> {
         : widget.categories;
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.tr(_isEditing ? 'Edit post' : 'Create post')),
+        title: Text(
+          context.tr(_isEditing ? 'Edit post' : 'Create post'),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: FilledButton(
-              onPressed: _saving || _uploading ? null : _publish,
+              onPressed: _canSubmit ? _publish : null,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(88, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
               child: _saving
                   ? const SizedBox.square(
                       dimension: 18,
@@ -200,9 +232,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
             container: true,
             label: '${context.tr('Posting to')} ${widget.community.name}',
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: .09),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -213,38 +247,39 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.tr('Posting to'),
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onPrimaryContainer,
-                              ),
-                        ),
-                        Text(
-                          widget.community.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ],
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '${context.tr('Posting to')} ',
+                            style: const TextStyle(fontWeight: FontWeight.w400),
+                          ),
+                          TextSpan(
+                            text: widget.community.name,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                      style: const TextStyle(fontSize: 15),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           DropdownButtonFormField<CommunityCategory>(
             initialValue: _category,
             isExpanded: true,
             decoration: InputDecoration(
               labelText: context.tr('Category'),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
               filled: false,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -266,24 +301,65 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ),
           const SizedBox(height: 16),
           if (_canPublishAnonymously) ...[
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              value: _publishAnonymously,
-              onChanged: _saving
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: _saving
                   ? null
-                  : (value) => setState(() => _publishAnonymously = value),
-              secondary: Icon(
-                _canPublishAsAdmin
-                    ? Icons.admin_panel_settings_outlined
-                    : Icons.person_off_outlined,
-              ),
-              title: Text(context.tr('Publish anonymously')),
-              subtitle: Text(
-                context.tr(
-                  _canPublishAsAdmin
-                      ? '“Community Admin” will appear instead of your name. Your identity remains available for security and auditing.'
-                      : 'Anonymous posts are always reviewed by a community administrator before publication. Administrators can still identify you for safety.',
-                ),
+                  : () => setState(
+                      () => _publishAnonymously = !_publishAnonymously,
+                    ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.person_off_outlined,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.tr('Publish anonymously'),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: context.tr('About anonymous posting'),
+                    icon: const Icon(Icons.info_outline, size: 20),
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        title: Text(context.tr('Publish anonymously')),
+                        content: Text(
+                          context.tr(
+                            _canPublishAsAdmin
+                                ? '“Community Admin” will appear instead of your name. Your identity remains available for security and auditing.'
+                                : 'Anonymous posts are always reviewed by a community administrator before publication. Administrators can still identify you for safety.',
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            child: Text(
+                              MaterialLocalizations.of(
+                                context,
+                              ).closeButtonLabel,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: _publishAnonymously,
+                    onChanged: _saving
+                        ? null
+                        : (value) =>
+                              setState(() => _publishAnonymously = value),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),
@@ -309,8 +385,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 icon: const Icon(Icons.alternate_email),
                 label: Text(
                   _mentionedUserIds.isEmpty
-                      ? context.tr('Tag members')
-                      : context.tr('Tagged members: {count}', {
+                      ? context.tr('Tag')
+                      : context.tr('{count} tagged', {
                           'count': '${_mentionedUserIds.length}',
                         }),
                 ),
@@ -331,7 +407,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     ? null
                     : () => setState(() => _hasPoll = !_hasPoll),
                 icon: Icon(_hasPoll ? Icons.close : Icons.poll_outlined),
-                label: Text(context.tr(_hasPoll ? 'Remove poll' : 'Add poll')),
+                label: Text(context.tr(_hasPoll ? 'Remove poll' : 'Poll')),
               ),
             ],
           ),
@@ -388,6 +464,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: TextField(
                         controller: controller,
+                        onChanged: (_) => _refreshValidity(),
                         enabled: !_pollLocked,
                         maxLength: 120,
                         textCapitalization: TextCapitalization.sentences,
@@ -464,7 +541,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           const SizedBox(height: 12),
           if (_uploading) const LinearProgressIndicator(),
           SizedBox(
-            height: 116,
+            height: 100,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount:
@@ -473,33 +550,36 @@ class _CreatePostPageState extends State<CreatePostPage> {
               itemBuilder: (context, index) {
                 if (index == _attachments.length) {
                   return SizedBox(
-                    width: 108,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        side: BorderSide(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.25),
-                        ),
+                    width: 100,
+                    child: CustomPaint(
+                      foregroundPainter: _MediaAddBorder(
+                        Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: .3),
                       ),
-                      onPressed: _saving || _uploading ? null : _chooseMedia,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.add, size: 30),
-                          const SizedBox(height: 8),
-                          Text(context.tr('Add')),
-                        ],
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide.none,
+                        ),
+                        onPressed: _saving || _uploading ? null : _chooseMedia,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.add, size: 30),
+                            const SizedBox(height: 8),
+                            Text(context.tr('Add')),
+                          ],
+                        ),
                       ),
                     ),
                   );
                 }
                 final attachment = _attachments[index];
                 return SizedBox(
-                  width: 108,
+                  width: 100,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -537,7 +617,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            context.tr('A post supports up to 10 files.'),
+            context.tr('Photos and videos · Max. 10 files'),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -776,4 +856,31 @@ Future<CommunityPost?> openEditPost(
     }
     return null;
   }
+}
+
+class _MediaAddBorder extends CustomPainter {
+  const _MediaAddBorder(this.color);
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          (Offset.zero & size).deflate(1),
+          const Radius.circular(12),
+        ),
+      );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final metric in path.computeMetrics()) {
+      for (double offset = 0; offset < metric.length; offset += 10) {
+        canvas.drawPath(metric.extractPath(offset, offset + 6), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MediaAddBorder oldDelegate) => color != oldDelegate.color;
 }

@@ -100,6 +100,7 @@ class _MainShellState extends State<MainShell> {
         authGateway: widget.authGateway,
         onSignedOut: widget.onSignedOut,
         refreshVersion: _profileRevision,
+        onBrowsePosts: () => setState(() => _index = 0),
         onCommunityCreated: () {
           _homeKey.currentState?.refresh();
           setState(() => _exploreRevision++);
@@ -209,23 +210,14 @@ class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
         child: ListView(
           shrinkWrap: true,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: Text(
-                context.tr('My communities'),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
+            _CommunitySwitcherHeading(count: communities.length),
             for (final community in communities)
-              ListTile(
-                leading: CommunityAvatar(community: community),
-                title: Text(community.name),
+              _CommunitySwitcherRow(
+                community: community,
                 selected: community.id == _selectedId,
-                trailing: community.id == _selectedId
-                    ? const Icon(Icons.check)
-                    : null,
                 onTap: () => Navigator.pop(sheetContext, community),
               ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -644,34 +636,6 @@ class _HomeTabState extends State<_HomeTab> {
         );
         return;
       }
-      final selectedCategory = await showModalBottomSheet<CommunityCategory>(
-        context: context,
-        showDragHandle: true,
-        builder: (sheetContext) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: Text(
-                  sheetContext.tr('What do you want to publish?'),
-                  style: Theme.of(sheetContext).textTheme.titleLarge,
-                ),
-              ),
-              for (final category in categories)
-                ListTile(
-                  leading: Text(
-                    category.icon,
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                  title: Text(sheetContext.tr(category.name)),
-                  onTap: () => Navigator.pop(sheetContext, category),
-                ),
-            ],
-          ),
-        ),
-      );
-      if (selectedCategory == null || !mounted) return;
       final post = await Navigator.push<CommunityPost>(
         context,
         MaterialPageRoute(
@@ -679,7 +643,9 @@ class _HomeTabState extends State<_HomeTab> {
             community: community,
             repository: widget.repository,
             categories: categories,
-            initialCategory: selectedCategory,
+            initialCategory: categories
+                .where((category) => category.name == _category)
+                .firstOrNull,
           ),
         ),
       );
@@ -748,35 +714,34 @@ class _HomeTabState extends State<_HomeTab> {
         child: ListView(
           shrinkWrap: true,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: Text(
-                context.tr('My communities'),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
+            _CommunitySwitcherHeading(count: communities.length),
             for (final community in communities)
-              ListTile(
-                leading: Icon(
-                  community.id == _selectedCommunityId
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_off,
-                ),
-                title: Text(community.name),
-                subtitle: Text(community.town.name),
+              _CommunitySwitcherRow(
+                community: community,
+                selected: community.id == _selectedCommunityId,
                 onTap: () => Navigator.pop(sheetContext, community.id),
               ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.explore_outlined),
-              title: Text(context.tr('Explore communities')),
+            Divider(
+              height: 24,
+              indent: 20,
+              endIndent: 20,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: .08),
+            ),
+            _CommunitySwitcherAction(
+              icon: Icons.explore_outlined,
+              title: context.tr('Explore communities'),
+              subtitle: context.tr('Discover new communities'),
               onTap: () => Navigator.pop(sheetContext, '__explore'),
             ),
-            ListTile(
-              leading: const Icon(Icons.add),
-              title: Text(context.tr('Create a community')),
+            _CommunitySwitcherAction(
+              icon: Icons.add,
+              title: context.tr('Create a community'),
+              subtitle: context.tr('Create your own community'),
               onTap: () => Navigator.pop(sheetContext, '__create'),
             ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -1720,23 +1685,28 @@ class _ExploreTabState extends State<_ExploreTab> {
 
   Widget _communityCard(Community community) {
     final scheme = Theme.of(context).colorScheme;
-    final owner = community.myRole == CommunityRole.owner;
+    final role = switch (community.myRole) {
+      CommunityRole.owner => 'Owner',
+      CommunityRole.admin => 'Administrator',
+      CommunityRole.moderator => 'Moderator',
+      _ => 'Member',
+    };
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .5)),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.onSurface.withValues(alpha: .08)),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _openCommunity(community),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              CommunityAvatar(community: community, radius: 32),
-              const SizedBox(width: 14),
+              CommunityAvatar(community: community, radius: 28),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1746,7 +1716,8 @@ class _ExploreTabState extends State<_ExploreTab> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -1769,7 +1740,9 @@ class _ExploreTabState extends State<_ExploreTab> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            '${community.town.name}${community.distanceKm == null ? '' : ' · ${community.distanceKm!.toStringAsFixed(1)} km'}',
+                            _filter == 1 && community.distanceKm != null
+                                ? '${community.distanceKm!.toStringAsFixed(1).replaceAll('.', Localizations.localeOf(context).languageCode == 'es' ? ',' : '.')} km'
+                                : community.town.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall,
@@ -1781,19 +1754,23 @@ class _ExploreTabState extends State<_ExploreTab> {
                 ),
               ),
               const SizedBox(width: 8),
-              if (owner || community.isJoined)
+              if (community.isJoined)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+                    horizontal: 10,
+                    vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest,
+                    color: scheme.primary.withValues(alpha: .1),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
-                    context.tr(owner ? 'Owner' : 'Joined'),
-                    style: Theme.of(context).textTheme.labelMedium,
+                    context.tr(role),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.primary,
+                    ),
                   ),
                 )
               else
@@ -1825,10 +1802,24 @@ class _ExploreTabState extends State<_ExploreTab> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(
-        context.tr('Explore'),
-        style: const TextStyle(fontWeight: FontWeight.w700),
-      ),
+      title: _showSearch
+          ? TextField(
+              autofocus: true,
+              onChanged: _search,
+              decoration: InputDecoration(
+                hintText: context.tr('Search communities'),
+                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
+              ),
+            )
+          : Text(
+              context.tr('Explore'),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
       actions: [
         IconButton(
           tooltip: context.tr(
@@ -1849,7 +1840,7 @@ class _ExploreTabState extends State<_ExploreTab> {
     body: Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
@@ -1860,18 +1851,6 @@ class _ExploreTabState extends State<_ExploreTab> {
             ),
           ),
         ),
-        if (_showSearch)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: TextField(
-              autofocus: true,
-              onChanged: _search,
-              decoration: InputDecoration(
-                hintText: context.tr('Search communities'),
-                prefixIcon: const Icon(Icons.search),
-              ),
-            ),
-          ),
         FeedFilterBar(
           labels: [
             context.tr('All communities'),
@@ -2487,12 +2466,14 @@ class _ProfileTab extends StatefulWidget {
     required this.onSignedOut,
     required this.onCommunityCreated,
     required this.refreshVersion,
+    required this.onBrowsePosts,
   });
   final CommunityRepository repository;
   final AuthGateway authGateway;
   final VoidCallback onSignedOut;
   final VoidCallback onCommunityCreated;
   final int refreshVersion;
+  final VoidCallback onBrowsePosts;
 
   @override
   State<_ProfileTab> createState() => _ProfileTabState();
@@ -2825,6 +2806,12 @@ class _ProfileTabState extends State<_ProfileTab> {
           title: title,
           repository: widget.repository,
           loadPosts: loader,
+          onBrowsePosts: title == 'Saved posts'
+              ? () {
+                  Navigator.pop(context);
+                  widget.onBrowsePosts();
+                }
+              : null,
         ),
       ),
     );
@@ -3196,4 +3183,129 @@ class _LoadError extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _CommunitySwitcherHeading extends StatelessWidget {
+  const _CommunitySwitcherHeading({required this.count});
+  final int count;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Row(
+        children: [
+          Flexible(
+            child: Text(
+              context.tr('My communities'),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                color: colors.primary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommunitySwitcherRow extends StatelessWidget {
+  const _CommunitySwitcherRow({
+    required this.community,
+    required this.selected,
+    required this.onTap,
+  });
+  final Community community;
+  final bool selected;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      child: Material(
+        color: selected
+            ? colors.primary.withValues(alpha: .08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          selected: selected,
+          selectedColor: colors.onSurface,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 6,
+          ),
+          leading: CommunityAvatar(community: community, radius: 24),
+          title: Text(
+            community.name,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            context.trCount(
+              community.memberCount,
+              singular: '{count} member',
+              plural: '{count} members',
+            ),
+            style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
+          ),
+          trailing: selected
+              ? Icon(Icons.check_circle, color: colors.primary)
+              : null,
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
+}
+
+class _CommunitySwitcherAction extends StatelessWidget {
+  const _CommunitySwitcherAction({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+      leading: CircleAvatar(
+        backgroundColor: colors.primary.withValues(alpha: .08),
+        foregroundColor: colors.primary,
+        child: Icon(icon),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
+      ),
+      trailing: Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
+      onTap: onTap,
+    );
+  }
 }

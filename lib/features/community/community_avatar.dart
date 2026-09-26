@@ -9,14 +9,28 @@ class CommunityAvatar extends StatelessWidget {
   final double radius;
 
   @override
-  Widget build(BuildContext context) => CircleAvatar(
-    radius: radius,
-    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-    backgroundImage: community.imageUrl == null
-        ? null
-        : NetworkImage(community.imageUrl!),
-    child: community.imageUrl == null
-        ? Icon(Icons.groups_outlined, size: radius)
-        : null,
-  );
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final placeholder = Icon(
+      Icons.holiday_village_outlined,
+      size: radius,
+      color: colors.primary,
+    );
+    final url = community.imageUrl?.trim();
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: colors.primaryContainer,
+      child: url == null || url.isEmpty
+          ? placeholder
+          : ClipOval(
+              child: Image.network(
+                url,
+                width: radius * 2,
+                height: radius * 2,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Center(child: placeholder),
+              ),
+            ),
+    );
+  }
 }
