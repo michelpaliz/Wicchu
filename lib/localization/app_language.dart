@@ -371,6 +371,10 @@ const _spanish = <String, String>{
       'Si existe una cuenta, se ha enviado un correo para restablecer la contraseña.',
   'All fields are required': 'Todos los campos son obligatorios',
   'Email already in use': 'El correo electrónico ya está en uso',
+  'This email already has an account. Sign in below or reset your password.':
+      'Este correo ya tiene una cuenta. Inicia sesión abajo o restablece tu contraseña.',
+  'An account already exists with this email. Sign in or reset your password.':
+      'Ya existe una cuenta con este correo. Inicia sesión o restablece tu contraseña.',
   'Username already in use': 'El nombre de usuario ya está en uso',
   'Email and password are required':
       'El correo y la contraseña son obligatorios',
@@ -820,6 +824,13 @@ const _spanish = <String, String>{
   'Recent posts': 'Publicaciones recientes',
   'No posts yet.': 'Aún no hay publicaciones.',
   'Community information': 'Información de la comunidad',
+  'Community cover photo': 'Foto de portada de la comunidad',
+  'Community profile photo': 'Foto de perfil de la comunidad',
+  'Change cover photo': 'Cambiar foto de portada',
+  'Website': 'Sitio web',
+  'Other': 'Otro',
+  'Telegram, website, Facebook, or other':
+      'Telegram, sitio web, Facebook u otro',
   'Tip': 'Consejo',
   'Invite more people to grow your community.':
       'Invita a más personas para hacer crecer tu comunidad.',

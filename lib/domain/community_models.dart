@@ -180,6 +180,7 @@ class Community {
     required this.createdBy,
     required this.createdAt,
     this.imageUrl,
+    this.coverImageUrl,
     this.memberCount = 0,
     this.myRole,
     this.approvalRequired = false,
@@ -194,6 +195,7 @@ class Community {
   final String description;
   final Town town;
   final String? imageUrl;
+  final String? coverImageUrl;
   final CommunityVisibility visibility;
   final String createdBy;
   final DateTime createdAt;
