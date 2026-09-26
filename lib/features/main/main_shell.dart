@@ -15,6 +15,7 @@ import '../../theme/theme_menu.dart';
 import '../../widgets/wicchu_logo.dart';
 import '../admin/create_community_page.dart';
 import '../admin/managed_communities_page.dart';
+import '../admin/pending_posts_page.dart';
 import '../community/community_page.dart';
 import '../community/community_profile_page.dart';
 import '../community/community_avatar.dart';
@@ -2022,6 +2023,7 @@ class _ActivityTabState extends State<_ActivityTab> {
 
   bool _unreadOnly = false;
   bool _markingAll = false;
+  String? _openingReviewId;
 
   String _dateGroup(DateTime date) {
     final now = DateTime.now();
@@ -2335,7 +2337,12 @@ class _ActivityTabState extends State<_ActivityTab> {
             ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
           ),
         ),
-        trailing: notification.isRead
+        trailing: _openingReviewId == notification.id
+            ? const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : notification.isRead
             ? null
             : Icon(Icons.circle, size: 8, color: colors.primary),
         onTap: () => _openNotification(notification),
@@ -2356,7 +2363,49 @@ class _ActivityTabState extends State<_ActivityTab> {
     }
   }
 
+  Future<void> _openPostReview(CommunityNotification notification) async {
+    if (_openingReviewId != null) return;
+    setState(() => _openingReviewId = notification.id);
+    try {
+      var communityId = notification.communityId;
+      if (communityId.isEmpty && notification.postId.isNotEmpty) {
+        communityId = (await widget.repository.getPost(
+          notification.postId,
+        )).communityId;
+      }
+      if (communityId.isEmpty) {
+        throw StateError('This notification has no community');
+      }
+      final community = await widget.repository.getCommunity(communityId);
+      if (!mounted) return;
+      if (!notification.isRead) await _markRead(notification.id);
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PendingPostsPage(
+            community: community,
+            repository: widget.repository,
+          ),
+        ),
+      );
+      if (mounted) setState(_reload);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _openingReviewId = null);
+    }
+  }
+
   Future<void> _openNotification(CommunityNotification notification) async {
+    if (notification.type == CommunityNotificationType.postPending) {
+      await _openPostReview(notification);
+      return;
+    }
     if (!notification.isRead) {
       await _markRead(notification.id);
     }

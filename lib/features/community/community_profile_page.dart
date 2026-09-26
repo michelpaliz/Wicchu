@@ -544,7 +544,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     return Column(
       children: [
         SizedBox(
-          height: _community.imageUrl == null ? 96 : 120,
+          height: _community.imageUrl == null ? 86 : 108,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -571,6 +571,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       backgroundColor: Colors.black54,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(0, 40),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     icon: const Icon(Icons.photo_camera_outlined, size: 18),
                     label: Text(context.tr('Edit')),
@@ -594,7 +599,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

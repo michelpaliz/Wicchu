@@ -59,7 +59,7 @@ class _FeedFilterBarState extends State<FeedFilterBar> {
     child: SingleChildScrollView(
       controller: _controller,
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.only(left: 16, right: 24),
       child: Row(
         children: [
           for (var index = 0; index < widget.labels.length; index++)

@@ -17,27 +17,27 @@ class FeedCategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 44,
+      height: 48,
       child: ChoiceChip(
         label: Text(label),
         selected: selected,
         showCheckmark: false,
         side: selected
             ? BorderSide.none
-            : BorderSide(color: scheme.onSurface.withValues(alpha: 0.08)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+            : BorderSide(color: scheme.onSurface.withValues(alpha: 0.06)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         backgroundColor: Colors.transparent,
         selectedColor: scheme.primary,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         pressElevation: 0,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        materialTapTargetSize: MaterialTapTargetSize.padded,
         visualDensity: VisualDensity.standard,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
         labelPadding: const EdgeInsets.symmetric(horizontal: 10),
         labelStyle: TextStyle(
           color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
         onSelected: (_) => onSelected(),

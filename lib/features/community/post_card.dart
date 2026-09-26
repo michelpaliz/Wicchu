@@ -40,6 +40,7 @@ class PostCard extends StatefulWidget {
     this.price,
     this.collapseText = false,
     this.showCommunity = true,
+    this.showActions = true,
     this.likes = 0,
     this.comments = 0,
     this.showImage = false,
@@ -75,6 +76,7 @@ class PostCard extends StatefulWidget {
   final String? price;
   final bool collapseText;
   final bool showCommunity;
+  final bool showActions;
   final int likes;
   final int comments;
   final bool showImage;
@@ -337,38 +339,39 @@ class _PostCardState extends State<PostCard> {
                   onSelected: _vote,
                 ),
               ],
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  _PostAction(
-                    icon: _reacted
-                        ? CupertinoIcons.heart_fill
-                        : CupertinoIcons.heart,
-                    value: '$_likes',
-                    tooltip: context.tr(_reacted ? 'Unlike' : 'Like'),
-                    color: _reacted ? const Color(0xFFE53945) : null,
-                    onTap: widget.onReaction == null || _savingReaction
-                        ? null
-                        : _toggleReaction,
-                  ),
-                  const SizedBox(width: 12),
-                  _PostAction(
-                    icon: CupertinoIcons.chat_bubble,
-                    value: '$_comments',
-                    tooltip: context.tr('Comments'),
-                    onTap: widget.onComments == null ? null : _openComments,
-                  ),
-                  const Spacer(),
-                  Flexible(
-                    child: _PostAction(
-                      icon: CupertinoIcons.arrowshape_turn_up_right,
-                      value: context.tr('Share'),
-                      tooltip: context.tr('Share'),
-                      onTap: widget.onShare,
+              if (widget.showActions) const SizedBox(height: 6),
+              if (widget.showActions)
+                Row(
+                  children: [
+                    _PostAction(
+                      icon: _reacted
+                          ? CupertinoIcons.heart_fill
+                          : CupertinoIcons.heart,
+                      value: '$_likes',
+                      tooltip: context.tr(_reacted ? 'Unlike' : 'Like'),
+                      color: _reacted ? const Color(0xFFE53945) : null,
+                      onTap: widget.onReaction == null || _savingReaction
+                          ? null
+                          : _toggleReaction,
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 12),
+                    _PostAction(
+                      icon: CupertinoIcons.chat_bubble,
+                      value: '$_comments',
+                      tooltip: context.tr('Comments'),
+                      onTap: widget.onComments == null ? null : _openComments,
+                    ),
+                    const Spacer(),
+                    Flexible(
+                      child: _PostAction(
+                        icon: CupertinoIcons.arrowshape_turn_up_right,
+                        value: context.tr('Share'),
+                        tooltip: context.tr('Share'),
+                        onTap: widget.onShare,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

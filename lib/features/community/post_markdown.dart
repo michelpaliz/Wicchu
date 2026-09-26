@@ -4,7 +4,12 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PostMarkdown extends StatefulWidget {
-  const PostMarkdown({super.key, required this.data, this.collapsible = false, this.onUserTap});
+  const PostMarkdown({
+    super.key,
+    required this.data,
+    this.collapsible = false,
+    this.onUserTap,
+  });
 
   final String data;
   final bool collapsible;
@@ -27,9 +32,9 @@ class _PostMarkdownState extends State<PostMarkdown> {
   Widget build(BuildContext context) {
     if (!widget.collapsible) return _markdown(context);
     final style = Theme.of(context).textTheme.bodyLarge!.copyWith(
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: FontWeight.w400,
-      height: 1.3,
+      height: 1.25,
     );
     final preview = widget.data
         .replaceAllMapped(RegExp(r'!?\[([^\]]*)\]\([^)]*\)'), (m) => m[1]!)
@@ -160,12 +165,12 @@ class _PostMarkdownState extends State<PostMarkdown> {
       softLineBreak: true,
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
         p: theme.textTheme.bodyLarge?.copyWith(
-          fontSize: 16,
-          height: widget.collapsible ? 1.3 : 1.45,
+          fontSize: widget.collapsible ? 15 : 16,
+          height: widget.collapsible ? 1.25 : 1.45,
         ),
         strong: theme.textTheme.bodyLarge?.copyWith(
-          fontSize: 16,
-          height: widget.collapsible ? 1.3 : 1.45,
+          fontSize: widget.collapsible ? 15 : 16,
+          height: widget.collapsible ? 1.25 : 1.45,
           fontWeight: FontWeight.w700,
         ),
         h3: theme.textTheme.titleMedium?.copyWith(
@@ -180,7 +185,9 @@ class _PostMarkdownState extends State<PostMarkdown> {
       onTapLink: (_, href, _) async {
         final uri = Uri.tryParse(href ?? '');
         if (uri == null) return;
-        if (uri.scheme == 'wicchu' && uri.host == 'user' && uri.pathSegments.isNotEmpty) {
+        if (uri.scheme == 'wicchu' &&
+            uri.host == 'user' &&
+            uri.pathSegments.isNotEmpty) {
           widget.onUserTap?.call(uri.pathSegments.first);
           return;
         }

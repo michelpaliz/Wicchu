@@ -86,6 +86,15 @@ class _RecordingRepository extends DemoCommunityRepository {
 class _NotificationsRepository extends DemoCommunityRepository {
   late String postId;
   bool read = false;
+  CommunityNotificationType type = CommunityNotificationType.postComment;
+  String communityId = '';
+  String? reviewedCommunity;
+
+  @override
+  Future<List<CommunityPost>> listPendingPosts(String communityId) async {
+    reviewedCommunity = communityId;
+    return [await getPost(postId)];
+  }
 
   @override
   Future<NotificationFeed> listNotifications() async => NotificationFeed(
@@ -94,7 +103,8 @@ class _NotificationsRepository extends DemoCommunityRepository {
       CommunityNotification(
         id: 'notification-1',
         actorName: 'Alex',
-        type: CommunityNotificationType.postComment,
+        type: type,
+        communityId: communityId,
         postId: postId,
         message: 'commented on your post',
         createdAt: DateTime.now(),
@@ -760,6 +770,39 @@ void main() {
     await tester.tap(find.text('All notifications'));
     await tester.pumpAndSettle();
     expect(find.text('Alex commented on your post'), findsOneWidget);
+  });
+
+  testWidgets('pending post notification opens the community approval queue', (
+    tester,
+  ) async {
+    final repository = _NotificationsRepository()
+      ..type = CommunityNotificationType.postPending
+      ..communityId = 'town-x-community';
+    final post = await repository.createPost(
+      'town-x-community',
+      const CreatePostInput(
+        categoryId: 'category-0',
+        text: 'Please review this post',
+      ),
+    );
+    repository.postId = post.id;
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: repository,
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Notifications'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Alex commented on your post'));
+    await tester.pumpAndSettle();
+    expect(repository.reviewedCommunity, 'town-x-community');
+    expect(repository.read, isTrue);
+    expect(find.text('Approval queue'), findsOneWidget);
+    expect(find.text('Please review this post'), findsOneWidget);
+    expect(find.text('Approve'), findsOneWidget);
+    expect(find.text('Reject'), findsOneWidget);
   });
 
   testWidgets('offers Facebook and Google registration when signed out', (
