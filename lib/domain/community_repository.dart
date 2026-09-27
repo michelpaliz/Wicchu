@@ -222,7 +222,11 @@ abstract interface class CommunityRepository {
   Future<List<CommunityPost>> listMyPosts();
   Future<List<CommunityPost>> listSavedPosts();
   Future<void> setPostSaved(String postId, {required bool saved});
-  Future<void> reportPost(String postId, String reason);
+  Future<void> reportPost(
+    String postId,
+    String reason, {
+    String category = 'other',
+  });
   Future<AdminAttentionSummary> getAdminAttention(String communityId);
   Future<List<CommunityReport>> listReports(String communityId);
   Future<void> decideReport(

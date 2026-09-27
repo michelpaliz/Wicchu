@@ -158,8 +158,11 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
                     setState(() => _posts = widget.loadPosts());
                   }
                 },
-                onReport: (reason) =>
-                    widget.repository.reportPost(post.id, reason),
+                onReport: (reason, category) => widget.repository.reportPost(
+                  post.id,
+                  reason,
+                  category: category,
+                ),
                 onShare: () => sharePost(widget.repository, post),
               );
             },

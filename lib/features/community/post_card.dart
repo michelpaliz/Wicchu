@@ -87,7 +87,7 @@ class PostCard extends StatefulWidget {
   final bool saved;
   final Future<void> Function(bool saved)? onSaved;
   final List<PostMedia> media;
-  final Future<void> Function(String reason)? onReport;
+  final Future<void> Function(String reason, String category)? onReport;
   final Future<void> Function()? onShare;
   final PostPromotion? promotion;
   final Future<void> Function()? onPromotionImpression;
@@ -459,32 +459,65 @@ class _PostCardState extends State<PostCard> {
 
   Future<void> _report() async {
     final controller = TextEditingController();
-    final reason = await showDialog<String>(
+    var category = 'other';
+    final report = await showDialog<(String, String)>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(dialogContext.tr('Report post')),
-        content: TextField(
-          controller: controller,
-          maxLength: 1000,
-          decoration: InputDecoration(hintText: dialogContext.tr('Reason')),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(dialogContext.tr('Report post')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: category,
+                decoration: InputDecoration(
+                  labelText: dialogContext.tr('Report category'),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'other',
+                    child: Text(dialogContext.tr('Other concern')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'child_safety',
+                    child: Text(dialogContext.tr('Child safety')),
+                  ),
+                ],
+                onChanged: (value) =>
+                    setDialogState(() => category = value ?? 'other'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLength: 1000,
+                minLines: 2,
+                maxLines: 5,
+                decoration: InputDecoration(
+                  hintText: dialogContext.tr('Describe the concern'),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(dialogContext.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                (controller.text.trim(), category),
+              ),
+              child: Text(dialogContext.tr('Report')),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(dialogContext.tr('Cancel')),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, controller.text.trim()),
-            child: Text(dialogContext.tr('Report')),
-          ),
-        ],
       ),
     );
     controller.dispose();
-    if (reason == null || reason.isEmpty || !mounted) return;
+    if (report == null || report.$1.isEmpty || !mounted) return;
     try {
-      await widget.onReport!(reason);
+      await widget.onReport!(report.$1, report.$2);
       if (mounted) {
         ScaffoldMessenger.of(
           context,

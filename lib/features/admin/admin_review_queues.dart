@@ -42,7 +42,7 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
                 child: ListTile(
                   title: Text(item.reason),
                   subtitle: Text(
-                    context.tr('Post {id}', {'id': item.targetId}),
+                    '${item.category == 'child_safety' ? context.tr('Child safety') : context.tr('Other concern')} · ${context.tr('Post {id}', {'id': item.targetId})}',
                   ),
                   trailing: Wrap(
                     children: [

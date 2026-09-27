@@ -132,7 +132,11 @@ class _SharedPostPageState extends State<SharedPostPage> {
                         widget.repository.setPostSaved(post.id, saved: saved),
               onReport: !_joined
                   ? null
-                  : (reason) => widget.repository.reportPost(post.id, reason),
+                  : (reason, category) => widget.repository.reportPost(
+                      post.id,
+                      reason,
+                      category: category,
+                    ),
               onShare: () => sharePost(
                 widget.repository,
                 post,

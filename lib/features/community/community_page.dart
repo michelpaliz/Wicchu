@@ -593,8 +593,8 @@ class _CommunityPageState extends State<CommunityPage> {
                                 post.id,
                                 saved: saved,
                               ),
-                              onReport: (reason) =>
-                                  repository.reportPost(post.id, reason),
+                              onReport: (reason, category) => repository
+                                  .reportPost(post.id, reason, category: category),
                               onShare: () => sharePost(
                                 repository,
                                 post,

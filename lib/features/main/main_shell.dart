@@ -1352,8 +1352,8 @@ class _HomeTabState extends State<_HomeTab> {
                             post.id,
                             saved: saved,
                           ),
-                          onReport: (reason) =>
-                              widget.repository.reportPost(post.id, reason),
+                          onReport: (reason, category) => widget.repository
+                              .reportPost(post.id, reason, category: category),
                           onShare: () => sharePost(
                             widget.repository,
                             post,

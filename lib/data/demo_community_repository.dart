@@ -772,7 +772,11 @@ class DemoCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<void> reportPost(String postId, String reason) async {}
+  Future<void> reportPost(
+    String postId,
+    String reason, {
+    String category = 'other',
+  }) async {}
 
   @override
   Future<AdminAttentionSummary> getAdminAttention(String communityId) async =>

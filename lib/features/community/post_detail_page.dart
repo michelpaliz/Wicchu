@@ -146,8 +146,11 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 saved: post.savedByMe,
                 onSaved: (saved) =>
                     widget.repository.setPostSaved(post.id, saved: saved),
-                onReport: (reason) =>
-                    widget.repository.reportPost(post.id, reason),
+                onReport: (reason, category) => widget.repository.reportPost(
+                  post.id,
+                  reason,
+                  category: category,
+                ),
                 onShare: () => sharePost(
                   widget.repository,
                   post,

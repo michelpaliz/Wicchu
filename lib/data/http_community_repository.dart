@@ -878,10 +878,14 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<void> reportPost(String postId, String reason) async {
+  Future<void> reportPost(
+    String postId,
+    String reason, {
+    String category = 'other',
+  }) async {
     await _api.post(
       '/api/community/v1/posts/$postId/reports',
-      body: {'reason': reason},
+      body: {'reason': reason, 'category': category},
     );
   }
 
@@ -933,6 +937,7 @@ class HttpCommunityRepository implements CommunityRepository {
             communityId: json['communityId']?.toString() ?? '',
             targetType: ModerationTargetType.post,
             targetId: json['targetId']?.toString() ?? '',
+            category: json['category'] as String? ?? 'other',
             reason: json['reason'] as String? ?? '',
             status: ReportStatus.open,
             createdAt:

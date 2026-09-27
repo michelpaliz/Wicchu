@@ -593,6 +593,7 @@ class CommunityReport {
     required this.communityId,
     required this.targetType,
     required this.targetId,
+    required this.category,
     required this.reason,
     required this.status,
     required this.createdAt,
@@ -603,6 +604,7 @@ class CommunityReport {
   final String communityId;
   final ModerationTargetType targetType;
   final String targetId;
+  final String category;
   final String reason;
   final ReportStatus status;
   final DateTime createdAt;
