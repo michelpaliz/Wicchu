@@ -114,6 +114,33 @@ class LanguageMenu extends StatelessWidget {
 }
 
 const _spanish = <String, String>{
+  'Unable to load rating': 'No se pudo cargar la valoración',
+  'Read the guidelines for a safe and respectful community.':
+      'Lee las normas para mantener un espacio seguro y respetuoso.',
+  'Website, directions and more': 'Sitio web, cómo llegar y más',
+
+  'Administration': 'Administración',
+  'No members found': 'No se encontraron miembros',
+
+  'Leave community': 'Salir de la comunidad',
+  'You own this community': 'Eres propietario de esta comunidad',
+  'You administer this community': 'Eres administrador de esta comunidad',
+  'You moderate this community': 'Eres moderador de esta comunidad',
+  'You are a member of this community': 'Eres miembro de esta comunidad',
+  'Leave this community?': '¿Salir de esta comunidad?',
+
+  'Community type': 'Tipo de comunidad',
+  'Creation date': 'Fecha de creación',
+  'Public': 'Pública',
+  'Private': 'Privada',
+
+  'Public profile': 'Perfil público',
+  'Discover communities, businesses and public profiles near you.':
+      'Descubre comunidades, negocios y perfiles públicos cerca de ti.',
+  'Not finding what you need?': '¿No encuentras lo que buscas?',
+  'Explore more profiles, businesses and communities.':
+      'Explora más perfiles, negocios y comunidades.',
+
   'Edit cover': 'Editar portada',
   'Manage profile': 'Administrar perfil',
   'Share your first post': 'Comparte tu primera publicación',

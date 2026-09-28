@@ -20,6 +20,8 @@ import 'post_share.dart';
 import 'comments_sheet.dart';
 import 'create_post_page.dart';
 
+enum CommunityScreen { feed, information, members, rules, links, rating }
+
 class CommunityProfilePage extends StatefulWidget {
   const CommunityProfilePage({
     super.key,
@@ -28,8 +30,10 @@ class CommunityProfilePage extends StatefulWidget {
     this.embedded = false,
     this.postRequest,
     this.onSwitchCommunity,
+    this.screen = CommunityScreen.feed,
   });
 
+  final CommunityScreen screen;
   final Community community;
   final CommunityRepository repository;
   final bool embedded;
@@ -55,6 +59,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   bool _openingComposer = false;
   String? _categoryId;
   int _sectionIndex = 0;
+  int _memberFilter = 0;
+  String _memberQuery = '';
+  bool _searchMembers = false;
   bool _compactPublish = false;
   bool _savingHelpfulness = false;
 
@@ -395,25 +402,76 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    floatingActionButton: !widget.embedded && _canPublish && _sectionIndex == 0
-        ? FloatingActionButton.extended(
-            onPressed: _openingComposer || _savingMembership
-                ? null
-                : _createPost,
-            icon: _openingComposer
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.add),
-            isExtended: !_compactPublish,
-            tooltip: context.tr('Publish'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-            label: Text(context.tr('Publish')),
+  Widget build(BuildContext context) {
+    if (widget.screen == CommunityScreen.rules ||
+        widget.screen == CommunityScreen.links ||
+        widget.screen == CommunityScreen.rating) {
+      final title = switch (widget.screen) {
+        CommunityScreen.rules => 'Community rules',
+        CommunityScreen.links => 'Useful links',
+        _ => 'Community rating',
+      };
+      return Scaffold(
+        appBar: AppBar(title: Text(context.tr(title))),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            switch (widget.screen) {
+              CommunityScreen.rules => _rulesContent(),
+              CommunityScreen.links => _linksContent(),
+              _ => _ratingContent(),
+            },
+          ],
+        ),
+      );
+    }
+    if (widget.screen == CommunityScreen.information) {
+      return Scaffold(appBar: _navigationBar(), body: _aboutTab(context));
+    }
+    if (widget.screen == CommunityScreen.members) {
+      return Scaffold(
+        appBar: AppBar(
+          title: _searchMembers
+              ? TextField(
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: context.tr('Search members'),
+                  ),
+                  onChanged: (value) => setState(() => _memberQuery = value),
+                )
+              : Text(
+                  context.tr(
+                    _community.isPublicProfile ? 'Followers' : 'Members',
+                  ),
+                ),
+          actions: [
+            IconButton(
+              tooltip: context.tr(
+                _searchMembers ? 'Close search' : 'Search members',
+              ),
+              icon: Icon(_searchMembers ? Icons.close : Icons.search),
+              onPressed: () => setState(() {
+                _searchMembers = !_searchMembers;
+                _memberQuery = '';
+              }),
+            ),
+          ],
+        ),
+        body: _membersTab(),
+      );
+    }
+    return _feedScreen(context);
+  }
+
+  Widget _feedScreen(BuildContext context) => Scaffold(
+    floatingActionButton: _community.isPublicProfile
+        ? FutureBuilder<List<CommunityPost>>(
+            future: _posts,
+            builder: (context, snapshot) => snapshot.data?.isNotEmpty == true
+                ? (_publishFloatingAction() ?? const SizedBox.shrink())
+                : const SizedBox.shrink(),
           )
-        : null,
+        : _publishFloatingAction(),
     appBar: _community.isPublicProfile ? null : _navigationBar(),
     body: NotificationListener<ScrollUpdateNotification>(
       onNotification: (notification) {
@@ -435,42 +493,136 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 ? _publicProfileHeader()
                 : _buildHeader(context),
           ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _TabHeaderDelegate(
-              showCategories:
-                  _sectionIndex == 0 && _joined && !_community.isPublicProfile,
-              builder: (context, collapse) => Column(
-                children: [
-                  FeedFilterBar(
-                    height: 48 - 4 * collapse,
-                    style: FeedNavigationStyle.underline,
-                    labels: [
-                      context.tr('Posts'),
-                      context.tr('About'),
-                      context.tr(
-                        _community.isPublicProfile ? 'Followers' : 'Members',
-                      ),
-                    ],
-                    selectedIndex: _sectionIndex,
-                    onSelected: _tabs.animateTo,
-                  ),
-                  if (_sectionIndex == 0 &&
-                      _joined &&
-                      !_community.isPublicProfile)
-                    _categoryFilters(height: 48 - 8 * collapse),
-                ],
+          if (_community.isPublicProfile)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _TabHeaderDelegate(
+                showCategories: false,
+                builder: (context, collapse) => FeedFilterBar(
+                  height: 48 - 4 * collapse,
+                  style: FeedNavigationStyle.underline,
+                  labels: [
+                    context.tr('Posts'),
+                    context.tr('About'),
+                    context.tr('Followers'),
+                  ],
+                  selectedIndex: _sectionIndex,
+                  onSelected: _tabs.animateTo,
+                ),
+              ),
+            )
+          else if (_joined)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _TabHeaderDelegate(
+                showCategories: false,
+                builder: (context, collapse) =>
+                    _categoryFilters(height: 48 - 4 * collapse),
               ),
             ),
-          ),
         ],
-        body: TabBarView(
-          controller: _tabs,
-          children: [_postsTab(), _aboutTab(context), _membersTab()],
+        body: _community.isPublicProfile
+            ? TabBarView(
+                controller: _tabs,
+                children: [_postsTab(), _aboutTab(context), _membersTab()],
+              )
+            : _postsTab(),
+      ),
+    ),
+  );
+
+  Future<void> _openInformation() async {
+    final result = await Navigator.push<Object>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CommunityProfilePage(
+          community: _community,
+          repository: widget.repository,
+          screen: CommunityScreen.information,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      if (result is Community) {
+        _community = result;
+        _joined = result.isJoined;
+      }
+      if (result is CommunityCategory) _categoryId = result.id;
+      _reload();
+    });
+  }
+
+  Future<void> _openMembers() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CommunityProfilePage(
+          community: _community,
+          repository: widget.repository,
+          screen: CommunityScreen.members,
+        ),
+      ),
+    );
+    if (mounted) setState(_reload);
+  }
+
+  Widget _communityIdentity() => InkWell(
+    key: const ValueKey('community-information-entry'),
+    onTap: _openInformation,
+    borderRadius: BorderRadius.circular(8),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              _community.name,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right, size: 20),
+        ],
+      ),
+    ),
+  );
+
+  Widget _memberCountLink() => InkWell(
+    key: const ValueKey('community-members-entry'),
+    onTap: _openMembers,
+    borderRadius: BorderRadius.circular(8),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        '${context.trCount(_community.memberCount, singular: '{count} member', plural: '{count} members')} · ${context.tr(_community.visibility == CommunityVisibility.public ? 'Public community' : 'Private community')}',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     ),
   );
+
+  Widget? _publishFloatingAction() =>
+      !widget.embedded && _canPublish && _sectionIndex == 0
+      ? FloatingActionButton.extended(
+          onPressed: _openingComposer || _savingMembership ? null : _createPost,
+          icon: _openingComposer
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.add),
+          isExtended: !_compactPublish,
+          tooltip: context.tr('Publish'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          label: Text(context.tr('Publish')),
+        )
+      : null;
 
   AppBar _navigationBar() => AppBar(
     automaticallyImplyLeading: false,
@@ -482,7 +634,18 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             icon: const Icon(Icons.arrow_back),
           ),
     title: widget.onSwitchCommunity == null
-        ? Text(_community.name, maxLines: 1, overflow: TextOverflow.ellipsis)
+        ? InkWell(
+            onTap:
+                widget.screen == CommunityScreen.feed &&
+                    !_community.isPublicProfile
+                ? _openInformation
+                : null,
+            child: Text(
+              _community.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          )
         : InkWell(
             onTap: widget.onSwitchCommunity,
             borderRadius: BorderRadius.circular(12),
@@ -579,20 +742,37 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   Widget _profileCover() {
     final scheme = Theme.of(context).colorScheme;
     final navigation = _navigationBar();
+    Widget coverControl(Widget child) => Padding(
+      padding: const EdgeInsets.all(4),
+      child: Material(
+        color: scheme.surface.withValues(alpha: .94),
+        shape: const CircleBorder(),
+        child: IconTheme(
+          data: IconThemeData(color: scheme.onSurface),
+          child: child,
+        ),
+      ),
+    );
+    final leading =
+        navigation.leading ??
+        (widget.onSwitchCommunity == null
+            ? null
+            : IconButton(
+                tooltip: context.tr('Choose a community'),
+                onPressed: widget.onSwitchCommunity,
+                icon: const Icon(Icons.keyboard_arrow_down),
+              ));
     return SliverAppBar(
       pinned: true,
       automaticallyImplyLeading: false,
       expandedHeight: 170,
-      leading:
-          navigation.leading ??
-          (widget.onSwitchCommunity == null
-              ? null
-              : IconButton.filledTonal(
-                  tooltip: context.tr('Choose a community'),
-                  onPressed: widget.onSwitchCommunity,
-                  icon: const Icon(Icons.keyboard_arrow_down),
-                )),
-      actions: navigation.actions,
+      leadingWidth: 64,
+      leading: leading == null ? null : coverControl(leading),
+      actions: [
+        for (final action in navigation.actions ?? <Widget>[])
+          coverControl(action),
+        const SizedBox(width: 8),
+      ],
       backgroundColor: scheme.surface,
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
@@ -619,12 +799,19 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    scheme.surface.withValues(alpha: .9),
+                    scheme.surface.withValues(alpha: .35),
                     scheme.surface.withValues(alpha: 0),
                   ],
                   stops: [0, .65],
                 ),
               ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 14,
+              child: ColoredBox(color: scheme.surface),
             ),
             Positioned(
               left: 16,
@@ -645,7 +832,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 _community.myRole == CommunityRole.admin)
               Positioned(
                 right: 16,
-                bottom: 12,
+                bottom: 26,
                 child: FilledButton.tonalIcon(
                   onPressed: _editCommunity,
                   icon: const Icon(Icons.photo_camera_outlined, size: 18),
@@ -694,7 +881,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     final theme = Theme.of(context);
     final owner = _community.myRole == CommunityRole.owner;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -751,32 +938,54 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           ],
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Icon(
-                Icons.location_on_outlined,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  _community.town.name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 18,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      _community.town.name,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      context.trCount(
+                        _community.memberCount,
+                        singular: '{count} follower',
+                        plural: '{count} followers',
+                      ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            context.trCount(
-              _community.memberCount,
-              singular: '{count} follower',
-              plural: '{count} followers',
-            ),
-            style: theme.textTheme.bodyMedium,
           ),
           if (!owner) ...[
             const SizedBox(height: 12),
@@ -813,10 +1022,31 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     color: theme.colorScheme.primary.withValues(alpha: .08),
                   ),
                 ),
-                Icon(
-                  Icons.feed_outlined,
-                  size: 78,
-                  color: theme.colorScheme.primary.withValues(alpha: .45),
+                Transform.rotate(
+                  angle: -.12,
+                  child: Container(
+                    width: 60,
+                    height: 70,
+                    margin: const EdgeInsets.only(right: 12, bottom: 8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 62,
+                  height: 68,
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    Icons.image_rounded,
+                    size: 50,
+                    color: theme.colorScheme.primary.withValues(alpha: .42),
+                  ),
                 ),
                 Positioned(
                   right: 0,
@@ -861,7 +1091,16 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               onPressed: _openingComposer || _savingMembership
                   ? null
                   : _createPost,
-              style: FilledButton.styleFrom(minimumSize: const Size(220, 48)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(220, 48),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
               icon: const Icon(Icons.add),
               label: Text(context.tr('Create post')),
             ),
@@ -873,186 +1112,131 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   Widget _buildHeader(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isOwner = _community.myRole == CommunityRole.owner;
-    return Column(
-      children: [
-        SizedBox(
-          height: _community.coverImageUrl == null ? 96 : 150,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _expandableCommunityImage(
-                ColoredBox(
-                  color: scheme.primaryContainer,
-                  child: _community.coverImageUrl == null
-                      ? null
-                      : Image.network(
-                          _community.coverImageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                        ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _openInformation,
+      child: Column(
+        children: [
+          SizedBox(
+            height: _community.coverImageUrl == null ? 96 : 150,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _expandableCommunityImage(
+                  ColoredBox(
+                    color: scheme.primaryContainer,
+                    child: _community.coverImageUrl == null
+                        ? null
+                        : Image.network(
+                            _community.coverImageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          ),
+                  ),
+                  _community.coverImageUrl,
                 ),
-                _community.coverImageUrl,
-              ),
-              if (_community.myRole == CommunityRole.owner ||
-                  _community.myRole == CommunityRole.admin)
+                if (_community.myRole == CommunityRole.owner ||
+                    _community.myRole == CommunityRole.admin)
+                  Positioned(
+                    right: 16,
+                    bottom: 12,
+                    child: FilledButton.icon(
+                      onPressed: _editCommunity,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                      label: Text(context.tr('Edit')),
+                    ),
+                  ),
                 Positioned(
-                  right: 16,
+                  left: 16,
                   bottom: 12,
-                  child: FilledButton.icon(
-                    onPressed: _editCommunity,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.black54,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 40),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: scheme.surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Semantics(
+                      button: true,
+                      label: context.tr('Community information'),
+                      child: GestureDetector(
+                        onTap: _openInformation,
+                        child: CommunityAvatar(
+                          community: _community,
+                          radius: 28,
+                        ),
                       ),
                     ),
-                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                    label: Text(context.tr('Edit')),
                   ),
                 ),
-              Positioned(
-                left: 16,
-                bottom: 12,
-                child: Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: scheme.surface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: _expandableCommunityImage(
-                    CommunityAvatar(community: _community, radius: 28),
-                    _community.imageUrl,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          _community.name,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        if (isOwner)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: scheme.primary.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              context.tr('Owner'),
-                              style: TextStyle(
-                                color: scheme.primary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _communityIdentity(),
+                          if (_joined) _communityRoleBadge(),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      _memberCountLink(),
+                      if (!_joined)
+                        TextButton.icon(
+                          onPressed: _savingMembership
+                              ? null
+                              : _toggleMembership,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            visualDensity: VisualDensity.compact,
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _community.isPublicProfile
-                          ? context.trCount(
-                              _community.memberCount,
-                              singular: '{count} follower',
-                              plural: '{count} followers',
-                            )
-                          : '${context.trCount(_community.memberCount, singular: '{count} member', plural: '{count} members')} · ${context.tr(_community.visibility == CommunityVisibility.public ? 'Public community' : 'Private community')}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: _openPublicWebsite,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.language,
-                              size: 15,
-                              color: scheme.primary,
-                            ),
-                            const SizedBox(width: 5),
-                            Flexible(
-                              child: Text(
-                                _publicWebsiteUrl.replaceFirst('https://', ''),
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: scheme.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (!isOwner)
-                      TextButton.icon(
-                        onPressed: _savingMembership ? null : _toggleMembership,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        icon: _savingMembership
-                            ? const SizedBox.square(
-                                dimension: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                          icon: _savingMembership
+                              ? const SizedBox.square(
+                                  dimension: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  _joined ? Icons.check : Icons.add,
+                                  size: 16,
                                 ),
-                              )
-                            : Icon(_joined ? Icons.check : Icons.add, size: 16),
-                        label: Text(
-                          context.tr(
-                            _community.isPublicProfile
-                                ? (_joined ? 'Following' : 'Follow')
-                                : (_joined ? 'Joined' : 'Join'),
+                          label: Text(
+                            context.tr(
+                              _community.isPublicProfile
+                                  ? (_joined ? 'Following' : 'Follow')
+                                  : (_joined ? 'Joined' : 'Join'),
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              if (_canManage)
-                IconButton(
-                  tooltip: context.tr('Manage community'),
-                  onPressed: _openManagement,
-                  icon: const Icon(Icons.admin_panel_settings_outlined),
-                  color: scheme.primary,
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1270,106 +1454,309 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
-  Widget _aboutTab(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
-    children: [
-      if (_community.showWeather && _weather != null)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: FutureBuilder<CommunityWeather?>(
-            future: _weather,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const LinearProgressIndicator();
-              }
-              if (snapshot.hasError) {
-                return Row(
+  Widget _compactCommunityHeader() {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Icon(Icons.cloud_off_outlined),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        context.tr('Weather is temporarily unavailable.'),
+                    Text(
+                      _community.name,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
+                    if (_joined) _communityRoleBadge(),
                   ],
-                );
-              }
-              final weather = snapshot.data;
-              if (weather == null) return const SizedBox.shrink();
-              return Card(
-                margin: EdgeInsets.zero,
-                color: Theme.of(context).colorScheme.surface,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.07),
-                  ),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        _weatherIcon(weather.weatherCode, weather.isDay),
-                        size: 46,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${weather.temperature.round()}°C · ${context.tr(weather.description)}',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                            ),
-                            Text(
-                              context.tr('High {high}° · Low {low}°', {
-                                'high': '${weather.maxTemperature.round()}',
-                                'low': '${weather.minTemperature.round()}',
-                              }),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              weather.townName,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              [
-                                if (weather.observedAt != null)
-                                  context.tr('Updated {time}', {
-                                    'time': TimeOfDay.fromDateTime(
-                                      weather.observedAt!.toLocal(),
-                                    ).format(context),
-                                  }),
-                                weather.provider,
-                              ].join(' · '),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 4),
+                _memberCountLink(),
+                if (!_joined)
+                  TextButton.icon(
+                    onPressed: _savingMembership ? null : _toggleMembership,
+                    icon: const Icon(Icons.add),
+                    label: Text(context.tr('Join')),
                   ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          _expandableCommunityImage(
+            CommunityAvatar(community: _community, radius: 32),
+            _community.imageUrl,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _communityRoleBadge() {
+    final scheme = Theme.of(context).colorScheme;
+    final message = context.tr(switch (_community.myRole) {
+      CommunityRole.owner => 'You own this community',
+      CommunityRole.admin => 'You administer this community',
+      CommunityRole.moderator => 'You moderate this community',
+      _ => 'You are a member of this community',
+    });
+    return PopupMenuButton<String>(
+      key: const ValueKey('community-role-badge'),
+      tooltip: message,
+      onSelected: (value) async {
+        if (value == 'manage') {
+          _openManagement();
+        } else if (value == 'leave') {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(context.tr('Leave this community?')),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(context.tr('Cancel')),
                 ),
-              );
-            },
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(context.tr('Leave community')),
+                ),
+              ],
+            ),
+          );
+          if (confirmed == true && mounted && !_savingMembership) {
+            await _toggleMembership();
+          }
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Text(message, style: TextStyle(color: scheme.onSurface)),
+        ),
+        if (_canManage)
+          PopupMenuItem(
+            value: 'manage',
+            child: Row(
+              children: [
+                Icon(
+                  Icons.admin_panel_settings_outlined,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Flexible(child: Text(context.tr('Manage community'))),
+              ],
+            ),
+          ),
+        if (_community.myRole != CommunityRole.owner && !_savingMembership)
+          PopupMenuItem(
+            value: 'leave',
+            child: Text(context.tr('Leave community')),
+          ),
+      ],
+      child: Semantics(
+        button: true,
+        label: message,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: Container(
+              width: 34,
+              height: 28,
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: .10),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                _canManage ? Icons.admin_panel_settings_outlined : Icons.check,
+                size: 20,
+                color: scheme.primary,
+              ),
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _aboutWeather() => FutureBuilder<CommunityWeather?>(
+    future: _weather,
+    builder: (context, snapshot) {
+      final weather = snapshot.data;
+      if (weather == null) return const SizedBox.shrink();
+      final theme = Theme.of(context);
+      return Material(
+        color: theme.colorScheme.primary.withValues(alpha: .05),
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => showModalBottomSheet<void>(
+            context: context,
+            showDragHandle: true,
+            builder: (context) => SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _weatherIcon(weather.weatherCode, weather.isDay),
+                      size: 48,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '${weather.temperature.round()}°C · ${context.tr(weather.description)}',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    Text(weather.townName),
+                    const SizedBox(height: 8),
+                    Text(
+                      context.tr('High {high}° · Low {low}°', {
+                        'high': '${weather.maxTemperature.round()}',
+                        'low': '${weather.minTemperature.round()}',
+                      }),
+                    ),
+                    if (weather.observedAt != null)
+                      Text(
+                        context.tr('Updated {time}', {
+                          'time': TimeOfDay.fromDateTime(
+                            weather.observedAt!.toLocal(),
+                          ).format(context),
+                        }),
+                      ),
+                    Text(weather.provider, style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _weatherIcon(weather.weatherCode, weather.isDay),
+                  size: 26,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${weather.temperature.round()}°',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      context.tr(weather.description),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+                const Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  Widget _aboutMetadata() {
+    final theme = Theme.of(context);
+    Widget detail(IconData icon, String value, String label) => Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 22, color: theme.colorScheme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: theme.textTheme.bodySmall),
+              const SizedBox(height: 4),
+              Text(
+                context.tr(label),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns =
+            constraints.maxWidth < 310 ||
+                MediaQuery.textScalerOf(context).scale(1) > 1.3
+            ? 1
+            : 3;
+        final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 14,
+          children: [
+            SizedBox(
+              width: width,
+              child: detail(
+                Icons.location_on_outlined,
+                _community.town.name,
+                'Location',
+              ),
+            ),
+            SizedBox(
+              width: width,
+              child: detail(
+                Icons.public,
+                context.tr(
+                  _community.visibility == CommunityVisibility.public
+                      ? 'Public'
+                      : 'Private',
+                ),
+                'Community type',
+              ),
+            ),
+            SizedBox(
+              width: width,
+              child: detail(
+                Icons.calendar_today_outlined,
+                MaterialLocalizations.of(
+                  context,
+                ).formatMediumDate(_community.createdAt.toLocal()),
+                'Creation date',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _aboutTab(BuildContext context) => ListView(
+    key: const ValueKey('community-information-content'),
+    padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+    children: [
+      if (widget.screen == CommunityScreen.information)
+        _compactCommunityHeader(),
       _Section(
         title: context.tr('About {name}', {'name': _community.name}),
         icon: Icons.article_outlined,
+        trailing: _community.showWeather && _weather != null
+            ? _aboutWeather()
+            : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1381,250 +1768,347 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     : _community.description,
               ),
             ),
-            _DetailRow(
-              icon: Icons.location_on_outlined,
-              label: _community.town.name,
+            Divider(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: .08),
             ),
-            _DetailRow(
-              icon: _community.visibility == CommunityVisibility.public
-                  ? Icons.public
-                  : Icons.lock_outline,
-              label: context.tr(
-                _community.visibility == CommunityVisibility.public
-                    ? 'Public community'
-                    : 'Private community',
-              ),
-            ),
-            _DetailRow(
-              icon: Icons.calendar_today_outlined,
-              label: context.tr('Created {date}', {
-                'date': MaterialLocalizations.of(
-                  context,
-                ).formatMediumDate(_community.createdAt.toLocal()),
-              }),
-            ),
+            const SizedBox(height: 12),
+            _aboutMetadata(),
           ],
         ),
       ),
-      _Section(
-        title: context.tr('Community rating'),
-        icon: Icons.star_rounded,
-        iconColor: Colors.amber.shade700,
-        child: FutureBuilder<CommunityHelpfulness>(
-          future: _helpfulness,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const LinearProgressIndicator();
-            }
-            if (snapshot.hasError) {
-              return Text(context.trError(snapshot.error!));
-            }
-            final feedback = snapshot.data!;
-            return ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(top: 12),
-              shape: const Border(),
-              collapsedShape: const Border(),
-              title: Text(
-                feedback.isPublic
-                    ? context.tr(
-                        '{percentage}% of members find this community helpful',
-                        {'percentage': '${feedback.helpfulPercentage ?? 0}'},
-                      )
-                    : context.trCount(
-                        (feedback.minimumResponses - feedback.responseCount)
-                            .clamp(0, feedback.minimumResponses),
-                        singular:
-                            '{count} more response is needed to show the community score.',
-                        plural:
-                            '{count} more responses are needed to show the community score.',
-                      ),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              children: [
-                if (feedback.eligible) ...[
-                  const SizedBox(height: 14),
-                  Text(context.tr('Do you find this community helpful?')),
-                  const SizedBox(height: 8),
-                  SegmentedButton<bool>(
-                    segments: [
-                      ButtonSegment(
-                        value: true,
-                        icon: const Icon(Icons.thumb_up_outlined),
-                        label: Text(context.tr('Yes')),
-                      ),
-                      ButtonSegment(
-                        value: false,
-                        icon: const Icon(Icons.thumb_down_outlined),
-                        label: Text(context.tr('Not really')),
-                      ),
-                    ],
-                    selected: feedback.myVote == null
-                        ? const <bool>{}
-                        : {feedback.myVote!.helpful},
-                    emptySelectionAllowed: true,
-                    onSelectionChanged: _savingHelpfulness
-                        ? null
-                        : (selection) {
-                            if (selection.isNotEmpty) {
-                              _rateHelpfulness(selection.first);
-                            }
-                          },
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: _savingHelpfulness
-                        ? null
-                        : () => _openCommunitySurvey(feedback),
-                    icon: const Icon(Icons.rate_review_outlined),
-                    label: Text(context.tr('Answer the short survey')),
-                  ),
-                ],
-                if (feedback.insights.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  Text(
-                    context.tr('Anonymous member insights'),
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  for (final entry in feedback.insights.entries)
-                    _DetailRow(
-                      icon: Icons.insights_outlined,
-                      label:
-                          '${context.tr(switch (entry.key) {
-                            'locallyRelevant' => 'Locally relevant',
-                            'safeParticipation' => 'Safe to participate',
-                            'wellOrganized' => 'Well organized',
-                            _ => 'Would recommend',
-                          })}: ${entry.value.yesPercentage ?? 0}%',
-                    ),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
-      FutureBuilder<List<CommunityCategory>>(
-        future: _categories,
-        builder: (context, snapshot) => _Section(
-          title: context.tr('Categories'),
-          icon: Icons.sell_outlined,
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final category
-                  in snapshot.data ?? const <CommunityCategory>[])
-                ActionChip(
-                  label: Text(context.tr(category.name)),
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer.withValues(alpha: 0.55),
-                  side: BorderSide.none,
-                  shape: const StadiumBorder(),
-                  onPressed: () => setState(() {
-                    _categoryId = category.id;
-                    _tabs.animateTo(0);
-                  }),
-                ),
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const CircularProgressIndicator(),
-            ],
-          ),
-        ),
-      ),
-      FutureBuilder<CommunityRules>(
-        future: _rules,
+      FutureBuilder<CommunityHelpfulness>(
+        future: _helpfulness,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _Section(
-              title: context.tr('Community rules'),
-              icon: Icons.shield_outlined,
-              child: const LinearProgressIndicator(),
-            );
-          }
-          if (snapshot.hasError) {
-            return _Section(
-              title: context.tr('Community rules'),
-              icon: Icons.shield_outlined,
-              child: Text(context.trError(snapshot.error!)),
-            );
-          }
-          final rules = snapshot.data?.rules ?? _community.rules;
-          return _Section(
-            title: context.tr('Community rules'),
-            icon: Icons.shield_outlined,
-            child: rules.isEmpty
-                ? Text(context.tr('No community rules have been added yet.'))
-                : Column(
-                    children: [
-                      for (final (index, rule) in rules.indexed)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(child: Text('${index + 1}')),
-                          title: Text(rule.title),
-                          subtitle: rule.description.isEmpty
-                              ? null
-                              : Text(rule.description),
-                        ),
-                    ],
+          final feedback = snapshot.data;
+          final summary = feedback == null
+              ? (snapshot.hasError
+                    ? context.tr('Unable to load rating')
+                    : context.tr('Loading…'))
+              : feedback.isPublic
+              ? context.tr(
+                  '{percentage}% of members find this community helpful',
+                  {'percentage': '${feedback.helpfulPercentage ?? 0}'},
+                )
+              : context.trCount(
+                  (feedback.minimumResponses - feedback.responseCount).clamp(
+                    0,
+                    feedback.minimumResponses,
                   ),
+                  singular:
+                      '{count} more response is needed to show the community score.',
+                  plural:
+                      '{count} more responses are needed to show the community score.',
+                );
+          return _informationRow(
+            'Community rating',
+            Icons.star_rounded,
+            summary,
+            () => _openInformationSection(CommunityScreen.rating),
+            iconColor: Colors.amber.shade700,
           );
         },
       ),
-      _Section(
-        title: context.tr('Useful links'),
-        icon: Icons.link,
-        child: Column(
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.language),
-              title: Text(context.tr('Public website')),
-              subtitle: Text(_publicWebsiteUrl),
-              onTap: _openPublicWebsite,
-              trailing: IconButton(
-                tooltip: context.tr('Copy website address'),
-                onPressed: _copyPublicWebsite,
-                icon: const Icon(Icons.copy_outlined),
-              ),
-            ),
-            for (final link in _community.links)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  Uri.tryParse(link.url)?.host.toLowerCase() == 't.me'
-                      ? Icons.send_outlined
-                      : Icons.link,
-                ),
-                title: Text(link.label),
-                trailing: const Icon(Icons.open_in_new, size: 20),
-                onTap: () => launchUrl(
-                  Uri.parse(link.url),
-                  mode: LaunchMode.externalApplication,
-                ),
-              ),
-            if (_community.businessLocation?.address.isEmpty != false &&
-                _community.businessLocation?.hasCoordinates != true)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.map_outlined),
-                title: Text(context.tr('Directions')),
-                trailing: const Icon(Icons.open_in_new, size: 20),
-                onTap: _openDirections,
-              ),
-            if (_community.businessLocation?.address.isNotEmpty == true)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.location_on_outlined),
-                title: Text(context.tr('Business location')),
-                subtitle: Text(_community.businessLocation!.address),
-                trailing: const Icon(Icons.directions_outlined),
-                onTap: _openDirections,
-              ),
-          ],
+      if (!_community.isPublicProfile)
+        _informationRow(
+          'Members',
+          Icons.groups_outlined,
+          context.trCount(
+            _community.memberCount,
+            singular: '{count} member',
+            plural: '{count} members',
+          ),
+          _openMembers,
+          count: _community.memberCount,
+          rowKey: const ValueKey('information-members-entry'),
+        ),
+      FutureBuilder<CommunityRules>(
+        future: _rules,
+        builder: (context, snapshot) => _informationRow(
+          'Community rules',
+          Icons.shield_outlined,
+          context.tr(
+            'Read the guidelines for a safe and respectful community.',
+          ),
+          () => _openInformationSection(CommunityScreen.rules),
+          count: snapshot.hasData ? snapshot.data!.rules.length : null,
         ),
       ),
+      _informationRow(
+        'Useful links',
+        Icons.link,
+        context.tr('Website, directions and more'),
+        () => _openInformationSection(CommunityScreen.links),
+        count: _community.links.length + 2,
+      ),
     ],
+  );
+
+  Future<void> _openInformationSection(CommunityScreen screen) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CommunityProfilePage(
+          community: _community,
+          repository: widget.repository,
+          screen: screen,
+        ),
+      ),
+    );
+    if (mounted) setState(_reload);
+  }
+
+  Widget _informationRow(
+    String title,
+    IconData icon,
+    String subtitle,
+    VoidCallback onTap, {
+    int? count,
+    Color? iconColor,
+    Key? rowKey,
+  }) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: theme.colorScheme.onSurface.withValues(alpha: .07),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        key: rowKey,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Icon(
+          icon,
+          size: 28,
+          color: iconColor ?? theme.colorScheme.primary,
+        ),
+        title: Text(
+          context.tr(title),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 5),
+          child: Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (count != null) ...[
+              Text('$count', style: theme.textTheme.bodyMedium),
+              const SizedBox(width: 8),
+            ],
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _ratingContent() => _Section(
+    title: context.tr('Community rating'),
+    icon: Icons.star_rounded,
+    iconColor: Colors.amber.shade700,
+    child: FutureBuilder<CommunityHelpfulness>(
+      future: _helpfulness,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const LinearProgressIndicator();
+        }
+        if (snapshot.hasError) {
+          return Text(context.trError(snapshot.error!));
+        }
+        final feedback = snapshot.data!;
+        return ExpansionTile(
+          initiallyExpanded: true,
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(top: 12),
+          shape: const Border(),
+          collapsedShape: const Border(),
+          title: Text(
+            feedback.isPublic
+                ? context.tr(
+                    '{percentage}% of members find this community helpful',
+                    {'percentage': '${feedback.helpfulPercentage ?? 0}'},
+                  )
+                : context.trCount(
+                    (feedback.minimumResponses - feedback.responseCount).clamp(
+                      0,
+                      feedback.minimumResponses,
+                    ),
+                    singular:
+                        '{count} more response is needed to show the community score.',
+                    plural:
+                        '{count} more responses are needed to show the community score.',
+                  ),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          children: [
+            if (feedback.eligible) ...[
+              const SizedBox(height: 14),
+              Text(context.tr('Do you find this community helpful?')),
+              const SizedBox(height: 8),
+              SegmentedButton<bool>(
+                segments: [
+                  ButtonSegment(
+                    value: true,
+                    icon: const Icon(Icons.thumb_up_outlined),
+                    label: Text(context.tr('Yes')),
+                  ),
+                  ButtonSegment(
+                    value: false,
+                    icon: const Icon(Icons.thumb_down_outlined),
+                    label: Text(context.tr('Not really')),
+                  ),
+                ],
+                selected: feedback.myVote == null
+                    ? const <bool>{}
+                    : {feedback.myVote!.helpful},
+                emptySelectionAllowed: true,
+                onSelectionChanged: _savingHelpfulness
+                    ? null
+                    : (selection) {
+                        if (selection.isNotEmpty) {
+                          _rateHelpfulness(selection.first);
+                        }
+                      },
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _savingHelpfulness
+                    ? null
+                    : () => _openCommunitySurvey(feedback),
+                icon: const Icon(Icons.rate_review_outlined),
+                label: Text(context.tr('Answer the short survey')),
+              ),
+            ],
+            if (feedback.insights.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(
+                context.tr('Anonymous member insights'),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              for (final entry in feedback.insights.entries)
+                _DetailRow(
+                  icon: Icons.insights_outlined,
+                  label:
+                      '${context.tr(switch (entry.key) {
+                        'locallyRelevant' => 'Locally relevant',
+                        'safeParticipation' => 'Safe to participate',
+                        'wellOrganized' => 'Well organized',
+                        _ => 'Would recommend',
+                      })}: ${entry.value.yesPercentage ?? 0}%',
+                ),
+            ],
+          ],
+        );
+      },
+    ),
+  );
+
+  Widget _linksContent() => _Section(
+    title: context.tr('Useful links'),
+    icon: Icons.link,
+    child: Column(
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.language),
+          title: Text(
+            _publicWebsiteUrl.replaceFirst('https://', ''),
+            style: TextStyle(color: Theme.of(context).colorScheme.primary),
+          ),
+          onLongPress: _copyPublicWebsite,
+          onTap: _openPublicWebsite,
+          trailing: IconButton(
+            tooltip: context.tr('Public website'),
+            onPressed: _openPublicWebsite,
+            icon: const Icon(Icons.open_in_new),
+          ),
+        ),
+        for (final link in _community.links)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              Uri.tryParse(link.url)?.host.toLowerCase() == 't.me'
+                  ? Icons.send_outlined
+                  : Icons.link,
+            ),
+            title: Text(link.label),
+            trailing: const Icon(Icons.open_in_new, size: 20),
+            onTap: () => launchUrl(
+              Uri.parse(link.url),
+              mode: LaunchMode.externalApplication,
+            ),
+          ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.map_outlined),
+          title: Text(context.tr('Directions')),
+          subtitle: Text(
+            _community.businessLocation?.showExactAddress == true &&
+                    _community.businessLocation!.address.isNotEmpty
+                ? _community.businessLocation!.address
+                : _community.town.name,
+          ),
+          trailing: const Icon(Icons.open_in_new, size: 20),
+          onTap: _openDirections,
+        ),
+      ],
+    ),
+  );
+
+  Widget _rulesContent() => FutureBuilder<CommunityRules>(
+    future: _rules,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return _Section(
+          title: context.tr('Community rules'),
+          icon: Icons.shield_outlined,
+          child: const LinearProgressIndicator(),
+        );
+      }
+      if (snapshot.hasError) {
+        return _Section(
+          title: context.tr('Community rules'),
+          icon: Icons.shield_outlined,
+          child: Text(context.trError(snapshot.error!)),
+        );
+      }
+      final rules = snapshot.data?.rules ?? _community.rules;
+      return _Section(
+        title: context.tr('Community rules'),
+        icon: Icons.shield_outlined,
+        child: rules.isEmpty
+            ? Text(context.tr('No community rules have been added yet.'))
+            : Column(
+                children: [
+                  for (final (index, rule) in rules.indexed)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(child: Text('${index + 1}')),
+                      title: Text(rule.title),
+                      subtitle: rule.description.isEmpty
+                          ? null
+                          : Text(rule.description),
+                    ),
+                ],
+              ),
+      );
+    },
   );
 
   Future<void> _openDirections() async {
@@ -1704,55 +2188,91 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             if (a.isOnline != b.isOnline) return a.isOnline ? -1 : 1;
             return a.name.compareTo(b.name);
           });
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: members.length,
-          itemBuilder: (context, index) {
-            final member = members[index];
-            return ListTile(
-              leading: Badge(
-                isLabelVisible: member.isOnline,
-                backgroundColor: Colors.green,
-                child: CircleAvatar(
-                  backgroundImage: member.avatarUrl == null
-                      ? null
-                      : NetworkImage(member.avatarUrl!),
-                  child: member.avatarUrl == null
-                      ? Text(
-                          member.name.isEmpty
-                              ? '?'
-                              : member.name[0].toUpperCase(),
-                        )
-                      : null,
-                ),
+        bool leader(CommunityMember member) =>
+            member.role != CommunityRole.member;
+        final leaders = members.where(leader).length;
+        final visible = members
+            .where(
+              (member) =>
+                  (_memberFilter == 0 ||
+                      (_memberFilter == 1
+                          ? leader(member)
+                          : !leader(member))) &&
+                  member.name.toLowerCase().contains(
+                    _memberQuery.trim().toLowerCase(),
+                  ),
+            )
+            .toList();
+        return Column(
+          children: [
+            if (widget.screen == CommunityScreen.members)
+              FeedFilterBar(
+                labels: [
+                  '${context.tr('All')} (${members.length})',
+                  '${context.tr('Administration')} ($leaders)',
+                  '${context.tr('Members')} (${members.length - leaders})',
+                ],
+                selectedIndex: _memberFilter,
+                onSelected: (index) => setState(() => _memberFilter = index),
               ),
-              title: Text(member.name),
-              subtitle: Text(
-                context.tr(
-                  member.role == CommunityRole.owner
-                      ? 'Owner'
-                      : member.role.name,
-                ),
-              ),
-              trailing: member.isOnline
-                  ? Text(
-                      context.tr('Online now'),
-                      style: const TextStyle(color: Colors.green),
-                    )
-                  : null,
-              onTap: member.isAnonymous || member.userId.isEmpty
-                  ? null
-                  : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MemberProfilePage(
-                          userId: member.userId,
-                          repository: widget.repository,
-                        ),
-                      ),
+            Expanded(
+              child: visible.isEmpty
+                  ? Center(child: Text(context.tr('No members found')))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: visible.length,
+                      itemBuilder: (context, index) {
+                        final member = visible[index];
+                        return ListTile(
+                          leading: Badge(
+                            isLabelVisible: member.isOnline,
+                            backgroundColor: Colors.green,
+                            child: CircleAvatar(
+                              backgroundImage: member.avatarUrl == null
+                                  ? null
+                                  : NetworkImage(member.avatarUrl!),
+                              child: member.avatarUrl == null
+                                  ? Text(
+                                      member.name.isEmpty
+                                          ? '?'
+                                          : member.name[0].toUpperCase(),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                          title: Text(member.name),
+                          subtitle: member.isOnline
+                              ? Text(
+                                  context.tr('Online now'),
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                )
+                              : null,
+                          trailing: _profileBadge(switch (member.role) {
+                            CommunityRole.owner => 'Owner',
+                            CommunityRole.admin => 'Administrator',
+                            CommunityRole.moderator => 'Moderator',
+                            _ => 'Member',
+                          }),
+                          onTap: member.isAnonymous || member.userId.isEmpty
+                              ? null
+                              : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => MemberProfilePage(
+                                      userId: member.userId,
+                                      repository: widget.repository,
+                                    ),
+                                  ),
+                                ),
+                        );
+                      },
                     ),
-            );
-          },
+            ),
+          ],
         );
       },
     );
@@ -1810,7 +2330,9 @@ class _Section extends StatelessWidget {
     required this.child,
     this.icon,
     this.iconColor,
+    this.trailing,
   });
+  final Widget? trailing;
   final String title;
   final Widget child;
   final IconData? icon;
@@ -1834,25 +2356,44 @@ class _Section extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                if (icon != null) ...[
-                  Icon(
-                    icon,
-                    color: iconColor ?? theme.colorScheme.primary,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final heading = Row(
+                  children: [
+                    if (icon != null) ...[
+                      Icon(
+                        icon,
+                        color: iconColor ?? theme.colorScheme.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+                if (trailing == null) return heading;
+                if (constraints.maxWidth >= 320 &&
+                    MediaQuery.textScalerOf(context).scale(1) <= 1.2) {
+                  return Row(
+                    children: [
+                      Expanded(child: heading),
+                      const SizedBox(width: 8),
+                      Flexible(child: trailing!),
+                    ],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [heading, const SizedBox(height: 8), trailing!],
+                );
+              },
             ),
             const SizedBox(height: 12),
             child,

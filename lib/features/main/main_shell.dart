@@ -1,3 +1,4 @@
+import '../community/community_share.dart';
 import '../community/category_empty_state.dart';
 import '../../widgets/feed_filter_bar.dart';
 import 'dart:async';
@@ -1726,148 +1727,88 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   Widget _communityCard(Community community) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final role = switch (community.myRole) {
       CommunityRole.owner => 'Owner',
       CommunityRole.admin => 'Administrator',
       CommunityRole.moderator => 'Moderator',
       _ => community.isPublicProfile ? 'Following' : 'Member',
     };
+    final typeIcon = !community.isPublicProfile
+        ? Icons.groups_outlined
+        : community.profileCategory == ProfileCategory.localBusiness
+        ? Icons.storefront_outlined
+        : Icons.person_outline;
+    Widget badge(String label, {IconData? icon}) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: scheme.primary.withValues(alpha: .09),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 16, color: scheme.primary),
+            const SizedBox(width: 5),
+          ],
+          Flexible(
+            child: Text(
+              context.tr(label),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: scheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Widget metadata(IconData icon, String text) => Padding(
+      padding: const EdgeInsets.only(top: 5),
+      child: Row(
+        children: [
+          Icon(icon, size: 17, color: scheme.primary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.onSurface.withValues(alpha: .08)),
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: scheme.onSurface.withValues(alpha: .07)),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _openCommunity(community),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              CommunityAvatar(community: community, radius: 28),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      community.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (community.description.trim().isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        community.description,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 3),
-                    Text(
-                      context.trCount(
-                        community.memberCount,
-                        singular: community.isPublicProfile
-                            ? '{count} follower'
-                            : '{count} member',
-                        plural: community.isPublicProfile
-                            ? '{count} followers'
-                            : '{count} members',
-                      ),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 15,
-                          color: scheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _filter == 1 && community.distanceKm != null
-                                ? '${community.distanceKm!.toStringAsFixed(1).replaceAll('.', Localizations.localeOf(context).languageCode == 'es' ? ',' : '.')} km'
-                                : community.town.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: .08),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text(
-                      context.tr(community.spaceTypeLabel),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: scheme.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (community.isJoined)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.primary.withValues(alpha: .1),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        context.tr(role),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: scheme.primary,
-                        ),
-                      ),
-                    )
-                  else
-                    OutlinedButton(
+          padding: const EdgeInsets.all(12),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact =
+                  constraints.maxWidth < 340 ||
+                  MediaQuery.textScalerOf(context).scale(1) > 1.2;
+              final action = community.isJoined
+                  ? badge(role)
+                  : FilledButton(
                       onPressed: _saving.contains(community.id)
                           ? null
                           : () => _toggleMembership(community),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: community.isPublicProfile
-                            ? Colors.transparent
-                            : scheme.primary,
-                        foregroundColor: community.isPublicProfile
-                            ? scheme.primary
-                            : scheme.onPrimary,
-                        side: BorderSide(color: scheme.primary),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(72, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
                       ),
                       child: _saving.contains(community.id)
                           ? const SizedBox.square(
@@ -1879,10 +1820,179 @@ class _ExploreTabState extends State<_ExploreTab> {
                                 community.isPublicProfile ? 'Follow' : 'Join',
                               ),
                             ),
+                    );
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CommunityAvatar(
+                    community: community,
+                    radius: compact ? 30 : 36,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                community.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (!compact) ...[const SizedBox(width: 8), action],
+                            SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: PopupMenuButton<String>(
+                                tooltip: context.tr('More options'),
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(Icons.more_vert, size: 20),
+                                onSelected: (value) {
+                                  if (value == 'share') {
+                                    shareCommunity(context, community);
+                                  } else {
+                                    _openCommunity(community);
+                                  }
+                                },
+                                itemBuilder: (_) => [
+                                  PopupMenuItem(
+                                    value: 'open',
+                                    child: Text(
+                                      context.tr(
+                                        community.isPublicProfile
+                                            ? 'Open profile'
+                                            : 'Open community',
+                                      ),
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'share',
+                                    child: Text(context.tr('Share')),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            badge(community.spaceTypeLabel, icon: typeIcon),
+                            if (compact) action,
+                          ],
+                        ),
+                        if (community.description.trim().isNotEmpty) ...[
+                          const SizedBox(height: 7),
+                          Text(
+                            community.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 4),
+                        metadata(
+                          Icons.location_on_outlined,
+                          _filter == 1 && community.distanceKm != null
+                              ? '${community.distanceKm!.toStringAsFixed(1).replaceAll('.', context.isSpanish ? ',' : '.')} km'
+                              : community.town.name,
+                        ),
+                        metadata(
+                          Icons.people_outline,
+                          context.trCount(
+                            community.memberCount,
+                            singular: community.isPublicProfile
+                                ? '{count} follower'
+                                : '{count} member',
+                            plural: community.isPublicProfile
+                                ? '{count} followers'
+                                : '{count} members',
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
                 ],
-              ),
-            ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _discoveryPrompt() {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        color: scheme.primary.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () {
+            _searchDelay?.cancel();
+            setState(() {
+              _showSearch = false;
+              _query = '';
+              _filter = 0;
+              _reload();
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: scheme.primary.withValues(alpha: .08),
+                  child: Icon(
+                    Icons.explore_outlined,
+                    size: 28,
+                    color: scheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('Not finding what you need?'),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        context.tr(
+                          'Explore more profiles, businesses and communities.',
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: scheme.primary),
+              ],
+            ),
           ),
         ),
       ),
@@ -1892,6 +2002,8 @@ class _ExploreTabState extends State<_ExploreTab> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
+      centerTitle: false,
+      titleSpacing: 20,
       title: _showSearch
           ? TextField(
               autofocus: true,
@@ -1908,7 +2020,7 @@ class _ExploreTabState extends State<_ExploreTab> {
             )
           : Text(
               context.tr('Explore'),
-              style: const TextStyle(fontWeight: FontWeight.w700),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 30),
             ),
       actions: [
         IconButton(
@@ -1933,7 +2045,7 @@ class _ExploreTabState extends State<_ExploreTab> {
             alignment: Alignment.centerLeft,
             child: Text(
               context.tr(
-                'Discover communities and public profiles around you.',
+                'Discover communities, businesses and public profiles near you.',
               ),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1945,13 +2057,13 @@ class _ExploreTabState extends State<_ExploreTab> {
           labels: [
             context.tr('All'),
             context.tr('Communities'),
-            context.tr('Local businesses'),
             context.tr('Public profiles'),
+            context.tr('Local businesses'),
             context.tr('Near you'),
             context.tr('My communities'),
           ],
-          selectedIndex: const [0, 3, 5, 4, 1, 2].indexOf(_filter),
-          onSelected: (index) => _selectFilter(const [0, 3, 5, 4, 1, 2][index]),
+          selectedIndex: const [0, 3, 4, 5, 1, 2].indexOf(_filter),
+          onSelected: (index) => _selectFilter(const [0, 3, 4, 5, 1, 2][index]),
         ),
         Expanded(
           child: RefreshIndicator(
@@ -2030,6 +2142,10 @@ class _ExploreTabState extends State<_ExploreTab> {
                       _emptyState()
                     else
                       ...communities.map(_communityCard),
+                    if (status == null &&
+                        communities.isNotEmpty &&
+                        (_filter != 0 || query.isNotEmpty))
+                      _discoveryPrompt(),
                   ],
                 );
               },

@@ -324,10 +324,6 @@ void main() {
       );
       expect(find.byType(FloatingActionButton), findsNothing);
       final communityPage = find.byType(CommunityProfilePage);
-      final aboutTab = find.descendant(
-        of: communityPage,
-        matching: find.text('About'),
-      );
       final allFilter = find.descendant(
         of: communityPage,
         matching: find.text('All'),
@@ -340,16 +336,8 @@ void main() {
         const Offset(0, -600),
       );
       await tester.pumpAndSettle();
-      expect(aboutTab.hitTestable(), findsOneWidget);
       expect(allFilter.hitTestable(), findsOneWidget);
-      await tester.tap(aboutTab);
-      await tester.pumpAndSettle();
-      expect(allFilter, findsNothing);
-      await tester.tap(
-        find.descendant(of: communityPage, matching: find.text('Posts')),
-      );
-      await tester.pumpAndSettle();
-      expect(allFilter.hitTestable(), findsOneWidget);
+      expect(find.text('About'), findsNothing);
       expect(tester.takeException(), isNull);
 
       await tester.tap(find.bySemanticsLabel('Post'));
@@ -591,10 +579,70 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CommunityProfilePage), findsOneWidget);
-    expect(find.text('Posts'), findsOneWidget);
-    expect(find.text('About'), findsOneWidget);
+    expect(find.text('About'), findsNothing);
+    expect(find.text('Members'), findsNothing);
+    expect(find.text('All'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('community-role-badge')));
+    await tester.pumpAndSettle();
+    expect(find.text('You own this community'), findsOneWidget);
+    expect(find.text('Manage community'), findsOneWidget);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('community-information-entry')));
+    await tester.pumpAndSettle();
+    expect(find.text('Community type'), findsOneWidget);
+    expect(find.text('Creation date'), findsOneWidget);
+    expect(find.text('Categories'), findsNothing);
+    for (final destination in [
+      'Community rules',
+      'Useful links',
+      'Community rating',
+    ]) {
+      final row = find.widgetWithText(ListTile, destination);
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(find.byType(AppBar), findsOneWidget);
+      if (destination == 'Community rules') {
+        expect(
+          find.text('No community rules have been added yet.'),
+          findsOneWidget,
+        );
+      } else if (destination == 'Useful links') {
+        expect(find.text('Directions'), findsOneWidget);
+      } else {
+        expect(find.byType(ExpansionTile), findsOneWidget);
+      }
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('community-information-content')),
+        findsOneWidget,
+      );
+    }
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('information-members-entry')),
+    );
+    await tester.tap(find.byKey(const ValueKey('information-members-entry')));
+    await tester.pumpAndSettle();
     expect(find.text('Members'), findsOneWidget);
-    expect(find.byTooltip('Manage community'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('community-information-content')),
+      findsOneWidget,
+    );
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('community-members-entry')));
+    await tester.pumpAndSettle();
+    expect(find.text('Members'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('All'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -681,7 +729,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create a public profile'));
     await tester.pumpAndSettle();
-    expect(find.text('Profile name'), findsOneWidget);
+    expect(find.text('Page name'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('space-type-community')));
     await tester.pumpAndSettle();
     expect(find.text('Community name'), findsOneWidget);
@@ -839,7 +887,9 @@ void main() {
     await tester.tap(find.text('Explore'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Discover communities and public profiles around you.'),
+      find.text(
+        'Discover communities, businesses and public profiles near you.',
+      ),
       findsOneWidget,
     );
     expect(find.text('Near you'), findsOneWidget);
@@ -1036,7 +1086,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Town X Community').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Administrar comunidad'));
+    await tester.tap(find.byKey(const ValueKey('community-role-badge')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Administrar comunidad'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('Moderación'),
