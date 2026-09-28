@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'category_empty_state.dart';
 import '../../widgets/feed_filter_bar.dart';
 import 'package:flutter/material.dart';
@@ -57,6 +59,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   int _sectionIndex = 0;
   bool _compactPublish = false;
   bool _savingHelpfulness = false;
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  bool _searchingPosts = false;
 
   bool get _canManage =>
       _community.myRole == CommunityRole.owner ||
@@ -136,7 +141,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           );
     _posts = _joined
-        ? widget.repository.listPosts(_community.id)
+        ? widget.repository.listPosts(
+            _community.id,
+            query: _searchController.text,
+          )
         : Future.value(const <CommunityPost>[]);
     _members = _joined
         ? widget.repository.listMembers(_community.id)
@@ -275,8 +283,32 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   @override
   void dispose() {
     widget.postRequest?.removeListener(_createPost);
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     _tabs.dispose();
     super.dispose();
+  }
+
+  void _togglePostSearch() {
+    _searchDebounce?.cancel();
+    setState(() {
+      _searchingPosts = !_searchingPosts;
+      if (!_searchingPosts) {
+        _searchController.clear();
+        _reload();
+      }
+    });
+  }
+
+  void _searchPosts(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      setState(() {
+        _categoryId = null;
+        _posts = widget.repository.listPosts(_community.id, query: value);
+      });
+    });
   }
 
   Future<void> _toggleMembership() async {
@@ -481,7 +513,30 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             onPressed: () => Navigator.pop(context, _community),
             icon: const Icon(Icons.arrow_back),
           ),
-    title: widget.onSwitchCommunity == null
+    title: _searchingPosts
+        ? TextField(
+            controller: _searchController,
+            autofocus: true,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: context.tr('Search posts in {community}', {
+                'community': _community.name,
+              }),
+              border: InputBorder.none,
+            ),
+            onChanged: _searchPosts,
+            onSubmitted: (value) {
+              _searchDebounce?.cancel();
+              setState(() {
+                _categoryId = null;
+                _posts = widget.repository.listPosts(
+                  _community.id,
+                  query: value,
+                );
+              });
+            },
+          )
+        : widget.onSwitchCommunity == null
         ? Text(_community.name, maxLines: 1, overflow: TextOverflow.ellipsis)
         : InkWell(
             onTap: widget.onSwitchCommunity,
@@ -504,39 +559,49 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           ),
     actions: [
-      IconButton(
-        tooltip: context.tr('Share'),
-        onPressed: () => shareCommunity(context, _community),
-        icon: const Icon(Icons.ios_share_outlined),
-      ),
-      PopupMenuButton<String>(
-        key: const ValueKey('community-profile-menu'),
-        tooltip: context.tr('More options'),
-        onSelected: (value) {
-          if (value == 'media') {
-            Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => Scaffold(
-                  appBar: AppBar(title: Text(context.tr('Media'))),
-                  body: _mediaTab(),
+      if (_joined && _sectionIndex == 0)
+        IconButton(
+          tooltip: context.tr(
+            _searchingPosts ? 'Close search' : 'Search posts',
+          ),
+          onPressed: _togglePostSearch,
+          icon: Icon(_searchingPosts ? Icons.close : Icons.search_rounded),
+        ),
+      if (!_searchingPosts) ...[
+        IconButton(
+          tooltip: context.tr('Share'),
+          onPressed: () => shareCommunity(context, _community),
+          icon: const Icon(Icons.ios_share_outlined),
+        ),
+        PopupMenuButton<String>(
+          key: const ValueKey('community-profile-menu'),
+          tooltip: context.tr('More options'),
+          onSelected: (value) {
+            if (value == 'media') {
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => Scaffold(
+                    appBar: AppBar(title: Text(context.tr('Media'))),
+                    body: _mediaTab(),
+                  ),
                 ),
+              );
+            } else {
+              _editCommunity();
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(value: 'media', child: Text(context.tr('Media'))),
+            if (_community.myRole == CommunityRole.owner ||
+                _community.myRole == CommunityRole.admin)
+              PopupMenuItem(
+                value: 'edit',
+                child: Text(context.tr('Edit community')),
               ),
-            );
-          } else {
-            _editCommunity();
-          }
-        },
-        itemBuilder: (context) => [
-          PopupMenuItem(value: 'media', child: Text(context.tr('Media'))),
-          if (_community.myRole == CommunityRole.owner ||
-              _community.myRole == CommunityRole.admin)
-            PopupMenuItem(
-              value: 'edit',
-              child: Text(context.tr('Edit community')),
-            ),
-        ],
-      ),
+          ],
+        ),
+      ],
     ],
   );
 
@@ -1152,6 +1217,30 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                             post.categoryId == _categoryId,
                       )
                       .toList();
+                  if (posts.isEmpty &&
+                      _searchController.text.trim().isNotEmpty) {
+                    return SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.search_off_rounded, size: 48),
+                              const SizedBox(height: 12),
+                              Text(
+                                context.tr('No posts found in {community}', {
+                                  'community': _community.name,
+                                }),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   if (posts.isEmpty && _community.isPublicProfile) {
                     return SliverFillRemaining(
                       hasScrollBody: false,

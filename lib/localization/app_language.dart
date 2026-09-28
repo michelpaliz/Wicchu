@@ -166,6 +166,9 @@ const _spanish = <String, String>{
   'You': 'Tú',
   'Close search': 'Cerrar búsqueda',
   'Search posts': 'Buscar publicaciones',
+  'Search posts in {community}': 'Buscar publicaciones en {community}',
+  'No posts found in {community}':
+      'No se encontraron publicaciones en {community}',
   'Search communities': 'Buscar comunidades',
   'Retry': 'Reintentar',
   'New post': 'Nueva publicación',
