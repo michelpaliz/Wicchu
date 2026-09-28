@@ -10,6 +10,7 @@ class CreateCommunityInput {
     this.approvalRequired = false,
     this.rules = const [],
     this.type = CommunityType.community,
+    this.profileCategory,
   });
 
   final String name;
@@ -20,6 +21,7 @@ class CreateCommunityInput {
   final bool approvalRequired;
   final List<CommunityRule> rules;
   final CommunityType type;
+  final ProfileCategory? profileCategory;
 }
 
 class AdminAttentionSummary {
@@ -188,6 +190,7 @@ abstract interface class CommunityRepository {
     required bool approvalRequired,
     required bool showWeather,
     required List<CommunityLink> links,
+    ProfileCategory? profileCategory,
     String? imageUrl,
     String? imageBlobName,
     String? coverImageUrl,

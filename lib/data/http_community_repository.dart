@@ -256,6 +256,9 @@ class HttpCommunityRepository implements CommunityRepository {
         'type': input.type == CommunityType.publicProfile
             ? 'public_profile'
             : 'community',
+        if (input.type == CommunityType.publicProfile &&
+            input.profileCategory != null)
+          'profileCategory': input.profileCategory!.apiValue,
         'description': input.description,
         'townId': input.town.id,
         'visibility': input.visibility.name,
@@ -610,6 +613,7 @@ class HttpCommunityRepository implements CommunityRepository {
     required bool approvalRequired,
     required bool showWeather,
     required List<CommunityLink> links,
+    ProfileCategory? profileCategory,
     String? imageUrl,
     String? imageBlobName,
     String? coverImageUrl,
@@ -623,6 +627,8 @@ class HttpCommunityRepository implements CommunityRepository {
         'visibility': visibility.name,
         'approvalRequired': approvalRequired,
         'showWeather': showWeather,
+        if (community.isPublicProfile && profileCategory != null)
+          'profileCategory': profileCategory.apiValue,
         'links': links
             .map((link) => {'label': link.label, 'url': link.url})
             .toList(),
@@ -1115,6 +1121,7 @@ class HttpCommunityRepository implements CommunityRepository {
     return Community(
       id: _id(json),
       name: json['name'] as String? ?? '',
+      profileCategory: ProfileCategory.fromApi(json['profileCategory']),
       type: json['type'] == 'public_profile'
           ? CommunityType.publicProfile
           : CommunityType.community,

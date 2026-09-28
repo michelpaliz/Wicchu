@@ -1081,6 +1081,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     text: widget.community.description,
   );
   late CommunityVisibility _visibility = widget.community.visibility;
+  late ProfileCategory? _profileCategory = widget.community.profileCategory;
   late bool _approvalRequired = widget.community.approvalRequired;
   late bool _showWeather = widget.community.showWeather;
   late final List<CommunityLink> _links = [...widget.community.links];
@@ -1261,6 +1262,25 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             decoration: InputDecoration(labelText: context.tr('Description')),
           ),
           const SizedBox(height: 16),
+          if (widget.community.isPublicProfile) ...[
+            DropdownButtonFormField<ProfileCategory>(
+              initialValue: _profileCategory,
+              decoration: InputDecoration(
+                labelText: context.tr('Profile category'),
+              ),
+              items: [
+                for (final category in ProfileCategory.values)
+                  DropdownMenuItem(
+                    value: category,
+                    child: Text(context.tr(category.label)),
+                  ),
+              ],
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(() => _profileCategory = value),
+            ),
+            const SizedBox(height: 16),
+          ],
           DropdownButtonFormField<CommunityVisibility>(
             initialValue: _visibility,
             decoration: InputDecoration(labelText: context.tr('Visibility')),
@@ -1447,6 +1467,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     try {
       final updated = await widget.repository.updateCommunity(
         widget.community,
+        profileCategory: _profileCategory,
         name: _name.text.trim(),
         description: _description.text.trim(),
         visibility: _visibility,
@@ -1458,7 +1479,22 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         coverImageUrl: _coverImageUrl,
         coverImageBlobName: _coverImageBlobName,
       );
-      if (mounted) Navigator.pop(context, updated);
+      if (!mounted) return;
+      if (widget.community.isPublicProfile &&
+          _profileCategory != null &&
+          updated.profileCategory != _profileCategory) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.tr(
+                'Your changes were saved, but the profile category could not be saved. Please try again later.',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+      Navigator.pop(context, updated);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(

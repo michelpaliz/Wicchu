@@ -103,12 +103,38 @@ class _RecordingApiClient extends AuthenticatedApiClient {
       };
     }
     return {
-      'community': {'id': 'community-1', 'name': body?['name']},
+      'community': {'id': 'community-1', ...?body},
     };
   }
 }
 
 void main() {
+  test(
+    'public profile category is sent and decoded without relabeling legacy profiles',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+      const town = Town(id: 'town-1', name: 'Town X', countryCode: 'EC');
+      for (final category in [null, ...ProfileCategory.values]) {
+        final profile = await repository.createCommunity(
+          CreateCommunityInput(
+            name: 'A profile',
+            description: '',
+            town: town,
+            visibility: CommunityVisibility.public,
+            categoryNames: ['Posts'],
+            type: CommunityType.publicProfile,
+            profileCategory: category,
+          ),
+        );
+        expect(api.lastBody?['profileCategory'], category?.apiValue);
+        expect(profile.profileCategory, category);
+        expect(profile.spaceTypeLabel, category?.label ?? 'Public profile');
+      }
+      expect(ProfileCategory.fromApi('future_category'), isNull);
+    },
+  );
+
   test('nearby discovery sends coordinates to the API', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);

@@ -14,9 +14,11 @@ class CreateCommunityPage extends StatefulWidget {
     super.key,
     required this.repository,
     this.locateCurrentTown,
+    this.initialType = CommunityType.community,
   });
 
   final CommunityRepository repository;
+  final CommunityType initialType;
   final Future<Town> Function()? locateCurrentTown;
 
   @override
@@ -52,7 +54,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   Town? _town;
   bool _saving = false;
   bool _approvalRequired = false;
-  CommunityType _type = CommunityType.community;
+  late CommunityType _type = widget.initialType;
+  ProfileCategory? _profileCategory;
   bool _detectingLocation = false;
   bool _locationVerified = false;
   String? _locationError;
@@ -155,7 +158,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         DefaultTextStyle(
-                          style: Theme.of(context).textTheme.titleLarge!,
+                          style: Theme.of(context).textTheme.titleLarge!
+                              .copyWith(fontWeight: FontWeight.w700),
                           child: steps[_step].title,
                         ),
                         const SizedBox(height: 20),
@@ -171,7 +175,12 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                   width: double.infinity,
                   height: 48,
                   child: FilledButton(
-                    onPressed: _saving || _detectingLocation ? null : _continue,
+                    onPressed:
+                        _saving ||
+                            _detectingLocation ||
+                            (_step == 0 && _nameController.text.trim().isEmpty)
+                        ? null
+                        : _continue,
                     child: _saving
                         ? Row(
                             mainAxisSize: MainAxisSize.min,
@@ -205,44 +214,174 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     );
   }
 
+  Widget _typeCard(
+    CommunityType type,
+    IconData icon,
+    String title,
+    String description,
+  ) {
+    final selected = _type == type;
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected
+            ? colors.primary.withValues(alpha: .06)
+            : colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: selected
+                ? colors.primary
+                : colors.onSurface.withValues(alpha: .15),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: ValueKey('space-type-${type.name}'),
+          onTap: () => setState(() {
+            _type = type;
+            _dirty = true;
+          }),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      icon,
+                      size: 30,
+                      color: selected
+                          ? colors.primary
+                          : colors.onSurfaceVariant,
+                    ),
+                    const Spacer(),
+                    Icon(
+                      selected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      color: selected ? colors.primary : colors.outline,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  context.tr(title),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  context.tr(description),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   List<Step> _steps(BuildContext context) => [
     Step(
-      title: Text(context.tr('Basics')),
+      title: Text(context.tr('What would you like to create?')),
       isActive: _step >= 0,
       content: Form(
         key: _basicsForm,
         child: Column(
           children: [
-            SegmentedButton<CommunityType>(
-              segments: [
-                ButtonSegment(
-                  value: CommunityType.community,
-                  icon: const Icon(Icons.groups_outlined),
-                  label: Text(context.tr('Community')),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                context.tr(
+                  'Choose the type of space that best fits your needs.',
                 ),
-                ButtonSegment(
-                  value: CommunityType.publicProfile,
-                  icon: const Icon(Icons.person_outline),
-                  label: Text(context.tr('Public profile')),
-                ),
-              ],
-              selected: {_type},
-              onSelectionChanged: (value) => setState(() {
-                _type = value.first;
-                _dirty = true;
-              }),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              context.tr(
-                _type == CommunityType.publicProfile
-                    ? 'For a person, business, club, creator, or organization. People will follow this profile.'
-                    : 'For towns, neighborhoods, associations, and local groups. People will join as members.',
               ),
             ),
             const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cards = [
+                  _typeCard(
+                    CommunityType.community,
+                    Icons.groups_outlined,
+                    'Community',
+                    'Members join and participate together.',
+                  ),
+                  _typeCard(
+                    CommunityType.publicProfile,
+                    Icons.person_outline,
+                    'Public profile',
+                    'People follow a person, business, creator or organization.',
+                  ),
+                ];
+                if (constraints.maxWidth < 320 ||
+                    MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+                  return Column(
+                    children: [cards[0], const SizedBox(height: 12), cards[1]],
+                  );
+                }
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: cards[0]),
+                      const SizedBox(width: 12),
+                      Expanded(child: cards[1]),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                context.tr(
+                  _type == CommunityType.community
+                      ? 'Community details'
+                      : 'Profile details',
+                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_type == CommunityType.publicProfile) ...[
+              DropdownButtonFormField<ProfileCategory>(
+                initialValue: _profileCategory,
+                decoration: InputDecoration(
+                  labelText: context.tr('Profile category'),
+                ),
+                items: [
+                  for (final category in ProfileCategory.values)
+                    DropdownMenuItem(
+                      value: category,
+                      child: Text(context.tr(category.label)),
+                    ),
+                ],
+                validator: (value) => value == null
+                    ? context.tr('Choose a profile category.')
+                    : null,
+                onChanged: (value) => setState(() {
+                  _profileCategory = value;
+                  _dirty = true;
+                }),
+              ),
+              const SizedBox(height: 16),
+            ],
             TextFormField(
               controller: _nameController,
+              onChanged: (_) => setState(() => _dirty = true),
               maxLength: CommunityInputLimits.name,
               maxLengthEnforcement: MaxLengthEnforcement.enforced,
               textInputAction: TextInputAction.next,
@@ -270,8 +409,48 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
               maxLengthEnforcement: MaxLengthEnforcement.enforced,
               maxLines: 2,
               decoration: InputDecoration(
+                hintText: context.tr('Tell people what your space is about…'),
                 labelText: context.tr('Short description'),
                 helperText: context.tr('Optional'),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: .07),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.lightbulb_outline,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.tr('Tip'),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          context.tr(
+                            _type == CommunityType.community
+                                ? 'A clear name and description help people find and join your community.'
+                                : 'A clear name and description help people find and follow your profile.',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -546,6 +725,9 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           approvalRequired: _approvalRequired,
           rules: _draftRules,
           type: _type,
+          profileCategory: _type == CommunityType.publicProfile
+              ? _profileCategory
+              : null,
         ),
       );
     } catch (error) {
@@ -572,7 +754,10 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         ),
         content: Text(
           dialogContext.tr(
-            _type == CommunityType.publicProfile
+            _type == CommunityType.publicProfile &&
+                    community.profileCategory != _profileCategory
+                ? 'Your profile was created, but its category could not be saved. You can set it later in settings.'
+                : _type == CommunityType.publicProfile
                 ? 'Share your profile and publish your first update.'
                 : 'Invite your first members and start the conversation.',
           ),

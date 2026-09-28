@@ -1,3 +1,4 @@
+import 'package:wicchu/features/community/create_post_page.dart';
 import 'dart:async';
 import 'package:wicchu/features/community/post_rich_text_editor.dart';
 import 'package:wicchu/features/community/category_page.dart';
@@ -596,6 +597,45 @@ void main() {
     expect(find.byTooltip('Manage community'), findsOneWidget);
   });
 
+  testWidgets(
+    'business profile shows identity and opens its first post composer',
+    (tester) async {
+      final repository = DemoCommunityRepository();
+      final profile = await repository.createCommunity(
+        const CreateCommunityInput(
+          name: 'Local garden business',
+          description: 'Gardens and pools',
+          town: Town(id: 'town-1', name: 'Town X', countryCode: 'EC'),
+          visibility: CommunityVisibility.public,
+          categoryNames: ['Posts'],
+          type: CommunityType.publicProfile,
+          profileCategory: ProfileCategory.localBusiness,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CommunityProfilePage(
+            community: profile,
+            repository: repository,
+            embedded: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Local business'), findsOneWidget);
+      expect(find.text('Gardens and pools'), findsOneWidget);
+      expect(find.text('Followers'), findsOneWidget);
+      expect(find.text('All'), findsNothing);
+      expect(find.text('Share your first post'), findsOneWidget);
+      await tester.ensureVisible(find.text('Create post'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Create post'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CreatePostPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('community draft is preserved when exit is cancelled', (
     tester,
   ) async {
@@ -615,6 +655,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Draft group'), findsOneWidget);
     expect(find.byType(CreateCommunityPage), findsOneWidget);
+  });
+
+  testWidgets('public profile entry opens the form with profile selected', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('You').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Create a public profile'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Create a public profile')),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create a public profile'));
+    await tester.pumpAndSettle();
+    expect(find.text('Profile name'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('space-type-community')));
+    await tester.pumpAndSettle();
+    expect(find.text('Community name'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('creates a community even when the town list is empty', (
@@ -639,7 +710,7 @@ void main() {
     await tester.tap(find.text('Create a community'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Create community'), findsOneWidget);
+    expect(find.text('Create a space'), findsOneWidget);
     expect(find.text('Community name'), findsOneWidget);
 
     final repository = _EmptyTownsRepository();
@@ -657,13 +728,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
-    await tester.pumpAndSettle();
-    expect(find.text('Add a community name.'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continue'))
+          .onPressed,
+      isNull,
+    );
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Community name'),
       'Riverside',
     );
+    await tester.pumpAndSettle();
     for (var step = 0; step < 3; step++) {
       if (step == 1) {
         expect(locationRequests, 0);
@@ -727,10 +802,14 @@ void main() {
       await tester.tap(find.text('Explore'));
       await tester.pumpAndSettle();
       expect(find.text('No communities to explore yet'), findsOneWidget);
+      await tester.ensureVisible(find.text('My communities'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('My communities'));
       await tester.pumpAndSettle();
       expect(find.text('Find your community'), findsOneWidget);
-      await tester.tap(find.text('All communities'));
+      await tester.ensureVisible(find.text('All'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Create community'));
       await tester.pumpAndSettle();
@@ -760,11 +839,11 @@ void main() {
     await tester.tap(find.text('Explore'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Discover and join communities in your area.'),
+      find.text('Discover communities and public profiles around you.'),
       findsOneWidget,
     );
     expect(find.text('Near you'), findsOneWidget);
-    await tester.tap(find.byTooltip('Search communities'));
+    await tester.tap(find.byTooltip('Search spaces'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Riverside');
     await tester.pump(const Duration(milliseconds: 350));

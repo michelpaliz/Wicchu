@@ -69,3 +69,23 @@ Suggested request fields:
 3. Make repeated join, reaction, save, and moderation requests safe to retry. Counts and notification targets should be derived from server state.
 4. Keep the HTTP repository aligned with the server contract and re-audit the remaining historical UI rows above. Remove hardcoded UI rows only as each endpoint is wired.
 5. A flow is complete when its control produces a persistent result, survives app restart, updates relevant counts/lists, displays loading and failure states, and has an authorization/error-path test. A working endpoint alone does not make the UI action functional.
+
+## Public profile categories (frontend contract)
+
+The Flutter client now supports an optional `profileCategory` on spaces with
+`type: "public_profile"`. Values: `local_business`, `person`, `creator`,
+`organization`. Existing profiles without this field remain “Public profile”;
+do not infer the category from names or descriptions.
+
+- Persist and validate `profileCategory` on community POST and PATCH endpoints.
+- Return it in create/update/detail responses and every community list (including
+  joined and nearby). Only owners/admins authorized to edit a space may change it.
+- Community spaces must not acquire a public profile category.
+- Existing records need no forced classification; owners can select their category
+  in settings. Unknown/null values render as the generic public profile label.
+- Explore filters local businesses by `type` and `profileCategory`; following and
+  follower counts continue using the existing public-profile membership flow.
+
+Backend implementation is required for persistence; this frontend repository does
+not contain that service. The UI reports when a save response does not confirm the
+selected category, rather than showing a category that was not stored.

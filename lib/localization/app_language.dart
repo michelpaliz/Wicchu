@@ -114,6 +114,27 @@ class LanguageMenu extends StatelessWidget {
 }
 
 const _spanish = <String, String>{
+  'Edit cover': 'Editar portada',
+  'Manage profile': 'Administrar perfil',
+  'Share your first post': 'Comparte tu primera publicación',
+  'Keep your followers updated with news, photos and announcements.':
+      'Mantén a tus seguidores al día con noticias, fotos y anuncios.',
+  'Updates from this profile will appear here.':
+      'Las novedades de este perfil aparecerán aquí.',
+
+  'Your changes were saved, but the profile category could not be saved. Please try again later.':
+      'Se guardaron los cambios, pero no el tipo de perfil. Inténtalo de nuevo más tarde.',
+  'Your profile was created, but its category could not be saved. You can set it later in settings.':
+      'Se creó tu perfil, pero no se guardó su tipo. Puedes configurarlo más tarde en ajustes.',
+
+  'Local business': 'Negocio local',
+  'Local businesses': 'Negocios locales',
+  'Person': 'Persona',
+  'Creator': 'Creador',
+  'Organization': 'Organización',
+  'Profile category': 'Tipo de perfil',
+  'Choose a profile category.': 'Elige un tipo de perfil.',
+
   'Language': 'Idioma',
   'Appearance': 'Apariencia',
   'System': 'Sistema',
@@ -1050,6 +1071,54 @@ const _spanish = <String, String>{
       'Conecta con las comunidades a las que perteneces.',
   'Open a community to read posts, discover events and connect with your neighbors.':
       'Abre una comunidad para leer publicaciones, descubrir eventos y conectar con tus vecinos.',
+  'Create a public profile': 'Crear un perfil público',
+  'For neighborhoods and local groups': 'Para barrios y grupos locales',
+  'For businesses, creators, clubs, and organizations':
+      'Para negocios, creadores, clubes y organizaciones',
+  'Create a community or profile': 'Crear una comunidad o perfil',
+  'Bring people together or share your updates':
+      'Reúne a personas o comparte tus novedades',
+  'What would you like to create?': '¿Qué te gustaría crear?',
+  'Choose the type of space that best fits your needs.':
+      'Elige el tipo de espacio que mejor se adapte a tus necesidades.',
+  'Members join and participate together.':
+      'Los miembros se unen y participan juntos.',
+  'People follow a person, business, creator or organization.':
+      'Las personas siguen a una persona, negocio, creador u organización.',
+  'Profile details': 'Detalles del perfil',
+  'Tell people what your space is about…': 'Cuenta de qué trata tu espacio…',
+  'A clear name and description help people find and join your community.':
+      'Un nombre y una descripción claros ayudan a encontrar tu comunidad y unirse a ella.',
+  'A clear name and description help people find and follow your profile.':
+      'Un nombre y una descripción claros ayudan a encontrar y seguir tu perfil.',
+  'Welcome to Wicchu': 'Te damos la bienvenida a Wicchu',
+  'Connect with communities and people around you.':
+      'Conecta con comunidades y personas de tu entorno.',
+  'Stay connected with the communities and people that matter to you.':
+      'Mantén el contacto con las comunidades y personas que te importan.',
+  'Passwords match': 'Las contraseñas coinciden',
+  'Strong password': 'Contraseña segura',
+  'Medium password strength': 'Seguridad de contraseña media',
+  'Weak password': 'Contraseña débil',
+  'New to Wicchu?': '¿Nuevo en Wicchu?',
+  'Create an account and start exploring.':
+      'Crea una cuenta y empieza a explorar.',
+  'By creating an account, you agree to Wicchu’s':
+      'Al crear una cuenta, aceptas los documentos de Wicchu:',
+  'Terms of Service': 'Términos del servicio',
+  'Privacy Policy': 'Política de privacidad',
+  'Could not open the page. Please try again.':
+      'No se pudo abrir la página. Inténtalo de nuevo.',
+  'Your spaces': 'Tus espacios',
+  'Switch between your communities and profiles.':
+      'Cambia entre tus comunidades y perfiles.',
+  'Explore spaces': 'Explorar espacios',
+  'Discover new communities and profiles':
+      'Descubre nuevas comunidades y perfiles',
+  'Discover communities and public profiles around you.':
+      'Descubre comunidades y perfiles públicos cerca de ti.',
+  'Public profiles': 'Perfiles públicos',
+  'Search spaces': 'Buscar espacios',
   'Create a space': 'Crear un espacio',
   'Community': 'Comunidad',
   'Public profile': 'Perfil público',

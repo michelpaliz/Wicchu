@@ -763,14 +763,16 @@ class _HomeTabState extends State<_HomeTab> {
             ),
             _CommunitySwitcherAction(
               icon: Icons.explore_outlined,
-              title: context.tr('Explore communities'),
-              subtitle: context.tr('Discover new communities'),
+              title: context.tr('Explore spaces'),
+              subtitle: context.tr('Discover new communities and profiles'),
               onTap: () => Navigator.pop(sheetContext, '__explore'),
             ),
             _CommunitySwitcherAction(
               icon: Icons.add,
-              title: context.tr('Create a community'),
-              subtitle: context.tr('Create your own community'),
+              title: context.tr('Create a community or profile'),
+              subtitle: context.tr(
+                'Bring people together or share your updates',
+              ),
               onTap: () => Navigator.pop(sheetContext, '__create'),
             ),
             const SizedBox(height: 12),
@@ -1729,7 +1731,7 @@ class _ExploreTabState extends State<_ExploreTab> {
       CommunityRole.owner => 'Owner',
       CommunityRole.admin => 'Administrator',
       CommunityRole.moderator => 'Moderator',
-      _ => 'Member',
+      _ => community.isPublicProfile ? 'Following' : 'Member',
     };
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1760,6 +1762,17 @@ class _ExploreTabState extends State<_ExploreTab> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (community.description.trim().isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        community.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 3),
                     Text(
                       context.trCount(
@@ -1798,48 +1811,77 @@ class _ExploreTabState extends State<_ExploreTab> {
                 ),
               ),
               const SizedBox(width: 8),
-              if (community.isJoined)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: .1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    context.tr(role),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.primary,
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                  ),
-                )
-              else
-                OutlinedButton(
-                  onPressed: _saving.contains(community.id)
-                      ? null
-                      : () => _toggleMembership(community),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: scheme.primary,
-                    side: BorderSide(color: scheme.primary),
-                    shape: RoundedRectangleBorder(
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: .08),
                       borderRadius: BorderRadius.circular(14),
                     ),
+                    child: Text(
+                      context.tr(community.spaceTypeLabel),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.primary,
+                      ),
+                    ),
                   ),
-                  child: _saving.contains(community.id)
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(
-                          context.tr(
-                            community.isPublicProfile ? 'Follow' : 'Join',
-                          ),
+                  const SizedBox(height: 8),
+                  if (community.isJoined)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.primary.withValues(alpha: .1),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        context.tr(role),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.primary,
                         ),
-                ),
+                      ),
+                    )
+                  else
+                    OutlinedButton(
+                      onPressed: _saving.contains(community.id)
+                          ? null
+                          : () => _toggleMembership(community),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: community.isPublicProfile
+                            ? Colors.transparent
+                            : scheme.primary,
+                        foregroundColor: community.isPublicProfile
+                            ? scheme.primary
+                            : scheme.onPrimary,
+                        side: BorderSide(color: scheme.primary),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: _saving.contains(community.id)
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              context.tr(
+                                community.isPublicProfile ? 'Follow' : 'Join',
+                              ),
+                            ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
@@ -1855,7 +1897,7 @@ class _ExploreTabState extends State<_ExploreTab> {
               autofocus: true,
               onChanged: _search,
               decoration: InputDecoration(
-                hintText: context.tr('Search communities'),
+                hintText: context.tr('Search spaces'),
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 border: InputBorder.none,
@@ -1870,9 +1912,7 @@ class _ExploreTabState extends State<_ExploreTab> {
             ),
       actions: [
         IconButton(
-          tooltip: context.tr(
-            _showSearch ? 'Close search' : 'Search communities',
-          ),
+          tooltip: context.tr(_showSearch ? 'Close search' : 'Search spaces'),
           onPressed: () => setState(() {
             _showSearch = !_showSearch;
             if (!_showSearch) {
@@ -1892,7 +1932,9 @@ class _ExploreTabState extends State<_ExploreTab> {
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              context.tr('Discover and join communities in your area.'),
+              context.tr(
+                'Discover communities and public profiles around you.',
+              ),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1901,13 +1943,15 @@ class _ExploreTabState extends State<_ExploreTab> {
         ),
         FeedFilterBar(
           labels: [
-            context.tr('All communities'),
+            context.tr('All'),
+            context.tr('Communities'),
+            context.tr('Local businesses'),
+            context.tr('Public profiles'),
             context.tr('Near you'),
             context.tr('My communities'),
           ],
-          selectedIndex: _filter,
-          onSelected: _selectFilter,
-          style: FeedNavigationStyle.underline,
+          selectedIndex: const [0, 3, 5, 4, 1, 2].indexOf(_filter),
+          onSelected: (index) => _selectFilter(const [0, 3, 5, 4, 1, 2][index]),
         ),
         Expanded(
           child: RefreshIndicator(
@@ -1956,6 +2000,17 @@ class _ExploreTabState extends State<_ExploreTab> {
                 }
                 final query = _query.trim().toLowerCase();
                 final communities = (snapshot.data ?? <Community>[])
+                    .where(
+                      (community) => _filter == 3
+                          ? !community.isPublicProfile
+                          : _filter == 5
+                          ? community.isPublicProfile &&
+                                community.profileCategory ==
+                                    ProfileCategory.localBusiness
+                          : _filter == 4
+                          ? community.isPublicProfile
+                          : true,
+                    )
                     .where(
                       (community) =>
                           query.isEmpty ||
@@ -2741,7 +2796,14 @@ class _ProfileTabState extends State<_ProfileTab> {
               _ProfileRow(
                 icon: Icons.add_circle_outline,
                 label: 'Create a community',
-                onTap: _createCommunity,
+                subtitle: 'For neighborhoods and local groups',
+                onTap: () => _createCommunity(),
+              ),
+              _ProfileRow(
+                icon: Icons.person_add_outlined,
+                label: 'Create a public profile',
+                subtitle: 'For businesses, creators, clubs, and organizations',
+                onTap: () => _createCommunity(CommunityType.publicProfile),
               ),
               _ProfileRow(
                 icon: Icons.campaign_outlined,
@@ -2873,11 +2935,16 @@ class _ProfileTabState extends State<_ProfileTab> {
     );
   }
 
-  Future<void> _createCommunity() async {
+  Future<void> _createCommunity([
+    CommunityType type = CommunityType.community,
+  ]) async {
     final community = await Navigator.push<Community>(
       context,
       MaterialPageRoute(
-        builder: (_) => CreateCommunityPage(repository: widget.repository),
+        builder: (_) => CreateCommunityPage(
+          repository: widget.repository,
+          initialType: type,
+        ),
       ),
     );
     if (!mounted || community == null) return;
@@ -3199,7 +3266,13 @@ class _CommunityCollectionPageState extends State<_CommunityCollectionPage> {
 }
 
 class _ProfileRow extends StatelessWidget {
-  const _ProfileRow({required this.icon, required this.label, this.onTap});
+  const _ProfileRow({
+    required this.icon,
+    required this.label,
+    this.subtitle,
+    this.onTap,
+  });
+  final String? subtitle;
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
@@ -3210,6 +3283,7 @@ class _ProfileRow extends StatelessWidget {
     visualDensity: const VisualDensity(vertical: -1),
     leading: Icon(icon),
     title: Text(context.tr(label)),
+    subtitle: subtitle == null ? null : Text(context.tr(subtitle!)),
     trailing: const Icon(Icons.chevron_right),
     onTap: onTap,
   );
@@ -3249,31 +3323,46 @@ class _CommunitySwitcherHeading extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Flexible(
-            child: Text(
-              context.tr('My communities'),
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: colors.primary.withValues(alpha: .1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '$count',
-              style: TextStyle(
-                color: colors.primary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  context.tr('Your spaces'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    color: colors.primary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.tr('Switch between your communities and profiles.'),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
           ),
         ],
       ),
@@ -3314,11 +3403,7 @@ class _CommunitySwitcherRow extends StatelessWidget {
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           subtitle: Text(
-            context.trCount(
-              community.memberCount,
-              singular: '{count} member',
-              plural: '{count} members',
-            ),
+            '${context.tr(community.spaceTypeLabel)} · ${context.trCount(community.memberCount, singular: community.isPublicProfile ? '{count} follower' : '{count} member', plural: community.isPublicProfile ? '{count} followers' : '{count} members')}',
             style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
           ),
           trailing: selected

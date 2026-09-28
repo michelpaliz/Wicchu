@@ -6,6 +6,24 @@ enum MembershipStatus { active, pending, banned }
 
 enum CommunityType { community, publicProfile }
 
+enum ProfileCategory {
+  localBusiness('local_business', 'Local business'),
+  person('person', 'Person'),
+  creator('creator', 'Creator'),
+  organization('organization', 'Organization');
+
+  const ProfileCategory(this.apiValue, this.label);
+  final String apiValue;
+  final String label;
+
+  static ProfileCategory? fromApi(Object? value) {
+    for (final category in values) {
+      if (category.apiValue == value) return category;
+    }
+    return null;
+  }
+}
+
 enum PostStatus { published, pendingApproval, removed }
 
 enum ReportStatus { open, reviewing, resolved, dismissed }
@@ -191,6 +209,7 @@ class Community {
     this.rules = const [],
     this.links = const [],
     this.type = CommunityType.community,
+    this.profileCategory,
   });
 
   final String id;
@@ -210,6 +229,11 @@ class Community {
   final List<CommunityRule> rules;
   final List<CommunityLink> links;
   final CommunityType type;
+  final ProfileCategory? profileCategory;
+
+  String get spaceTypeLabel => isPublicProfile
+      ? profileCategory?.label ?? 'Public profile'
+      : 'Community';
 
   bool get isJoined => myRole != null;
   bool get isPublicProfile => type == CommunityType.publicProfile;

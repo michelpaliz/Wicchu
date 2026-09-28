@@ -1,4 +1,6 @@
+import 'auth_sign_in_button.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/auth_gateway.dart';
 import '../../localization/app_language.dart';
@@ -30,7 +32,9 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
   bool _resetSent = false;
   bool _verificationResent = false;
   bool _loading = false;
+  String? _socialProvider;
   bool _obscurePassword = true;
+  bool _obscureConfirmation = true;
 
   @override
   void dispose() {
@@ -85,10 +89,10 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                         _resetting
                             ? 'Recover access to your account'
                             : _registering
-                            ? 'Join your neighborhood'
+                            ? 'Welcome to Wicchu'
                             : 'Welcome back',
                       ),
-                      style: Theme.of(context).textTheme.headlineSmall
+                      style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
@@ -96,7 +100,9 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                       context.tr(
                         _resetting
                             ? 'Enter your email and we will send you a reset link.'
-                            : 'Connect with your neighbors and discover what is happening nearby.',
+                            : _registering
+                            ? 'Connect with communities and people around you.'
+                            : 'Stay connected with the communities and people that matter to you.',
                       ),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -106,6 +112,21 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                     const SizedBox(height: 24),
                     if (!_resetting)
                       SegmentedButton<bool>(
+                        style: ButtonStyle(
+                          minimumSize: const WidgetStatePropertyAll(
+                            Size(0, 48),
+                          ),
+                          backgroundColor: WidgetStateProperty.resolveWith(
+                            (states) => states.contains(WidgetState.selected)
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.transparent,
+                          ),
+                          foregroundColor: WidgetStateProperty.resolveWith(
+                            (states) => states.contains(WidgetState.selected)
+                                ? Theme.of(context).colorScheme.onPrimary
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
                         segments: [
                           ButtonSegment(
                             value: false,
@@ -134,6 +155,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                         textCapitalization: TextCapitalization.words,
                         autofillHints: const [AutofillHints.name],
                         decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.person_outline),
                           labelText: context.tr('Full name'),
                         ),
                         validator: (value) => (value?.trim().isEmpty ?? true)
@@ -149,6 +171,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                         textCapitalization: TextCapitalization.none,
                         autofillHints: const [AutofillHints.newUsername],
                         decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.alternate_email),
                           labelText: context.tr('Username'),
                         ),
                         validator: (value) {
@@ -180,6 +203,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                       textCapitalization: TextCapitalization.none,
                       autofillHints: const [AutofillHints.email],
                       decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.mail_outline),
                         labelText: context.tr('Email address'),
                       ),
                       validator: (value) =>
@@ -193,6 +217,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _password,
+                        onChanged: (_) => setState(() {}),
                         enabled: !_loading,
                         autocorrect: false,
                         enableSuggestions: false,
@@ -206,10 +231,8 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                               : AutofillHints.password,
                         ],
                         decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.lock_outline),
                           labelText: context.tr('Password'),
-                          helperText: _registering
-                              ? context.tr('At least 8 characters')
-                              : null,
                           suffixIcon: IconButton(
                             tooltip: context.tr(
                               _obscurePassword
@@ -242,13 +265,50 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                         },
                       ),
                       if (_registering && !_resetting) ...[
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 10),
+                        _passwordFeedback(),
+                        const SizedBox(height: 18),
                         TextFormField(
                           controller: _confirmPassword,
+                          onChanged: (_) => setState(() {}),
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          textInputAction: TextInputAction.done,
                           enabled: !_loading,
-                          obscureText: _obscurePassword,
+                          obscureText: _obscureConfirmation,
                           autofillHints: const [AutofillHints.newPassword],
                           decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              tooltip: context.tr(
+                                _obscureConfirmation
+                                    ? 'Show password'
+                                    : 'Hide password',
+                              ),
+                              onPressed: _loading
+                                  ? null
+                                  : () => setState(
+                                      () => _obscureConfirmation =
+                                          !_obscureConfirmation,
+                                    ),
+                              icon: Icon(
+                                _obscureConfirmation
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                            ),
+                            helperText: _confirmPassword.text.isEmpty
+                                ? null
+                                : context.tr(
+                                    _confirmPassword.text == _password.text
+                                        ? 'Passwords match'
+                                        : 'Passwords do not match.',
+                                  ),
+                            helperStyle: TextStyle(
+                              color: _confirmPassword.text == _password.text
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.error,
+                            ),
                             labelText: context.tr('Confirm password'),
                           ),
                           validator: (value) => value == _password.text
@@ -329,6 +389,88 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                               ),
                             ),
                     ),
+                    if (_registering && !_resetting) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        context.tr(
+                          'By creating an account, you agree to Wicchu’s',
+                        ),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        children: [
+                          TextButton(
+                            onPressed: () => _openPolicy('terms'),
+                            child: Text(context.tr('Terms of Service')),
+                          ),
+                          TextButton(
+                            onPressed: () => _openPolicy('privacy'),
+                            child: Text(context.tr('Privacy Policy')),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (!_resetting && !_registering) ...[
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(context.tr('or')),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      GoogleSignInButton(
+                        onPressed: () => _socialSignIn(false),
+                        isLoading: _socialProvider == 'google',
+                        disabled: _loading,
+                      ),
+                      const SizedBox(height: 10),
+                      FacebookSignInButton(
+                        onPressed: () => _socialSignIn(true),
+                        isLoading: _socialProvider == 'facebook',
+                        disabled: _loading,
+                      ),
+                      const SizedBox(height: 28),
+                      Material(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: .07),
+                        borderRadius: BorderRadius.circular(16),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          leading: Icon(
+                            Icons.groups_outlined,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          title: Text(
+                            context.tr('New to Wicchu?'),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          subtitle: Text(
+                            context.tr(
+                              'Create an account and start exploring.',
+                            ),
+                          ),
+                          trailing: const Icon(Icons.arrow_forward),
+                          onTap: _loading
+                              ? null
+                              : () => setState(() {
+                                  _registering = true;
+                                  _error = null;
+                                  _formKey.currentState?.reset();
+                                }),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -338,6 +480,95 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
       ),
     ),
   );
+
+  Future<void> _openPolicy(String page) async {
+    try {
+      final opened = await launchUrl(
+        Uri.parse('https://hexora.dev/wicchu/$page'),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) throw Exception();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.tr('Could not open the page. Please try again.'),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _passwordFeedback() {
+    final password = _password.text;
+    final score = [
+      password.length >= 8,
+      password.length >= 12,
+      RegExp(r'[a-zA-Z]').hasMatch(password) &&
+          RegExp(r'[0-9]').hasMatch(password),
+      RegExp(r'[^a-zA-Z0-9]').hasMatch(password),
+    ].where((v) => v).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LinearProgressIndicator(
+          value: password.isEmpty ? 0 : score / 4,
+          minHeight: 5,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          context.tr(
+            password.isEmpty
+                ? 'At least 8 characters'
+                : score >= 3
+                ? 'Strong password'
+                : score >= 2
+                ? 'Medium password strength'
+                : 'Weak password',
+          ),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _socialSignIn(bool facebook) async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _socialProvider = facebook ? 'facebook' : 'google';
+      _error = null;
+    });
+    try {
+      await (facebook
+          ? widget.authGateway.signInWithFacebook()
+          : widget.authGateway.signInWithGoogle());
+      if (mounted) widget.onSignedIn();
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error =
+              facebook &&
+                  !(error is AuthException &&
+                      error.message == 'Facebook sign-in was cancelled.')
+              ? context.tr(
+                  'Facebook sign-in will be available soon. In the meantime, use Google or email and password.',
+                )
+              : context.trError(error),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _socialProvider = null;
+        });
+      }
+    }
+  }
 
   Future<void> _submit() async {
     if (_loading || !_formKey.currentState!.validate()) return;

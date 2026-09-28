@@ -196,6 +196,9 @@ class DemoCommunityRepository implements CommunityRepository {
       approvalRequired: input.approvalRequired,
       rules: input.rules,
       type: input.type,
+      profileCategory: input.type == CommunityType.publicProfile
+          ? input.profileCategory
+          : null,
     );
     _communities.add(community);
     _categories[id] = [
@@ -487,6 +490,7 @@ class DemoCommunityRepository implements CommunityRepository {
     required bool approvalRequired,
     required bool showWeather,
     required List<CommunityLink> links,
+    ProfileCategory? profileCategory,
     String? imageUrl,
     String? imageBlobName,
     String? coverImageUrl,
@@ -512,6 +516,7 @@ class DemoCommunityRepository implements CommunityRepository {
       rules: community.rules,
       links: List.unmodifiable(links),
       type: community.type,
+      profileCategory: profileCategory ?? community.profileCategory,
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;

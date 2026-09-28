@@ -12,7 +12,12 @@ class CommunityAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final placeholder = Icon(
-      Icons.holiday_village_outlined,
+      community.isPublicProfile &&
+              community.profileCategory == ProfileCategory.localBusiness
+          ? Icons.storefront_outlined
+          : community.isPublicProfile
+          ? Icons.account_circle_outlined
+          : Icons.groups_outlined,
       size: radius,
       color: colors.primary,
     );
