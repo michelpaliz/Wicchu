@@ -240,6 +240,13 @@ const _spanish = <String, String>{
   'Community rating': 'Valoración de la comunidad',
   'Useful links': 'Enlaces útiles',
   'Directions': 'Cómo llegar',
+  'Business location': 'Ubicación del negocio',
+  'Business address': 'Dirección del negocio',
+  'Street, town, province': 'Calle, localidad, provincia',
+  'Map pin saved': 'Ubicación guardada en el mapa',
+  'Show exact location publicly': 'Mostrar la ubicación exacta públicamente',
+  'When disabled, visitors only see the profile town.':
+      'Si se desactiva, los visitantes solo verán la localidad del perfil.',
   'Unable to open link. Please try again.':
       'No se pudo abrir el enlace. Inténtalo de nuevo.',
   'Enter a rule title.': 'Introduce un título para la regla.',
@@ -676,6 +683,9 @@ const _spanish = <String, String>{
   'Thunderstorm': 'Tormenta eléctrica',
   'Current conditions': 'Condiciones actuales',
   'Official links': 'Enlaces oficiales',
+  'Public website': 'Sitio web público',
+  'Copy website address': 'Copiar dirección del sitio web',
+  'Website address copied.': 'Dirección del sitio web copiada.',
   'Add link': 'Añadir enlace',
   'Add a website, social network, contact page, or another official link.':
       'Añade un sitio web, red social, página de contacto u otro enlace oficial.',
@@ -976,8 +986,8 @@ const _spanish = <String, String>{
   'Authentication credentials are stored securely on this device.':
       'Las credenciales de acceso se guardan de forma segura en este dispositivo.',
   'Data deletion': 'Eliminación de datos',
-  'Visit hexora.dev/wicchu/data-deletion to request deletion.':
-      'Visita hexora.dev/wicchu/data-deletion para solicitar la eliminación.',
+  'Visit wicchu.com/data-deletion to request deletion.':
+      'Visita wicchu.com/data-deletion para solicitar la eliminación.',
   'How do I join a community?': '¿Cómo me uno a una comunidad?',
   'Open Explore, select a community, and tap Join. Private communities require administrator approval.':
       'Abre Explorar, selecciona una comunidad y toca Unirme. Las comunidades privadas requieren la aprobación de un administrador.',
@@ -988,8 +998,8 @@ const _spanish = <String, String>{
   'Location is requested only when you choose nearby discovery and is sent to the server to find communities within the selected radius.':
       'La ubicación se solicita solo cuando eliges el descubrimiento cercano y se envía al servidor para buscar comunidades dentro del radio seleccionado.',
   'Support': 'Soporte',
-  'Contact the Wicchu support team through hexora.dev/wicchu/.':
-      'Contacta con el equipo de soporte de Wicchu a través de hexora.dev/wicchu/.',
+  'Contact the Wicchu support team through wicchu.com.':
+      'Contacta con el equipo de soporte de Wicchu a través de wicchu.com.',
   'Add category': 'Añadir categoría',
   'Edit category': 'Editar categoría',
   'No categories': 'No hay categorías',
@@ -1032,15 +1042,15 @@ const _spanish = <String, String>{
   "Frequently asked questions": "Preguntas frecuentes",
   "Need more help?": "¿Necesitas más ayuda?",
   "Contact the support team": "Contacta con el equipo de soporte",
-  "Can’t find the answer? Contact the Wicchu team through hexora.dev/wicchu/.":
-      "¿No encuentras la respuesta? Contacta con el equipo de Wicchu a través de hexora.dev/wicchu/.",
+  "Can’t find the answer? Contact the Wicchu team through wicchu.com.":
+      "¿No encuentras la respuesta? Contacta con el equipo de Wicchu a través de wicchu.com.",
   "Contact support": "Contactar con soporte",
-  "Find more information on our website: hexora.dev/wicchu/.":
-      "Puedes encontrar más información en nuestra web: hexora.dev/wicchu/.",
+  "Find more information on our website: wicchu.com.":
+      "Puedes encontrar más información en nuestra web: wicchu.com.",
   "No answers found. Try another search or contact support.":
       "No encontramos respuestas. Prueba otra búsqueda o contacta con soporte.",
-  "Could not open the support website. Please visit hexora.dev/wicchu/.":
-      "No se pudo abrir la web de soporte. Visita hexora.dev/wicchu/.",
+  "Could not open the support website. Please visit wicchu.com.":
+      "No se pudo abrir la web de soporte. Visita wicchu.com.",
   "Open the post’s options menu, select Report, enter a reason, and submit it to the community moderators.":
       "Abre el menú de opciones de la publicación, selecciona Denunciar, escribe el motivo y envíalo a los moderadores de la comunidad.",
   'Clear search': 'Borrar búsqueda',
@@ -1121,21 +1131,21 @@ const _spanish = <String, String>{
   'Search spaces': 'Buscar espacios',
   'Create a space': 'Crear un espacio',
   'Community': 'Comunidad',
-  'Public profile': 'Perfil público',
-  'For a person, business, club, creator, or organization. People will follow this profile.':
-      'Para una persona, negocio, club, creador u organización. Las personas seguirán este perfil.',
+  'Business or public page': 'Negocio o página pública',
+  'For businesses, organizations, clubs, services, and projects. People will follow this page.':
+      'Para negocios, organizaciones, clubes, servicios y proyectos. Las personas seguirán esta página.',
   'For towns, neighborhoods, associations, and local groups. People will join as members.':
       'Para pueblos, barrios, asociaciones y grupos locales. Las personas se unirán como miembros.',
-  'Add a profile name.': 'Añade un nombre para el perfil.',
-  'Profile name': 'Nombre del perfil',
-  'Create public profile': 'Crear perfil público',
+  'Add a page name.': 'Añade un nombre para la página.',
+  'Page name': 'Nombre de la página',
+  'Create business or public page': 'Crear negocio o página pública',
   'Publishing': 'Publicaciones',
   'Your updates will appear in one clear profile feed.':
       'Tus novedades aparecerán en un perfil público organizado.',
-  'Review your public profile before creating it.':
-      'Revisa tu perfil público antes de crearlo.',
-  'Public profile · You will be the owner':
-      'Perfil público · Tú serás el propietario',
+  'Review your business or public page before creating it.':
+      'Revisa tu negocio o página pública antes de crearla.',
+  'Public page · You will be the owner':
+      'Página pública · Tú serás el propietario',
   'Followers can see and interact with your posts.':
       'Los seguidores pueden ver e interactuar con tus publicaciones.',
   'Followers': 'Seguidores',
@@ -1144,8 +1154,9 @@ const _spanish = <String, String>{
   '{count} follower': '{count} seguidor',
   '{count} followers': '{count} seguidores',
   'Follow to view followers.': 'Sigue el perfil para ver sus seguidores.',
-  'Review your public profile': 'Revisa tu perfil público',
-  'Your public profile is ready!': '¡Tu perfil público está listo!',
+  'Review your business or public page': 'Revisa tu negocio o página pública',
+  'Your business or public page is ready!':
+      '¡Tu negocio o página pública está listo!',
   'Share your profile and publish your first update.':
       'Comparte tu perfil y publica tu primera novedad.',
   'Open profile': 'Abrir perfil',

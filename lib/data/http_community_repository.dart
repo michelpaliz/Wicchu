@@ -614,6 +614,7 @@ class HttpCommunityRepository implements CommunityRepository {
     required bool showWeather,
     required List<CommunityLink> links,
     ProfileCategory? profileCategory,
+    required BusinessLocation? businessLocation,
     String? imageUrl,
     String? imageBlobName,
     String? coverImageUrl,
@@ -632,6 +633,14 @@ class HttpCommunityRepository implements CommunityRepository {
         'links': links
             .map((link) => {'label': link.label, 'url': link.url})
             .toList(),
+        'businessLocation': businessLocation == null
+            ? null
+            : {
+                'address': businessLocation.address,
+                'latitude': businessLocation.latitude,
+                'longitude': businessLocation.longitude,
+                'showExactAddress': businessLocation.showExactAddress,
+              },
         'imageBlobName': ?imageBlobName,
         'coverImageBlobName': ?coverImageBlobName,
       },
@@ -1122,6 +1131,7 @@ class HttpCommunityRepository implements CommunityRepository {
       id: _id(json),
       name: json['name'] as String? ?? '',
       profileCategory: ProfileCategory.fromApi(json['profileCategory']),
+      slug: json['slug'] as String? ?? '',
       type: json['type'] == 'public_profile'
           ? CommunityType.publicProfile
           : CommunityType.community,
@@ -1169,6 +1179,28 @@ class HttpCommunityRepository implements CommunityRepository {
           )
           .where((link) => link.label.isNotEmpty && link.url.isNotEmpty)
           .toList(growable: false),
+      businessLocation: json['businessLocation'] is Map<String, dynamic>
+          ? BusinessLocation(
+              address:
+                  (json['businessLocation'] as Map<String, dynamic>)['address']
+                      ?.toString() ??
+                  '',
+              latitude:
+                  ((json['businessLocation']
+                              as Map<String, dynamic>)['latitude']
+                          as num?)
+                      ?.toDouble(),
+              longitude:
+                  ((json['businessLocation']
+                              as Map<String, dynamic>)['longitude']
+                          as num?)
+                      ?.toDouble(),
+              showExactAddress:
+                  (json['businessLocation']
+                      as Map<String, dynamic>)['showExactAddress'] ==
+                  true,
+            )
+          : null,
     );
   }
 

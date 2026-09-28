@@ -223,6 +223,19 @@ class FacebookAuthGateway implements AuthGateway {
 
   @override
   Future<void> signOut() async {
+    final accessToken = await _storage.read(
+      key: AuthenticatedApiClient.accessTokenKey,
+    );
+    if (accessToken?.isNotEmpty == true) {
+      try {
+        await _client.post(
+          Uri.parse('$_apiBaseUrl/api/auth/logout'),
+          headers: {'Authorization': 'Bearer $accessToken'},
+        );
+      } catch (_) {
+        // Local sign-out must still succeed when the network is unavailable.
+      }
+    }
     await Future.wait([
       FacebookAuth.instance.logOut(),
       GoogleSignIn.instance.signOut(),

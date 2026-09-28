@@ -199,7 +199,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                             context.tr(
                               _step == 3
                                   ? (_type == CommunityType.publicProfile
-                                        ? 'Create public profile'
+                                        ? 'Create business or public page'
                                         : 'Create community')
                                   : 'Continue',
                             ),
@@ -390,14 +390,14 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
               validator: (value) => value == null || value.trim().isEmpty
                   ? context.tr(
                       _type == CommunityType.publicProfile
-                          ? 'Add a profile name.'
+                          ? 'Add a page name.'
                           : 'Add a community name.',
                     )
                   : null,
               decoration: InputDecoration(
                 labelText: context.tr(
                   _type == CommunityType.publicProfile
-                      ? 'Profile name'
+                      ? 'Page name'
                       : 'Community name',
                 ),
               ),
@@ -590,7 +590,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           Text(
             context.tr(
               _type == CommunityType.publicProfile
-                  ? 'Review your public profile before creating it.'
+                  ? 'Review your business or public page before creating it.'
                   : 'Rules are optional. You can add or edit them later.',
             ),
           ),
@@ -648,7 +648,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                   Text(
                     context.tr(
                       _type == CommunityType.publicProfile
-                          ? 'Review your public profile'
+                          ? 'Review your business or public page'
                           : 'Review your community',
                     ),
                     style: Theme.of(context).textTheme.titleMedium,
@@ -667,7 +667,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                   Text(
                     context.tr(
                       _type == CommunityType.publicProfile
-                          ? 'Public profile · You will be the owner'
+                          ? 'Public page · You will be the owner'
                           : 'Public community · You will be the owner',
                     ),
                   ),
@@ -748,7 +748,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         title: Text(
           dialogContext.tr(
             _type == CommunityType.publicProfile
-                ? 'Your public profile is ready!'
+                ? 'Your business or public page is ready!'
                 : 'Your community is ready!',
           ),
         ),

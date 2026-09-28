@@ -491,6 +491,7 @@ class DemoCommunityRepository implements CommunityRepository {
     required bool showWeather,
     required List<CommunityLink> links,
     ProfileCategory? profileCategory,
+    required BusinessLocation? businessLocation,
     String? imageUrl,
     String? imageBlobName,
     String? coverImageUrl,
@@ -517,6 +518,7 @@ class DemoCommunityRepository implements CommunityRepository {
       links: List.unmodifiable(links),
       type: community.type,
       profileCategory: profileCategory ?? community.profileCategory,
+      businessLocation: businessLocation,
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;

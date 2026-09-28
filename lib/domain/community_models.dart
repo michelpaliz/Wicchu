@@ -194,6 +194,7 @@ class Community {
   const Community({
     required this.id,
     required this.name,
+    this.slug = '',
     required this.description,
     required this.town,
     required this.visibility,
@@ -210,10 +211,12 @@ class Community {
     this.links = const [],
     this.type = CommunityType.community,
     this.profileCategory,
+    this.businessLocation,
   });
 
   final String id;
   final String name;
+  final String slug;
   final String description;
   final Town town;
   final String? imageUrl;
@@ -234,10 +237,26 @@ class Community {
   String get spaceTypeLabel => isPublicProfile
       ? profileCategory?.label ?? 'Public profile'
       : 'Community';
+  final BusinessLocation? businessLocation;
 
   bool get isJoined => myRole != null;
   bool get isPublicProfile => type == CommunityType.publicProfile;
   int get followerCount => memberCount;
+}
+
+class BusinessLocation {
+  const BusinessLocation({
+    required this.address,
+    required this.latitude,
+    required this.longitude,
+    required this.showExactAddress,
+  });
+
+  final String address;
+  final double? latitude;
+  final double? longitude;
+  final bool showExactAddress;
+  bool get hasCoordinates => latitude != null && longitude != null;
 }
 
 class CommunityLink {

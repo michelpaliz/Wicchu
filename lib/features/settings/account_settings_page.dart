@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../localization/app_language.dart';
 import '../../domain/community_repository.dart';
 import '../../domain/community_models.dart';
+import '../../config/wicchu_urls.dart';
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key, required this.repository});
@@ -213,7 +214,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   title: Text(context.tr('Data deletion')),
                   subtitle: Text(
                     context.tr(
-                      'Visit hexora.dev/wicchu/data-deletion to request deletion.',
+                      'Visit wicchu.com/data-deletion to request deletion.',
                     ),
                   ),
                 ),
@@ -313,7 +314,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   Future<void> _openDataDeletion() async {
     try {
       if (!await launchUrl(
-        Uri.parse('https://hexora.dev/wicchu/data-deletion'),
+        Uri.parse(WicchuUrls.dataDeletion),
         mode: LaunchMode.externalApplication,
       )) {
         throw Exception('Unable to open link');
@@ -323,9 +324,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            context.tr(
-              'Visit hexora.dev/wicchu/data-deletion to request deletion.',
-            ),
+            context.tr('Visit wicchu.com/data-deletion to request deletion.'),
           ),
         ),
       );
@@ -416,7 +415,7 @@ class _HelpPageState extends State<HelpPage> {
     setState(() => _openingSupport = true);
     try {
       final opened = await launchUrl(
-        Uri.parse('https://hexora.dev/wicchu/'),
+        Uri.parse(WicchuUrls.publicOrigin),
         mode: LaunchMode.externalApplication,
       );
       if (!opened) throw Exception('Could not open the support website.');
@@ -426,7 +425,7 @@ class _HelpPageState extends State<HelpPage> {
           SnackBar(
             content: Text(
               context.tr(
-                'Could not open the support website. Please visit hexora.dev/wicchu/.',
+                'Could not open the support website. Please visit wicchu.com.',
               ),
             ),
           ),
@@ -616,7 +615,7 @@ class _HelpPageState extends State<HelpPage> {
                             const SizedBox(height: 6),
                             Text(
                               context.tr(
-                                'Can’t find the answer? Contact the Wicchu team through hexora.dev/wicchu/.',
+                                'Can’t find the answer? Contact the Wicchu team through wicchu.com.',
                               ),
                               style: text.bodyMedium?.copyWith(
                                 color: colors.onSurfaceVariant,
@@ -675,7 +674,7 @@ class _HelpPageState extends State<HelpPage> {
                             const SizedBox(height: 4),
                             Text(
                               context.tr(
-                                'Find more information on our website: hexora.dev/wicchu/.',
+                                'Find more information on our website: wicchu.com.',
                               ),
                               style: text.bodyMedium?.copyWith(
                                 color: colors.onSurfaceVariant,

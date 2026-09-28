@@ -1,8 +1,10 @@
 import 'category_empty_state.dart';
 import '../../widgets/feed_filter_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../config/wicchu_urls.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
@@ -65,6 +67,21 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       (!_community.isPublicProfile ||
           _community.myRole == CommunityRole.owner ||
           _community.myRole == CommunityRole.admin);
+  String get _publicWebsiteUrl =>
+      WicchuUrls.community(_community.id, _community.slug);
+
+  Future<void> _openPublicWebsite() => launchUrl(
+    Uri.parse(_publicWebsiteUrl),
+    mode: LaunchMode.externalApplication,
+  );
+
+  Future<void> _copyPublicWebsite() async {
+    await Clipboard.setData(ClipboardData(text: _publicWebsiteUrl));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.tr('Website address copied.'))),
+    );
+  }
 
   @override
   void initState() {
@@ -969,6 +986,36 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: _openPublicWebsite,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.language,
+                              size: 15,
+                              color: scheme.primary,
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                _publicWebsiteUrl.replaceFirst('https://', ''),
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: scheme.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     if (!isOwner)
                       TextButton.icon(
                         onPressed: _savingMembership ? null : _toggleMembership,
@@ -1529,6 +1576,18 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         icon: Icons.link,
         child: Column(
           children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.language),
+              title: Text(context.tr('Public website')),
+              subtitle: Text(_publicWebsiteUrl),
+              onTap: _openPublicWebsite,
+              trailing: IconButton(
+                tooltip: context.tr('Copy website address'),
+                onPressed: _copyPublicWebsite,
+                icon: const Icon(Icons.copy_outlined),
+              ),
+            ),
             for (final link in _community.links)
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -1544,13 +1603,24 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   mode: LaunchMode.externalApplication,
                 ),
               ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.map_outlined),
-              title: Text(context.tr('Directions')),
-              trailing: const Icon(Icons.open_in_new, size: 20),
-              onTap: _openDirections,
-            ),
+            if (_community.businessLocation?.address.isEmpty != false &&
+                _community.businessLocation?.hasCoordinates != true)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.map_outlined),
+                title: Text(context.tr('Directions')),
+                trailing: const Icon(Icons.open_in_new, size: 20),
+                onTap: _openDirections,
+              ),
+            if (_community.businessLocation?.address.isNotEmpty == true)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.location_on_outlined),
+                title: Text(context.tr('Business location')),
+                subtitle: Text(_community.businessLocation!.address),
+                trailing: const Icon(Icons.directions_outlined),
+                onTap: _openDirections,
+              ),
           ],
         ),
       ),
@@ -1558,8 +1628,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   );
 
   Future<void> _openDirections() async {
-    final destination =
-        '${_community.town.name}, ${_community.town.countryCode}';
+    final location = _community.businessLocation;
+    final destination = location?.hasCoordinates == true
+        ? '${location!.latitude},${location.longitude}'
+        : location?.address.isNotEmpty == true
+        ? location!.address
+        : '${_community.town.name}, ${_community.town.countryCode}';
     final uri = Uri.https('www.google.com', '/maps/dir/', {
       'api': '1',
       'destination': destination,

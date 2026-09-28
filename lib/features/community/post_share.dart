@@ -2,6 +2,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
+import '../../config/wicchu_urls.dart';
 
 Future<void> sharePost(
   CommunityRepository repository,
@@ -20,7 +21,7 @@ Future<void> sharePost(
           : '$communityName on Wicchu',
       text:
           '$shortened\n\nRead the full post on Wicchu:\n'
-          'https://hexora.dev/wicchu/posts/${post.id}',
+          '${WicchuUrls.post(post.id)}',
     ),
   );
 }

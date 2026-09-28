@@ -1,5 +1,13 @@
 # Wicchu backend handoff: unfinished UI flows
 
+## Re-audit (2026-09-28)
+
+The original inventory below is historical. The Hexora server now provides authentication (Facebook, Google, and email/password), token refresh and revocable logout, community/profile creation, feeds, media, reactions, threaded comments, saves, reports, notifications, invitation links, rules, category/member/settings administration, moderation queues, roles, bans, public profile websites, and business locations.
+
+Community and post listings accept an opaque `cursor` plus `limit` and return `nextCursor`. Existing clients remain compatible when they omit pagination parameters. API errors now include `code`, `message`, `requestId`, and `fieldErrors` when validation supplies per-field errors.
+
+Remaining verification work is release-oriented rather than missing endpoint work: exercise authenticated flows on Android/iOS release builds, test expired/revoked sessions, and add incremental list loading in Flutter where large collections require it.
+
 This document began as an inventory of unfinished UI flows. Some flows have since been wired to HTTP endpoints; the inventory below still needs a full re-audit. The server lives elsewhere, so confirm its response contract against the Hexora server before treating a client flow as complete.
 
 ## Current integration

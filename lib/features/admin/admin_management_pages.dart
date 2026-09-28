@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_input_limits.dart';
@@ -1084,6 +1085,15 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   late ProfileCategory? _profileCategory = widget.community.profileCategory;
   late bool _approvalRequired = widget.community.approvalRequired;
   late bool _showWeather = widget.community.showWeather;
+  late final TextEditingController _businessAddress = TextEditingController(
+    text: widget.community.businessLocation?.address ?? '',
+  );
+  late double? _businessLatitude = widget.community.businessLocation?.latitude;
+  late double? _businessLongitude =
+      widget.community.businessLocation?.longitude;
+  late bool _showExactBusinessAddress =
+      widget.community.businessLocation?.showExactAddress ?? false;
+  bool _locatingBusiness = false;
   late final List<CommunityLink> _links = [...widget.community.links];
   late String? _imageUrl = widget.community.imageUrl;
   String? _imageBlobName;
@@ -1106,6 +1116,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   void dispose() {
     _name.dispose();
     _description.dispose();
+    _businessAddress.dispose();
     super.dispose();
   }
 
@@ -1311,6 +1322,54 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             value: _showWeather,
             onChanged: (value) => setState(() => _showWeather = value),
           ),
+          if (widget.community.isPublicProfile) ...[
+            const SizedBox(height: 16),
+            Text(
+              context.tr('Business location'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _businessAddress,
+              maxLength: 300,
+              decoration: InputDecoration(
+                labelText: context.tr('Business address'),
+                hintText: context.tr('Street, town, province'),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: _locatingBusiness ? null : _useCurrentBusinessLocation,
+              icon: _locatingBusiness
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.my_location),
+              label: Text(context.tr('Use my current location')),
+            ),
+            if (_businessLatitude != null && _businessLongitude != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  context.tr('Map pin saved'),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text(context.tr('Show exact location publicly')),
+              subtitle: Text(
+                context.tr(
+                  'When disabled, visitors only see the profile town.',
+                ),
+              ),
+              value: _showExactBusinessAddress,
+              onChanged: (value) =>
+                  setState(() => _showExactBusinessAddress = value),
+            ),
+          ],
           const SizedBox(height: 20),
           Material(
             color: Theme.of(
@@ -1474,6 +1533,15 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         approvalRequired: _approvalRequired,
         showWeather: _showWeather,
         links: List.unmodifiable(_links),
+        businessLocation:
+            _businessAddress.text.trim().isEmpty && _businessLatitude == null
+            ? null
+            : BusinessLocation(
+                address: _businessAddress.text.trim(),
+                latitude: _businessLatitude,
+                longitude: _businessLongitude,
+                showExactAddress: _showExactBusinessAddress,
+              ),
         imageUrl: _imageUrl,
         imageBlobName: _imageBlobName,
         coverImageUrl: _coverImageUrl,
@@ -1503,6 +1571,35 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _useCurrentBusinessLocation() async {
+    setState(() => _locatingBusiness = true);
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Location permission is required.');
+      }
+      final position = await Geolocator.getCurrentPosition();
+      if (mounted) {
+        setState(() {
+          _businessLatitude = position.latitude;
+          _businessLongitude = position.longitude;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _locatingBusiness = false);
     }
   }
 
