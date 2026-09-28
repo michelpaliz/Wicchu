@@ -1764,8 +1764,12 @@ class _ExploreTabState extends State<_ExploreTab> {
                     Text(
                       context.trCount(
                         community.memberCount,
-                        singular: '{count} member',
-                        plural: '{count} members',
+                        singular: community.isPublicProfile
+                            ? '{count} follower'
+                            : '{count} member',
+                        plural: community.isPublicProfile
+                            ? '{count} followers'
+                            : '{count} members',
                       ),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -1830,7 +1834,11 @@ class _ExploreTabState extends State<_ExploreTab> {
                           dimension: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(context.tr('Join')),
+                      : Text(
+                          context.tr(
+                            community.isPublicProfile ? 'Follow' : 'Join',
+                          ),
+                        ),
                 ),
             ],
           ),

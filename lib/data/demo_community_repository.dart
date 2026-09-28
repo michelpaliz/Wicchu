@@ -195,6 +195,7 @@ class DemoCommunityRepository implements CommunityRepository {
       myRole: CommunityRole.owner,
       approvalRequired: input.approvalRequired,
       rules: input.rules,
+      type: input.type,
     );
     _communities.add(community);
     _categories[id] = [
@@ -510,6 +511,7 @@ class DemoCommunityRepository implements CommunityRepository {
       distanceKm: community.distanceKm,
       rules: community.rules,
       links: List.unmodifiable(links),
+      type: community.type,
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;

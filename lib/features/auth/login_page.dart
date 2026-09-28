@@ -231,15 +231,16 @@ class _LoginPageState extends State<LoginPage> {
   );
 
   Future<void> _openEmail() async {
-    await Navigator.push(
+    final signedIn = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => EmailAuthPage(
+        builder: (emailContext) => EmailAuthPage(
           authGateway: widget.authGateway,
-          onSignedIn: widget.onSignedIn,
+          onSignedIn: () => Navigator.of(emailContext).pop(true),
         ),
       ),
     );
+    if (signedIn == true && mounted) widget.onSignedIn();
   }
 
   Future<void> _signInGoogle() => _signIn(

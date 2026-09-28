@@ -60,6 +60,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       _community.myRole == CommunityRole.owner ||
       _community.myRole == CommunityRole.admin ||
       _community.myRole == CommunityRole.moderator;
+  bool get _canPublish =>
+      _joined &&
+      (!_community.isPublicProfile ||
+          _community.myRole == CommunityRole.owner ||
+          _community.myRole == CommunityRole.admin);
 
   @override
   void initState() {
@@ -287,6 +292,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           distanceKm: _community.distanceKm,
           rules: _community.rules,
           links: _community.links,
+          type: _community.type,
         );
         _reload();
       });
@@ -372,7 +378,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    floatingActionButton: !widget.embedded && _joined && _sectionIndex == 0
+    floatingActionButton: !widget.embedded && _canPublish && _sectionIndex == 0
         ? FloatingActionButton.extended(
             onPressed: _openingComposer || _savingMembership
                 ? null
@@ -484,7 +490,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     labels: [
                       context.tr('Posts'),
                       context.tr('About'),
-                      context.tr('Members'),
+                      context.tr(
+                        _community.isPublicProfile ? 'Followers' : 'Members',
+                      ),
                     ],
                     selectedIndex: _sectionIndex,
                     onSelected: _tabs.animateTo,
@@ -644,7 +652,13 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${context.trCount(_community.memberCount, singular: '{count} member', plural: '{count} members')} · ${context.tr(_community.visibility == CommunityVisibility.public ? 'Public community' : 'Private community')}',
+                      _community.isPublicProfile
+                          ? context.trCount(
+                              _community.memberCount,
+                              singular: '{count} follower',
+                              plural: '{count} followers',
+                            )
+                          : '${context.trCount(_community.memberCount, singular: '{count} member', plural: '{count} members')} · ${context.tr(_community.visibility == CommunityVisibility.public ? 'Public community' : 'Private community')}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -664,7 +678,13 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                 ),
                               )
                             : Icon(_joined ? Icons.check : Icons.add, size: 16),
-                        label: Text(context.tr(_joined ? 'Joined' : 'Join')),
+                        label: Text(
+                          context.tr(
+                            _community.isPublicProfile
+                                ? (_joined ? 'Following' : 'Follow')
+                                : (_joined ? 'Joined' : 'Join'),
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -742,7 +762,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         child: Center(
                           child: CategoryEmptyState(
                             category: category.name,
-                            onPublish: _openingComposer || _savingMembership
+                            onPublish:
+                                !_canPublish ||
+                                    _openingComposer ||
+                                    _savingMembership
                                 ? null
                                 : _createPost,
                           ),
@@ -863,8 +886,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                               post.id,
                               saved: saved,
                             ),
-                            onReport: (reason, category) => widget.repository
-                                .reportPost(post.id, reason, category: category),
+                            onReport: (reason, category) =>
+                                widget.repository.reportPost(
+                                  post.id,
+                                  reason,
+                                  category: category,
+                                ),
                             onShare: () => sharePost(
                               widget.repository,
                               post,
@@ -1258,7 +1285,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   Widget _membersTab() {
     if (!_joined) {
-      return Center(child: Text(context.tr('Join to view community members.')));
+      return Center(
+        child: Text(
+          context.tr(
+            _community.isPublicProfile
+                ? 'Follow to view followers.'
+                : 'Join to view community members.',
+          ),
+        ),
+      );
     }
     return FutureBuilder<List<CommunityMember>>(
       future: _members,

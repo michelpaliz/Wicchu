@@ -4,6 +4,8 @@ enum CommunityRole { owner, admin, moderator, member }
 
 enum MembershipStatus { active, pending, banned }
 
+enum CommunityType { community, publicProfile }
+
 enum PostStatus { published, pendingApproval, removed }
 
 enum ReportStatus { open, reviewing, resolved, dismissed }
@@ -188,6 +190,7 @@ class Community {
     this.distanceKm,
     this.rules = const [],
     this.links = const [],
+    this.type = CommunityType.community,
   });
 
   final String id;
@@ -206,8 +209,11 @@ class Community {
   final double? distanceKm;
   final List<CommunityRule> rules;
   final List<CommunityLink> links;
+  final CommunityType type;
 
   bool get isJoined => myRole != null;
+  bool get isPublicProfile => type == CommunityType.publicProfile;
+  int get followerCount => memberCount;
 }
 
 class CommunityLink {

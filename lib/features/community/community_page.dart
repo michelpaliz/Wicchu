@@ -41,6 +41,8 @@ class _CommunityPageState extends State<CommunityPage> {
   bool get _canManage =>
       community.myRole == CommunityRole.owner ||
       community.myRole == CommunityRole.admin;
+  bool get _canPublish =>
+      _isJoined && (!community.isPublicProfile || _canManage);
 
   @override
   void initState() {
@@ -377,7 +379,7 @@ class _CommunityPageState extends State<CommunityPage> {
                     ),
                   if (community.myRole != CommunityRole.owner)
                     const SizedBox(height: 10),
-                  if (_isJoined)
+                  if (_canPublish)
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -446,7 +448,7 @@ class _CommunityPageState extends State<CommunityPage> {
                                     community: community,
                                     category: category,
                                     repository: repository,
-                                    canPost: _isJoined,
+                                    canPost: _canPublish,
                                   ),
                                 ),
                               ).then((_) => setState(_reload)),
@@ -593,8 +595,12 @@ class _CommunityPageState extends State<CommunityPage> {
                                 post.id,
                                 saved: saved,
                               ),
-                              onReport: (reason, category) => repository
-                                  .reportPost(post.id, reason, category: category),
+                              onReport: (reason, category) =>
+                                  repository.reportPost(
+                                    post.id,
+                                    reason,
+                                    category: category,
+                                  ),
                               onShare: () => sharePost(
                                 repository,
                                 post,

@@ -199,7 +199,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                         width,
                         Icons.group_outlined,
                         '${_community.memberCount}',
-                        'Members',
+                        _community.isPublicProfile ? 'Followers' : 'Members',
                         _canConfigure
                             ? () => _open(
                                 MemberManagementPage(

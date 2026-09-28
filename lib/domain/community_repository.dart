@@ -9,6 +9,7 @@ class CreateCommunityInput {
     required this.categoryNames,
     this.approvalRequired = false,
     this.rules = const [],
+    this.type = CommunityType.community,
   });
 
   final String name;
@@ -18,6 +19,7 @@ class CreateCommunityInput {
   final List<String> categoryNames;
   final bool approvalRequired;
   final List<CommunityRule> rules;
+  final CommunityType type;
 }
 
 class AdminAttentionSummary {

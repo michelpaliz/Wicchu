@@ -52,6 +52,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   Town? _town;
   bool _saving = false;
   bool _approvalRequired = false;
+  CommunityType _type = CommunityType.community;
   bool _detectingLocation = false;
   bool _locationVerified = false;
   String? _locationError;
@@ -115,7 +116,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
             onPressed: _saving ? null : _back,
             icon: const Icon(Icons.arrow_back),
           ),
-          title: Text(context.tr('Create community')),
+          title: Text(context.tr('Create a space')),
         ),
         body: SafeArea(
           child: Column(
@@ -187,7 +188,11 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                           )
                         : Text(
                             context.tr(
-                              _step == 3 ? 'Create community' : 'Continue',
+                              _step == 3
+                                  ? (_type == CommunityType.publicProfile
+                                        ? 'Create public profile'
+                                        : 'Create community')
+                                  : 'Continue',
                             ),
                           ),
                   ),
@@ -208,6 +213,34 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         key: _basicsForm,
         child: Column(
           children: [
+            SegmentedButton<CommunityType>(
+              segments: [
+                ButtonSegment(
+                  value: CommunityType.community,
+                  icon: const Icon(Icons.groups_outlined),
+                  label: Text(context.tr('Community')),
+                ),
+                ButtonSegment(
+                  value: CommunityType.publicProfile,
+                  icon: const Icon(Icons.person_outline),
+                  label: Text(context.tr('Public profile')),
+                ),
+              ],
+              selected: {_type},
+              onSelectionChanged: (value) => setState(() {
+                _type = value.first;
+                _dirty = true;
+              }),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              context.tr(
+                _type == CommunityType.publicProfile
+                    ? 'For a person, business, club, creator, or organization. People will follow this profile.'
+                    : 'For towns, neighborhoods, associations, and local groups. People will join as members.',
+              ),
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,
               maxLength: CommunityInputLimits.name,
@@ -216,10 +249,18 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
               textCapitalization: TextCapitalization.words,
               autovalidateMode: AutovalidateMode.onUserInteraction,
               validator: (value) => value == null || value.trim().isEmpty
-                  ? context.tr('Add a community name.')
+                  ? context.tr(
+                      _type == CommunityType.publicProfile
+                          ? 'Add a profile name.'
+                          : 'Add a community name.',
+                    )
                   : null,
               decoration: InputDecoration(
-                labelText: context.tr('Community name'),
+                labelText: context.tr(
+                  _type == CommunityType.publicProfile
+                      ? 'Profile name'
+                      : 'Community name',
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -310,36 +351,50 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       ),
     ),
     Step(
-      title: Text(context.tr('Categories')),
+      title: Text(
+        context.tr(
+          _type == CommunityType.publicProfile ? 'Publishing' : 'Categories',
+        ),
+      ),
       isActive: _step >= 2,
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             context.tr(
-              'Choose the topics for your community. You can change them later.',
+              _type == CommunityType.publicProfile
+                  ? 'Your updates will appear in one clear profile feed.'
+                  : 'Choose the topics for your community. You can change them later.',
             ),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final category in _defaults)
-                FilterChip(
-                  label: Text(context.tr(category)),
-                  selected: _selectedCategories.contains(category),
-                  onSelected: (selected) => setState(() {
-                    _dirty = true;
-                    _categoryError = null;
-                    selected
-                        ? _selectedCategories.add(category)
-                        : _selectedCategories.remove(category);
-                  }),
-                ),
-            ],
-          ),
-          if (_categoryError != null)
+          if (_type == CommunityType.publicProfile)
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.dynamic_feed_outlined),
+                title: Text('Posts'),
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final category in _defaults)
+                  FilterChip(
+                    label: Text(context.tr(category)),
+                    selected: _selectedCategories.contains(category),
+                    onSelected: (selected) => setState(() {
+                      _dirty = true;
+                      _categoryError = null;
+                      selected
+                          ? _selectedCategories.add(category)
+                          : _selectedCategories.remove(category);
+                    }),
+                  ),
+              ],
+            ),
+          if (_type == CommunityType.community && _categoryError != null)
             Text(
               _categoryError!,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -354,48 +409,55 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            context.tr('Rules are optional. You can add or edit them later.'),
+            context.tr(
+              _type == CommunityType.publicProfile
+                  ? 'Review your public profile before creating it.'
+                  : 'Rules are optional. You can add or edit them later.',
+            ),
           ),
           const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(context.tr('Approve posts before publishing')),
-            subtitle: Text(
-              context.tr('You can change this later by category.'),
-            ),
-            value: _approvalRequired,
-            onChanged: (value) => setState(() {
-              _dirty = true;
-              _approvalRequired = value;
-            }),
-          ),
-          for (final (index, rule) in _draftRules.indexed)
-            ListTile(
+          if (_type == CommunityType.community)
+            SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(child: Text('${index + 1}')),
-              title: Text(rule.title),
+              title: Text(context.tr('Approve posts before publishing')),
               subtitle: Text(
-                rule.description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                context.tr('You can change this later by category.'),
               ),
-              trailing: IconButton(
-                tooltip: context.tr('Delete rule'),
-                onPressed: () => setState(() => _draftRules.removeAt(index)),
-                icon: const Icon(Icons.close),
+              value: _approvalRequired,
+              onChanged: (value) => setState(() {
+                _dirty = true;
+                _approvalRequired = value;
+              }),
+            ),
+          if (_type == CommunityType.community)
+            for (final (index, rule) in _draftRules.indexed)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(child: Text('${index + 1}')),
+                title: Text(rule.title),
+                subtitle: Text(
+                  rule.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: IconButton(
+                  tooltip: context.tr('Delete rule'),
+                  onPressed: () => setState(() => _draftRules.removeAt(index)),
+                  icon: const Icon(Icons.close),
+                ),
+                onTap: () => _editDraftRule(index),
               ),
-              onTap: () => _editDraftRule(index),
+          if (_type == CommunityType.community)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _draftRules.length >= 25
+                    ? null
+                    : () => _editDraftRule(),
+                icon: const Icon(Icons.add),
+                label: Text(context.tr('Add rule')),
+              ),
             ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _draftRules.length >= 25
-                  ? null
-                  : () => _editDraftRule(),
-              icon: const Icon(Icons.add),
-              label: Text(context.tr('Add rule')),
-            ),
-          ),
           const SizedBox(height: 24),
           Card(
             margin: EdgeInsets.zero,
@@ -405,7 +467,11 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    context.tr('Review your community'),
+                    context.tr(
+                      _type == CommunityType.publicProfile
+                          ? 'Review your public profile'
+                          : 'Review your community',
+                    ),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 12),
@@ -419,9 +485,21 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                   ],
                   const SizedBox(height: 12),
                   Text(_town?.name ?? ''),
-                  Text(context.tr('Public community · You will be the owner')),
+                  Text(
+                    context.tr(
+                      _type == CommunityType.publicProfile
+                          ? 'Public profile · You will be the owner'
+                          : 'Public community · You will be the owner',
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  Text(_selectedCategories.map(context.tr).join(' · ')),
+                  Text(
+                    _type == CommunityType.publicProfile
+                        ? context.tr(
+                            'Followers can see and interact with your posts.',
+                          )
+                        : _selectedCategories.map(context.tr).join(' · '),
+                  ),
                 ],
               ),
             ),
@@ -441,7 +519,9 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       );
       return;
     }
-    if (_step == 2 && _selectedCategories.isEmpty) {
+    if (_step == 2 &&
+        _type == CommunityType.community &&
+        _selectedCategories.isEmpty) {
       setState(
         () => _categoryError = context.tr('Choose at least one category.'),
       );
@@ -465,6 +545,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           categoryNames: _selectedCategories.toList(),
           approvalRequired: _approvalRequired,
           rules: _draftRules,
+          type: _type,
         ),
       );
     } catch (error) {
@@ -482,21 +563,41 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         icon: const Icon(Icons.celebration_outlined, size: 42),
-        title: Text(dialogContext.tr('Your community is ready!')),
+        title: Text(
+          dialogContext.tr(
+            _type == CommunityType.publicProfile
+                ? 'Your public profile is ready!'
+                : 'Your community is ready!',
+          ),
+        ),
         content: Text(
           dialogContext.tr(
-            'Invite your first members and start the conversation.',
+            _type == CommunityType.publicProfile
+                ? 'Share your profile and publish your first update.'
+                : 'Invite your first members and start the conversation.',
           ),
         ),
         actions: [
           TextButton.icon(
             onPressed: () => shareCommunity(dialogContext, community),
             icon: const Icon(Icons.ios_share_outlined),
-            label: Text(dialogContext.tr('Share invitation')),
+            label: Text(
+              dialogContext.tr(
+                _type == CommunityType.publicProfile
+                    ? 'Share profile'
+                    : 'Share invitation',
+              ),
+            ),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text(dialogContext.tr('Enter community')),
+            child: Text(
+              dialogContext.tr(
+                _type == CommunityType.publicProfile
+                    ? 'Open profile'
+                    : 'Enter community',
+              ),
+            ),
           ),
         ],
       ),

@@ -554,7 +554,6 @@ const _spanish = <String, String>{
   'rejected': 'Rechazada',
   'completed': 'Completada',
   'cancelled': 'Cancelada',
-  'Community': 'Comunidad',
   'Overview': 'Resumen',
   'Members': 'Miembros',
   'Moderation': 'Moderación',
@@ -1051,4 +1050,36 @@ const _spanish = <String, String>{
       'Conecta con las comunidades a las que perteneces.',
   'Open a community to read posts, discover events and connect with your neighbors.':
       'Abre una comunidad para leer publicaciones, descubrir eventos y conectar con tus vecinos.',
+  'Create a space': 'Crear un espacio',
+  'Community': 'Comunidad',
+  'Public profile': 'Perfil público',
+  'For a person, business, club, creator, or organization. People will follow this profile.':
+      'Para una persona, negocio, club, creador u organización. Las personas seguirán este perfil.',
+  'For towns, neighborhoods, associations, and local groups. People will join as members.':
+      'Para pueblos, barrios, asociaciones y grupos locales. Las personas se unirán como miembros.',
+  'Add a profile name.': 'Añade un nombre para el perfil.',
+  'Profile name': 'Nombre del perfil',
+  'Create public profile': 'Crear perfil público',
+  'Publishing': 'Publicaciones',
+  'Your updates will appear in one clear profile feed.':
+      'Tus novedades aparecerán en un perfil público organizado.',
+  'Review your public profile before creating it.':
+      'Revisa tu perfil público antes de crearlo.',
+  'Public profile · You will be the owner':
+      'Perfil público · Tú serás el propietario',
+  'Followers can see and interact with your posts.':
+      'Los seguidores pueden ver e interactuar con tus publicaciones.',
+  'Followers': 'Seguidores',
+  'Follow': 'Seguir',
+  'Following': 'Siguiendo',
+  '{count} follower': '{count} seguidor',
+  '{count} followers': '{count} seguidores',
+  'Follow to view followers.': 'Sigue el perfil para ver sus seguidores.',
+  'Review your public profile': 'Revisa tu perfil público',
+  'Your public profile is ready!': '¡Tu perfil público está listo!',
+  'Share your profile and publish your first update.':
+      'Comparte tu perfil y publica tu primera novedad.',
+  'Open profile': 'Abrir perfil',
+  'Follow {community} on Wicchu': 'Sigue a {community} en Wicchu',
+  'Follow {community} on Wicchu:': 'Sigue a {community} en Wicchu:',
 };

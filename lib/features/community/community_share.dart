@@ -9,11 +9,14 @@ Future<void> shareCommunity(
   Community community,
 ) => SharePlus.instance.share(
   ShareParams(
-    subject: context.tr('Join {community} on Wicchu', {
-      'community': community.name,
-    }),
+    subject: context.tr(
+      community.isPublicProfile
+          ? 'Follow {community} on Wicchu'
+          : 'Join {community} on Wicchu',
+      {'community': community.name},
+    ),
     text:
-        '${context.tr('Join {community} on Wicchu:', {'community': community.name})} '
+        '${context.tr(community.isPublicProfile ? 'Follow {community} on Wicchu:' : 'Join {community} on Wicchu:', {'community': community.name})} '
         'https://hexora.dev/wicchu/communities/${community.id}',
   ),
 );

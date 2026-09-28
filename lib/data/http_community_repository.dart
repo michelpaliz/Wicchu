@@ -253,6 +253,9 @@ class HttpCommunityRepository implements CommunityRepository {
       '/api/community/v1/communities',
       body: {
         'name': input.name,
+        'type': input.type == CommunityType.publicProfile
+            ? 'public_profile'
+            : 'community',
         'description': input.description,
         'townId': input.town.id,
         'visibility': input.visibility.name,
@@ -1112,6 +1115,9 @@ class HttpCommunityRepository implements CommunityRepository {
     return Community(
       id: _id(json),
       name: json['name'] as String? ?? '',
+      type: json['type'] == 'public_profile'
+          ? CommunityType.publicProfile
+          : CommunityType.community,
       description: json['description'] as String? ?? '',
       town: _townFromJson(townJson),
       imageUrl: json['imageUrl'] as String?,
