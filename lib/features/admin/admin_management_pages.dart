@@ -1083,6 +1083,9 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   );
   late CommunityVisibility _visibility = widget.community.visibility;
   late ProfileCategory? _profileCategory = widget.community.profileCategory;
+  late final Set<BusinessService> _businessServices = {
+    ...widget.community.businessServices,
+  };
   late bool _approvalRequired = widget.community.approvalRequired;
   late bool _showWeather = widget.community.showWeather;
   late final TextEditingController _businessAddress = TextEditingController(
@@ -1291,6 +1294,59 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                   : (value) => setState(() => _profileCategory = value),
             ),
             const SizedBox(height: 16),
+            if (_profileCategory == ProfileCategory.localBusiness) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  context.tr('Business services'),
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  context.tr('Choose up to 3 services shown on your page.'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final service in BusinessService.values)
+                    FilterChip(
+                      label: Text(context.tr(service.label)),
+                      selected: _businessServices.contains(service),
+                      onSelected: _saving
+                          ? null
+                          : (selected) {
+                              if (selected && _businessServices.length >= 3) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      context.tr(
+                                        'Choose no more than 3 business services.',
+                                      ),
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              setState(() {
+                                if (selected) {
+                                  _businessServices.add(service);
+                                } else {
+                                  _businessServices.remove(service);
+                                }
+                              });
+                            },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
           ],
           DropdownButtonFormField<CommunityVisibility>(
             initialValue: _visibility,
@@ -1527,6 +1583,9 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       final updated = await widget.repository.updateCommunity(
         widget.community,
         profileCategory: _profileCategory,
+        businessServices: _profileCategory == ProfileCategory.localBusiness
+            ? List.unmodifiable(_businessServices)
+            : const [],
         name: _name.text.trim(),
         description: _description.text.trim(),
         visibility: _visibility,

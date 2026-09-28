@@ -690,6 +690,53 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
+  IconData _businessServiceIcon(BusinessService service) => switch (service) {
+    BusinessService.gardening => Icons.yard_outlined,
+    BusinessService.pools => Icons.pool_outlined,
+    BusinessService.concierge => Icons.home_repair_service_outlined,
+    BusinessService.cleaning => Icons.cleaning_services_outlined,
+    BusinessService.maintenance => Icons.handyman_outlined,
+    BusinessService.construction => Icons.construction_outlined,
+    BusinessService.food => Icons.restaurant_outlined,
+    BusinessService.retail => Icons.storefront_outlined,
+    BusinessService.health => Icons.health_and_safety_outlined,
+    BusinessService.beauty => Icons.spa_outlined,
+    BusinessService.transport => Icons.local_shipping_outlined,
+    BusinessService.education => Icons.school_outlined,
+    BusinessService.professionalServices => Icons.business_center_outlined,
+    BusinessService.other => Icons.more_horiz,
+  };
+
+  Widget _businessServiceChip(BusinessService service) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: .65),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _businessServiceIcon(service),
+            size: 14,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            context.tr(service.label),
+            style: TextStyle(
+              color: scheme.onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _publicProfileHeader() {
     final theme = Theme.of(context);
     final owner = _community.myRole == CommunityRole.owner;
@@ -738,16 +785,16 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 ),
             ],
           ),
-          if (_community.description.trim().isNotEmpty) ...[
+          if (_community.profileCategory == ProfileCategory.localBusiness &&
+              _community.businessServices.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(
-              _community.description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.4,
-              ),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final service in _community.businessServices.take(3))
+                  _businessServiceChip(service),
+              ],
             ),
           ],
           const SizedBox(height: 10),
@@ -1406,6 +1453,20 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           ],
         ),
       ),
+      if (_community.profileCategory == ProfileCategory.localBusiness &&
+          _community.businessServices.isNotEmpty)
+        _Section(
+          title: context.tr('Services'),
+          icon: Icons.design_services_outlined,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final service in _community.businessServices.take(3))
+                _businessServiceChip(service),
+            ],
+          ),
+        ),
       _Section(
         title: context.tr('Community rating'),
         icon: Icons.star_rounded,

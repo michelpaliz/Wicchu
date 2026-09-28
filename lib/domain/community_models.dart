@@ -24,6 +24,34 @@ enum ProfileCategory {
   }
 }
 
+enum BusinessService {
+  gardening('gardening', 'Gardening'),
+  pools('pools', 'Pools'),
+  concierge('concierge', 'Concierge'),
+  cleaning('cleaning', 'Cleaning'),
+  maintenance('maintenance', 'Maintenance'),
+  construction('construction', 'Construction'),
+  food('food', 'Food'),
+  retail('retail', 'Retail'),
+  health('health', 'Health'),
+  beauty('beauty', 'Beauty'),
+  transport('transport', 'Transport'),
+  education('education', 'Education'),
+  professionalServices('professional_services', 'Professional services'),
+  other('other', 'Other');
+
+  const BusinessService(this.apiValue, this.label);
+  final String apiValue;
+  final String label;
+
+  static BusinessService? fromApi(Object? value) {
+    for (final service in values) {
+      if (service.apiValue == value) return service;
+    }
+    return null;
+  }
+}
+
 enum PostStatus { published, pendingApproval, removed }
 
 enum ReportStatus { open, reviewing, resolved, dismissed }
@@ -211,6 +239,7 @@ class Community {
     this.links = const [],
     this.type = CommunityType.community,
     this.profileCategory,
+    this.businessServices = const [],
     this.businessLocation,
   });
 
@@ -233,6 +262,7 @@ class Community {
   final List<CommunityLink> links;
   final CommunityType type;
   final ProfileCategory? profileCategory;
+  final List<BusinessService> businessServices;
 
   String get spaceTypeLabel => isPublicProfile
       ? profileCategory?.label ?? 'Public profile'

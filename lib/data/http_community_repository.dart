@@ -614,6 +614,7 @@ class HttpCommunityRepository implements CommunityRepository {
     required bool showWeather,
     required List<CommunityLink> links,
     ProfileCategory? profileCategory,
+    required List<BusinessService> businessServices,
     required BusinessLocation? businessLocation,
     String? imageUrl,
     String? imageBlobName,
@@ -630,6 +631,10 @@ class HttpCommunityRepository implements CommunityRepository {
         'showWeather': showWeather,
         if (community.isPublicProfile && profileCategory != null)
           'profileCategory': profileCategory.apiValue,
+        if (community.isPublicProfile)
+          'businessServices': businessServices
+              .map((service) => service.apiValue)
+              .toList(),
         'links': links
             .map((link) => {'label': link.label, 'url': link.url})
             .toList(),
@@ -1131,6 +1136,11 @@ class HttpCommunityRepository implements CommunityRepository {
       id: _id(json),
       name: json['name'] as String? ?? '',
       profileCategory: ProfileCategory.fromApi(json['profileCategory']),
+      businessServices: (json['businessServices'] as List? ?? const [])
+          .map(BusinessService.fromApi)
+          .whereType<BusinessService>()
+          .take(3)
+          .toList(growable: false),
       slug: json['slug'] as String? ?? '',
       type: json['type'] == 'public_profile'
           ? CommunityType.publicProfile
