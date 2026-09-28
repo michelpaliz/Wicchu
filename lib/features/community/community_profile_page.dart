@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'category_empty_state.dart';
 import '../../widgets/feed_filter_bar.dart';
 import 'package:flutter/material.dart';
@@ -64,6 +66,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   bool _searchMembers = false;
   bool _compactPublish = false;
   bool _savingHelpfulness = false;
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  bool _searchingPosts = false;
 
   bool get _canManage =>
       _community.myRole == CommunityRole.owner ||
@@ -143,7 +148,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           );
     _posts = _joined
-        ? widget.repository.listPosts(_community.id)
+        ? widget.repository.listPosts(
+            _community.id,
+            query: _searchController.text,
+          )
         : Future.value(const <CommunityPost>[]);
     _members = _joined
         ? widget.repository.listMembers(_community.id)
@@ -282,8 +290,32 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   @override
   void dispose() {
     widget.postRequest?.removeListener(_createPost);
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     _tabs.dispose();
     super.dispose();
+  }
+
+  void _togglePostSearch() {
+    _searchDebounce?.cancel();
+    setState(() {
+      _searchingPosts = !_searchingPosts;
+      if (!_searchingPosts) {
+        _searchController.clear();
+        _reload();
+      }
+    });
+  }
+
+  void _searchPosts(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      setState(() {
+        _categoryId = null;
+        _posts = widget.repository.listPosts(_community.id, query: value);
+      });
+    });
   }
 
   Future<void> _toggleMembership() async {
@@ -318,6 +350,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           links: _community.links,
           type: _community.type,
           profileCategory: _community.profileCategory,
+          slug: _community.slug,
+          businessLocation: _community.businessLocation,
+          businessServices: _community.businessServices,
         );
         _reload();
       });
@@ -633,7 +668,30 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             onPressed: () => Navigator.pop(context, _community),
             icon: const Icon(Icons.arrow_back),
           ),
-    title: widget.onSwitchCommunity == null
+    title: _searchingPosts
+        ? TextField(
+            controller: _searchController,
+            autofocus: true,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: context.tr('Search posts in {community}', {
+                'community': _community.name,
+              }),
+              border: InputBorder.none,
+            ),
+            onChanged: _searchPosts,
+            onSubmitted: (value) {
+              _searchDebounce?.cancel();
+              setState(() {
+                _categoryId = null;
+                _posts = widget.repository.listPosts(
+                  _community.id,
+                  query: value,
+                );
+              });
+            },
+          )
+        : widget.onSwitchCommunity == null
         ? InkWell(
             onTap:
                 widget.screen == CommunityScreen.feed &&
@@ -667,39 +725,51 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           ),
     actions: [
-      IconButton(
-        tooltip: context.tr('Share'),
-        onPressed: () => shareCommunity(context, _community),
-        icon: const Icon(Icons.ios_share_outlined),
-      ),
-      PopupMenuButton<String>(
-        key: const ValueKey('community-profile-menu'),
-        tooltip: context.tr('More options'),
-        onSelected: (value) {
-          if (value == 'media') {
-            Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => Scaffold(
-                  appBar: AppBar(title: Text(context.tr('Media'))),
-                  body: _mediaTab(),
+      if (_joined &&
+          _sectionIndex == 0 &&
+          widget.screen == CommunityScreen.feed)
+        IconButton(
+          tooltip: context.tr(
+            _searchingPosts ? 'Close search' : 'Search posts',
+          ),
+          onPressed: _togglePostSearch,
+          icon: Icon(_searchingPosts ? Icons.close : Icons.search_rounded),
+        ),
+      if (!_searchingPosts) ...[
+        IconButton(
+          tooltip: context.tr('Share'),
+          onPressed: () => shareCommunity(context, _community),
+          icon: const Icon(Icons.ios_share_outlined),
+        ),
+        PopupMenuButton<String>(
+          key: const ValueKey('community-profile-menu'),
+          tooltip: context.tr('More options'),
+          onSelected: (value) {
+            if (value == 'media') {
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => Scaffold(
+                    appBar: AppBar(title: Text(context.tr('Media'))),
+                    body: _mediaTab(),
+                  ),
                 ),
+              );
+            } else {
+              _editCommunity();
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(value: 'media', child: Text(context.tr('Media'))),
+            if (_community.myRole == CommunityRole.owner ||
+                _community.myRole == CommunityRole.admin)
+              PopupMenuItem(
+                value: 'edit',
+                child: Text(context.tr('Edit community')),
               ),
-            );
-          } else {
-            _editCommunity();
-          }
-        },
-        itemBuilder: (context) => [
-          PopupMenuItem(value: 'media', child: Text(context.tr('Media'))),
-          if (_community.myRole == CommunityRole.owner ||
-              _community.myRole == CommunityRole.admin)
-            PopupMenuItem(
-              value: 'edit',
-              child: Text(context.tr('Edit community')),
-            ),
-        ],
-      ),
+          ],
+        ),
+      ],
     ],
   );
 
@@ -766,6 +836,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       pinned: true,
       automaticallyImplyLeading: false,
       expandedHeight: 170,
+      title: _searchingPosts ? navigation.title : null,
       leadingWidth: 64,
       leading: leading == null ? null : coverControl(leading),
       actions: [
@@ -877,6 +948,53 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
+  IconData _businessServiceIcon(BusinessService service) => switch (service) {
+    BusinessService.gardening => Icons.yard_outlined,
+    BusinessService.pools => Icons.pool_outlined,
+    BusinessService.concierge => Icons.home_repair_service_outlined,
+    BusinessService.cleaning => Icons.cleaning_services_outlined,
+    BusinessService.maintenance => Icons.handyman_outlined,
+    BusinessService.construction => Icons.construction_outlined,
+    BusinessService.food => Icons.restaurant_outlined,
+    BusinessService.retail => Icons.storefront_outlined,
+    BusinessService.health => Icons.health_and_safety_outlined,
+    BusinessService.beauty => Icons.spa_outlined,
+    BusinessService.transport => Icons.local_shipping_outlined,
+    BusinessService.education => Icons.school_outlined,
+    BusinessService.professionalServices => Icons.business_center_outlined,
+    BusinessService.other => Icons.more_horiz,
+  };
+
+  Widget _businessServiceChip(BusinessService service) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: .65),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _businessServiceIcon(service),
+            size: 14,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            context.tr(service.label),
+            style: TextStyle(
+              color: scheme.onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _publicProfileHeader() {
     final theme = Theme.of(context);
     final owner = _community.myRole == CommunityRole.owner;
@@ -925,7 +1043,20 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 ),
             ],
           ),
-          if (_community.description.trim().isNotEmpty) ...[
+          if (_community.profileCategory == ProfileCategory.localBusiness &&
+              _community.businessServices.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final service in _community.businessServices.take(3))
+                  _businessServiceChip(service),
+              ],
+            ),
+          ],
+          if (_community.businessServices.isEmpty &&
+              _community.description.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
               _community.description,
@@ -1289,6 +1420,30 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                             post.categoryId == _categoryId,
                       )
                       .toList();
+                  if (posts.isEmpty &&
+                      _searchController.text.trim().isNotEmpty) {
+                    return SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.search_off_rounded, size: 48),
+                              const SizedBox(height: 12),
+                              Text(
+                                context.tr('No posts found in {community}', {
+                                  'community': _community.name,
+                                }),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   if (posts.isEmpty && _community.isPublicProfile) {
                     return SliverFillRemaining(
                       hasScrollBody: false,
@@ -1778,6 +1933,20 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           ],
         ),
       ),
+      if (_community.profileCategory == ProfileCategory.localBusiness &&
+          _community.businessServices.isNotEmpty)
+        _Section(
+          title: context.tr('Services'),
+          icon: Icons.design_services_outlined,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final service in _community.businessServices.take(3))
+                _businessServiceChip(service),
+            ],
+          ),
+        ),
       FutureBuilder<CommunityHelpfulness>(
         future: _helpfulness,
         builder: (context, snapshot) {

@@ -191,6 +191,7 @@ abstract interface class CommunityRepository {
     required bool showWeather,
     required List<CommunityLink> links,
     ProfileCategory? profileCategory,
+    required List<BusinessService> businessServices,
     required BusinessLocation? businessLocation,
     String? imageUrl,
     String? imageBlobName,
