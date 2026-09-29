@@ -220,7 +220,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       appBar: AppBar(
         title: Text(
           context.tr(_isEditing ? 'Edit post' : 'Create post'),
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         actions: [
           Padding(
@@ -228,9 +228,17 @@ class _CreatePostPageState extends State<CreatePostPage> {
             child: FilledButton(
               onPressed: _canSubmit ? _publish : null,
               style: FilledButton.styleFrom(
-                minimumSize: const Size(88, 40),
+                minimumSize: const Size(72, 36),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               child: _saving

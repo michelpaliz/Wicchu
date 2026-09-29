@@ -467,6 +467,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('My spaces'));
       await tester.pumpAndSettle();
+      final sheetList = find.descendant(
+        of: find.byType(DraggableScrollableSheet),
+        matching: find.byType(ListView),
+      );
+      final initialHeight = tester.getSize(sheetList).height;
+      await tester.drag(sheetList, const Offset(0, -260));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(sheetList).height, greaterThan(initialHeight));
       await tester.tap(find.text('Second neighborhood'));
       await tester.pumpAndSettle();
       expect(find.text('For you'), findsOneWidget);

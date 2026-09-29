@@ -831,42 +831,67 @@ class _HomeTabState extends State<_HomeTab>
   Future<void> _chooseCommunity(List<Community> communities) async {
     final selected = await showModalBottomSheet<String>(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            _CommunitySwitcherHeading(count: communities.length),
-            for (final community in communities)
-              _CommunitySwitcherRow(
-                community: community,
-                selected: community.id == _selectedCommunityId,
-                onTap: () => Navigator.pop(sheetContext, community.id),
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: false,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: .55,
+        minChildSize: .35,
+        maxChildSize: .95,
+        expand: false,
+        snap: true,
+        snapSizes: const [.55],
+        builder: (context, scrollController) => SafeArea(
+          top: false,
+          child: ListView(
+            controller: scrollController,
+            padding: EdgeInsets.zero,
+            children: [
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: .4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            Divider(
-              height: 24,
-              indent: 20,
-              endIndent: 20,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: .08),
-            ),
-            _CommunitySwitcherAction(
-              icon: Icons.explore_outlined,
-              title: context.tr('Explore spaces'),
-              subtitle: context.tr('Discover new communities and profiles'),
-              onTap: () => Navigator.pop(sheetContext, '__explore'),
-            ),
-            _CommunitySwitcherAction(
-              icon: Icons.add,
-              title: context.tr('Create a community or profile'),
-              subtitle: context.tr(
-                'Bring people together or share your updates',
+              _CommunitySwitcherHeading(count: communities.length),
+              for (final community in communities)
+                _CommunitySwitcherRow(
+                  community: community,
+                  selected: community.id == _selectedCommunityId,
+                  onTap: () => Navigator.pop(sheetContext, community.id),
+                ),
+              Divider(
+                height: 24,
+                indent: 20,
+                endIndent: 20,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: .08),
               ),
-              onTap: () => Navigator.pop(sheetContext, '__create'),
-            ),
-            const SizedBox(height: 12),
-          ],
+              _CommunitySwitcherAction(
+                icon: Icons.explore_outlined,
+                title: context.tr('Explore spaces'),
+                subtitle: context.tr('Discover new communities and profiles'),
+                onTap: () => Navigator.pop(sheetContext, '__explore'),
+              ),
+              _CommunitySwitcherAction(
+                icon: Icons.add,
+                title: context.tr('Create a community or profile'),
+                subtitle: context.tr(
+                  'Bring people together or share your updates',
+                ),
+                onTap: () => Navigator.pop(sheetContext, '__create'),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
         ),
       ),
     );

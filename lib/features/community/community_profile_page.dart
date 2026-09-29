@@ -624,9 +624,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           Flexible(
             child: Text(
               _community.name,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontSize: 15,
+                height: 1.25,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const SizedBox(width: 4),
@@ -660,6 +662,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       _community.profileCategory == ProfileCategory.localBusiness;
 
   AppBar _navigationBar() => AppBar(
+    titleTextStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+    ),
     automaticallyImplyLeading: false,
     leading: widget.embedded
         ? null

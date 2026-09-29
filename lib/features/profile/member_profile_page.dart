@@ -523,14 +523,12 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                 children: [
                   _profileAction(
                     icon: Icons.ios_share_outlined,
-                    label: context.tr('Share'),
                     tooltip: context.tr('Share profile'),
                     onPressed: () => _shareProfile(profile),
                   ),
                   if (own)
                     _profileAction(
                       icon: Icons.person_add_outlined,
-                      label: context.tr('Find friends'),
                       tooltip: context.tr('Find friends'),
                       onPressed: _findPeople,
                     ),
@@ -598,30 +596,19 @@ class _MemberProfilePageState extends State<MemberProfilePage>
 
   Widget _profileAction({
     required IconData icon,
-    required String label,
     required String tooltip,
     required VoidCallback onPressed,
   }) {
-    final theme = Theme.of(context);
-    return Tooltip(
-      message: tooltip,
-      child: FilledButton.tonalIcon(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: theme.colorScheme.primary.withValues(alpha: .08),
-          foregroundColor: theme.colorScheme.primary,
-          minimumSize: const Size(0, 36),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          textStyle: theme.textTheme.labelMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        icon: Icon(icon, size: 18),
-        label: Text(label),
+    final colors = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        backgroundColor: colors.primary.withValues(alpha: .08),
+        foregroundColor: colors.primary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
+      icon: Icon(icon, size: 20),
     );
   }
 

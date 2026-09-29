@@ -1,7 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:markdown/markdown.dart' as md;
 import '../../localization/app_language.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+String _plainTextPreview(String source) {
+  final document = md.Document(
+    encodeHtml: false,
+    extensionSet: md.ExtensionSet.gitHubFlavored,
+  );
+  String render(md.Node node) {
+    if (node is md.Text) return node.text;
+    if (node is! md.Element) return node.textContent;
+    if (node.tag == 'img') return node.attributes['alt'] ?? '';
+    if (node.tag == 'br') return '\n';
+    final text = (node.children ?? []).map(render).join();
+    const blocks = {
+      'p',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'li',
+      'blockquote',
+      'pre',
+      'ul',
+      'ol',
+    };
+    return blocks.contains(node.tag) ? '$text\n' : text;
+  }
+
+  return document
+      .parseLines(source.split('\n'))
+      .map(render)
+      .join()
+      .replaceAll(RegExp(r'\n[ \t]*\n+'), '\n')
+      .trim();
+}
 
 class PostMarkdown extends StatefulWidget {
   const PostMarkdown({
@@ -36,14 +73,11 @@ class _PostMarkdownState extends State<PostMarkdown> {
   Widget build(BuildContext context) {
     if (!widget.collapsible) return _markdown(context);
     final style = Theme.of(context).textTheme.bodyLarge!.copyWith(
-      fontSize: widget.compact ? 15 : 16,
+      fontSize: 14,
       fontWeight: FontWeight.w400,
       height: 1.3,
     );
-    final preview = widget.data
-        .replaceAllMapped(RegExp(r'!?\[([^\]]*)\]\([^)]*\)'), (m) => m[1]!)
-        .replaceAll(RegExp(r'[*_`#>]'), '')
-        .replaceAll(RegExp(r'\n[ \t]*\n+'), '\n');
+    final preview = _plainTextPreview(widget.data);
     final firstParagraph = widget.data.trim().split(RegExp(r'\n\s*\n')).first;
     final hasHeadline =
         widget.data.trim().contains(RegExp(r'\n\s*\n')) &&
@@ -73,7 +107,7 @@ class _PostMarkdownState extends State<PostMarkdown> {
                         )
                       : (announcement && i == 1) || (hasHeadline && i == 0)
                       ? style.copyWith(
-                          fontSize: widget.compact ? 17 : 18,
+                          fontSize: 15,
                           height: 1.25,
                           fontWeight: FontWeight.w700,
                         )
@@ -179,23 +213,23 @@ class _PostMarkdownState extends State<PostMarkdown> {
       softLineBreak: true,
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
         p: theme.textTheme.bodyLarge?.copyWith(
-          fontSize: widget.compact ? 15 : 16,
+          fontSize: 14,
           height: 1.3,
           fontWeight: FontWeight.w400,
         ),
         strong: const TextStyle(fontWeight: FontWeight.w700),
         h1: theme.textTheme.titleMedium?.copyWith(
-          fontSize: 18,
+          fontSize: 15,
           height: 1.25,
           fontWeight: FontWeight.w700,
         ),
         h2: theme.textTheme.titleMedium?.copyWith(
-          fontSize: 18,
+          fontSize: 15,
           height: 1.25,
           fontWeight: FontWeight.w700,
         ),
         h3: theme.textTheme.titleMedium?.copyWith(
-          fontSize: widget.compact ? 17 : 18,
+          fontSize: 15,
           height: 1.25,
           fontWeight: FontWeight.w700,
         ),

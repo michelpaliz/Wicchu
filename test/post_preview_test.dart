@@ -29,6 +29,33 @@ void main() {
     expect(find.byKey(const ValueKey('expand-post')), findsOneWidget);
   });
 
+  testWidgets('preview decodes escapes and preserves literal punctuation', (
+    tester,
+  ) async {
+    final content =
+        r'Perfecto\. **Hola** \*literal\* `C:\temp`'
+        '\n\n${List.filled(20, 'More details about the neighborhood.').join('\n')}';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: PostMarkdown(data: content, collapsible: true),
+          ),
+        ),
+      ),
+    );
+    final preview = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('expand-post')),
+        matching: find.byType(Text),
+      ),
+    );
+    final text = preview.textSpan!.toPlainText();
+    expect(text, contains(r'Perfecto. Hola *literal* C:\temp'));
+    expect(text, isNot(contains(r'Perfecto\.')));
+  });
+
   testWidgets('short posts do not have an expansion button', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
