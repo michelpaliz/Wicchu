@@ -663,21 +663,23 @@ class HttpCommunityRepository implements CommunityRepository {
         'showWeather': showWeather,
         if (community.isPublicProfile && profileCategory != null)
           'profileCategory': profileCategory.apiValue,
-        if (community.isPublicProfile)
+        if (community.isPublicProfile &&
+            profileCategory == ProfileCategory.localBusiness)
           'businessServices': businessServices
               .map((service) => service.apiValue)
               .toList(),
         'links': links
             .map((link) => {'label': link.label, 'url': link.url})
             .toList(),
-        'businessLocation': businessLocation == null
-            ? null
-            : {
-                'address': businessLocation.address,
-                'latitude': businessLocation.latitude,
-                'longitude': businessLocation.longitude,
-                'showExactAddress': businessLocation.showExactAddress,
-              },
+        if (community.isPublicProfile)
+          'businessLocation': businessLocation == null
+              ? null
+              : {
+                  'address': businessLocation.address,
+                  'latitude': businessLocation.latitude,
+                  'longitude': businessLocation.longitude,
+                  'showExactAddress': businessLocation.showExactAddress,
+                },
         'imageBlobName': ?imageBlobName,
         'coverImageBlobName': ?coverImageBlobName,
       },

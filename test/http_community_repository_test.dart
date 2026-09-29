@@ -106,6 +106,25 @@ class _RecordingApiClient extends AuthenticatedApiClient {
       'community': {'id': 'community-1', ...?body},
     };
   }
+
+  @override
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    lastPath = path;
+    lastBody = body;
+    return {
+      'community': {
+        'id': 'community-1',
+        'name': body?['name'] ?? 'A page',
+        'description': body?['description'] ?? '',
+        'visibility': body?['visibility'] ?? 'public',
+        'type': path.contains('community-1') ? 'community' : 'public_profile',
+        ...?body,
+      },
+    };
+  }
 }
 
 void main() {
@@ -134,6 +153,80 @@ void main() {
       expect(ProfileCategory.fromApi('future_category'), isNull);
     },
   );
+
+  test('page edits only send fields supported by the page type', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+    const town = Town(id: 'town-1', name: 'Town X', countryCode: 'EC');
+    final createdAt = DateTime.utc(2026, 1, 1);
+
+    Future<void> update(
+      Community community, {
+      ProfileCategory? profileCategory,
+      List<BusinessService> businessServices = const [],
+    }) => repository.updateCommunity(
+      community,
+      town: town,
+      name: 'Updated title',
+      description: '',
+      visibility: CommunityVisibility.public,
+      approvalRequired: false,
+      showWeather: false,
+      links: const [],
+      profileCategory: profileCategory,
+      businessServices: businessServices,
+      businessLocation: null,
+    );
+
+    await update(
+      Community(
+        id: 'community-1',
+        name: 'Community',
+        description: '',
+        town: town,
+        visibility: CommunityVisibility.public,
+        createdBy: 'user-1',
+        createdAt: createdAt,
+      ),
+    );
+    expect(api.lastBody, isNot(contains('businessServices')));
+    expect(api.lastBody, isNot(contains('businessLocation')));
+
+    await update(
+      Community(
+        id: 'profile-1',
+        name: 'Creator',
+        description: '',
+        town: town,
+        visibility: CommunityVisibility.public,
+        createdBy: 'user-1',
+        createdAt: createdAt,
+        type: CommunityType.publicProfile,
+        profileCategory: ProfileCategory.creator,
+      ),
+      profileCategory: ProfileCategory.creator,
+    );
+    expect(api.lastBody, isNot(contains('businessServices')));
+    expect(api.lastBody?['businessLocation'], isNull);
+
+    await update(
+      Community(
+        id: 'business-1',
+        name: 'Business',
+        description: '',
+        town: town,
+        visibility: CommunityVisibility.public,
+        createdBy: 'user-1',
+        createdAt: createdAt,
+        type: CommunityType.publicProfile,
+        profileCategory: ProfileCategory.localBusiness,
+      ),
+      profileCategory: ProfileCategory.localBusiness,
+      businessServices: const [BusinessService.gardening],
+    );
+    expect(api.lastBody?['businessServices'], ['gardening']);
+    expect(api.lastBody?['businessLocation'], isNull);
+  });
 
   test('nearby discovery sends coordinates to the API', () async {
     final api = _RecordingApiClient();
