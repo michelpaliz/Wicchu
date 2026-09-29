@@ -1,3 +1,4 @@
+import '../community/business_service_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
@@ -587,7 +588,9 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(context.tr('Members')),
+      title: Text(
+        context.tr(widget.community.isPublicProfile ? 'Followers' : 'Members'),
+      ),
       actions: [
         IconButton(
           tooltip: context.tr(_searching ? 'Close' : 'Search members'),
@@ -677,8 +680,12 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   child: Text(
                     context.trCount(
                       activeCount,
-                      singular: '{count} member',
-                      plural: '{count} members',
+                      singular: widget.community.isPublicProfile
+                          ? '{count} follower'
+                          : '{count} member',
+                      plural: widget.community.isPublicProfile
+                          ? '{count} followers'
+                          : '{count} members',
                     ),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
@@ -1125,14 +1132,28 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Community settings'))),
+    appBar: AppBar(
+      title: Text(
+        context.tr(
+          widget.community.isPublicProfile
+              ? (_profileCategory == ProfileCategory.localBusiness
+                    ? 'Business settings'
+                    : 'Profile settings')
+              : 'Community settings',
+        ),
+      ),
+    ),
     body: Form(
       key: _form,
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           Text(
-            context.tr('Community cover photo'),
+            context.tr(
+              widget.community.isPublicProfile
+                  ? 'Page cover photo'
+                  : 'Community cover photo',
+            ),
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -1183,7 +1204,13 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           ),
           const SizedBox(height: 12),
           Text(
-            context.tr('Community profile photo'),
+            context.tr(
+              widget.community.isPublicProfile
+                  ? (_profileCategory == ProfileCategory.localBusiness
+                        ? 'Business profile photo'
+                        : 'Profile photo')
+                  : 'Community profile photo',
+            ),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -1200,7 +1227,18 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                             color: Theme.of(
                               context,
                             ).colorScheme.primaryContainer,
-                            child: const Icon(Icons.groups_outlined, size: 48),
+                            child: Icon(
+                              !widget.community.isPublicProfile
+                                  ? Icons.groups_outlined
+                                  : _profileCategory ==
+                                        ProfileCategory.localBusiness
+                                  ? Icons.storefront_outlined
+                                  : _profileCategory ==
+                                        ProfileCategory.organization
+                                  ? Icons.apartment_outlined
+                                  : Icons.person_outline,
+                              size: 48,
+                            ),
                           )
                         : Image.network(
                             _imageUrl!,
@@ -1218,7 +1256,11 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                   right: -8,
                   bottom: -8,
                   child: IconButton.filled(
-                    tooltip: context.tr('Change community photo'),
+                    tooltip: context.tr(
+                      widget.community.isPublicProfile
+                          ? 'Change page photo'
+                          : 'Change community photo',
+                    ),
                     onPressed: _uploadingImage
                         ? null
                         : () => _pickImage(cover: false),
@@ -1250,7 +1292,11 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             maxLengthEnforcement: MaxLengthEnforcement.enforced,
             autovalidateMode: AutovalidateMode.onUserInteraction,
             validator: (value) => value == null || value.trim().isEmpty
-                ? context.tr('Add a community name.')
+                ? context.tr(
+                    widget.community.isPublicProfile
+                        ? 'Add a page name.'
+                        : 'Add a community name.',
+                  )
                 : value.characters.length > CommunityInputLimits.name
                 ? context.tr('Use at most {count} characters.', {
                     'count': '${CommunityInputLimits.name}',
@@ -1281,7 +1327,14 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               initialValue: _profileCategory,
               decoration: InputDecoration(
                 labelText: context.tr('Profile category'),
+                prefixIcon: Icon(
+                  _profileCategory == ProfileCategory.localBusiness
+                      ? Icons.storefront_outlined
+                      : Icons.person_outline,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
+              icon: const Icon(Icons.keyboard_arrow_down),
               items: [
                 for (final category in ProfileCategory.values)
                   DropdownMenuItem(
@@ -1295,19 +1348,32 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             ),
             const SizedBox(height: 16),
             if (_profileCategory == ProfileCategory.localBusiness) ...[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  context.tr('Business services'),
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.tr('Main services'),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${_businessServices.length}/3',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  context.tr('Choose up to 3 services shown on your page.'),
-                  style: Theme.of(context).textTheme.bodySmall,
+              Text(
+                context.tr(
+                  'Choose up to 3 services that describe your business.',
+                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 10),
@@ -1317,7 +1383,52 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                 children: [
                   for (final service in BusinessService.values)
                     FilterChip(
-                      label: Text(context.tr(service.label)),
+                      showCheckmark: false,
+                      avatar: Icon(
+                        businessServiceIcon(service),
+                        size: 20,
+                        color: _businessServices.contains(service)
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurface,
+                      ),
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(context.tr(service.label)),
+                          if (_businessServices.contains(service)) ...[
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.check_circle,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ],
+                        ],
+                      ),
+                      labelStyle: TextStyle(
+                        color: _businessServices.contains(service)
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      selectedColor: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: .12),
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      side: BorderSide(
+                        color: _businessServices.contains(service)
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: .25)
+                            : Theme.of(context).colorScheme.outline,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
                       selected: _businessServices.contains(service),
                       onSelected: _saving
                           ? null
@@ -1348,9 +1459,19 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               const SizedBox(height: 16),
             ],
           ],
+          const Divider(height: 28),
           DropdownButtonFormField<CommunityVisibility>(
             initialValue: _visibility,
-            decoration: InputDecoration(labelText: context.tr('Visibility')),
+            icon: const Icon(Icons.keyboard_arrow_down),
+            decoration: InputDecoration(
+              labelText: context.tr('Visibility'),
+              prefixIcon: Icon(
+                _visibility == CommunityVisibility.public
+                    ? Icons.public
+                    : Icons.lock_outline,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
             items: CommunityVisibility.values
                 .map(
                   (value) => DropdownMenuItem(
@@ -1390,6 +1511,10 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               maxLength: 300,
               decoration: InputDecoration(
                 labelText: context.tr('Business address'),
+                prefixIcon: Icon(
+                  Icons.location_on_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 hintText: context.tr('Street, town, province'),
               ),
             ),
@@ -1562,6 +1687,12 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
             onPressed: _saving || _uploadingImage ? null : _save,
             icon: _saving
                 ? const SizedBox.square(
@@ -1841,9 +1972,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     if (bytes.length > 10 * 1024 * 1024) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('The community photo must be under 10 MB.'),
-          ),
+          SnackBar(content: Text(context.tr('The photo must be under 10 MB.'))),
         );
       }
       return;

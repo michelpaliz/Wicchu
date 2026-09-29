@@ -114,6 +114,11 @@ class LanguageMenu extends StatelessWidget {
 }
 
 const _spanish = <String, String>{
+  'Write something…': 'Escribe algo…',
+  'Before posting, read and agree to the community rules.':
+      'Antes de publicar, lee y acepta las reglas de la comunidad.',
+  'Agree and continue': 'Aceptar y continuar',
+
   'Unable to load rating': 'No se pudo cargar la valoración',
   'Read the guidelines for a safe and respectful community.':
       'Lee las normas para mantener un espacio seguro y respetuoso.',
@@ -1199,7 +1204,89 @@ const _spanish = <String, String>{
       'Los seguidores pueden ver e interactuar con tus publicaciones.',
   'Followers': 'Seguidores',
   'Follow': 'Seguir',
+  'Manage business': 'Administrar negocio',
+  'Business settings': 'Ajustes del negocio',
+  'Profile settings': 'Ajustes del perfil',
+  'Page activity and key details': 'Actividad y datos de la página',
+  'Manage page categories': 'Gestiona las categorías de la página',
+  'Define the page rules': 'Define las reglas de la página',
+  'Manage followers': 'Gestiona los seguidores',
+  'Manage page invitations': 'Administra las invitaciones de la página',
+  'Configure your page': 'Configura tu página',
+  'Page cover photo': 'Foto de portada de la página',
+  'Change page photo': 'Cambiar foto de la página',
+  'Page overview': 'Resumen de la página',
+  'Business rating': 'Valoración del negocio',
+  'Profile rating': 'Valoración del perfil',
+  'Business rules': 'Reglas del negocio',
+  'Profile rules': 'Reglas del perfil',
+  'No business rules have been added yet.':
+      'Aún no se han añadido reglas del negocio.',
+  'No profile rules have been added yet.':
+      'Aún no se han añadido reglas del perfil.',
+  'Do you find this business helpful?': '¿Te resulta útil este negocio?',
+  'Do you find this profile helpful?': '¿Te resulta útil este perfil?',
+  '{percentage}% of followers find this business helpful':
+      'El {percentage}% de los seguidores considera útil este negocio',
+  '{percentage}% of followers find this profile helpful':
+      'El {percentage}% de los seguidores considera útil este perfil',
+  '{count} more response is needed to show the business score.':
+      'Se necesita {count} respuesta más para mostrar la puntuación del negocio.',
+  '{count} more responses are needed to show the business score.':
+      'Se necesitan {count} respuestas más para mostrar la puntuación del negocio.',
+  '{count} more response is needed to show the profile score.':
+      'Se necesita {count} respuesta más para mostrar la puntuación del perfil.',
+  '{count} more responses are needed to show the profile score.':
+      'Se necesitan {count} respuestas más para mostrar la puntuación del perfil.',
+  'Business feedback': 'Opiniones sobre el negocio',
+  'Profile feedback': 'Opiniones sobre el perfil',
+  'Is the business page well organized?':
+      '¿Está bien organizada la página del negocio?',
+  'Is the profile well organized?': '¿Está bien organizado el perfil?',
+  'Would you recommend this business to someone nearby?':
+      '¿Recomendarías este negocio a alguien de tu zona?',
+  'Would you recommend this profile to someone nearby?':
+      '¿Recomendarías este perfil a alguien de tu zona?',
+  'Anonymous follower insights': 'Opiniones anónimas de los seguidores',
+  'Search communities, businesses or people…':
+      'Buscar comunidades, negocios o personas…',
+  'Discovery filters': 'Filtros de exploración',
+  'Businesses': 'Negocios',
+  'Show': 'Mostrar',
+  'Created': 'Fecha de creación',
+  'Any time': 'Cualquier fecha',
+  'Last 24 hours': 'Últimas 24 horas',
+  'Last 7 days': 'Últimos 7 días',
+  'Last 30 days': 'Últimos 30 días',
+  'Last 90 days': 'Últimos 90 días',
+  'Members / followers': 'Miembros / seguidores',
+  'Any number': 'Cualquier cantidad',
+  'Fewer than 50': 'Menos de 50',
+  '500 or more': '500 o más',
+  'Apply filters': 'Aplicar filtros',
+  'Reset filters': 'Restablecer filtros',
+  'No spaces match these filters.':
+      'No hay espacios que coincidan con estos filtros.',
+  'Adjust filters': 'Ajustar filtros',
+  'My spaces': 'Mis espacios',
+  'Spaces I manage': 'Espacios que administro',
+  '{count} space': '{count} espacio',
+  '{count} spaces': '{count} espacios',
+  'No spaces in this section yet.': 'Aún no hay espacios en esta sección.',
+  'No spaces available for publishing.':
+      'No tienes espacios en los que puedas publicar.',
+  'You do not have permission to publish in this space.':
+      'No tienes permiso para publicar en este espacio.',
+  'Business profile photo': 'Foto de perfil del negocio',
+  'Profile photo': 'Foto de perfil',
+  'The photo must be under 10 MB.': 'La foto debe ocupar menos de 10 MB.',
+  'Main services': 'Servicios principales',
+  'Choose up to 3 services that describe your business.':
+      'Elige hasta 3 servicios que describan tu negocio.',
   'Following': 'Siguiendo',
+  'Unfollow': 'Dejar de seguir',
+  'Profile information': 'Información del perfil',
+  'Profile type': 'Tipo de perfil',
   '{count} follower': '{count} seguidor',
   '{count} followers': '{count} seguidores',
   'Follow to view followers.': 'Sigue el perfil para ver sus seguidores.',

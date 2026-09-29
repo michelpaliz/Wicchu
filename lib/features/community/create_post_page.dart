@@ -165,7 +165,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
   bool get _canSubmit {
-    if (_saving ||
+    if (!widget.community.canPublish ||
+        _saving ||
         _uploading ||
         _category == null ||
         _textController.document.toPlainText().trim().isEmpty ||
@@ -193,6 +194,22 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.community.canPublish) {
+      return Scaffold(
+        appBar: AppBar(title: Text(context.tr('Create post'))),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              context.tr(
+                'You do not have permission to publish in this space.',
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
     final categories =
         widget.categories.isEmpty && widget.initialCategory != null
         ? [widget.initialCategory!]
@@ -653,7 +670,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
   Future<void> _publish() async {
-    if (_saving) return;
+    if (_saving || !widget.community.canPublish) return;
     if (_textController.exceedsCharacterLimit) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -688,6 +705,23 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
     setState(() => _saving = true);
     try {
+      final currentSpace = await widget.repository.getCommunity(
+        widget.community.id,
+      );
+      if (!currentSpace.canPublish) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                context.tr(
+                  'You do not have permission to publish in this space.',
+                ),
+              ),
+            ),
+          );
+        }
+        return;
+      }
       final input = CreatePostInput(
         categoryId: _category!.id,
         text: text,

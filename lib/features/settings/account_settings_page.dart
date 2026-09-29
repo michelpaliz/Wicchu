@@ -208,6 +208,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  trailing: const Icon(Icons.open_in_new, size: 20),
+                  title: Text(context.tr('Privacy Policy')),
+                  onTap: _openPrivacyPolicy,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.delete_outline),
                   trailing: const Icon(Icons.open_in_new, size: 20),
                   onTap: _openDataDeletion,
@@ -308,6 +315,26 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    try {
+      if (!await launchUrl(
+        Uri.parse(WicchuUrls.privacy),
+        mode: LaunchMode.externalApplication,
+      )) {
+        throw Exception('Unable to open link');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.tr('Could not open the page. Please try again.'),
+          ),
+        ),
+      );
     }
   }
 

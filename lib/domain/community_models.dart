@@ -270,6 +270,12 @@ class Community {
   final BusinessLocation? businessLocation;
 
   bool get isJoined => myRole != null;
+
+  bool get canPublish =>
+      isJoined &&
+      (!isPublicProfile ||
+          myRole == CommunityRole.owner ||
+          myRole == CommunityRole.admin);
   bool get isPublicProfile => type == CommunityType.publicProfile;
   int get followerCount => memberCount;
 }

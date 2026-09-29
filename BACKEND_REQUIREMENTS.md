@@ -97,3 +97,12 @@ do not infer the category from names or descriptions.
 Backend implementation is required for persistence; this frontend repository does
 not contain that service. The UI reports when a save response does not confirm the
 selected category, rather than showing a category that was not stored.
+
+## Public-page publishing authorization
+
+The frontend limits publishing on every public profile subtype to owners and
+administrators. Following a page (member role) does not grant publishing rights.
+The posts API must independently enforce this rule on create and update requests,
+using the authenticated user's current role, and reject unauthorized requests
+with HTTP 403. Community member publishing and existing post edit ownership
+checks remain separate. Client-side checks are not a replacement for API authorization.

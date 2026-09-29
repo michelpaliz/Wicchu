@@ -39,8 +39,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('2 pending actions'), findsOneWidget);
       expect(find.text('All caught up'), findsNothing);
-      await tester.tap(find.byTooltip('Close'));
-      await tester.pumpAndSettle();
       expect(find.text('Tip'), findsNothing);
       expect(tester.takeException(), isNull);
     },

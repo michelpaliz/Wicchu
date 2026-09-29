@@ -55,6 +55,7 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   Future<void> _createPost() async {
+    if (!widget.canPost || !widget.community.canPublish) return;
     final post = await Navigator.push<CommunityPost>(
       context,
       MaterialPageRoute(
@@ -72,7 +73,7 @@ class _CategoryPageState extends State<CategoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr(widget.category.name))),
-      floatingActionButton: widget.canPost
+      floatingActionButton: (widget.canPost && widget.community.canPublish)
           ? FloatingActionButton.extended(
               onPressed: _createPost,
               icon: const Icon(Icons.add),
@@ -127,7 +128,9 @@ class _CategoryPageState extends State<CategoryPage> {
                 if (posts.isEmpty) {
                   return CategoryEmptyState(
                     category: widget.category.name,
-                    onPublish: widget.canPost ? _createPost : null,
+                    onPublish: widget.canPost && widget.community.canPublish
+                        ? _createPost
+                        : null,
                   );
                 }
                 return Column(

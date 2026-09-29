@@ -1,3 +1,5 @@
+import '../community/space_role_icon.dart';
+import '../community/space_collection_list.dart';
 import '../community/community_share.dart';
 import '../community/category_empty_state.dart';
 import '../../widgets/feed_filter_bar.dart';
@@ -646,7 +648,7 @@ class _HomeTabState extends State<_HomeTab> {
       final active = data.communities
           .where((c) => c.id == _selectedCommunityId)
           .firstOrNull;
-      if (active != null) {
+      if (active != null && active.canPublish) {
         await _createPost(active);
       } else {
         await _startPost(data.communities);
@@ -660,6 +662,7 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   Future<void> _createPost(Community community) async {
+    if (!community.canPublish) return;
     try {
       final categories = await widget.repository.listCategories(community.id);
       if (!mounted) return;
@@ -693,7 +696,15 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   Future<void> _startPost(List<Community> communities) async {
-    if (communities.isEmpty) return;
+    communities = communities.where((space) => space.canPublish).toList();
+    if (communities.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('No spaces available for publishing.')),
+        ),
+      );
+      return;
+    }
     if (communities.length == 1) {
       await _createPost(communities.first);
       return;
@@ -1450,9 +1461,11 @@ class _ExploreTabState extends State<_ExploreTab> {
   late Future<List<Community>> _communities;
   final _saving = <String>{};
   Timer? _searchDelay;
-  bool _showSearch = false;
+  final _searchController = TextEditingController();
   String _query = '';
   int _filter = 0;
+  int _createdWithinDays = 0;
+  int _audienceRange = 0;
   Position? _position;
   bool _usingLocation = false;
   bool _locating = false;
@@ -1586,6 +1599,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   @override
   void dispose() {
     _searchDelay?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -1603,6 +1617,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   void _selectFilter(int index) {
     _searchDelay?.cancel();
     setState(() {
+      _query = _searchController.text;
       _filter = index;
       _reload();
     });
@@ -1729,62 +1744,61 @@ class _ExploreTabState extends State<_ExploreTab> {
   Widget _communityCard(Community community) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final role = switch (community.myRole) {
-      CommunityRole.owner => 'Owner',
-      CommunityRole.admin => 'Administrator',
-      CommunityRole.moderator => 'Moderator',
-      _ => community.isPublicProfile ? 'Following' : 'Member',
-    };
     final typeIcon = !community.isPublicProfile
         ? Icons.groups_outlined
         : community.profileCategory == ProfileCategory.localBusiness
         ? Icons.storefront_outlined
         : Icons.person_outline;
-    Widget badge(String label, {IconData? icon}) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: scheme.primary.withValues(alpha: .09),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 16, color: scheme.primary),
-            const SizedBox(width: 5),
-          ],
-          Flexible(
-            child: Text(
-              context.tr(label),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: scheme.primary,
-              ),
+    Widget metadata(
+      IconData icon,
+      String text, {
+      CommunityVisibility? visibility,
+    }) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: scheme.primary),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
           ),
-        ],
-      ),
-    );
-    Widget metadata(IconData icon, String text) => Padding(
-      padding: const EdgeInsets.only(top: 5),
-      child: Row(
-        children: [
-          Icon(icon, size: 17, color: scheme.primary),
+        ),
+        if (visibility != null) ...[
           const SizedBox(width: 6),
-          Expanded(
+          Tooltip(
+            message: context.tr(
+              visibility == CommunityVisibility.public ? 'Public' : 'Private',
+            ),
+            triggerMode: TooltipTriggerMode.tap,
+            child: Icon(
+              visibility == CommunityVisibility.public
+                  ? Icons.public
+                  : Icons.lock_outline,
+              size: 15,
+              color: scheme.primary,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Flexible(
             child: Text(
-              text,
+              context.tr(
+                visibility == CommunityVisibility.public ? 'Public' : 'Private',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
             ),
           ),
         ],
-      ),
+      ],
     );
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 6),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
@@ -1794,14 +1808,14 @@ class _ExploreTabState extends State<_ExploreTab> {
       child: InkWell(
         onTap: () => _openCommunity(community),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final compact =
                   constraints.maxWidth < 340 ||
                   MediaQuery.textScalerOf(context).scale(1) > 1.2;
               final action = community.isJoined
-                  ? badge(role)
+                  ? SpaceRoleIcon(space: community)
                   : FilledButton(
                       onPressed: _saving.contains(community.id)
                           ? null
@@ -1824,11 +1838,36 @@ class _ExploreTabState extends State<_ExploreTab> {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CommunityAvatar(
-                    community: community,
-                    radius: compact ? 30 : 36,
+                  SizedBox(
+                    width: compact ? 48 : 56,
+                    child: Column(
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            CommunityAvatar(
+                              community: community,
+                              radius: compact ? 24 : 28,
+                            ),
+                            Positioned(
+                              left: -4,
+                              top: -2,
+                              child: CircleAvatar(
+                                radius: 11,
+                                backgroundColor: scheme.surface,
+                                child: Icon(
+                                  typeIcon,
+                                  size: 15,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1843,85 +1882,86 @@ class _ExploreTabState extends State<_ExploreTab> {
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontSize: 16,
+                                  height: 1.2,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
-                            if (!compact) ...[const SizedBox(width: 8), action],
-                            SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: PopupMenuButton<String>(
-                                tooltip: context.tr('More options'),
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(Icons.more_vert, size: 20),
-                                onSelected: (value) {
-                                  if (value == 'share') {
-                                    shareCommunity(context, community);
-                                  } else {
-                                    _openCommunity(community);
-                                  }
-                                },
-                                itemBuilder: (_) => [
-                                  PopupMenuItem(
-                                    value: 'open',
-                                    child: Text(
-                                      context.tr(
-                                        community.isPublicProfile
-                                            ? 'Open profile'
-                                            : 'Open community',
-                                      ),
-                                    ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'share',
-                                    child: Text(context.tr('Share')),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            if (!compact && !community.isJoined) ...[
+                              const SizedBox(width: 8),
+                              action,
+                            ],
                           ],
                         ),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 2),
                         Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 4,
                           children: [
-                            badge(community.spaceTypeLabel, icon: typeIcon),
-                            if (compact) action,
+                            metadata(
+                              Icons.location_on_outlined,
+                              _filter == 1 && community.distanceKm != null
+                                  ? '${community.distanceKm!.toStringAsFixed(1).replaceAll('.', context.isSpanish ? ',' : '.')} km'
+                                  : community.town.name,
+                            ),
+                            metadata(
+                              Icons.people_outline,
+                              context.trCount(
+                                community.memberCount,
+                                singular: community.isPublicProfile
+                                    ? '{count} follower'
+                                    : '{count} member',
+                                plural: community.isPublicProfile
+                                    ? '{count} followers'
+                                    : '{count} members',
+                              ),
+                              visibility: community.isPublicProfile
+                                  ? null
+                                  : community.visibility,
+                            ),
                           ],
                         ),
-                        if (community.description.trim().isNotEmpty) ...[
-                          const SizedBox(height: 7),
-                          Text(
-                            community.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              height: 1.4,
-                            ),
+                        if (!community.isJoined && compact) ...[
+                          const SizedBox(height: 2),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [action],
                           ),
                         ],
-                        const SizedBox(height: 4),
-                        metadata(
-                          Icons.location_on_outlined,
-                          _filter == 1 && community.distanceKm != null
-                              ? '${community.distanceKm!.toStringAsFixed(1).replaceAll('.', context.isSpanish ? ',' : '.')} km'
-                              : community.town.name,
-                        ),
-                        metadata(
-                          Icons.people_outline,
-                          context.trCount(
-                            community.memberCount,
-                            singular: community.isPublicProfile
-                                ? '{count} follower'
-                                : '{count} member',
-                            plural: community.isPublicProfile
-                                ? '{count} followers'
-                                : '{count} members',
+                      ],
+                    ),
+                  ),
+                  if (community.isJoined) SpaceRoleIcon(space: community),
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: PopupMenuButton<String>(
+                      tooltip: context.tr('More options'),
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.more_vert, size: 20),
+                      onSelected: (value) {
+                        if (value == 'share') {
+                          shareCommunity(context, community);
+                        } else {
+                          _openCommunity(community);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'open',
+                          child: Text(
+                            context.tr(
+                              community.isPublicProfile
+                                  ? 'Open profile'
+                                  : 'Open community',
+                            ),
                           ),
+                        ),
+                        PopupMenuItem(
+                          value: 'share',
+                          child: Text(context.tr('Share')),
                         ),
                       ],
                     ),
@@ -1947,7 +1987,7 @@ class _ExploreTabState extends State<_ExploreTab> {
           onTap: () {
             _searchDelay?.cancel();
             setState(() {
-              _showSearch = false;
+              _searchController.clear();
               _query = '';
               _filter = 0;
               _reload();
@@ -1999,71 +2039,202 @@ class _ExploreTabState extends State<_ExploreTab> {
     );
   }
 
+  Future<void> _openDiscoveryFilters() async {
+    var scope = _filter;
+    var days = _createdWithinDays;
+    var audience = _audienceRange;
+    final apply = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  context.tr('Discovery filters'),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 20),
+                DropdownButtonFormField<int>(
+                  initialValue: scope,
+                  decoration: InputDecoration(labelText: context.tr('Show')),
+                  items: [
+                    for (final entry in const {
+                      0: 'All',
+                      3: 'Communities',
+                      5: 'Businesses',
+                      6: 'People',
+                      1: 'Near you',
+                      2: 'My communities',
+                      4: 'Public profiles',
+                    }.entries)
+                      DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(context.tr(entry.value)),
+                      ),
+                  ],
+                  onChanged: (value) => scope = value ?? 0,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  initialValue: days,
+                  decoration: InputDecoration(labelText: context.tr('Created')),
+                  items: [
+                    for (final entry in const {
+                      0: 'Any time',
+                      1: 'Last 24 hours',
+                      7: 'Last 7 days',
+                      30: 'Last 30 days',
+                      90: 'Last 90 days',
+                    }.entries)
+                      DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(context.tr(entry.value)),
+                      ),
+                  ],
+                  onChanged: (value) => days = value ?? 0,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  initialValue: audience,
+                  decoration: InputDecoration(
+                    labelText: context.tr('Members / followers'),
+                  ),
+                  items: [
+                    for (final entry in const {
+                      0: 'Any number',
+                      1: 'Fewer than 50',
+                      2: '50–499',
+                      3: '500 or more',
+                    }.entries)
+                      DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(context.tr(entry.value)),
+                      ),
+                  ],
+                  onChanged: (value) => audience = value ?? 0,
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => Navigator.pop(sheetContext, true),
+                  child: Text(context.tr('Apply filters')),
+                ),
+                TextButton(
+                  onPressed: () {
+                    scope = 0;
+                    days = 0;
+                    audience = 0;
+                    Navigator.pop(sheetContext, true);
+                  },
+                  child: Text(context.tr('Reset filters')),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted || apply != true) return;
+    setState(() {
+      _createdWithinDays = days;
+      _audienceRange = audience;
+    });
+    _selectFilter(scope);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      centerTitle: false,
-      titleSpacing: 20,
-      title: _showSearch
-          ? TextField(
-              autofocus: true,
-              onChanged: _search,
-              decoration: InputDecoration(
-                hintText: context.tr('Search spaces'),
-                prefixIcon: const Icon(Icons.search),
-                isDense: true,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                filled: false,
-              ),
-            )
-          : Text(
-              context.tr('Explore'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 30),
+      automaticallyImplyLeading: false,
+      toolbarHeight: 64,
+      titleSpacing: 16,
+      title: TextField(
+        key: const ValueKey('explore-search'),
+        controller: _searchController,
+        onChanged: _search,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: context.tr('Search communities, businesses or people…'),
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _searchController,
+            builder: (context, value, _) => value.text.isEmpty
+                ? const SizedBox.shrink()
+                : IconButton(
+                    tooltip: context.tr('Clear search'),
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      _searchDelay?.cancel();
+                      _searchController.clear();
+                      setState(() {
+                        _query = '';
+                        _reload();
+                      });
+                    },
+                  ),
+          ),
+          isDense: true,
+          filled: true,
+          fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(28),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
             ),
+          ),
+        ),
+      ),
       actions: [
         IconButton(
-          tooltip: context.tr(_showSearch ? 'Close search' : 'Search spaces'),
-          onPressed: () => setState(() {
-            _showSearch = !_showSearch;
-            if (!_showSearch) {
-              _searchDelay?.cancel();
-              _query = '';
-              _reload();
-            }
-          }),
-          icon: Icon(_showSearch ? Icons.close : Icons.search),
+          tooltip: context.tr('Discovery filters'),
+          onPressed: _openDiscoveryFilters,
+          icon: Badge(
+            isLabelVisible: _createdWithinDays != 0 || _audienceRange != 0,
+            child: Icon(
+              Icons.tune,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
         ),
+        const SizedBox(width: 8),
       ],
     ),
     body: Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              context.tr(
-                'Discover communities, businesses and public profiles near you.',
-              ),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ),
         FeedFilterBar(
+          height: 48,
           labels: [
             context.tr('All'),
             context.tr('Communities'),
-            context.tr('Public profiles'),
-            context.tr('Local businesses'),
-            context.tr('Near you'),
-            context.tr('My communities'),
+            context.tr('Businesses'),
+            context.tr('People'),
+            if (_filter == 1) context.tr('Near you'),
+            if (_filter == 2) context.tr('My communities'),
+            if (_filter == 4) context.tr('Public profiles'),
           ],
-          selectedIndex: const [0, 3, 4, 5, 1, 2].indexOf(_filter),
-          onSelected: (index) => _selectFilter(const [0, 3, 4, 5, 1, 2][index]),
+          selectedIndex: [
+            0,
+            3,
+            5,
+            6,
+            if ([1, 2, 4].contains(_filter)) _filter,
+          ].indexOf(_filter),
+          onSelected: (index) => _selectFilter(
+            [
+              0,
+              3,
+              5,
+              6,
+              if ([1, 2, 4].contains(_filter)) _filter,
+            ][index],
+          ),
         ),
         Expanded(
           child: RefreshIndicator(
@@ -2111,6 +2282,11 @@ class _ExploreTabState extends State<_ExploreTab> {
                   );
                 }
                 final query = _query.trim().toLowerCase();
+                final cutoff = _createdWithinDays == 0
+                    ? null
+                    : DateTime.now().subtract(
+                        Duration(days: _createdWithinDays),
+                      );
                 final communities = (snapshot.data ?? <Community>[])
                     .where(
                       (community) => _filter == 3
@@ -2119,6 +2295,12 @@ class _ExploreTabState extends State<_ExploreTab> {
                           ? community.isPublicProfile &&
                                 community.profileCategory ==
                                     ProfileCategory.localBusiness
+                          : _filter == 6
+                          ? community.isPublicProfile &&
+                                (community.profileCategory ==
+                                        ProfileCategory.person ||
+                                    community.profileCategory ==
+                                        ProfileCategory.creator)
                           : _filter == 4
                           ? community.isPublicProfile
                           : true,
@@ -2129,15 +2311,45 @@ class _ExploreTabState extends State<_ExploreTab> {
                           community.name.toLowerCase().contains(query) ||
                           community.town.name.toLowerCase().contains(query),
                     )
+                    .where(
+                      (community) =>
+                          (cutoff == null ||
+                              !community.createdAt.isBefore(cutoff)) &&
+                          switch (_audienceRange) {
+                            1 => community.memberCount < 50,
+                            2 =>
+                              community.memberCount >= 50 &&
+                                  community.memberCount < 500,
+                            3 => community.memberCount >= 500,
+                            _ => true,
+                          },
+                    )
                     .toList();
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
                     if (status != null)
                       status
+                    else if (communities.isEmpty &&
+                        (_createdWithinDays != 0 || _audienceRange != 0))
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            Text(
+                              context.tr('No spaces match these filters.'),
+                              textAlign: TextAlign.center,
+                            ),
+                            TextButton(
+                              onPressed: _openDiscoveryFilters,
+                              child: Text(context.tr('Adjust filters')),
+                            ),
+                          ],
+                        ),
+                      )
                     else if (communities.isEmpty)
                       _emptyState()
                     else
@@ -2825,7 +3037,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${context.trCount(profile.communityCount, singular: '{count} community', plural: '{count} communities')} · '
+                            '${context.trCount(profile.communityCount, singular: '{count} space', plural: '{count} spaces')} · '
                             '${context.trCount(profile.postCount, singular: '{count} post', plural: '{count} posts')}',
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
@@ -2860,9 +3072,9 @@ class _ProfileTabState extends State<_ProfileTab> {
             _accountCard([
               _ProfileRow(
                 icon: Icons.groups_outlined,
-                label: 'My communities',
+                label: 'My spaces',
                 onTap: () => _openCommunities(
-                  'My communities',
+                  'My spaces',
                   widget.repository.listJoinedCommunities,
                 ),
               ),
@@ -2895,7 +3107,7 @@ class _ProfileTabState extends State<_ProfileTab> {
             _accountCard([
               _ProfileRow(
                 icon: Icons.shield_outlined,
-                label: 'Communities I manage',
+                label: 'Spaces I manage',
                 onTap: () async {
                   await Navigator.push(
                     context,
@@ -3130,8 +3342,6 @@ class _CommunityCollectionPage extends StatefulWidget {
 class _CommunityCollectionPageState extends State<_CommunityCollectionPage> {
   late Future<List<Community>> _communities = widget.loadCommunities();
 
-  bool _showTip = true;
-
   Future<void> _open(Community community) async {
     await Navigator.push(
       context,
@@ -3168,7 +3378,18 @@ class _CommunityCollectionPageState extends State<_CommunityCollectionPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr(widget.title))),
+    appBar: AppBar(
+      centerTitle: false,
+      title: Text(context.tr(widget.title)),
+      actions: [
+        TextButton.icon(
+          onPressed: _create,
+          icon: const Icon(Icons.add, size: 20),
+          label: Text(context.tr('Create')),
+        ),
+        const SizedBox(width: 8),
+      ],
+    ),
     body: FutureBuilder<List<Community>>(
       future: _communities,
       builder: (context, snapshot) {
@@ -3178,203 +3399,10 @@ class _CommunityCollectionPageState extends State<_CommunityCollectionPage> {
         if (snapshot.hasError) {
           return _LoadError(error: snapshot.error!, onRetry: _refresh);
         }
-        final communities = snapshot.data ?? const [];
-        return RefreshIndicator(
+        return SpaceCollectionList(
+          spaces: snapshot.data ?? const [],
+          onOpen: _open,
           onRefresh: _refresh,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.trCount(
-                            communities.length,
-                            singular: '{count} community',
-                            plural: '{count} communities',
-                          ),
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          context.tr(
-                            'Connect with the communities you belong to.',
-                          ),
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.icon(
-                    onPressed: _create,
-                    icon: const Icon(Icons.add),
-                    label: Text(context.tr('Create')),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              if (communities.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(context.tr('No communities found')),
-                ),
-              for (final community in communities)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Material(
-                    color: Theme.of(context).colorScheme.surface,
-                    elevation: 2,
-                    shadowColor: Theme.of(
-                      context,
-                    ).colorScheme.shadow.withValues(alpha: 0.12),
-                    surfaceTintColor: Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => _open(community),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            CommunityAvatar(community: community, radius: 34),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    community.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 20,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    context.trCount(
-                                      community.memberCount,
-                                      singular: '{count} member',
-                                      plural: '{count} members',
-                                    ),
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  if (community.myRole != null) ...[
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.check_circle,
-                                          size: 18,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(
-                                            context.tr(
-                                              community.myRole ==
-                                                      CommunityRole.owner
-                                                  ? 'Owner'
-                                                  : community.myRole!.name,
-                                            ),
-                                            style: TextStyle(
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.primary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.chevron_right),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              if (_showTip) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.1),
-                        child: Icon(
-                          Icons.lightbulb_outline,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.tr('Tip'),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              context.tr(
-                                'Open a community to read posts, discover events and connect with your neighbors.',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: context.tr('Close'),
-                        onPressed: () => setState(() => _showTip = false),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
         );
       },
     ),

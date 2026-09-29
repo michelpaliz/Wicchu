@@ -1,3 +1,4 @@
+import 'package:wicchu/features/community/post_rules_review_page.dart';
 import 'package:wicchu/features/community/create_post_page.dart';
 import 'dart:async';
 import 'package:wicchu/features/community/post_rich_text_editor.dart';
@@ -342,6 +343,9 @@ void main() {
 
       await tester.tap(find.bySemanticsLabel('Post'));
       await tester.pumpAndSettle();
+      expect(find.byType(PostRulesReviewPage), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
       expect(
         find.text('Posting to Second neighborhood', findRichText: true),
         findsOneWidget,
@@ -582,6 +586,14 @@ void main() {
     expect(find.text('About'), findsNothing);
     expect(find.text('Members'), findsNothing);
     expect(find.text('All'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('community-composer-entry')));
+    await tester.pumpAndSettle();
+    expect(find.byType(PostRulesReviewPage), findsOneWidget);
+    expect(find.byType(CreatePostPage), findsNothing);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(CreatePostPage), findsNothing);
     await tester.tap(find.byKey(const ValueKey('community-role-badge')));
     await tester.pumpAndSettle();
     expect(find.text('You own this community'), findsOneWidget);
@@ -646,7 +658,7 @@ void main() {
   });
 
   testWidgets(
-    'business profile shows identity and opens its first post composer',
+    'business profile opens information, followers and inline composer',
     (tester) async {
       final repository = DemoCommunityRepository();
       final profile = await repository.createCommunity(
@@ -670,19 +682,86 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Local business'), findsOneWidget);
-      expect(find.text('Gardens and pools'), findsOneWidget);
-      expect(find.text('Followers'), findsOneWidget);
+      expect(find.textContaining('Local business'), findsOneWidget);
+      expect(find.text('About'), findsNothing);
+      expect(find.text('Followers'), findsNothing);
       expect(find.text('All'), findsNothing);
-      expect(find.text('Share your first post'), findsOneWidget);
-      await tester.ensureVisible(find.text('Create post'));
+      expect(find.byType(FloatingActionButton), findsNothing);
+      await tester.tap(
+        find.byKey(const ValueKey('community-information-entry')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Create post'));
+      expect(find.text('Gardens and pools'), findsOneWidget);
+      final followers = find.byKey(const ValueKey('information-members-entry'));
+      await tester.ensureVisible(followers);
+      await tester.tap(followers);
+      await tester.pumpAndSettle();
+      expect(find.text('Followers'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('community-members-entry')));
+      await tester.pumpAndSettle();
+      expect(find.text('Followers'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      final composer = find.byKey(const ValueKey('community-composer-entry'));
+      await tester.ensureVisible(composer);
+      await tester.tap(composer);
       await tester.pumpAndSettle();
       expect(find.byType(CreatePostPage), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final category in ProfileCategory.values) {
+    testWidgets('information and rating copy for ${category.name}', (
+      tester,
+    ) async {
+      final repository = DemoCommunityRepository();
+      final profile = await repository.createCommunity(
+        CreateCommunityInput(
+          name: 'A long public page name for layout checking',
+          description: 'Page description',
+          town: const Town(id: 'town-1', name: 'Town X', countryCode: 'EC'),
+          visibility: CommunityVisibility.public,
+          categoryNames: const ['Posts'],
+          type: CommunityType.publicProfile,
+          profileCategory: category,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CommunityProfilePage(
+            community: profile,
+            repository: repository,
+            screen: CommunityScreen.information,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final title = category == ProfileCategory.localBusiness
+          ? 'Business rating'
+          : 'Profile rating';
+      expect(find.text('Community rating'), findsNothing);
+      final rating = find.text(title);
+      await tester.ensureVisible(rating);
+      await tester.tap(rating);
+      await tester.pumpAndSettle();
+      expect(find.text(title), findsWidgets);
+      expect(find.textContaining('community score'), findsNothing);
+      expect(
+        find.textContaining(
+          category == ProfileCategory.localBusiness
+              ? 'business score'
+              : 'profile score',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('community draft is preserved when exit is cancelled', (
     tester,
@@ -850,9 +929,13 @@ void main() {
       await tester.tap(find.text('Explore'));
       await tester.pumpAndSettle();
       expect(find.text('No communities to explore yet'), findsOneWidget);
-      await tester.ensureVisible(find.text('My communities'));
+      await tester.tap(find.byTooltip('Discovery filters'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('My communities'));
+      await tester.tap(find.byType(DropdownButtonFormField<int>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('My communities').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Apply filters'));
       await tester.pumpAndSettle();
       expect(find.text('Find your community'), findsOneWidget);
       await tester.ensureVisible(find.text('All'));
@@ -890,17 +973,32 @@ void main() {
       find.text(
         'Discover communities, businesses and public profiles near you.',
       ),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('Near you'), findsOneWidget);
-    await tester.tap(find.byTooltip('Search spaces'));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('explore-search')), findsOneWidget);
+    expect(find.text('Businesses'), findsOneWidget);
+    expect(find.text('People'), findsOneWidget);
     await tester.enterText(find.byType(TextField).last, 'Riverside');
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
 
     expect(find.text('Riverside'), findsWidgets);
     expect(find.text('Town X Community'), findsNothing);
+    await tester.tap(find.byTooltip('Discovery filters'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<int>).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('500 or more').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Apply filters'));
+    await tester.pumpAndSettle();
+    expect(find.text('No spaces match these filters.'), findsOneWidget);
+    await tester.tap(find.text('Adjust filters'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reset filters'));
+    await tester.pumpAndSettle();
+    expect(find.text('Riverside'), findsWidgets);
+    expect(find.text('No spaces match these filters.'), findsNothing);
   });
 
   testWidgets('requests popular category posts', (tester) async {
@@ -1047,11 +1145,11 @@ void main() {
     await tester.tap(find.text('Tú').last);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('1 comunidad · 0 publicaciones'),
+      find.text('1 espacio · 0 publicaciones'),
       -250,
       scrollable: find.byType(Scrollable).last,
     );
-    expect(find.text('1 comunidad · 0 publicaciones'), findsOneWidget);
+    expect(find.text('1 espacio · 0 publicaciones'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Cerrar sesión'),
       250,

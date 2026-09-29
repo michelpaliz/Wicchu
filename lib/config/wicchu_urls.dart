@@ -7,6 +7,6 @@ abstract final class WicchuUrls {
   static String community(String id, [String slug = '']) =>
       slug.isEmpty ? '$publicOrigin/communities/$id' : '$publicOrigin/$slug';
   static String post(String id) => '$publicOrigin/posts/$id';
-  static const privacy = '$publicOrigin/privacy';
+  static const privacy = 'https://hexora.dev/wicchu/privacy';
   static const dataDeletion = '$publicOrigin/data-deletion';
 }

@@ -147,7 +147,11 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         Text(
-                          context.tr('Community overview'),
+                          context.tr(
+                            _community.isPublicProfile
+                                ? 'Page overview'
+                                : 'Community overview',
+                          ),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         const SizedBox(height: 6),
@@ -162,8 +166,10 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                           ),
                           child: Text(
                             context.tr(
-                              _community.visibility ==
-                                      CommunityVisibility.public
+                              _community.isPublicProfile
+                                  ? _community.spaceTypeLabel
+                                  : _community.visibility ==
+                                        CommunityVisibility.public
                                   ? 'Public community'
                                   : 'Private community',
                             ),
@@ -283,7 +289,13 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                             TextButton(
                               onPressed: () =>
                                   Navigator.pop(context, _community),
-                              child: Text(context.tr('Manage community')),
+                              child: Text(
+                                context.tr(
+                                  _community.isPublicProfile
+                                      ? 'Manage profile'
+                                      : 'Manage community',
+                                ),
+                              ),
                             ),
                         ],
                       ),

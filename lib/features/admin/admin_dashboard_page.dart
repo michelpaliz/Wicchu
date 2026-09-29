@@ -51,7 +51,15 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(onPressed: () => Navigator.pop(context, community)),
-        title: Text(context.tr('Manage community')),
+        title: Text(
+          context.tr(
+            community.isPublicProfile
+                ? (community.profileCategory == ProfileCategory.localBusiness
+                      ? 'Manage business'
+                      : 'Manage profile')
+                : 'Manage community',
+          ),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -71,7 +79,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '${context.trCount(community.memberCount, singular: '{count} member', plural: '{count} members')} · ${context.tr(community.visibility == CommunityVisibility.public ? 'Public community' : 'Private community')}',
+                  '${context.trCount(community.memberCount, singular: community.isPublicProfile ? '{count} follower' : '{count} member', plural: community.isPublicProfile ? '{count} followers' : '{count} members')} · ${context.tr(community.isPublicProfile
+                      ? community.spaceTypeLabel
+                      : community.visibility == CommunityVisibility.public
+                      ? 'Public community'
+                      : 'Private community')}',
                 ),
               ),
               trailing: const Icon(Icons.chevron_right),
@@ -208,14 +220,18 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               _MenuRow(
                 icon: Icons.bar_chart_rounded,
                 label: 'Overview',
-                description: 'Community activity and key details',
+                description: community.isPublicProfile
+                    ? 'Page activity and key details'
+                    : 'Community activity and key details',
                 onTap: () => _openOverview(),
               ),
               if (_canConfigure)
                 _MenuRow(
                   icon: Icons.folder_outlined,
                   label: 'Categories',
-                  description: 'Manage community categories',
+                  description: community.isPublicProfile
+                      ? 'Manage page categories'
+                      : 'Manage community categories',
                   onTap: () => _openQueue(
                     CategoryManagementPage(
                       community: community,
@@ -226,7 +242,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               _MenuRow(
                 icon: Icons.rule_outlined,
                 label: 'Rules',
-                description: 'Define the community rules',
+                description: community.isPublicProfile
+                    ? 'Define the page rules'
+                    : 'Define the community rules',
                 onTap: () => _openQueue(
                   RuleManagementPage(
                     community: community,
@@ -242,8 +260,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               if (_canConfigure)
                 _MenuRow(
                   icon: Icons.group_outlined,
-                  label: 'Members',
-                  description: 'Manage community members',
+                  label: community.isPublicProfile ? 'Followers' : 'Members',
+                  description: community.isPublicProfile
+                      ? 'Manage followers'
+                      : 'Manage community members',
                   onTap: () => _openQueue(
                     MemberManagementPage(
                       community: community,
@@ -254,7 +274,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               _MenuRow(
                 icon: Icons.person_add_alt_1_outlined,
                 label: 'Invitations',
-                description: 'Manage community invitations',
+                description: community.isPublicProfile
+                    ? 'Manage page invitations'
+                    : 'Manage community invitations',
                 onTap: () => _openQueue(
                   CommunityInvitationsPage(
                     community: community,
@@ -287,7 +309,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 _MenuRow(
                   icon: Icons.settings_outlined,
                   label: 'Settings',
-                  description: 'Configure your community',
+                  description: community.isPublicProfile
+                      ? 'Configure your page'
+                      : 'Configure your community',
                   onTap: _openSettings,
                 ),
               ],
