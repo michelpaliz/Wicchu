@@ -142,6 +142,11 @@ class PublicMemberProfile {
     required this.postCount,
     required this.communityCount,
     this.avatarUrl,
+    this.coverImageUrl,
+    this.bio,
+    this.location,
+    this.followerCount,
+    this.followingCount,
     this.socialLinks = const SocialLinks(),
     this.isOnline = false,
     this.lastActiveAt,
@@ -150,6 +155,11 @@ class PublicMemberProfile {
   final String name;
   final String userName;
   final String? avatarUrl;
+  final String? coverImageUrl;
+  final String? bio;
+  final String? location;
+  final int? followerCount;
+  final int? followingCount;
   final int postCount;
   final int communityCount;
   final SocialLinks socialLinks;

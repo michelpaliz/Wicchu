@@ -1,3 +1,7 @@
+import '../community/post_collection_page.dart';
+import '../../widgets/profile_post_grid.dart';
+import '../../widgets/profile_link_button.dart';
+import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../widgets/feed_filter_bar.dart';
@@ -9,18 +13,22 @@ import '../../localization/app_language.dart';
 import '../community/comments_sheet.dart';
 import '../community/user_avatar.dart';
 import '../community/post_share.dart';
-import 'edit_profile_links.dart';
 import '../community/create_post_page.dart';
 import '../community/post_card.dart';
-import '../community/post_detail_page.dart';
 
 class MemberProfilePage extends StatefulWidget {
   const MemberProfilePage({
     super.key,
     required this.userId,
     required this.repository,
+    this.header,
+    this.onAccountMenu,
+    this.embedded = false,
   });
 
+  final Widget? header;
+  final VoidCallback? onAccountMenu;
+  final bool embedded;
   final String userId;
   final CommunityRepository repository;
 
@@ -28,7 +36,15 @@ class MemberProfilePage extends StatefulWidget {
   State<MemberProfilePage> createState() => _MemberProfilePageState();
 }
 
-class _MemberProfilePageState extends State<MemberProfilePage> {
+class _MemberProfilePageState extends State<MemberProfilePage>
+    with BlockVisibilityListener<MemberProfilePage> {
+  @override
+  CommunityRepository get visibilityRepository => widget.repository;
+  @override
+  void reloadBlockVisibility() {
+    _reload();
+  }
+
   bool _blocking = false;
   late final Future<WicchuProfile?> _viewer = widget.repository
       .getProfile()
@@ -38,17 +54,29 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
   String _sort = 'newest';
   late Future<PublicMemberProfile> _profile = widget.repository
       .getMemberProfile(widget.userId);
+  bool _grid = true;
   late Future<List<CommunityPost>> _posts = _loadPosts();
 
   final Map<String, CommunityCategory> _categories = {};
   final Map<String, String> _communityNames = {};
 
   Future<List<CommunityPost>> _loadPosts() async {
-    final posts = await widget.repository.listMemberPosts(
-      widget.userId,
-      kind: _kind,
-      sort: _sort,
-    );
+    final posts = _kind == 'saved'
+        ? (await _viewer)?.id == widget.userId
+              ? (await widget.repository.listSavedPosts()).toList()
+              : <CommunityPost>[]
+        : await widget.repository.listMemberPosts(
+            widget.userId,
+            kind: _kind,
+            sort: _sort,
+          );
+    if (_kind == 'saved') {
+      posts.sort(
+        (a, b) => _sort == 'oldest'
+            ? a.createdAt.compareTo(b.createdAt)
+            : b.createdAt.compareTo(a.createdAt),
+      );
+    }
     try {
       final communities = await widget.repository.listJoinedCommunities();
       for (final community in communities) {
@@ -77,13 +105,22 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       toolbarHeight: 48,
-      title: Text(
-        context.tr('Profile'),
-        style: Theme.of(
-          context,
-        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-      ),
+      automaticallyImplyLeading: !widget.embedded,
+      title:
+          widget.header ??
+          Text(
+            context.tr('Profile'),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
       actions: [
+        if (widget.onAccountMenu != null)
+          IconButton(
+            tooltip: context.tr('Account menu'),
+            onPressed: widget.onAccountMenu,
+            icon: const Icon(Icons.settings_outlined),
+          ),
         FutureBuilder<WicchuProfile?>(
           future: _viewer,
           builder: (context, viewer) => viewer.data?.id == widget.userId
@@ -118,283 +155,66 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
               }
               if (!snapshot.hasData) return const LinearProgressIndicator();
               final profile = snapshot.data!;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Stack(
-                        children: [
-                          UserAvatar(
-                            name: profile.name,
-                            imageUrl: profile.avatarUrl,
-                            radius: 32,
-                          ),
-                          if (profile.isOnline)
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.surface,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              profile.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                            if (profile.userName.isNotEmpty)
-                              Text(
-                                '@${profile.userName}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                              ),
-                            if (profile.isOnline)
-                              Text(
-                                context.tr('Online now'),
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 12,
-                                ),
-                              )
-                            else if (profile.lastActiveAt != null)
-                              Text(context.tr('Active recently')),
-                            Text(
-                              '${context.trCount(profile.postCount, singular: '{count} post', plural: '{count} posts')} · '
-                              '${context.trCount(profile.communityCount, singular: '{count} community', plural: '{count} communities')}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                      FutureBuilder<WicchuProfile?>(
-                        future: _viewer,
-                        builder: (context, viewer) =>
-                            viewer.data?.id != widget.userId
-                            ? const SizedBox.shrink()
-                            : Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    visualDensity: VisualDensity.compact,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    size: 16,
-                                  ),
-                                  label: Text(context.tr('Edit')),
-                                  onPressed: () async {
-                                    await editProfileLinks(
-                                      context,
-                                      widget.repository,
-                                    );
-                                    if (mounted) _reload();
-                                  },
-                                ),
-                              ),
-                      ),
-                    ],
-                  ),
-                  ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        if (profile.socialLinks.whatsapp.isNotEmpty)
-                          ActionChip(
-                            shape: const StadiumBorder(),
-                            side: BorderSide(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.10),
-                            ),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            label: const Text('WhatsApp'),
-                            avatar: const Icon(Icons.chat_outlined, size: 18),
-                            onPressed: () => _openSocial(
-                              'whatsapp',
-                              profile.socialLinks.whatsapp,
-                            ),
-                          ),
-                        if (profile.socialLinks.facebook.isNotEmpty)
-                          ActionChip(
-                            shape: const StadiumBorder(),
-                            side: BorderSide(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.10),
-                            ),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            label: const Text('Facebook'),
-                            avatar: const Icon(Icons.facebook, size: 18),
-                            onPressed: () => _openSocial(
-                              'facebook',
-                              profile.socialLinks.facebook,
-                            ),
-                          ),
-                        if (profile.socialLinks.instagram.isNotEmpty)
-                          ActionChip(
-                            shape: const StadiumBorder(),
-                            side: BorderSide(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.10),
-                            ),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            label: const Text('Instagram'),
-                            avatar: const Icon(
-                              Icons.camera_alt_outlined,
-                              size: 18,
-                            ),
-                            onPressed: () => _openSocial(
-                              'instagram',
-                              profile.socialLinks.instagram,
-                            ),
-                          ),
-                        if (profile.socialLinks.email.isNotEmpty)
-                          ActionChip(
-                            shape: const StadiumBorder(),
-                            side: BorderSide(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.10),
-                            ),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            label: const Text('Email'),
-                            avatar: const Icon(Icons.email_outlined, size: 18),
-                            onPressed: () =>
-                                _openSocial('email', profile.socialLinks.email),
-                          ),
-                        ActionChip(
-                          label: Text(context.tr('Share profile')),
-                          avatar: const Icon(
-                            Icons.ios_share_outlined,
-                            size: 18,
-                          ),
-                          shape: const StadiumBorder(),
-                          side: BorderSide(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.10),
-                          ),
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.surface,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          onPressed: () => _shareProfile(profile),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              );
+              return _profileHeader(profile);
             },
           ),
           const SizedBox(height: 8),
-          FeedFilterBar(
-            style: FeedNavigationStyle.underline,
-            labels: [
-              context.tr('Posts'),
-              context.tr('Media'),
-              context.tr('Polls'),
-            ],
-            selectedIndex: const ['all', 'media', 'polls'].indexOf(_kind),
-            onSelected: (index) => setState(() {
-              _kind = const ['all', 'media', 'polls'][index];
-              _posts = _loadPosts();
-            }),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: DropdownButton<String>(
-              isDense: true,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              underline: const SizedBox.shrink(),
-              iconSize: 18,
-              style: Theme.of(context).textTheme.bodySmall,
-              value: _sort,
-              items: [
-                DropdownMenuItem(
-                  value: 'newest',
-                  child: Text(context.tr('Newest')),
-                ),
-                DropdownMenuItem(
-                  value: 'oldest',
-                  child: Text(context.tr('Oldest')),
-                ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() {
-                  _sort = value;
+          FutureBuilder<WicchuProfile?>(
+            future: _viewer,
+            builder: (context, viewer) {
+              final kinds = [
+                'all',
+                'media',
+                'polls',
+                if (viewer.data?.id == widget.userId) 'saved',
+              ];
+              return FeedFilterBar(
+                style: FeedNavigationStyle.underline,
+                labels: [
+                  context.tr('Posts'),
+                  context.tr('Media'),
+                  context.tr('Polls'),
+                  if (viewer.data?.id == widget.userId) context.tr('Saved'),
+                ],
+                selectedIndex: kinds.indexOf(_kind),
+                onSelected: (index) => setState(() {
+                  _kind = kinds[index];
                   _posts = _loadPosts();
-                });
-              },
-            ),
+                }),
+              );
+            },
+          ),
+          Row(
+            children: [
+              ProfileViewSwitch(
+                grid: _grid,
+                onChanged: (value) => setState(() => _grid = value),
+              ),
+              const Spacer(),
+              DropdownButton<String>(
+                isDense: true,
+                underline: const SizedBox.shrink(),
+                style: Theme.of(context).textTheme.bodySmall,
+                value: _sort,
+                items: [
+                  DropdownMenuItem(
+                    value: 'newest',
+                    child: Text(context.tr('Newest')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'oldest',
+                    child: Text(context.tr('Oldest')),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _sort = value;
+                    _posts = _loadPosts();
+                  });
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           FutureBuilder<List<CommunityPost>>(
@@ -413,12 +233,51 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                   child: Center(child: Text(context.tr('No posts found'))),
                 );
               }
+              if (_grid) {
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 4,
+                    mainAxisSpacing: 4,
+                  ),
+                  itemCount: posts.length,
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    return ProfilePostTile(
+                      post: post,
+                      categoryIcon: _categories[post.categoryId]?.icon ?? '💬',
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PostCollectionPage(
+                              profilePresentation: true,
+                              title: 'Posts',
+                              repository: widget.repository,
+                              initialPostId: post.id,
+                              initialPosts: posts,
+                              loadPosts: _loadPosts,
+                              categories: _categories,
+                              communityNames: _communityNames,
+                            ),
+                          ),
+                        );
+                        if (mounted) _reload();
+                      },
+                    );
+                  },
+                );
+              }
               return Column(
                 children: [
                   for (final post in posts) ...[
                     PostCard(
                       key: ValueKey(post.id),
                       collapseText: true,
+                      mediaFirst: true,
+                      compact: true,
                       authorAvatarUrl: post.authorAvatarUrl,
                       onShare: () => sharePost(widget.repository, post),
                       category:
@@ -464,10 +323,15 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => PostDetailPage(
-                                postId: post.id,
+                              builder: (_) => PostCollectionPage(
+                                title: 'Posts',
+                                profilePresentation: true,
+                                initialPostId: post.id,
+                                initialPosts: posts,
                                 repository: widget.repository,
-                                initialPost: post,
+                                loadPosts: _loadPosts,
+                                categories: _categories,
+                                communityNames: _communityNames,
                               ),
                             ),
                           ).then((_) {
@@ -492,6 +356,286 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
       ),
     ),
   );
+
+  Widget _profileHeader(PublicMemberProfile profile) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    Widget stat(int count, String label) => Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$count ',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: colors.onSurface,
+            ),
+          ),
+          TextSpan(text: context.tr(label)),
+        ],
+      ),
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: colors.onSurfaceVariant,
+      ),
+    );
+    return FutureBuilder<WicchuProfile?>(
+      future: _viewer,
+      builder: (context, viewer) {
+        final own = viewer.data?.id == widget.userId;
+        final location =
+            profile.location ?? (own ? viewer.data?.location : null);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: profile.socialLinks.isEmpty
+                  ? null
+                  : () => _openSocialLinks(profile),
+              borderRadius: BorderRadius.circular(14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Semantics(
+                    image: true,
+                    label: profile.name,
+                    child: Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: colors.primary.withValues(alpha: .16),
+                            ),
+                          ),
+                          child: UserAvatar(
+                            name: profile.name,
+                            imageUrl: profile.avatarUrl,
+                            radius: 34,
+                          ),
+                        ),
+                        if (profile.isOnline)
+                          Positioned(
+                            right: 2,
+                            bottom: 2,
+                            child: Container(
+                              width: 13,
+                              height: 13,
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: colors.surface,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profile.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (profile.userName.isNotEmpty)
+                          Text(
+                            '@${profile.userName}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        if (profile.isOnline ||
+                            profile.lastActiveAt != null) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            context.tr(
+                              profile.isOnline
+                                  ? 'Online now'
+                                  : 'Active recently',
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 12,
+                              color: profile.isOnline
+                                  ? colors.primary
+                                  : colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (profile.bio?.trim().isNotEmpty == true)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(profile.bio!, style: theme.textTheme.bodyMedium),
+              ),
+            if (location?.trim().isNotEmpty == true)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined, size: 16),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(location!, style: theme.textTheme.bodySmall),
+                    ),
+                  ],
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 20,
+                  runSpacing: 4,
+                  children: [
+                    stat(profile.postCount, 'Posts'),
+                    stat(profile.communityCount, 'Communities'),
+                    if (profile.followerCount != null)
+                      stat(profile.followerCount!, 'Followers'),
+                    if (profile.followingCount != null)
+                      stat(profile.followingCount!, 'Following'),
+                  ],
+                ),
+              ),
+            ),
+            Center(
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10,
+                runSpacing: 4,
+                children: [
+                  _profileAction(
+                    icon: Icons.ios_share_outlined,
+                    label: context.tr('Share'),
+                    tooltip: context.tr('Share profile'),
+                    onPressed: () => _shareProfile(profile),
+                  ),
+                  if (own)
+                    _profileAction(
+                      icon: Icons.person_add_outlined,
+                      label: context.tr('Find friends'),
+                      tooltip: context.tr('Find friends'),
+                      onPressed: _findPeople,
+                    ),
+                  if (!profile.socialLinks.isEmpty)
+                    IconButton(
+                      tooltip: context.tr('Social links'),
+                      onPressed: () => _openSocialLinks(profile),
+                      style: IconButton.styleFrom(
+                        foregroundColor: colors.primary,
+                        backgroundColor: colors.primary.withValues(alpha: .08),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.link, size: 20),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openSocialLinks(PublicMemberProfile profile) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: Text(context.tr('Social links'))),
+          body: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(
+                  profile.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final entry in {
+                      'whatsapp': profile.socialLinks.whatsapp,
+                      'facebook': profile.socialLinks.facebook,
+                      'instagram': profile.socialLinks.instagram,
+                      'email': profile.socialLinks.email,
+                    }.entries)
+                      if (entry.value.isNotEmpty)
+                        ProfileLinkButton(
+                          network: entry.key,
+                          onTap: () => _openSocial(entry.key, entry.value),
+                        ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _profileAction({
+    required IconData icon,
+    required String label,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: FilledButton.tonalIcon(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: theme.colorScheme.primary.withValues(alpha: .08),
+          foregroundColor: theme.colorScheme.primary,
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          textStyle: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+      ),
+    );
+  }
+
+  Future<void> _findPeople() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _FindPeoplePage(
+          repository: widget.repository,
+          userId: widget.userId,
+        ),
+      ),
+    );
+  }
 
   Future<void> _blockUser() async {
     final approved = await showDialog<bool>(
@@ -519,6 +663,7 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
     setState(() => _blocking = true);
     try {
       await widget.repository.blockUser(widget.userId);
+      notifyBlockVisibilityChanged(widget.repository);
       if (mounted) Navigator.pop(context);
     } catch (error) {
       if (mounted) {
@@ -573,4 +718,117 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
       );
     }
   }
+}
+
+class _FindPeoplePage extends StatefulWidget {
+  const _FindPeoplePage({required this.repository, required this.userId});
+  final CommunityRepository repository;
+  final String userId;
+
+  @override
+  State<_FindPeoplePage> createState() => _FindPeoplePageState();
+}
+
+class _FindPeoplePageState extends State<_FindPeoplePage>
+    with BlockVisibilityListener<_FindPeoplePage> {
+  String _query = '';
+  late Future<List<CommunityMember>> _people = _load();
+  @override
+  CommunityRepository get visibilityRepository => widget.repository;
+  @override
+  void reloadBlockVisibility() => setState(() {
+    _people = _load();
+  });
+
+  Future<List<CommunityMember>> _load() async {
+    final spaces = await widget.repository.listJoinedCommunities();
+    final lists = await Future.wait(
+      spaces
+          .where((c) => !c.isPublicProfile)
+          .map((c) => widget.repository.listMembers(c.id)),
+    );
+    return {
+      for (final member in lists.expand((list) => list))
+        if (!member.isAnonymous &&
+            member.userId.isNotEmpty &&
+            member.userId != widget.userId)
+          member.userId: member,
+    }.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(context.tr('Find friends'))),
+    body: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            onChanged: (value) =>
+                setState(() => _query = value.toLowerCase().trim()),
+            decoration: InputDecoration(
+              hintText: context.tr('Search people'),
+              prefixIcon: const Icon(Icons.search),
+            ),
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<CommunityMember>>(
+            future: _people,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: TextButton(
+                    onPressed: reloadBlockVisibility,
+                    child: Text(context.tr('Retry')),
+                  ),
+                );
+              }
+              final people = (snapshot.data ?? [])
+                  .where((p) => p.name.toLowerCase().contains(_query))
+                  .toList();
+              if (people.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      context.tr('Find people from your communities here.'),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                );
+              }
+              return ListView.builder(
+                itemCount: people.length,
+                itemBuilder: (context, index) {
+                  final person = people[index];
+                  return ListTile(
+                    leading: UserAvatar(
+                      name: person.name,
+                      imageUrl: person.avatarUrl,
+                      radius: 22,
+                    ),
+                    title: Text(person.name),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MemberProfilePage(
+                          userId: person.userId,
+                          repository: widget.repository,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
 }

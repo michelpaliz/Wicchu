@@ -31,6 +31,8 @@ class CreatePostPage extends StatefulWidget {
 }
 
 class _CreatePostPageState extends State<CreatePostPage> {
+  late final Future<WicchuProfile> _postingAuthor = widget.repository
+      .getProfile();
   CommunityCategory? _category;
   late final PostTextController _textController;
   bool _saving = false;
@@ -286,6 +288,21 @@ class _CreatePostPageState extends State<CreatePostPage> {
               ),
             ),
           ),
+          if (widget.community.isPublicProfile && !_publishAnonymously)
+            FutureBuilder<WicchuProfile>(
+              future: _postingAuthor,
+              builder: (context, snapshot) => snapshot.hasData
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        context.tr('Posting as {name}', {
+                          'name': snapshot.data!.name,
+                        }),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           const SizedBox(height: 16),
           DropdownButtonFormField<CommunityCategory>(
             initialValue: _category,

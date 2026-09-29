@@ -1,3 +1,4 @@
+import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -6,7 +7,6 @@ import '../../localization/app_language.dart';
 import 'comments_sheet.dart';
 import 'create_post_page.dart';
 import 'post_card.dart';
-import 'post_detail_page.dart';
 import '../profile/member_profile_page.dart';
 import 'post_share.dart';
 
@@ -17,8 +17,18 @@ class PostCollectionPage extends StatefulWidget {
     required this.repository,
     required this.loadPosts,
     this.onBrowsePosts,
+    this.initialPostId,
+    this.profilePresentation = false,
+    this.initialPosts,
+    this.categories = const {},
+    this.communityNames = const {},
   });
 
+  final String? initialPostId;
+  final bool profilePresentation;
+  final List<CommunityPost>? initialPosts;
+  final Map<String, CommunityCategory> categories;
+  final Map<String, String> communityNames;
   final VoidCallback? onBrowsePosts;
   final String title;
   final CommunityRepository repository;
@@ -28,8 +38,19 @@ class PostCollectionPage extends StatefulWidget {
   State<PostCollectionPage> createState() => _PostCollectionPageState();
 }
 
-class _PostCollectionPageState extends State<PostCollectionPage> {
-  late Future<List<CommunityPost>> _posts = widget.loadPosts();
+class _PostCollectionPageState extends State<PostCollectionPage>
+    with BlockVisibilityListener<PostCollectionPage> {
+  @override
+  CommunityRepository get visibilityRepository => widget.repository;
+  @override
+  void reloadBlockVisibility() {
+    _refresh();
+  }
+
+  final _selectedSliverKey = GlobalKey();
+  late Future<List<CommunityPost>> _posts = widget.initialPosts == null
+      ? widget.loadPosts()
+      : Future.value(widget.initialPosts);
 
   Future<void> _refresh() async {
     setState(() {
@@ -64,109 +85,157 @@ class _PostCollectionPageState extends State<PostCollectionPage> {
           }
           return Center(child: Text(context.tr('No posts found')));
         }
+        Widget buildPost(BuildContext context, int index) {
+          final post = posts[index];
+          return PostCard(
+            key: ValueKey(post.id),
+            collapseText: true,
+            mediaFirst: widget.profilePresentation,
+            compact: widget.profilePresentation,
+            showCommunity:
+                widget.communityNames[post.communityId] != widget.title,
+            onTap: widget.initialPostId != null
+                ? null
+                : () =>
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PostCollectionPage(
+                            title: widget.title,
+                            initialPostId: post.id,
+                            initialPosts: posts,
+                            repository: widget.repository,
+                            loadPosts: widget.loadPosts,
+                            profilePresentation: widget.profilePresentation,
+                            categories: widget.categories,
+                            communityNames: widget.communityNames,
+                          ),
+                        ),
+                      ).then((_) {
+                        if (mounted) {
+                          setState(() => _posts = widget.loadPosts());
+                        }
+                      }),
+            category: widget.categories[post.categoryId]?.name ?? 'Post',
+            icon: widget.categories[post.categoryId]?.icon ?? '💬',
+            community: widget.communityNames[post.communityId] ?? 'Wicchu',
+            author: post.authorName,
+            authorAvatarUrl: post.authorAvatarUrl,
+            isAnonymousAuthor: post.isAnonymous,
+            onAuthorTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MemberProfilePage(
+                  userId: post.authorId,
+                  repository: widget.repository,
+                ),
+              ),
+            ),
+            onMentionTap: (userId) => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MemberProfilePage(
+                  userId: userId,
+                  repository: widget.repository,
+                ),
+              ),
+            ),
+            time: formatPostTime(context, post.createdAt),
+            edited: post.editedAt != null,
+            onEdit: post.ownedByMe
+                ? () async {
+                    await openEditPost(context, widget.repository, post);
+                    if (mounted) await _refresh();
+                  }
+                : null,
+            onDelete: post.ownedByMe
+                ? () async {
+                    await widget.repository.deletePost(post.id);
+                    if (mounted) await _refresh();
+                  }
+                : null,
+            text: post.text,
+            likes: post.reactionCount,
+            comments: post.commentCount,
+            media: post.media,
+            poll: post.poll,
+            onPollVote: (optionId) =>
+                widget.repository.voteOnPost(post.id, optionId),
+            promotion: post.promotion,
+            onPromotionImpression: post.promotion == null
+                ? null
+                : () => widget.repository.recordPromotionImpression(
+                    post.promotion!.id,
+                  ),
+            onPromotionClick: post.promotion == null
+                ? null
+                : () => widget.repository.recordPromotionClick(
+                    post.promotion!.id,
+                  ),
+            reacted: post.reactedByMe,
+            saved: post.savedByMe,
+            onReaction: (reacted) =>
+                widget.repository.setPostReaction(post.id, reacted: reacted),
+            onComments: () =>
+                showPostComments(context, widget.repository, post),
+            onSaved: (saved) async {
+              await widget.repository.setPostSaved(post.id, saved: saved);
+              if (!saved && widget.title == 'Saved posts' && mounted) {
+                setState(() => _posts = widget.loadPosts());
+              }
+            },
+            onReport: (reason, category) => widget.repository.reportPost(
+              post.id,
+              reason,
+              category: category,
+            ),
+            onShare: () => sharePost(widget.repository, post),
+          );
+        }
+
+        final selectedIndex = posts.indexWhere(
+          (post) => post.id == widget.initialPostId,
+        );
+        final anchorIndex = selectedIndex < 0 ? 0 : selectedIndex;
         return RefreshIndicator(
           onRefresh: _refresh,
-          child: ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            itemCount: posts.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final post = posts[index];
-              return PostCard(
-                collapseText: true,
-                onTap: () =>
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PostDetailPage(
-                          postId: post.id,
-                          repository: widget.repository,
-                          initialPost: post,
+          child: widget.initialPostId == null
+              ? ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  itemCount: posts.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: buildPost,
+                )
+              : CustomScrollView(
+                  // The selected card starts at offset zero. Earlier cards
+                  // grow upward, so no estimated heights or jump are needed.
+                  center: _selectedSliverKey,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList.builder(
+                        itemCount: anchorIndex,
+                        itemBuilder: (context, index) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: buildPost(context, anchorIndex - index - 1),
                         ),
                       ),
-                    ).then((_) {
-                      if (mounted) setState(() => _posts = widget.loadPosts());
-                    }),
-                category: 'Post',
-                icon: '💬',
-                community: 'Wicchu',
-                author: post.authorName,
-                authorAvatarUrl: post.authorAvatarUrl,
-                isAnonymousAuthor: post.isAnonymous,
-                onAuthorTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MemberProfilePage(
-                      userId: post.authorId,
-                      repository: widget.repository,
                     ),
-                  ),
-                ),
-                onMentionTap: (userId) => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MemberProfilePage(
-                      userId: userId,
-                      repository: widget.repository,
+                    SliverPadding(
+                      key: _selectedSliverKey,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      sliver: SliverList.builder(
+                        itemCount: posts.length - anchorIndex,
+                        itemBuilder: (context, index) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: buildPost(context, anchorIndex + index),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                time: formatPostTime(context, post.createdAt),
-                edited: post.editedAt != null,
-                onEdit: post.ownedByMe
-                    ? () async {
-                        await openEditPost(context, widget.repository, post);
-                        if (mounted) await _refresh();
-                      }
-                    : null,
-                onDelete: post.ownedByMe
-                    ? () async {
-                        await widget.repository.deletePost(post.id);
-                        if (mounted) await _refresh();
-                      }
-                    : null,
-                text: post.text,
-                likes: post.reactionCount,
-                comments: post.commentCount,
-                media: post.media,
-                poll: post.poll,
-                onPollVote: (optionId) =>
-                    widget.repository.voteOnPost(post.id, optionId),
-                promotion: post.promotion,
-                onPromotionImpression: post.promotion == null
-                    ? null
-                    : () => widget.repository.recordPromotionImpression(
-                        post.promotion!.id,
-                      ),
-                onPromotionClick: post.promotion == null
-                    ? null
-                    : () => widget.repository.recordPromotionClick(
-                        post.promotion!.id,
-                      ),
-                reacted: post.reactedByMe,
-                saved: post.savedByMe,
-                onReaction: (reacted) => widget.repository.setPostReaction(
-                  post.id,
-                  reacted: reacted,
-                ),
-                onComments: () =>
-                    showPostComments(context, widget.repository, post),
-                onSaved: (saved) async {
-                  await widget.repository.setPostSaved(post.id, saved: saved);
-                  if (!saved && widget.title == 'Saved posts' && mounted) {
-                    setState(() => _posts = widget.loadPosts());
-                  }
-                },
-                onReport: (reason, category) => widget.repository.reportPost(
-                  post.id,
-                  reason,
-                  category: category,
-                ),
-                onShare: () => sharePost(widget.repository, post),
-              );
-            },
-          ),
         );
       },
     ),

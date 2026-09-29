@@ -400,9 +400,14 @@ class _WicchuAppState extends State<WicchuApp> {
                 return MainShell(
                   repository: widget.repository,
                   authGateway: widget.authGateway,
-                  onSignedOut: () => setState(() {
-                    _hasSession = Future.value(false);
-                  }),
+                  onSignedOut: () {
+                    _navigatorKey.currentState?.popUntil(
+                      (route) => route.isFirst,
+                    );
+                    setState(() {
+                      _hasSession = Future.value(false);
+                    });
+                  },
                 );
               }
               return LoginPage(

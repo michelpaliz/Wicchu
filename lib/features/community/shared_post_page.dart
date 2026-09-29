@@ -1,3 +1,4 @@
+import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -22,9 +23,21 @@ class SharedPostPage extends StatefulWidget {
   State<SharedPostPage> createState() => _SharedPostPageState();
 }
 
-class _SharedPostPageState extends State<SharedPostPage> {
-  late final Future<SharedPostPreview> _preview = widget.repository
-      .getSharedPost(widget.postId);
+class _SharedPostPageState extends State<SharedPostPage>
+    with BlockVisibilityListener<SharedPostPage> {
+  @override
+  CommunityRepository get visibilityRepository => widget.repository;
+  @override
+  void reloadBlockVisibility() {
+    setState(() {
+      _fullPost = null;
+      _preview = widget.repository.getSharedPost(widget.postId);
+    });
+  }
+
+  late Future<SharedPostPreview> _preview = widget.repository.getSharedPost(
+    widget.postId,
+  );
   bool _joining = false;
   bool _joined = false;
   CommunityPost? _fullPost;

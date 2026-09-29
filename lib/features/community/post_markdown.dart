@@ -8,11 +8,15 @@ class PostMarkdown extends StatefulWidget {
     super.key,
     required this.data,
     this.collapsible = false,
+    this.compact = false,
+    this.previewLines = 5,
     this.onUserTap,
   });
 
   final String data;
   final bool collapsible;
+  final bool compact;
+  final int previewLines;
   final ValueChanged<String>? onUserTap;
 
   @override
@@ -32,9 +36,9 @@ class _PostMarkdownState extends State<PostMarkdown> {
   Widget build(BuildContext context) {
     if (!widget.collapsible) return _markdown(context);
     final style = Theme.of(context).textTheme.bodyLarge!.copyWith(
-      fontSize: 15,
+      fontSize: widget.compact ? 15 : 16,
       fontWeight: FontWeight.w400,
-      height: 1.25,
+      height: 1.3,
     );
     final preview = widget.data
         .replaceAllMapped(RegExp(r'!?\[([^\]]*)\]\([^)]*\)'), (m) => m[1]!)
@@ -48,8 +52,9 @@ class _PostMarkdownState extends State<PostMarkdown> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final actionStyle = style.copyWith(
+          fontSize: 14,
           color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         );
         TextSpan spanFor(String text, {bool more = false}) {
           final lines = text.split('\n');
@@ -68,8 +73,8 @@ class _PostMarkdownState extends State<PostMarkdown> {
                         )
                       : (announcement && i == 1) || (hasHeadline && i == 0)
                       ? style.copyWith(
-                          fontSize: 19,
-                          height: 1.2,
+                          fontSize: widget.compact ? 17 : 18,
+                          height: 1.25,
                           fontWeight: FontWeight.w700,
                         )
                       : null,
@@ -86,7 +91,7 @@ class _PostMarkdownState extends State<PostMarkdown> {
         bool fits(TextSpan span) {
           final painter = TextPainter(
             text: span,
-            maxLines: 5,
+            maxLines: widget.previewLines,
             textDirection: Directionality.of(context),
             textScaler: MediaQuery.textScalerOf(context),
           )..layout(maxWidth: constraints.maxWidth);
@@ -105,6 +110,12 @@ class _PostMarkdownState extends State<PostMarkdown> {
                 onPressed: () => setState(() => _expanded = false),
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
+                  minimumSize: const Size(48, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: style.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                   alignment: Alignment.centerLeft,
                 ),
                 child: Text(context.tr('See less')),
@@ -137,7 +148,10 @@ class _PostMarkdownState extends State<PostMarkdown> {
           child: InkWell(
             key: const ValueKey('expand-post'),
             onTap: () => setState(() => _expanded = true),
-            child: Text.rich(spanFor(excerpt, more: true), maxLines: 5),
+            child: Text.rich(
+              spanFor(excerpt, more: true),
+              maxLines: widget.previewLines,
+            ),
           ),
         );
       },
@@ -165,20 +179,27 @@ class _PostMarkdownState extends State<PostMarkdown> {
       softLineBreak: true,
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
         p: theme.textTheme.bodyLarge?.copyWith(
-          fontSize: widget.collapsible ? 15 : 16,
-          height: widget.collapsible ? 1.25 : 1.45,
+          fontSize: widget.compact ? 15 : 16,
+          height: 1.3,
+          fontWeight: FontWeight.w400,
         ),
-        strong: theme.textTheme.bodyLarge?.copyWith(
-          fontSize: widget.collapsible ? 15 : 16,
-          height: widget.collapsible ? 1.25 : 1.45,
+        strong: const TextStyle(fontWeight: FontWeight.w700),
+        h1: theme.textTheme.titleMedium?.copyWith(
+          fontSize: 18,
+          height: 1.25,
+          fontWeight: FontWeight.w700,
+        ),
+        h2: theme.textTheme.titleMedium?.copyWith(
+          fontSize: 18,
+          height: 1.25,
           fontWeight: FontWeight.w700,
         ),
         h3: theme.textTheme.titleMedium?.copyWith(
-          fontSize: 19,
-          height: 1.2,
+          fontSize: widget.compact ? 17 : 18,
+          height: 1.25,
           fontWeight: FontWeight.w700,
         ),
-        blockSpacing: 8,
+        blockSpacing: widget.compact ? 3 : 4,
         listIndent: 24,
       ),
       imageBuilder: (uri, title, alt) => Text(alt ?? '[image]'),

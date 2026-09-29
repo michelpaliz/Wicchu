@@ -1,4 +1,3 @@
-import '../community/business_service_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
@@ -9,6 +8,8 @@ import 'package:flutter/services.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'rule_management_page.dart';
+import 'official_links_page.dart';
+import 'business_services_page.dart';
 import '../community/community_invitations_page.dart';
 import '../community/user_avatar.dart';
 import '../profile/member_profile_page.dart';
@@ -1098,6 +1099,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   };
   late bool _approvalRequired = widget.community.approvalRequired;
   late bool _showWeather = widget.community.showWeather;
+  bool _showLocationHelp = false;
+  bool _showIdentityHelp = false;
   late final TextEditingController _businessAddress = TextEditingController(
     text: widget.community.businessLocation?.address ?? '',
   );
@@ -1351,246 +1354,187 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                   : (value) => setState(() => _profileCategory = value),
             ),
             const SizedBox(height: 16),
-            if (_profileCategory == ProfileCategory.localBusiness) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      context.tr('Main services'),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+            if (_profileCategory == ProfileCategory.localBusiness)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.home_repair_service_outlined),
+                  title: Text(context.tr('Main services')),
+                  subtitle: Text(
+                    _businessServices.isEmpty
+                        ? context.tr(
+                            'Choose up to 3 services that describe your business.',
+                          )
+                        : _businessServices
+                              .map((service) => context.tr(service.label))
+                              .join(' · '),
                   ),
-                  Text(
-                    '${_businessServices.length}/3',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                context.tr(
-                  'Choose up to 3 services that describe your business.',
-                ),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _saving ? null : _openBusinessServices,
                 ),
               ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final service in BusinessService.values)
-                    FilterChip(
-                      showCheckmark: false,
-                      avatar: Icon(
-                        businessServiceIcon(service),
-                        size: 20,
-                        color: _businessServices.contains(service)
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface,
-                      ),
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(context.tr(service.label)),
-                          if (_businessServices.contains(service)) ...[
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.check_circle,
-                              size: 18,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ],
-                        ],
-                      ),
-                      labelStyle: TextStyle(
-                        color: _businessServices.contains(service)
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      selectedColor: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: .12),
-                      backgroundColor: Theme.of(context).colorScheme.surface,
-                      side: BorderSide(
-                        color: _businessServices.contains(service)
-                            ? Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: .25)
-                            : Theme.of(context).colorScheme.outline,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
-                      selected: _businessServices.contains(service),
-                      onSelected: _saving
-                          ? null
-                          : (selected) {
-                              if (selected && _businessServices.length >= 3) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      context.tr(
-                                        'Choose no more than 3 business services.',
-                                      ),
-                                    ),
-                                  ),
-                                );
-                                return;
-                              }
-                              setState(() {
-                                if (selected) {
-                                  _businessServices.add(service);
-                                } else {
-                                  _businessServices.remove(service);
-                                }
-                              });
-                            },
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
           ],
-          const Divider(height: 28),
-          DropdownButtonFormField<CommunityVisibility>(
-            initialValue: _visibility,
-            icon: const Icon(Icons.keyboard_arrow_down),
-            decoration: InputDecoration(
-              labelText: context.tr('Visibility'),
-              prefixIcon: Icon(
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Icon(
                 _visibility == CommunityVisibility.public
                     ? Icons.public
                     : Icons.lock_outline,
+                size: 20,
                 color: Theme.of(context).colorScheme.primary,
               ),
-            ),
-            items: CommunityVisibility.values
-                .map(
-                  (value) => DropdownMenuItem(
-                    value: value,
-                    child: Text(context.tr(value.name)),
-                  ),
-                )
-                .toList(),
-            onChanged: (value) =>
-                setState(() => _visibility = value ?? _visibility),
+              const SizedBox(width: 10),
+              Expanded(child: Text(context.tr('Visibility'))),
+              DropdownButtonHideUnderline(
+                child: DropdownButton<CommunityVisibility>(
+                  value: _visibility,
+                  borderRadius: BorderRadius.circular(12),
+                  icon: const Icon(Icons.keyboard_arrow_down),
+                  items: [
+                    for (final value in CommunityVisibility.values)
+                      DropdownMenuItem(
+                        value: value,
+                        child: Text(context.tr(value.name)),
+                      ),
+                  ],
+                  onChanged: _saving
+                      ? null
+                      : (value) =>
+                            setState(() => _visibility = value ?? _visibility),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerLeft,
+          const SizedBox(height: 12),
+          Text(
+            context.tr(
+              widget.community.isPublicProfile
+                  ? 'Business location'
+                  : 'Community location',
+            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: FutureBuilder<List<Town>>(
+                  future: _towns,
+                  builder: (context, snapshot) {
+                    final towns = <Town>[
+                      _town,
+                      for (final town in snapshot.data ?? const <Town>[])
+                        if (town.id != _town.id) town,
+                    ];
+                    return DropdownButtonFormField<Town>(
+                      key: ValueKey(_town.id),
+                      initialValue: _town,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: context.tr('Town'),
+                        isDense: true,
+                        prefixIcon: const Icon(
+                          Icons.location_city_outlined,
+                          size: 20,
+                        ),
+                      ),
+                      items: [
+                        for (final town in towns)
+                          DropdownMenuItem(
+                            value: town,
+                            child: Text(
+                              '${town.name} · ${town.countryCode}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: _saving
+                          ? null
+                          : (value) {
+                              if (value != null) setState(() => _town = value);
+                            },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: context.tr('Use my current town'),
+                onPressed: _locatingTown || _saving ? null : _useCurrentTown,
+                color: Theme.of(context).colorScheme.primary,
+                icon: _locatingTown
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.my_location, size: 22),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 12),
             child: Text(
               context.tr(
                 widget.community.isPublicProfile
-                    ? 'Page location'
-                    : 'Community location',
+                    ? 'Helps nearby people find your profile.'
+                    : 'This location is used for discovery and local weather.',
               ),
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          FutureBuilder<List<Town>>(
-            future: _towns,
-            builder: (context, snapshot) {
-              final towns = <Town>[
-                _town,
-                for (final town in snapshot.data ?? const <Town>[])
-                  if (town.id != _town.id) town,
-              ];
-              return DropdownButtonFormField<Town>(
-                key: ValueKey(_town.id),
-                initialValue: _town,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: context.tr('Town'),
-                  helperText: context.tr(
-                    'This location is used for discovery and local weather.',
-                  ),
+          if (!widget.community.isPublicProfile ||
+              _profileCategory != ProfileCategory.localBusiness) ...[
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(context.tr('Require post approval')),
+              value: _approvalRequired,
+              onChanged: (value) => setState(() => _approvalRequired = value),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.cloud_outlined),
+              title: Text(context.tr('Show local weather')),
+              subtitle: Text(
+                context.tr(
+                  'Display current conditions for the community town.',
                 ),
-                items: [
-                  for (final town in towns)
-                    DropdownMenuItem(
-                      value: town,
-                      child: Text(
-                        '${town.name} · ${town.countryCode}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: _saving
-                    ? null
-                    : (value) {
-                        if (value != null) setState(() => _town = value);
-                      },
-              );
-            },
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _locatingTown || _saving ? null : _useCurrentTown,
-            icon: _locatingTown
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.my_location),
-            label: Text(context.tr('Use my current town')),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(context.tr('Require post approval')),
-            value: _approvalRequired,
-            onChanged: (value) => setState(() => _approvalRequired = value),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            secondary: const Icon(Icons.cloud_outlined),
-            title: Text(context.tr('Show local weather')),
-            subtitle: Text(
-              context.tr('Display current conditions for the community town.'),
+              ),
+              value: _showWeather,
+              onChanged: (value) => setState(() => _showWeather = value),
             ),
-            value: _showWeather,
-            onChanged: (value) => setState(() => _showWeather = value),
-          ),
+          ],
           if (widget.community.isPublicProfile) ...[
-            const SizedBox(height: 16),
-            Text(
-              context.tr('Business location'),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
             TextFormField(
               controller: _businessAddress,
               maxLength: 300,
               decoration: InputDecoration(
                 labelText: context.tr('Business address'),
+                isDense: true,
+                counterText: '',
+                suffixIcon: IconButton(
+                  tooltip: context.tr('Use my current location'),
+                  onPressed: _locatingBusiness || _saving
+                      ? null
+                      : _useCurrentBusinessLocation,
+                  color: Theme.of(context).colorScheme.primary,
+                  icon: _locatingBusiness
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location, size: 22),
+                ),
                 prefixIcon: Icon(
                   Icons.location_on_outlined,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 hintText: context.tr('Street, town, province'),
               ),
-            ),
-            OutlinedButton.icon(
-              onPressed: _locatingBusiness ? null : _useCurrentBusinessLocation,
-              icon: _locatingBusiness
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location),
-              label: Text(context.tr('Use my current location')),
             ),
             if (_businessLatitude != null && _businessLongitude != null)
               Padding(
@@ -1602,135 +1546,77 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                   ),
                 ),
               ),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: Text(context.tr('Show exact location publicly')),
-              subtitle: Text(
-                context.tr(
-                  'When disabled, visitors only see the profile town.',
-                ),
-              ),
+            _compactPrivacySetting(
+              title: 'Public exact location',
+              description: 'When disabled, visitors only see the profile town.',
               value: _showExactBusinessAddress,
               onChanged: (value) =>
                   setState(() => _showExactBusinessAddress = value),
+              expanded: _showLocationHelp,
+              onHelp: () =>
+                  setState(() => _showLocationHelp = !_showLocationHelp),
             ),
           ],
-          const SizedBox(height: 20),
-          Material(
-            color: Theme.of(
-              context,
-            ).colorScheme.primary.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.tr('Your identity in this community'),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          const SizedBox(height: 8),
+          _compactPrivacySetting(
+            title: 'Hide my identity',
+            description:
+                'When enabled, members will see “Community Admin” instead of your name and photo in this community. Other administrators can still identify you.',
+            extraHelp: 'This setting saves automatically.',
+            value: _anonymousInCommunity ?? false,
+            onChanged: _anonymousInCommunity == null || _savingAnonymity
+                ? null
+                : _setAnonymity,
+            expanded: _showIdentityHelp,
+            onHelp: () =>
+                setState(() => _showIdentityHelp = !_showIdentityHelp),
+            status: _anonymityLoadFailed
+                ? IconButton(
+                    tooltip: context.tr('Retry'),
+                    onPressed: _loadAnonymity,
+                    icon: const Icon(Icons.refresh, size: 18),
+                  )
+                : _savingAnonymity || _anonymousInCommunity == null
+                ? Semantics(
+                    label: context.tr(
+                      _savingAnonymity ? 'Saving…' : 'Loading…',
+                    ),
+                    liveRegion: true,
+                    child: const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : Tooltip(
+                    message: context.tr(
+                      _anonymitySaved
+                          ? 'Saved automatically'
+                          : 'This setting saves automatically.',
+                    ),
+                    triggerMode: TooltipTriggerMode.tap,
+                    child: Icon(
+                      _anonymitySaved
+                          ? Icons.check_circle_outline
+                          : Icons.cloud_done_outlined,
+                      size: 16,
                       color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(context.tr('Hide my identity from members')),
-                    value: _anonymousInCommunity ?? false,
-                    onChanged: _anonymousInCommunity == null || _savingAnonymity
-                        ? null
-                        : _setAnonymity,
-                  ),
-                  Text(
-                    context.tr(
-                      'When enabled, members will see “Community Admin” instead of your name and photo in this community. Other administrators can still identify you.',
-                    ),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_anonymityLoadFailed)
-                    TextButton.icon(
-                      onPressed: _loadAnonymity,
-                      icon: const Icon(Icons.refresh),
-                      label: Text(context.tr('Retry')),
-                    )
-                  else
-                    Row(
-                      children: [
-                        if (_savingAnonymity || _anonymousInCommunity == null)
-                          const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        else
-                          Icon(
-                            _anonymitySaved
-                                ? Icons.check_circle_outline
-                                : Icons.cloud_done_outlined,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            context.tr(
-                              _savingAnonymity
-                                  ? 'Saving…'
-                                  : _anonymousInCommunity == null
-                                  ? 'Loading…'
-                                  : _anonymitySaved
-                                  ? 'Saved automatically'
-                                  : 'This setting saves automatically.',
-                            ),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  context.tr('Official links'),
-                  style: Theme.of(context).textTheme.titleMedium,
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.link),
+              title: Text(context.tr('Official links')),
+              subtitle: Text(
+                context.tr(
+                  'Add a website, social network, contact page, or another official link.',
                 ),
               ),
-              IconButton(
-                tooltip: context.tr('Add link'),
-                onPressed: _links.length >= 10 ? null : () => _editLink(),
-                icon: const Icon(Icons.add_link),
-              ),
-            ],
-          ),
-          Text(
-            context.tr(
-              'Add a website, social network, contact page, or another official link.',
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _saving ? null : _openOfficialLinks,
             ),
           ),
-          for (final (index, link) in _links.indexed)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.link),
-              title: Text(link.label),
-              subtitle: Text(
-                link.url,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              onTap: () => _editLink(index: index),
-              trailing: IconButton(
-                tooltip: context.tr('Remove'),
-                onPressed: () => setState(() => _links.removeAt(index)),
-                icon: const Icon(Icons.delete_outline),
-              ),
-            ),
           const SizedBox(height: 24),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -1769,6 +1655,56 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         ],
       ),
     ),
+  );
+
+  Widget _compactPrivacySetting({
+    required String title,
+    required String description,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+    required bool expanded,
+    required VoidCallback onHelp,
+    String? extraHelp,
+    Widget? status,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.tr(title),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          if (status != null) ...[const SizedBox(width: 8), status],
+          Semantics(
+            expanded: expanded,
+            child: IconButton(
+              tooltip:
+                  '${context.tr(expanded ? 'Hide details' : 'More information')}: ${context.tr(title)}',
+              onPressed: onHelp,
+              icon: Icon(expanded ? Icons.info : Icons.info_outline, size: 20),
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          Semantics(
+            label: context.tr(title),
+            child: Switch.adaptive(value: value, onChanged: onChanged),
+          ),
+        ],
+      ),
+      if (expanded)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            '${context.tr(description)}${extraHelp == null ? '' : '\n${context.tr(extraHelp)}'}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+    ],
   );
 
   Future<void> _save() async {
@@ -1940,124 +1876,42 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     }
   }
 
-  Future<void> _editLink({int? index}) async {
-    final label = TextEditingController(
-      text: index == null ? '' : _links[index].label,
-    );
-    final url = TextEditingController(
-      text: index == null ? '' : _links[index].url,
-    );
-    final result = await showDialog<CommunityLink>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          context.tr(
-            index == null ? 'Add official link' : 'Edit official link',
-          ),
+  Future<void> _openBusinessServices() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BusinessServicesPage(
+          services: _businessServices,
+          onChanged: (services) {
+            if (!mounted) return;
+            setState(() {
+              _businessServices
+                ..clear()
+                ..addAll(services);
+            });
+          },
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Wrap(
-              spacing: 8,
-              children: [
-                ActionChip(
-                  avatar: const Icon(Icons.send_outlined, size: 18),
-                  label: const Text('Telegram'),
-                  onPressed: () {
-                    label.text = 'Telegram';
-                    if (url.text.trim().isEmpty) url.text = 'https://t.me/';
-                  },
-                ),
-                ActionChip(
-                  avatar: const Icon(Icons.language, size: 18),
-                  label: Text(context.tr('Website')),
-                  onPressed: () {
-                    label.text = context.tr('Website');
-                    if (url.text.trim().isEmpty) url.text = 'https://';
-                  },
-                ),
-                ActionChip(
-                  avatar: const Icon(Icons.add, size: 18),
-                  label: Text(context.tr('Other')),
-                  onPressed: () {
-                    label.clear();
-                    url.clear();
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: label,
-              maxLength: CommunityInputLimits.linkLabel,
-              maxLengthEnforcement: MaxLengthEnforcement.enforced,
-              decoration: InputDecoration(
-                labelText: context.tr('Label'),
-                hintText: context.tr('Telegram, website, Facebook, or other'),
-              ),
-            ),
-            TextField(
-              controller: url,
-              maxLength: CommunityInputLimits.linkUrl,
-              maxLengthEnforcement: MaxLengthEnforcement.enforced,
-              keyboardType: TextInputType.url,
-              decoration: InputDecoration(
-                labelText: 'HTTPS URL',
-                hintText: label.text.trim().toLowerCase() == 'telegram'
-                    ? 'https://t.me/community'
-                    : 'https://',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(context.tr('Cancel')),
-          ),
-          FilledButton(
-            onPressed: () {
-              var normalizedUrl = url.text.trim();
-              if (label.text.trim().toLowerCase() == 'telegram' &&
-                  !normalizedUrl.contains('://')) {
-                normalizedUrl =
-                    'https://t.me/${normalizedUrl.replaceFirst(RegExp(r'^@'), '')}';
-              }
-              final parsed = Uri.tryParse(normalizedUrl);
-              if (label.text.characters.length >
-                      CommunityInputLimits.linkLabel ||
-                  url.text.characters.length > CommunityInputLimits.linkUrl ||
-                  label.text.trim().isEmpty ||
-                  parsed?.scheme != 'https' ||
-                  parsed?.host.isEmpty != false ||
-                  (parsed?.host == 't.me' &&
-                      (parsed?.pathSegments
-                              .where((part) => part.isNotEmpty)
-                              .isEmpty ??
-                          true))) {
-                return;
-              }
-              Navigator.pop(
-                dialogContext,
-                CommunityLink(label: label.text.trim(), url: parsed.toString()),
-              );
-            },
-            child: Text(context.tr('Save')),
-          ),
-        ],
       ),
     );
-    label.dispose();
-    url.dispose();
-    if (result == null || !mounted) return;
-    setState(() {
-      if (index == null) {
-        _links.add(result);
-      } else {
-        _links[index] = result;
-      }
-    });
+  }
+
+  Future<void> _openOfficialLinks() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OfficialLinksPage(
+          links: _links,
+          onChanged: (links) {
+            if (!mounted) return;
+            setState(() {
+              _links
+                ..clear()
+                ..addAll(links);
+            });
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _pickImage({required bool cover}) async {

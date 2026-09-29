@@ -1,3 +1,4 @@
+import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -8,7 +9,7 @@ import 'category_page.dart';
 import 'comments_sheet.dart';
 import 'create_post_page.dart';
 import 'post_card.dart';
-import 'post_detail_page.dart';
+import 'post_collection_page.dart';
 import 'community_share.dart';
 import 'community_avatar.dart';
 import 'community_profile_page.dart';
@@ -29,7 +30,15 @@ class CommunityPage extends StatefulWidget {
   State<CommunityPage> createState() => _CommunityPageState();
 }
 
-class _CommunityPageState extends State<CommunityPage> {
+class _CommunityPageState extends State<CommunityPage>
+    with BlockVisibilityListener<CommunityPage> {
+  @override
+  CommunityRepository get visibilityRepository => widget.repository;
+  @override
+  void reloadBlockVisibility() {
+    setState(_reload);
+  }
+
   late Future<List<CommunityCategory>> _categories;
   late Future<List<CommunityPost>> _posts;
   late Community _community = widget.community;
@@ -515,11 +524,16 @@ class _CommunityPageState extends State<CommunityPage> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => PostDetailPage(
-                                        postId: post.id,
+                                      builder: (_) => PostCollectionPage(
+                                        title: community.name,
+                                        initialPostId: post.id,
+                                        initialPosts: posts,
                                         repository: repository,
-                                        initialPost: post,
-                                        community: community.name,
+                                        loadPosts: () =>
+                                            repository.listPosts(community.id),
+                                        communityNames: {
+                                          community.id: community.name,
+                                        },
                                       ),
                                     ),
                                   ).then((_) {

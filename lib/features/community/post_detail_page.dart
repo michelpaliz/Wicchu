@@ -1,3 +1,4 @@
+import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -31,7 +32,15 @@ class PostDetailPage extends StatefulWidget {
   State<PostDetailPage> createState() => _PostDetailPageState();
 }
 
-class _PostDetailPageState extends State<PostDetailPage> {
+class _PostDetailPageState extends State<PostDetailPage>
+    with BlockVisibilityListener<PostDetailPage> {
+  @override
+  CommunityRepository get visibilityRepository => widget.repository;
+  @override
+  void reloadBlockVisibility() {
+    _reload();
+  }
+
   late Future<CommunityPost> _post = widget.repository.getPost(widget.postId);
 
   Future<void> _reload() async {

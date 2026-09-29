@@ -1,3 +1,7 @@
+import '../../widgets/profile_link_button.dart';
+import 'post_collection_page.dart';
+import '../../widgets/profile_post_grid.dart';
+import '../../widgets/block_visibility_listener.dart';
 import 'business_service_icon.dart';
 import 'post_rules_review_page.dart';
 import 'user_avatar.dart';
@@ -20,7 +24,6 @@ import 'community_avatar.dart';
 import 'community_share.dart';
 import 'post_media_gallery.dart';
 import 'post_card.dart';
-import 'post_detail_page.dart';
 import 'post_share.dart';
 import 'comments_sheet.dart';
 import 'create_post_page.dart';
@@ -35,6 +38,7 @@ class CommunityProfilePage extends StatefulWidget {
     this.embedded = false,
     this.postRequest,
     this.onSwitchCommunity,
+    this.onAccountMenu,
     this.screen = CommunityScreen.feed,
   });
 
@@ -44,12 +48,21 @@ class CommunityProfilePage extends StatefulWidget {
   final bool embedded;
   final Listenable? postRequest;
   final VoidCallback? onSwitchCommunity;
+  final VoidCallback? onAccountMenu;
 
   @override
   State<CommunityProfilePage> createState() => _CommunityProfilePageState();
 }
 
-class _CommunityProfilePageState extends State<CommunityProfilePage> {
+class _CommunityProfilePageState extends State<CommunityProfilePage>
+    with BlockVisibilityListener<CommunityProfilePage> {
+  @override
+  CommunityRepository get visibilityRepository => widget.repository;
+  @override
+  void reloadBlockVisibility() {
+    setState(_reload);
+  }
+
   late Community _community = widget.community;
   late bool _joined = widget.community.isJoined;
   late Future<List<CommunityMember>> _members;
@@ -642,6 +655,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
     ),
   );
 
+  bool get _isLocalBusiness =>
+      _community.isPublicProfile &&
+      _community.profileCategory == ProfileCategory.localBusiness;
+
   AppBar _navigationBar() => AppBar(
     automaticallyImplyLeading: false,
     leading: widget.embedded
@@ -691,7 +708,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
             onTap: widget.onSwitchCommunity,
             borderRadius: BorderRadius.circular(12),
             child: Tooltip(
-              message: context.tr('Choose a community'),
+              message: context.tr(
+                widget.onAccountMenu != null
+                    ? 'Switch profile'
+                    : 'Choose a community',
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -708,7 +729,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
             ),
           ),
     actions: [
-      if (_joined && widget.screen == CommunityScreen.feed)
+      if (widget.onAccountMenu != null)
+        IconButton(
+          tooltip: context.tr('Account menu'),
+          onPressed: widget.onAccountMenu,
+          icon: const Icon(Icons.settings_outlined),
+        ),
+      if (_joined &&
+          widget.screen == CommunityScreen.feed &&
+          (!_isLocalBusiness || _searchingPosts))
         IconButton(
           tooltip: context.tr(
             _searchingPosts ? 'Close search' : 'Search posts',
@@ -717,11 +746,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
           icon: Icon(_searchingPosts ? Icons.close : Icons.search_rounded),
         ),
       if (!_searchingPosts) ...[
-        IconButton(
-          tooltip: context.tr('Share'),
-          onPressed: () => shareCommunity(context, _community),
-          icon: const Icon(Icons.ios_share_outlined),
-        ),
+        if (!_isLocalBusiness)
+          IconButton(
+            tooltip: context.tr('Share'),
+            onPressed: () => shareCommunity(context, _community),
+            icon: const Icon(Icons.ios_share_outlined),
+          ),
         PopupMenuButton<String>(
           key: const ValueKey('community-profile-menu'),
           tooltip: context.tr('More options'),
@@ -736,17 +766,66 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
                   ),
                 ),
               );
-            } else {
+            } else if (value == 'links') {
+              _openInformationSection(CommunityScreen.links);
+            } else if (value == 'search') {
+              _togglePostSearch();
+            } else if (value == 'share') {
+              shareCommunity(context, _community);
+            } else if (value == 'edit') {
               _editCommunity();
             }
           },
           itemBuilder: (context) => [
+            if (_isLocalBusiness) ...[
+              if (_joined && widget.screen == CommunityScreen.feed)
+                PopupMenuItem(
+                  value: 'search',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search_rounded, size: 20),
+                      const SizedBox(width: 12),
+                      Text(context.tr('Search posts')),
+                    ],
+                  ),
+                ),
+              PopupMenuItem(
+                value: 'share',
+                child: Row(
+                  children: [
+                    const Icon(Icons.ios_share_outlined, size: 20),
+                    const SizedBox(width: 12),
+                    Text(context.tr('Share')),
+                  ],
+                ),
+              ),
+            ],
+            if (_community.links.isNotEmpty)
+              PopupMenuItem(
+                value: 'links',
+                child: Row(
+                  children: [
+                    const Icon(Icons.link, size: 20),
+                    const SizedBox(width: 12),
+                    Text(context.tr('Useful links')),
+                  ],
+                ),
+              ),
             PopupMenuItem(value: 'media', child: Text(context.tr('Media'))),
             if (_community.myRole == CommunityRole.owner ||
                 _community.myRole == CommunityRole.admin)
               PopupMenuItem(
                 value: 'edit',
-                child: Text(context.tr('Edit community')),
+                child: Text(
+                  context.tr(
+                    _community.isPublicProfile
+                        ? (_community.profileCategory ==
+                                  ProfileCategory.localBusiness
+                              ? 'Edit business'
+                              : 'Edit profile')
+                        : 'Edit community',
+                  ),
+                ),
               ),
           ],
         ),
@@ -1161,6 +1240,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
     );
   }
 
+  bool _profileGrid = true;
+  int _profileKind = 0;
+
   Widget _postsTab() {
     if (!_joined) {
       return Center(child: Text(context.tr('Join to view community posts.')));
@@ -1176,6 +1258,28 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               if (_canPublish) SliverToBoxAdapter(child: _composerEntry()),
+              if (_community.isPublicProfile)
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      FeedFilterBar(
+                        labels: [
+                          context.tr('Posts'),
+                          context.tr('Media'),
+                          context.tr('Polls'),
+                        ],
+                        selectedIndex: _profileKind,
+                        onSelected: (value) =>
+                            setState(() => _profileKind = value),
+                      ),
+                      ProfileViewSwitch(
+                        grid: _profileGrid,
+                        onChanged: (value) =>
+                            setState(() => _profileGrid = value),
+                      ),
+                    ],
+                  ),
+                ),
               FutureBuilder<List<CommunityPost>>(
                 future: _posts,
                 builder: (context, snapshot) {
@@ -1203,6 +1307,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
                             _categoryId == null ||
                             post.categoryId == _categoryId,
                       )
+                      .where(
+                        (post) =>
+                            !_community.isPublicProfile ||
+                            _profileKind == 0 ||
+                            (_profileKind == 1
+                                ? post.media.isNotEmpty
+                                : post.poll != null),
+                      )
                       .toList();
                   if (posts.isEmpty &&
                       _searchController.text.trim().isNotEmpty) {
@@ -1226,6 +1338,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
                           ),
                         ),
                       ),
+                    );
+                  }
+                  if (posts.isEmpty &&
+                      _community.isPublicProfile &&
+                      _profileKind != 0) {
+                    return SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: Text(context.tr('No posts found'))),
                     );
                   }
                   if (posts.isEmpty && _community.isPublicProfile) {
@@ -1263,6 +1383,70 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
                       ),
                     );
                   }
+                  if (_community.isPublicProfile && _profileGrid) {
+                    return SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                      sliver: SliverGrid.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 4,
+                              mainAxisSpacing: 4,
+                            ),
+                        itemCount: posts.length,
+                        itemBuilder: (context, index) {
+                          final post = posts[index];
+                          final category = categories
+                              .where((c) => c.id == post.categoryId)
+                              .firstOrNull;
+                          return ProfilePostTile(
+                            post: post,
+                            categoryIcon: category?.icon ?? '💬',
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PostCollectionPage(
+                                    profilePresentation: true,
+                                    title: _community.name,
+                                    repository: widget.repository,
+                                    initialPostId: post.id,
+                                    initialPosts: posts,
+                                    categories: {
+                                      for (final c in categories) c.id: c,
+                                    },
+                                    communityNames: {
+                                      _community.id: _community.name,
+                                    },
+                                    loadPosts: () async {
+                                      final refreshed = await widget.repository
+                                          .listPosts(
+                                            _community.id,
+                                            query: _searchController.text,
+                                          );
+                                      return refreshed
+                                          .where(
+                                            (p) =>
+                                                (_categoryId == null ||
+                                                    p.categoryId ==
+                                                        _categoryId) &&
+                                                (_profileKind == 0 ||
+                                                    (_profileKind == 1
+                                                        ? p.media.isNotEmpty
+                                                        : p.poll != null)),
+                                          )
+                                          .toList();
+                                    },
+                                  ),
+                                ),
+                              );
+                              if (mounted) setState(_reload);
+                            },
+                          );
+                        },
+                      ),
+                    );
+                  }
                   return SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                     sliver: SliverList.builder(
@@ -1277,18 +1461,48 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
                           child: PostCard(
                             key: ValueKey(post.id),
                             collapseText: true,
+                            mediaFirst: _community.isPublicProfile,
+                            compact: _community.isPublicProfile,
                             showCommunity: false,
                             onTap: () =>
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => PostDetailPage(
-                                      postId: post.id,
+                                    builder: (_) => PostCollectionPage(
+                                      title: _community.name,
+                                      profilePresentation:
+                                          _community.isPublicProfile,
+                                      initialPostId: post.id,
+                                      initialPosts: posts,
                                       repository: widget.repository,
-                                      initialPost: post,
-                                      category: category?.name ?? 'General',
-                                      icon: category?.icon ?? '💬',
-                                      community: _community.name,
+                                      loadPosts: () async {
+                                        final refreshed = await widget
+                                            .repository
+                                            .listPosts(
+                                              _community.id,
+                                              query: _searchController.text,
+                                            );
+                                        return refreshed
+                                            .where(
+                                              (p) =>
+                                                  (_categoryId == null ||
+                                                      p.categoryId ==
+                                                          _categoryId) &&
+                                                  (!_community
+                                                          .isPublicProfile ||
+                                                      _profileKind == 0 ||
+                                                      (_profileKind == 1
+                                                          ? p.media.isNotEmpty
+                                                          : p.poll != null)),
+                                            )
+                                            .toList();
+                                      },
+                                      categories: {
+                                        for (final c in categories) c.id: c,
+                                      },
+                                      communityNames: {
+                                        _community.id: _community.name,
+                                      },
                                     ),
                                   ),
                                 ).then((_) {
@@ -2030,6 +2244,22 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
     ),
   );
 
+  Widget _officialLinkButtons() => Wrap(
+    spacing: 6,
+    runSpacing: 4,
+    children: [
+      for (final link in _community.links)
+        ProfileLinkButton(
+          network: profileLinkNetwork(link.url),
+          label: link.label,
+          onTap: () => launchUrl(
+            Uri.parse(link.url),
+            mode: LaunchMode.externalApplication,
+          ),
+        ),
+    ],
+  );
+
   Widget _linksContent() => _Section(
     title: context.tr('Useful links'),
     icon: Icons.link,
@@ -2050,21 +2280,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
             icon: const Icon(Icons.open_in_new),
           ),
         ),
-        for (final link in _community.links)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              Uri.tryParse(link.url)?.host.toLowerCase() == 't.me'
-                  ? Icons.send_outlined
-                  : Icons.link,
-            ),
-            title: Text(link.label),
-            trailing: const Icon(Icons.open_in_new, size: 20),
-            onTap: () => launchUrl(
-              Uri.parse(link.url),
-              mode: LaunchMode.externalApplication,
-            ),
-          ),
+        if (_community.links.isNotEmpty)
+          Align(alignment: Alignment.centerLeft, child: _officialLinkButtons()),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.map_outlined),

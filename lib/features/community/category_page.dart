@@ -1,3 +1,4 @@
+import '../../widgets/block_visibility_listener.dart';
 import 'category_empty_state.dart';
 import 'package:flutter/material.dart';
 
@@ -7,7 +8,7 @@ import '../../localization/app_language.dart';
 import 'create_post_page.dart';
 import 'comments_sheet.dart';
 import 'post_card.dart';
-import 'post_detail_page.dart';
+import 'post_collection_page.dart';
 import 'post_share.dart';
 import '../profile/member_profile_page.dart';
 
@@ -29,7 +30,15 @@ class CategoryPage extends StatefulWidget {
   State<CategoryPage> createState() => _CategoryPageState();
 }
 
-class _CategoryPageState extends State<CategoryPage> {
+class _CategoryPageState extends State<CategoryPage>
+    with BlockVisibilityListener<CategoryPage> {
+  @override
+  CommunityRepository get visibilityRepository => widget.repository;
+  @override
+  void reloadBlockVisibility() {
+    setState(_reload);
+  }
+
   late Future<List<CommunityPost>> _posts;
   String _sort = 'latest';
 
@@ -141,13 +150,22 @@ class _CategoryPageState extends State<CategoryPage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => PostDetailPage(
-                                  postId: post.id,
+                                builder: (_) => PostCollectionPage(
+                                  title: widget.category.name,
+                                  initialPostId: post.id,
+                                  initialPosts: posts,
                                   repository: widget.repository,
-                                  initialPost: post,
-                                  category: widget.category.name,
-                                  icon: widget.category.icon,
-                                  community: widget.community.name,
+                                  loadPosts: () => widget.repository.listPosts(
+                                    widget.community.id,
+                                    categoryId: widget.category.id,
+                                    sort: _sort,
+                                  ),
+                                  categories: {
+                                    widget.category.id: widget.category,
+                                  },
+                                  communityNames: {
+                                    widget.community.id: widget.community.name,
+                                  },
                                 ),
                               ),
                             ).then((_) {

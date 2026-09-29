@@ -1,3 +1,4 @@
+import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../profile/edit_profile_links.dart';
@@ -409,12 +410,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         );
         return;
       }
-      final password = TextEditingController();
-      final confirmation = TextEditingController();
+      var password = '';
+      var confirmation = '';
       final approved = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: Text(context.tr('Delete account permanently?')),
+          scrollable: true,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -425,7 +427,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: password,
+                onChanged: (value) => password = value,
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: context.tr('Password (email accounts only)'),
@@ -433,7 +435,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: confirmation,
+                onChanged: (value) => confirmation = value,
                 decoration: InputDecoration(
                   labelText: context.tr('Type DELETE to confirm'),
                 ),
@@ -447,17 +449,14 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
             ),
             FilledButton(
               onPressed: () =>
-                  Navigator.pop(context, confirmation.text.trim() == 'DELETE'),
+                  Navigator.pop(context, confirmation.trim() == 'DELETE'),
               child: Text(context.tr('Delete account')),
             ),
           ],
         ),
       );
-      final enteredPassword = password.text;
-      password.dispose();
-      confirmation.dispose();
       if (approved != true) return;
-      await gateway.deleteAccount(password: enteredPassword);
+      await gateway.deleteAccount(password: password);
       if (!mounted) return;
       widget.onAccountDeleted?.call();
     } catch (error) {
@@ -543,7 +542,8 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                 onPressed: () async {
                   try {
                     await widget.repository.unblockUser(user.userId);
-                    _reload();
+                    notifyBlockVisibilityChanged(widget.repository);
+                    if (mounted) _reload();
                   } catch (error) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(

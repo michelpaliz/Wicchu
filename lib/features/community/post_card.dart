@@ -39,7 +39,11 @@ class PostCard extends StatefulWidget {
     required this.text,
     this.price,
     this.collapseText = false,
+    this.mediaFirst = false,
+    this.compact = false,
     this.showCommunity = true,
+    this.communityFirst = false,
+    this.onCommunityTap,
     this.showActions = true,
     this.likes = 0,
     this.comments = 0,
@@ -75,7 +79,11 @@ class PostCard extends StatefulWidget {
   final String text;
   final String? price;
   final bool collapseText;
+  final bool mediaFirst;
+  final bool compact;
   final bool showCommunity;
+  final bool communityFirst;
+  final VoidCallback? onCommunityTap;
   final bool showActions;
   final int likes;
   final int comments;
@@ -187,6 +195,8 @@ class _PostCardState extends State<PostCard> {
   Widget build(BuildContext context) {
     final accent = categoryColor(widget.category, context);
     final theme = Theme.of(context);
+    final communityFirst = widget.communityFirst && widget.showCommunity;
+    final authorTap = widget.isAnonymousAuthor ? null : widget.onAuthorTap;
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
@@ -235,7 +245,7 @@ class _PostCardState extends State<PostCard> {
                     child: UserAvatar(
                       name: context.tr(widget.author),
                       imageUrl: widget.authorAvatarUrl,
-                      radius: 21,
+                      radius: widget.compact ? 18 : 21,
                       backgroundColor: accent.withValues(alpha: .14),
                       foregroundColor: accent,
                     ),
@@ -246,12 +256,14 @@ class _PostCardState extends State<PostCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         InkWell(
-                          onTap: widget.isAnonymousAuthor
-                              ? null
-                              : widget.onAuthorTap,
+                          onTap: communityFirst
+                              ? widget.onCommunityTap
+                              : authorTap,
                           child: Text(
-                            context.tr(widget.author),
-                            maxLines: 1,
+                            communityFirst
+                                ? widget.community
+                                : context.tr(widget.author),
+                            maxLines: communityFirst ? 2 : 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontSize: 16,
@@ -260,41 +272,10 @@ class _PostCardState extends State<PostCard> {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        LayoutBuilder(
-                          builder: (context, constraints) => Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text:
-                                      '${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}${widget.showCommunity ? ' · ${widget.community}' : ''} · ',
-                                ),
-                                WidgetSpan(
-                                  alignment: PlaceholderAlignment.middle,
-                                  child: Container(
-                                    constraints: BoxConstraints(
-                                      maxWidth: constraints.maxWidth,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: accent.withValues(alpha: .11),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      '${widget.icon} ${context.tr(widget.category)}',
-                                      style: theme.textTheme.labelMedium
-                                          ?.copyWith(
-                                            color: accent,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        InkWell(
+                          onTap: communityFirst ? authorTap : null,
+                          child: Text(
+                            '${communityFirst ? '${context.tr(widget.author)} · ' : ''}${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}${widget.showCommunity && !communityFirst ? ' · ${widget.community}' : ''}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontSize: 13,
                               color: theme.colorScheme.onSurfaceVariant,
@@ -304,24 +285,28 @@ class _PostCardState extends State<PostCard> {
                       ],
                     ),
                   ),
-                  if (widget.onSaved != null ||
-                      widget.onReport != null ||
-                      widget.onEdit != null ||
-                      widget.onDelete != null)
-                    _PostMenu(
-                      saved: _saved,
-                      saving: _savingPost || _deleting,
-                      onSave: widget.onSaved == null ? null : _toggleSaved,
-                      onReport: widget.onReport == null ? null : _report,
-                      onEdit: widget.onEdit,
-                      onDelete: widget.onDelete == null ? null : _deletePost,
-                    ),
+                  _PostMenu(
+                    category: widget.category,
+                    categoryIcon: widget.icon,
+                    saved: _saved,
+                    saving: _savingPost || _deleting,
+                    onSave: widget.onSaved == null ? null : _toggleSaved,
+                    onReport: widget.onReport == null ? null : _report,
+                    onEdit: widget.onEdit,
+                    onDelete: widget.onDelete == null ? null : _deletePost,
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
+              if (widget.mediaFirst && widget.media.isNotEmpty) ...[
+                PostMediaGallery(media: widget.media),
+                const SizedBox(height: 8),
+              ],
               PostMarkdown(
                 data: widget.text,
                 collapsible: widget.collapseText,
+                compact: widget.compact,
+                previewLines: widget.compact ? 3 : 5,
                 onUserTap: widget.onMentionTap,
               ),
               if (widget.price != null) ...[
@@ -333,10 +318,10 @@ class _PostCardState extends State<PostCard> {
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ],
-              if (widget.media.isNotEmpty) ...[
+              if (!widget.mediaFirst && widget.media.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 PostMediaGallery(media: widget.media),
-              ] else if (widget.showImage) ...[
+              ] else if (widget.showImage && widget.media.isEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
                   height: 170,
@@ -356,7 +341,7 @@ class _PostCardState extends State<PostCard> {
                   onSelected: _vote,
                 ),
               ],
-              if (widget.showActions) const SizedBox(height: 6),
+              if (widget.showActions) const SizedBox(height: 2),
               if (widget.showActions)
                 Row(
                   children: [
@@ -378,14 +363,11 @@ class _PostCardState extends State<PostCard> {
                       tooltip: context.tr('Comments'),
                       onTap: widget.onComments == null ? null : _openComments,
                     ),
-                    const Spacer(),
-                    Flexible(
-                      child: _PostAction(
-                        icon: CupertinoIcons.arrowshape_turn_up_right,
-                        value: context.tr('Share'),
-                        tooltip: context.tr('Share'),
-                        onTap: widget.onShare,
-                      ),
+                    const SizedBox(width: 12),
+                    _PostAction(
+                      icon: CupertinoIcons.arrowshape_turn_up_right,
+                      tooltip: context.tr('Share'),
+                      onTap: widget.onShare,
                     ),
                   ],
                 ),
@@ -504,10 +486,10 @@ class _PostCardState extends State<PostCard> {
               child: Text(dialogContext.tr('Cancel')),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(
-                dialogContext,
-                (controller.text.trim(), category),
-              ),
+              onPressed: () => Navigator.pop(dialogContext, (
+                controller.text.trim(),
+                category,
+              )),
               child: Text(dialogContext.tr('Report')),
             ),
           ],
@@ -602,13 +584,13 @@ class _PollView extends StatelessWidget {
 class _PostAction extends StatelessWidget {
   const _PostAction({
     required this.icon,
-    required this.value,
+    this.value,
     required this.tooltip,
     this.color,
     this.onTap,
   });
   final IconData icon;
-  final String value;
+  final String? value;
   final String tooltip;
   final Color? color;
   final VoidCallback? onTap;
@@ -617,7 +599,7 @@ class _PostAction extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     button: true,
     enabled: onTap != null,
-    label: '$tooltip, $value',
+    label: value == null ? tooltip : '$tooltip, $value',
     excludeSemantics: true,
     child: Tooltip(
       message: tooltip,
@@ -631,19 +613,21 @@ class _PostAction extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 19, color: color),
-              const SizedBox(width: 5),
-              Flexible(
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
+              if (value != null) ...[
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    value!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -654,6 +638,8 @@ class _PostAction extends StatelessWidget {
 
 class _PostMenu extends StatelessWidget {
   const _PostMenu({
+    required this.category,
+    required this.categoryIcon,
     required this.saved,
     required this.saving,
     this.onSave,
@@ -662,6 +648,8 @@ class _PostMenu extends StatelessWidget {
     this.onDelete,
   });
 
+  final String category;
+  final String categoryIcon;
   final bool saved;
   final bool saving;
   final VoidCallback? onSave;
@@ -669,66 +657,117 @@ class _PostMenu extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
+  Future<void> _open(BuildContext context) async {
+    final action = await showModalBottomSheet<_PostMenuAction>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      builder: (sheetContext) {
+        final accent = categoryColor(category, sheetContext);
+        Widget option(
+          _PostMenuAction action,
+          IconData icon,
+          String label, {
+          bool destructive = false,
+        }) => ListTile(
+          leading: Icon(
+            icon,
+            color: destructive
+                ? Theme.of(sheetContext).colorScheme.error
+                : null,
+          ),
+          title: Text(
+            sheetContext.tr(label),
+            style: destructive
+                ? TextStyle(color: Theme.of(sheetContext).colorScheme.error)
+                : null,
+          ),
+          onTap: () => Navigator.pop(sheetContext, action),
+        );
+        return SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: accent.withValues(alpha: .11),
+                    child: Text(
+                      categoryIcon,
+                      style: const TextStyle(fontSize: 20),
+                    ),
+                  ),
+                  title: Text(
+                    sheetContext.tr(category),
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (onSave != null ||
+                    onEdit != null ||
+                    onDelete != null ||
+                    onReport != null)
+                  const Divider(indent: 16, endIndent: 16),
+                if (onSave != null)
+                  option(
+                    _PostMenuAction.save,
+                    saved ? Icons.bookmark : Icons.bookmark_border,
+                    saved ? 'Unsave post' : 'Save post',
+                  ),
+                if (onEdit != null)
+                  option(
+                    _PostMenuAction.edit,
+                    Icons.edit_outlined,
+                    'Edit post',
+                  ),
+                if (onDelete != null)
+                  option(
+                    _PostMenuAction.delete,
+                    Icons.delete_outline,
+                    'Delete publication',
+                    destructive: true,
+                  ),
+                if (onReport != null)
+                  option(
+                    _PostMenuAction.report,
+                    Icons.flag_outlined,
+                    'Report post',
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!context.mounted) return;
+    switch (action) {
+      case _PostMenuAction.save:
+        onSave?.call();
+      case _PostMenuAction.report:
+        onReport?.call();
+      case _PostMenuAction.edit:
+        onEdit?.call();
+      case _PostMenuAction.delete:
+        onDelete?.call();
+      case null:
+        break;
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => PopupMenuButton<_PostMenuAction>(
+  Widget build(BuildContext context) => IconButton(
     tooltip: context.tr('More options'),
-    enabled: !saving,
-    onSelected: (action) {
-      switch (action) {
-        case _PostMenuAction.save:
-          onSave?.call();
-        case _PostMenuAction.report:
-          onReport?.call();
-        case _PostMenuAction.edit:
-          onEdit?.call();
-        case _PostMenuAction.delete:
-          onDelete?.call();
-      }
-    },
-    itemBuilder: (context) => [
-      if (onSave != null)
-        PopupMenuItem(
-          value: _PostMenuAction.save,
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
-            title: Text(context.tr(saved ? 'Unsave post' : 'Save post')),
-          ),
-        ),
-      if (onEdit != null)
-        PopupMenuItem(
-          value: _PostMenuAction.edit,
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.edit_outlined),
-            title: Text(context.tr('Edit post')),
-          ),
-        ),
-      if (onDelete != null)
-        PopupMenuItem(
-          value: _PostMenuAction.delete,
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              Icons.delete_outline,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            title: Text(
-              context.tr('Delete publication'),
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
-        ),
-      if (onReport != null)
-        PopupMenuItem(
-          value: _PostMenuAction.report,
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.flag_outlined),
-            title: Text(context.tr('Report post')),
-          ),
-        ),
-    ],
+    onPressed: saving ? null : () => _open(context),
     icon: saving
         ? const SizedBox.square(
             dimension: 20,
