@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:http/http.dart' as http;
 
 import '../domain/auth_gateway.dart';
@@ -126,6 +127,52 @@ class FacebookAuthGateway implements AuthGateway {
   }
 
   @override
+  Future<AuthSession> signInWithApple() async {
+    final applePayload = await _appleCredentialPayload();
+    final body = await _postAuth(
+      '/api/auth/apple',
+      applePayload,
+      successCodes: const {200, 201},
+    );
+    return _saveSession(body);
+  }
+
+  Future<Map<String, dynamic>> _appleCredentialPayload() async {
+    final challenge = await _postAuth(
+      '/api/auth/apple/challenge',
+      const {},
+      successCodes: const {201},
+    );
+    final rawNonce = challenge['nonce'] as String?;
+    final challengeId = challenge['challengeId'] as String?;
+    if (rawNonce == null || challengeId == null) {
+      throw const AuthException(
+        'The server returned an invalid Apple login challenge.',
+      );
+    }
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: const [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      nonce: sha256.convert(utf8.encode(rawNonce)).toString(),
+    );
+    if (credential.identityToken == null ||
+        credential.authorizationCode.isEmpty) {
+      throw const AuthException(
+        'Apple did not return valid sign-in credentials.',
+      );
+    }
+    return {
+      'challengeId': challengeId,
+      'identityToken': credential.identityToken,
+      'authorizationCode': credential.authorizationCode,
+      'givenName': credential.givenName,
+      'familyName': credential.familyName,
+    };
+  }
+
+  @override
   Future<AuthSession> signInWithEmail(String email, String password) async {
     final body = await _postAuth('/api/auth/login', {
       'email': email.trim().toLowerCase(),
@@ -173,6 +220,106 @@ class FacebookAuthGateway implements AuthGateway {
     await _postAuth('/api/auth/forgot-password', {
       'email': email.trim().toLowerCase(),
     });
+  }
+
+  @override
+  Future<Map<String, dynamic>> getDeletionPreview() async =>
+      _authenticatedRequest('GET', '/api/community/v1/me/deletion-preview');
+
+  @override
+  Future<void> deleteAccount({String? password}) async {
+    final profile = await _authenticatedRequest('GET', '/api/auth/profile');
+    final provider = profile['registrationProvider'] as String? ?? 'password';
+    final payload = <String, dynamic>{'provider': provider};
+    if (provider == 'password') {
+      if (password == null || password.isEmpty) {
+        throw const AuthException(
+          'Enter your password to delete your account.',
+        );
+      }
+      payload['password'] = password;
+    } else if (provider == 'google') {
+      final signIn = GoogleSignIn.instance;
+      _googleInitialization ??= signIn.initialize(
+        clientId: kIsWeb ? _googleWebClientId : null,
+        serverClientId: _googleWebClientId,
+      );
+      await _googleInitialization;
+      final account = await signIn.authenticate();
+      payload['idToken'] = account.authentication.idToken;
+    } else if (provider == 'facebook') {
+      final nonce = _createNonce();
+      final result = await FacebookAuth.instance.login(
+        permissions: const ['email', 'public_profile'],
+        nonce: nonce,
+      );
+      if (result.status != LoginStatus.success || result.accessToken == null) {
+        throw const AuthException('Facebook verification was cancelled.');
+      }
+      payload
+        ..['accessToken'] = result.accessToken!.tokenString
+        ..['tokenType'] = result.accessToken!.type.name
+        ..['nonce'] = nonce;
+    } else if (provider == 'apple') {
+      payload.addAll(await _appleCredentialPayload());
+    }
+    final proof = await _authenticatedRequest(
+      'POST',
+      '/api/auth/reauthenticate',
+      body: payload,
+    );
+    final token = proof['reauthenticationToken'] as String?;
+    if (token == null) {
+      throw const AuthException('Account verification failed.');
+    }
+    await _authenticatedRequest(
+      'POST',
+      '/api/community/v1/me/deletion',
+      body: {'confirmation': 'DELETE', 'reauthenticationToken': token},
+      extraHeaders: {'Idempotency-Key': _createNonce()},
+    );
+    await _clearLocalSession();
+  }
+
+  Future<Map<String, dynamic>> _authenticatedRequest(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String> extraHeaders = const {},
+  }) async {
+    final token = await _storage.read(
+      key: AuthenticatedApiClient.accessTokenKey,
+    );
+    if (token == null || token.isEmpty) {
+      throw const AuthException('Please sign in again.');
+    }
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+      if (body != null) 'Content-Type': 'application/json',
+      ...extraHeaders,
+    };
+    final uri = Uri.parse('$_apiBaseUrl$path');
+    final response = method == 'GET'
+        ? await _client.get(uri, headers: headers)
+        : await _client.post(
+            uri,
+            headers: headers,
+            body: jsonEncode(body ?? const {}),
+          );
+    final decoded = response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body);
+    final result = decoded is Map<String, dynamic>
+        ? decoded
+        : <String, dynamic>{};
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthException(
+        result['message'] as String? ?? 'Unable to complete the request.',
+        code: result['code'] as String?,
+      );
+    }
+    return result;
   }
 
   Future<Map<String, dynamic>> _postAuth(
@@ -236,6 +383,10 @@ class FacebookAuthGateway implements AuthGateway {
         // Local sign-out must still succeed when the network is unavailable.
       }
     }
+    await _clearLocalSession();
+  }
+
+  Future<void> _clearLocalSession() async {
     await Future.wait([
       FacebookAuth.instance.logOut(),
       GoogleSignIn.instance.signOut(),

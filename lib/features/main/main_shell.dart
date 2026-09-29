@@ -3154,7 +3154,11 @@ class _ProfileTabState extends State<_ProfileTab> {
                   context,
                   MaterialPageRoute(
                     builder: (_) =>
-                        AccountSettingsPage(repository: widget.repository),
+                        AccountSettingsPage(
+                          repository: widget.repository,
+                          authGateway: widget.authGateway,
+                          onAccountDeleted: widget.onSignedOut,
+                        ),
                   ),
                 ),
               ),
@@ -3214,7 +3218,11 @@ class _ProfileTabState extends State<_ProfileTab> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AccountSettingsPage(repository: widget.repository),
+        builder: (_) => AccountSettingsPage(
+          repository: widget.repository,
+          authGateway: widget.authGateway,
+          onAccountDeleted: widget.onSignedOut,
+        ),
       ),
     );
   }

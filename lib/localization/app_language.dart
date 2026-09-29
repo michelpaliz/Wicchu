@@ -206,6 +206,11 @@ const _spanish = <String, String>{
   'New post': 'Nueva publicación',
   'Your town': 'Tu ciudad',
   'Choose a town': 'Elige una ciudad',
+  'Page location': 'Ubicación de la página',
+  'Community location': 'Ubicación de la comunidad',
+  'Use my current town': 'Usar mi localidad actual',
+  'This location is used for discovery and local weather.':
+      'Esta ubicación se usa para descubrir espacios y mostrar el clima local.',
   'YOUR NEIGHBORHOOD': 'TU VECINDARIO',
   'Good things happen nearby.': 'Lo bueno pasa cerca de ti.',
   'The latest from {town} and your communities.':
@@ -429,6 +434,9 @@ const _spanish = <String, String>{
   'Signing in…': 'Iniciando sesión…',
   'Continue with Facebook': 'Continuar con Facebook',
   'Continue with Google': 'Continuar con Google',
+  'Continue with Apple': 'Continuar con Apple',
+  'Apple sign-in is unavailable.':
+      'El inicio de sesión con Apple no está disponible.',
   'Continue with email': 'Continuar con correo electrónico',
   'Sign in with email': 'Iniciar sesión con correo',
   'Sign in': 'Iniciar sesión',
@@ -438,6 +446,25 @@ const _spanish = <String, String>{
   'Username': 'Nombre de usuario',
   'Email address': 'Correo electrónico',
   'Password': 'Contraseña',
+  'Delete account': 'Eliminar cuenta',
+  'Permanently delete your account and personal content.':
+      'Elimina permanentemente tu cuenta y tu contenido personal.',
+  'Blocked users': 'Usuarios bloqueados',
+  'You have not blocked anyone.': 'No has bloqueado a nadie.',
+  'Unblock': 'Desbloquear',
+  'Transfer ownership first': 'Transfiere la propiedad primero',
+  'You must transfer or delete every space you own before deleting your account.':
+      'Debes transferir o eliminar todos los espacios que posees antes de eliminar tu cuenta.',
+  'Delete account permanently?': '¿Eliminar la cuenta permanentemente?',
+  'This removes your profile, memberships, posts, comments, media, and notifications. This action cannot be undone.':
+      'Esto elimina tu perfil, membresías, publicaciones, comentarios, archivos y notificaciones. Esta acción no se puede deshacer.',
+  'Password (email accounts only)': 'Contraseña (solo cuentas con correo)',
+  'Type DELETE to confirm': 'Escribe DELETE para confirmar',
+  'Block user': 'Bloquear usuario',
+  'Block this user?': '¿Bloquear a este usuario?',
+  'You will no longer see each other’s posts, comments, profiles, mentions, or notifications.':
+      'Ya no verán mutuamente sus publicaciones, comentarios, perfiles, menciones ni notificaciones.',
+  'Block': 'Bloquear',
   'Confirm password': 'Confirmar contraseña',
   'Passwords do not match.': 'Las contraseñas no coinciden.',
   'Enter your name.': 'Escribe tu nombre.',
@@ -1103,8 +1130,8 @@ const _spanish = <String, String>{
       "Puedes encontrar más información en nuestra web: wicchu.com.",
   "No answers found. Try another search or contact support.":
       "No encontramos respuestas. Prueba otra búsqueda o contacta con soporte.",
-  "Could not open the support website. Please visit wicchu.com.":
-      "No se pudo abrir la web de soporte. Visita wicchu.com.",
+  "Could not open the support website. Please visit wicchu.com/support.":
+      "No se pudo abrir la web de soporte. Visita wicchu.com/support.",
   "Open the post’s options menu, select Report, enter a reason, and submit it to the community moderators.":
       "Abre el menú de opciones de la publicación, selecciona Denunciar, escribe el motivo y envíalo a los moderadores de la comunidad.",
   'Clear search': 'Borrar búsqueda',

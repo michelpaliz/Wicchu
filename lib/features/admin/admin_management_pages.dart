@@ -1089,6 +1089,9 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     text: widget.community.description,
   );
   late CommunityVisibility _visibility = widget.community.visibility;
+  late Town _town = widget.community.town;
+  late Future<List<Town>> _towns;
+  bool _locatingTown = false;
   late ProfileCategory? _profileCategory = widget.community.profileCategory;
   late final Set<BusinessService> _businessServices = {
     ...widget.community.businessServices,
@@ -1119,6 +1122,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   @override
   void initState() {
     super.initState();
+    _towns = widget.repository.listTowns();
     _loadAnonymity();
   }
 
@@ -1483,6 +1487,66 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             onChanged: (value) =>
                 setState(() => _visibility = value ?? _visibility),
           ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              context.tr(
+                widget.community.isPublicProfile
+                    ? 'Page location'
+                    : 'Community location',
+              ),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          const SizedBox(height: 8),
+          FutureBuilder<List<Town>>(
+            future: _towns,
+            builder: (context, snapshot) {
+              final towns = <Town>[
+                _town,
+                for (final town in snapshot.data ?? const <Town>[])
+                  if (town.id != _town.id) town,
+              ];
+              return DropdownButtonFormField<Town>(
+                key: ValueKey(_town.id),
+                initialValue: _town,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: context.tr('Town'),
+                  helperText: context.tr(
+                    'This location is used for discovery and local weather.',
+                  ),
+                ),
+                items: [
+                  for (final town in towns)
+                    DropdownMenuItem(
+                      value: town,
+                      child: Text(
+                        '${town.name} · ${town.countryCode}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: _saving
+                    ? null
+                    : (value) {
+                        if (value != null) setState(() => _town = value);
+                      },
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _locatingTown || _saving ? null : _useCurrentTown,
+            icon: _locatingTown
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.my_location),
+            label: Text(context.tr('Use my current town')),
+          ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(context.tr('Require post approval')),
@@ -1713,6 +1777,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     try {
       final updated = await widget.repository.updateCommunity(
         widget.community,
+        town: _town,
         profileCategory: _profileCategory,
         businessServices: _profileCategory == ProfileCategory.localBusiness
             ? List.unmodifiable(_businessServices)
@@ -1761,6 +1826,41 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _useCurrentTown() async {
+    setState(() => _locatingTown = true);
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception('Turn on location services and try again.');
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Location permission is required.');
+      }
+      final position = await Geolocator.getCurrentPosition();
+      final town = await widget.repository.locateTown(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+      if (!mounted) return;
+      setState(() {
+        _town = town;
+        _towns = widget.repository.listTowns();
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _locatingTown = false);
     }
   }
 

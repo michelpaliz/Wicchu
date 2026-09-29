@@ -41,6 +41,18 @@ class _FakeAuthGateway implements AuthGateway {
   Future<AuthSession> signInWithGoogle() => signInWithFacebook();
 
   @override
+  Future<AuthSession> signInWithApple() => signInWithFacebook();
+
+  @override
+  Future<Map<String, dynamic>> getDeletionPreview() async => {
+    'canDelete': true,
+    'ownershipConflicts': <dynamic>[],
+  };
+
+  @override
+  Future<void> deleteAccount({String? password}) async {}
+
+  @override
   Future<AuthSession> signInWithEmail(String email, String password) =>
       signInWithFacebook();
 

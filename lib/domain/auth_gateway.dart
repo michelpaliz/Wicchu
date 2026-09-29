@@ -18,6 +18,7 @@ abstract interface class AuthGateway {
   Future<bool> hasSession();
   Future<AuthSession> signInWithFacebook();
   Future<AuthSession> signInWithGoogle();
+  Future<AuthSession> signInWithApple();
   Future<AuthSession> signInWithEmail(String email, String password);
   Future<void> registerWithEmail({
     required String name,
@@ -28,6 +29,8 @@ abstract interface class AuthGateway {
   });
   Future<void> resendVerificationEmail(String email, {required String locale});
   Future<void> requestPasswordReset(String email);
+  Future<Map<String, dynamic>> getDeletionPreview();
+  Future<void> deleteAccount({String? password});
   Future<void> signOut();
 }
 

@@ -42,6 +42,31 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<List<BlockedUser>> listBlockedUsers() async {
+    final body = await _api.get('/api/community/v1/me/blocked-users?limit=100');
+    return _array(body, 'items')
+        .map(
+          (json) => BlockedUser(
+            userId: json['userId']?.toString() ?? '',
+            name: json['name']?.toString() ?? 'Wicchu member',
+            avatarUrl: json['avatarUrl'] as String?,
+          ),
+        )
+        .where((item) => item.userId.isNotEmpty)
+        .toList();
+  }
+
+  @override
+  Future<void> blockUser(String userId) async {
+    await _api.put('/api/community/v1/me/blocked-users/$userId');
+  }
+
+  @override
+  Future<void> unblockUser(String userId) async {
+    await _api.delete('/api/community/v1/me/blocked-users/$userId');
+  }
+
+  @override
   Future<SocialLinks> getMySocialLinks() async {
     final body = await _api.get('/api/community/v1/me/social-links');
     return _socialLinksFromJson({
@@ -607,6 +632,7 @@ class HttpCommunityRepository implements CommunityRepository {
   @override
   Future<Community> updateCommunity(
     Community community, {
+    required Town town,
     required String name,
     required String description,
     required CommunityVisibility visibility,
@@ -624,6 +650,7 @@ class HttpCommunityRepository implements CommunityRepository {
     final body = await _api.patch(
       '/api/community/v1/communities/${community.id}',
       body: {
+        'townId': town.id,
         'name': name,
         'description': description,
         'visibility': visibility.name,
@@ -650,9 +677,10 @@ class HttpCommunityRepository implements CommunityRepository {
         'coverImageBlobName': ?coverImageBlobName,
       },
     );
+    final responseCommunity = _object(body, 'community');
     return _communityFromJson({
-      ..._object(body, 'community'),
-      'town': _townToJson(community.town),
+      ...responseCommunity,
+      if (responseCommunity['town'] == null) 'town': _townToJson(town),
       'memberCount': community.memberCount,
       'myRole': community.myRole?.name,
     });
@@ -1419,6 +1447,13 @@ class HttpCommunityRepository implements CommunityRepository {
 
   static String _id(Map<String, dynamic> json) =>
       (json['_id'] ?? json['id'])?.toString() ?? '';
+
+  static List<Map<String, dynamic>> _array(
+    Map<String, dynamic> body,
+    String key,
+  ) => (body[key] as List<dynamic>? ?? const [])
+      .whereType<Map<String, dynamic>>()
+      .toList();
 
   static CommunityInvitation _invitationFromJson(
     Map<String, dynamic> json, {

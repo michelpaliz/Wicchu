@@ -29,6 +29,7 @@ class MemberProfilePage extends StatefulWidget {
 }
 
 class _MemberProfilePageState extends State<MemberProfilePage> {
+  bool _blocking = false;
   late final Future<WicchuProfile?> _viewer = widget.repository
       .getProfile()
       .then<WicchuProfile?>((profile) => profile)
@@ -82,6 +83,23 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
           context,
         ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
       ),
+      actions: [
+        FutureBuilder<WicchuProfile?>(
+          future: _viewer,
+          builder: (context, viewer) => viewer.data?.id == widget.userId
+              ? const SizedBox.shrink()
+              : IconButton(
+                  tooltip: context.tr('Block user'),
+                  onPressed: _blocking ? null : _blockUser,
+                  icon: _blocking
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.block_outlined),
+                ),
+        ),
+      ],
     ),
     body: RefreshIndicator(
       onRefresh: () async {
@@ -474,6 +492,44 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
       ),
     ),
   );
+
+  Future<void> _blockUser() async {
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.tr('Block this user?')),
+        content: Text(
+          context.tr(
+            'You will no longer see each other’s posts, comments, profiles, mentions, or notifications.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.tr('Block')),
+          ),
+        ],
+      ),
+    );
+    if (approved != true) return;
+    setState(() => _blocking = true);
+    try {
+      await widget.repository.blockUser(widget.userId);
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _blocking = false);
+    }
+  }
 
   Future<void> _shareProfile(PublicMemberProfile profile) async {
     try {

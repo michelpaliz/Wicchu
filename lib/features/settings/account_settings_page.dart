@@ -6,10 +6,18 @@ import '../../localization/app_language.dart';
 import '../../domain/community_repository.dart';
 import '../../domain/community_models.dart';
 import '../../config/wicchu_urls.dart';
+import '../../domain/auth_gateway.dart';
 
 class AccountSettingsPage extends StatefulWidget {
-  const AccountSettingsPage({super.key, required this.repository});
+  const AccountSettingsPage({
+    super.key,
+    required this.repository,
+    this.authGateway,
+    this.onAccountDeleted,
+  });
   final CommunityRepository repository;
+  final AuthGateway? authGateway;
+  final VoidCallback? onAccountDeleted;
 
   @override
   State<AccountSettingsPage> createState() => _AccountSettingsPageState();
@@ -177,6 +185,19 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   value: _showOnlineStatus,
                   onChanged: _setOnlineVisibility,
                 ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.block_outlined),
+                  trailing: const Icon(Icons.chevron_right),
+                  title: Text(context.tr('Blocked users')),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          BlockedUsersPage(repository: widget.repository),
+                    ),
+                  ),
+                ),
                 const Divider(height: 20),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -216,12 +237,14 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.delete_outline),
-                  trailing: const Icon(Icons.open_in_new, size: 20),
-                  onTap: _openDataDeletion,
-                  title: Text(context.tr('Data deletion')),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: widget.authGateway == null
+                      ? _openDataDeletion
+                      : _deleteAccount,
+                  title: Text(context.tr('Delete account')),
                   subtitle: Text(
                     context.tr(
-                      'Visit wicchu.com/data-deletion to request deletion.',
+                      'Permanently delete your account and personal content.',
                     ),
                   ),
                 ),
@@ -358,6 +381,93 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     }
   }
 
+  Future<void> _deleteAccount() async {
+    final gateway = widget.authGateway;
+    if (gateway == null) return _openDataDeletion();
+    try {
+      final preview = await gateway.getDeletionPreview();
+      final conflicts =
+          preview['ownershipConflicts'] as List<dynamic>? ?? const [];
+      if (!mounted) return;
+      if (conflicts.isNotEmpty) {
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(context.tr('Transfer ownership first')),
+            content: Text(
+              context.tr(
+                'You must transfer or delete every space you own before deleting your account.',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(context.tr('Close')),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      final password = TextEditingController();
+      final confirmation = TextEditingController();
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(context.tr('Delete account permanently?')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.tr(
+                  'This removes your profile, memberships, posts, comments, media, and notifications. This action cannot be undone.',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: password,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: context.tr('Password (email accounts only)'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmation,
+                decoration: InputDecoration(
+                  labelText: context.tr('Type DELETE to confirm'),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(context.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.pop(context, confirmation.text.trim() == 'DELETE'),
+              child: Text(context.tr('Delete account')),
+            ),
+          ],
+        ),
+      );
+      final enteredPassword = password.text;
+      password.dispose();
+      confirmation.dispose();
+      if (approved != true) return;
+      await gateway.deleteAccount(password: enteredPassword);
+      if (!mounted) return;
+      widget.onAccountDeleted?.call();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
+
   Future<void> _setOnlineVisibility(bool value) async {
     final previous = _showOnlineStatus;
     setState(() => _showOnlineStatus = value);
@@ -380,6 +490,76 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       ).showSnackBar(SnackBar(content: Text(context.trError(error))));
     }
   }
+}
+
+class BlockedUsersPage extends StatefulWidget {
+  const BlockedUsersPage({super.key, required this.repository});
+  final CommunityRepository repository;
+
+  @override
+  State<BlockedUsersPage> createState() => _BlockedUsersPageState();
+}
+
+class _BlockedUsersPageState extends State<BlockedUsersPage> {
+  late Future<List<BlockedUser>> _users = widget.repository.listBlockedUsers();
+
+  void _reload() =>
+      setState(() => _users = widget.repository.listBlockedUsers());
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(context.tr('Blocked users'))),
+    body: FutureBuilder<List<BlockedUser>>(
+      future: _users,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text(context.trError(snapshot.error!)));
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final users = snapshot.data!;
+        if (users.isEmpty) {
+          return Center(
+            child: Text(context.tr('You have not blocked anyone.')),
+          );
+        }
+        return ListView.separated(
+          itemCount: users.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundImage: user.avatarUrl == null
+                    ? null
+                    : NetworkImage(user.avatarUrl!),
+                child: user.avatarUrl == null
+                    ? Text(user.name.isEmpty ? '?' : user.name[0].toUpperCase())
+                    : null,
+              ),
+              title: Text(user.name),
+              trailing: TextButton(
+                onPressed: () async {
+                  try {
+                    await widget.repository.unblockUser(user.userId);
+                    _reload();
+                  } catch (error) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(context.trError(error))),
+                      );
+                    }
+                  }
+                },
+                child: Text(context.tr('Unblock')),
+              ),
+            );
+          },
+        );
+      },
+    ),
+  );
 }
 
 class HelpPage extends StatefulWidget {
@@ -442,7 +622,7 @@ class _HelpPageState extends State<HelpPage> {
     setState(() => _openingSupport = true);
     try {
       final opened = await launchUrl(
-        Uri.parse(WicchuUrls.publicOrigin),
+        Uri.parse(WicchuUrls.support),
         mode: LaunchMode.externalApplication,
       );
       if (!opened) throw Exception('Could not open the support website.');
@@ -452,7 +632,7 @@ class _HelpPageState extends State<HelpPage> {
           SnackBar(
             content: Text(
               context.tr(
-                'Could not open the support website. Please visit wicchu.com.',
+                'Could not open the support website. Please visit wicchu.com/support.',
               ),
             ),
           ),

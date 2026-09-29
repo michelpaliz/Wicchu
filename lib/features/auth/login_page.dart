@@ -1,4 +1,5 @@
 import 'auth_sign_in_button.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/auth_gateway.dart';
@@ -70,6 +71,18 @@ class _LoginPageState extends State<LoginPage> {
                     isLoading: _loadingProvider == 'google',
                     disabled: _loadingProvider != null,
                   ),
+                  if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+                    const SizedBox(height: 12),
+                    _signInButton(
+                      provider: 'apple',
+                      label: 'Continue with Apple',
+                      onPressed: _signInApple,
+                      icon: const Icon(Icons.apple, size: 24),
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      filled: true,
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   FacebookSignInButton(
                     onPressed: _signInFacebook,
@@ -164,6 +177,12 @@ class _LoginPageState extends State<LoginPage> {
     provider: 'google',
     action: widget.authGateway.signInWithGoogle,
     unavailableMessage: 'Google sign-in is unavailable.',
+  );
+
+  Future<void> _signInApple() => _signIn(
+    provider: 'apple',
+    action: widget.authGateway.signInWithApple,
+    unavailableMessage: 'Apple sign-in is unavailable.',
   );
 
   Future<void> _signIn({

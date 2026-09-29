@@ -66,6 +66,9 @@ abstract interface class CommunityRepository {
   });
   Future<WicchuProfile> getProfile();
   Future<PublicMemberProfile> getMemberProfile(String userId);
+  Future<List<BlockedUser>> listBlockedUsers();
+  Future<void> blockUser(String userId);
+  Future<void> unblockUser(String userId);
   Future<List<CommunityPost>> listMemberPosts(
     String userId, {
     String kind = 'all',
@@ -184,6 +187,7 @@ abstract interface class CommunityRepository {
   });
   Future<Community> updateCommunity(
     Community community, {
+    required Town town,
     required String name,
     required String description,
     required CommunityVisibility visibility,

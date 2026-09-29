@@ -26,6 +26,10 @@ class _PreviewAuthGateway implements AuthGateway {
       throw UnimplementedError('Google login is unavailable in the preview.');
 
   @override
+  Future<AuthSession> signInWithApple() =>
+      throw UnimplementedError('Apple login is unavailable in the preview.');
+
+  @override
   Future<AuthSession> signInWithEmail(String email, String password) =>
       throw UnimplementedError('Email login is unavailable in the preview.');
 
@@ -51,6 +55,14 @@ class _PreviewAuthGateway implements AuthGateway {
   @override
   Future<void> requestPasswordReset(String email) =>
       throw UnimplementedError('Password reset is unavailable in the preview.');
+
+  @override
+  Future<Map<String, dynamic>> getDeletionPreview() async => const {};
+
+  @override
+  Future<void> deleteAccount({String? password}) => throw UnimplementedError(
+    'Account deletion is unavailable in the preview.',
+  );
 
   @override
   Future<void> signOut() async {}

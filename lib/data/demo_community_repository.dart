@@ -2,6 +2,8 @@ import '../domain/community_models.dart';
 import '../domain/community_repository.dart';
 
 class DemoCommunityRepository implements CommunityRepository {
+  final List<BlockedUser> _blockedUsers = [];
+
   DemoCommunityRepository() {
     const town = Town(id: 'town-1', name: 'Town X', countryCode: 'EC');
     _communities.add(
@@ -484,6 +486,7 @@ class DemoCommunityRepository implements CommunityRepository {
   @override
   Future<Community> updateCommunity(
     Community community, {
+    required Town town,
     required String name,
     required String description,
     required CommunityVisibility visibility,
@@ -502,7 +505,7 @@ class DemoCommunityRepository implements CommunityRepository {
       id: community.id,
       name: name,
       description: description,
-      town: community.town,
+      town: town,
       visibility: visibility,
       createdBy: community.createdBy,
       createdAt: community.createdAt,
@@ -899,6 +902,20 @@ class DemoCommunityRepository implements CommunityRepository {
     required bool approve,
     String? reason,
   }) async {}
+
+  @override
+  Future<List<BlockedUser>> listBlockedUsers() async =>
+      List.unmodifiable(_blockedUsers);
+
+  @override
+  Future<void> blockUser(String userId) async {
+    if (_blockedUsers.any((item) => item.userId == userId)) return;
+    _blockedUsers.add(BlockedUser(userId: userId, name: 'Wicchu member'));
+  }
+
+  @override
+  Future<void> unblockUser(String userId) async =>
+      _blockedUsers.removeWhere((item) => item.userId == userId);
 
   static String _iconFor(String name) => switch (name) {
     'News' => '📢',

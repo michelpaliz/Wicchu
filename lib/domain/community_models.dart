@@ -726,3 +726,10 @@ class MembershipRequest {
   final String userName;
   final DateTime createdAt;
 }
+
+class BlockedUser {
+  const BlockedUser({required this.userId, required this.name, this.avatarUrl});
+  final String userId;
+  final String name;
+  final String? avatarUrl;
+}
