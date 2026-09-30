@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wicchu/data/authenticated_api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/community_repository.dart';
@@ -24,7 +25,61 @@ class _InsightsRepository extends DemoCommunityRepository {
       );
 }
 
+class _UnavailableInsightsRepository extends DemoCommunityRepository {
+  @override
+  Future<CommunityInsights> getCommunityInsights(String communityId) async =>
+      throw const ApiException('Not found', statusCode: 404);
+}
+
 void main() {
+  testWidgets('missing insights does not show fabricated metrics', (
+    tester,
+  ) async {
+    final repository = _UnavailableInsightsRepository();
+    final community = (await repository.listJoinedCommunities()).first;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityInsightsPage(
+          community: community,
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Community statistics are not available yet.'),
+      findsOneWidget,
+    );
+    expect(find.text('Monthly active'), findsNothing);
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('insights fits a narrow screen with large text', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _InsightsRepository();
+    final community = (await repository.listJoinedCommunities()).first;
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(1.6)),
+          child: child!,
+        ),
+        home: CommunityInsightsPage(
+          community: community,
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Tip'), 200);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('insights page presents growth and engagement metrics', (
     tester,
   ) async {
@@ -46,7 +101,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Community Insights'), findsOneWidget);
-    expect(find.text('2,043'), findsOneWidget);
+    expect(find.text('2,043'), findsNWidgets(2));
     expect(find.text('527'), findsOneWidget);
     expect(find.text('248'), findsOneWidget);
     expect(find.text('25.8%'), findsOneWidget);

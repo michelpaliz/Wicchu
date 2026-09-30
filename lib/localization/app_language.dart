@@ -314,6 +314,17 @@ const _spanish = <String, String>{
       'Sitios web, redes sociales, mapas y otros enlaces útiles.',
   'Find important links for this community or profile here.':
       'Aquí puedes encontrar enlaces importantes de esta comunidad o perfil.',
+  'Keep sharing useful local content and invite members to take part.':
+      'Sigue compartiendo contenido local útil e invita a los miembros a participar.',
+  'New members': 'Nuevos miembros',
+  'Activity in the last 30 days': 'Actividad en los últimos 30 días',
+  'More history is needed to show member growth.':
+      'Se necesita más historial para mostrar el crecimiento de miembros.',
+  'Posts in the last 30 days': 'Publicaciones en los últimos 30 días',
+  'Community statistics are not available yet.':
+      'Las estadísticas de la comunidad aún no están disponibles.',
+  'A summary of your community’s activity and growth.':
+      'Resumen de la actividad y crecimiento de tu comunidad.',
   'Notification settings': 'Ajustes de notificaciones',
   'Log out': 'Cerrar sesión',
   'Signing out…': 'Cerrando sesión…',
