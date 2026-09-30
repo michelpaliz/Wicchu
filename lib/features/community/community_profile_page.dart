@@ -462,18 +462,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         );
         if (!mounted || agreed != true) return;
       }
-      final post = await Navigator.push<CommunityPost>(
+      final post = await openPostComposer(
         context,
-        MaterialPageRoute(
-          builder: (_) => CreatePostPage(
-            community: _community,
-            repository: widget.repository,
-            categories: categories,
-            initialCategory: categories
-                .where((c) => c.id == _categoryId)
-                .firstOrNull,
-          ),
-        ),
+        community: _community,
+        repository: widget.repository,
+        categories: categories,
+        initialCategory: categories
+            .where((c) => c.id == _categoryId)
+            .firstOrNull,
       );
       if (post != null && mounted) {
         setState(() {

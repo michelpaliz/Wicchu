@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../data/authenticated_api_client.dart';
+import '../data/session_token_store.dart';
 
 class PresenceService with WidgetsBindingObserver {
   PresenceService._();
@@ -13,8 +13,8 @@ class PresenceService with WidgetsBindingObserver {
 
   Future<void> start() async {
     if (_started) return;
-    final token = await const FlutterSecureStorage().read(
-      key: AuthenticatedApiClient.accessTokenKey,
+    final token = await SessionTokenStore().read(
+      AuthenticatedApiClient.accessTokenKey,
     );
     if (token == null || token.isEmpty) return;
     _started = true;

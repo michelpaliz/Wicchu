@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,7 +55,7 @@ class _WicchuAppState extends State<WicchuApp> {
   String? _pendingInvitationToken;
   bool _pendingPromotions = false;
   late Future<bool> _hasSession;
-  String _languageCode = 'en';
+  String _languageCode = kIsWeb ? 'es' : 'en';
   bool _languageChangedByUser = false;
   ThemeMode _themeMode = ThemeMode.system;
   bool _themeChangedByUser = false;
@@ -166,7 +167,7 @@ class _WicchuAppState extends State<WicchuApp> {
     }
     if ((uri.scheme == 'wicchu' && uri.host == 'invitations') ||
         ((uri.scheme == 'http' || uri.scheme == 'https') &&
-            uri.host == 'hexora.dev' &&
+            _isWicchuWebHost(uri.host) &&
             uri.pathSegments.length >= 2 &&
             uri.pathSegments[0] == 'wicchu' &&
             uri.pathSegments[1] == 'invitations')) {
@@ -193,7 +194,7 @@ class _WicchuAppState extends State<WicchuApp> {
     }
     final segments = uri.pathSegments;
     if ((uri.scheme == 'http' || uri.scheme == 'https') &&
-        uri.host == 'hexora.dev' &&
+        _isWicchuWebHost(uri.host) &&
         segments.length >= 4 &&
         segments[0] == 'wicchu' &&
         segments[1] == 'invitations' &&
@@ -211,7 +212,7 @@ class _WicchuAppState extends State<WicchuApp> {
     }
     final segments = uri.pathSegments;
     if ((uri.scheme == 'http' || uri.scheme == 'https') &&
-        uri.host == 'hexora.dev' &&
+        _isWicchuWebHost(uri.host) &&
         segments.length >= 3 &&
         segments[0] == 'wicchu' &&
         segments[1] == 'posts') {
@@ -228,13 +229,21 @@ class _WicchuAppState extends State<WicchuApp> {
     }
     final segments = uri.pathSegments;
     if ((uri.scheme == 'http' || uri.scheme == 'https') &&
-        uri.host == 'hexora.dev' &&
+        _isWicchuWebHost(uri.host) &&
         segments.length >= 3 &&
         segments[0] == 'wicchu' &&
         segments[1] == 'communities') {
       return segments[2];
     }
     return null;
+  }
+
+  bool _isWicchuWebHost(String host) {
+    final normalized = host.toLowerCase();
+    return normalized == 'wicchu.com' ||
+        normalized == 'www.wicchu.com' ||
+        normalized == 'hexora.dev' ||
+        normalized == 'www.hexora.dev';
   }
 
   void _openPendingPost() {

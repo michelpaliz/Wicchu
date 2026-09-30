@@ -1382,4 +1382,20 @@ const _spanish = <String, String>{
   'Open profile': 'Abrir perfil',
   'Follow {community} on Wicchu': 'Sigue a {community} en Wicchu',
   'Follow {community} on Wicchu:': 'Sigue a {community} en Wicchu:',
+  'Monetization': 'Monetización',
+  'Monetization unlocked': 'Monetización desbloqueada',
+  'Eligible': 'Elegible',
+  'Not yet eligible': 'Aún no elegible',
+  'Build an active community to unlock earning opportunities from local promotions.':
+      'Construye una comunidad activa para desbloquear oportunidades de ingresos con promociones locales.',
+  'Your community is eligible for earning opportunities from local promotions.':
+      'Tu comunidad cumple los requisitos para obtener ingresos con promociones locales.',
+  'Monthly active members': 'Miembros activos mensuales',
+  'Community status': 'Estado de la comunidad',
+  'Good standing': 'En regla',
+  'Restricted': 'Restringida',
+  '{members} members and {active} active members to go':
+      'Faltan {members} miembros y {active} miembros activos',
+  'Start earning from local promotions':
+      'Empieza a obtener ingresos con promociones locales',
 };

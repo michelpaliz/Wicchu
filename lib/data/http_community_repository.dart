@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../domain/community_models.dart';
 import '../domain/community_repository.dart';
 import 'authenticated_api_client.dart';
@@ -7,6 +9,18 @@ class HttpCommunityRepository implements CommunityRepository {
     : _api = apiClient ?? AuthenticatedApiClient();
 
   final AuthenticatedApiClient _api;
+
+  static const _apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://hexora.dev',
+  );
+
+  static String? _mediaUrl(String? originalUrl, Object? blobName) {
+    final name = blobName?.toString().trim() ?? '';
+    if (!kIsWeb || name.isEmpty) return originalUrl;
+    return '$_apiBaseUrl/api/community/v1/media/content'
+        '?blobName=${Uri.encodeQueryComponent(name)}';
+  }
 
   @override
   Future<WicchuProfile> getProfile() async {
@@ -859,7 +873,7 @@ class HttpCommunityRepository implements CommunityRepository {
     );
     final media = _object(body, 'media');
     return PostMedia(
-      url: media['url'] as String? ?? '',
+      url: _mediaUrl(media['url'] as String?, media['blobName']) ?? '',
       type: media['type'] as String? ?? 'image',
       blobName: media['blobName'] as String?,
     );
@@ -968,6 +982,9 @@ class HttpCommunityRepository implements CommunityRepository {
     );
     final insights = _object(body, 'insights');
     final growth = insights['memberGrowth'];
+    final monetization = insights['monetization'] is Map<String, dynamic>
+        ? insights['monetization'] as Map<String, dynamic>
+        : const <String, dynamic>{};
     return CommunityInsights(
       totalMembers: (insights['totalMembers'] as num?)?.toInt() ?? 0,
       newMembers30d: (insights['newMembers30d'] as num?)?.toInt() ?? 0,
@@ -992,6 +1009,18 @@ class HttpCommunityRepository implements CommunityRepository {
                 })
                 .toList(growable: false)
           : const [],
+      monetization: CommunityMonetizationEligibility(
+        eligible: monetization['eligible'] as bool? ?? false,
+        memberTarget: (monetization['memberTarget'] as num?)?.toInt() ?? 1000,
+        monthlyActiveTarget:
+            (monetization['monthlyActiveTarget'] as num?)?.toInt() ?? 250,
+        membersRemaining:
+            (monetization['membersRemaining'] as num?)?.toInt() ?? 1000,
+        monthlyActiveRemaining:
+            (monetization['monthlyActiveRemaining'] as num?)?.toInt() ?? 250,
+        goodStanding: monetization['goodStanding'] as bool? ?? true,
+        restrictionReason: monetization['restrictionReason']?.toString(),
+      ),
     );
   }
 
@@ -1216,8 +1245,11 @@ class HttpCommunityRepository implements CommunityRepository {
           : CommunityType.community,
       description: json['description'] as String? ?? '',
       town: _townFromJson(townJson),
-      imageUrl: json['imageUrl'] as String?,
-      coverImageUrl: json['coverImageUrl'] as String?,
+      imageUrl: _mediaUrl(json['imageUrl'] as String?, json['imageBlobName']),
+      coverImageUrl: _mediaUrl(
+        json['coverImageUrl'] as String?,
+        json['coverImageBlobName'],
+      ),
       visibility: json['visibility'] == 'private'
           ? CommunityVisibility.private
           : CommunityVisibility.public,
@@ -1315,7 +1347,7 @@ class HttpCommunityRepository implements CommunityRepository {
           .whereType<Map<String, dynamic>>()
           .map(
             (item) => PostMedia(
-              url: item['url'] as String? ?? '',
+              url: _mediaUrl(item['url'] as String?, item['blobName']) ?? '',
               type: item['type'] as String? ?? 'image',
               blobName: item['blobName'] as String?,
             ),

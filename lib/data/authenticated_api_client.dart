@@ -4,6 +4,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import 'session_token_store.dart';
+
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode});
 
@@ -20,7 +22,7 @@ class AuthenticatedApiClient {
     FlutterSecureStorage? storage,
     String? apiBaseUrl,
   }) : _client = client ?? http.Client(),
-       _storage = storage ?? const FlutterSecureStorage(),
+       _storage = SessionTokenStore(secureStorage: storage),
        _apiBaseUrl =
            apiBaseUrl ??
            const String.fromEnvironment(
@@ -32,7 +34,7 @@ class AuthenticatedApiClient {
   static const refreshTokenKey = 'wicchu_refresh_token';
 
   final http.Client _client;
-  final FlutterSecureStorage _storage;
+  final SessionTokenStore _storage;
   final String _apiBaseUrl;
 
   Future<Map<String, dynamic>> get(String path) => _send('GET', path);
@@ -59,7 +61,7 @@ class AuthenticatedApiClient {
     required String mimeType,
     bool allowRefresh = true,
   }) async {
-    final token = await _storage.read(key: accessTokenKey);
+    final token = await _storage.read(accessTokenKey);
     if (token == null || token.isEmpty) {
       throw const ApiException('Please sign in again.', statusCode: 401);
     }
@@ -109,7 +111,7 @@ class AuthenticatedApiClient {
     Map<String, dynamic>? body,
     bool allowRefresh = true,
   }) async {
-    final token = await _storage.read(key: accessTokenKey);
+    final token = await _storage.read(accessTokenKey);
     if (token == null || token.isEmpty) {
       throw const ApiException('Please sign in again.', statusCode: 401);
     }
@@ -160,7 +162,7 @@ class AuthenticatedApiClient {
   }
 
   Future<bool> _refreshToken() async {
-    final refreshToken = await _storage.read(key: refreshTokenKey);
+    final refreshToken = await _storage.read(refreshTokenKey);
     if (refreshToken == null || refreshToken.isEmpty) return false;
 
     final response = await _client.post(
@@ -173,8 +175,8 @@ class AuthenticatedApiClient {
     );
     if (response.statusCode != 200) {
       await Future.wait([
-        _storage.delete(key: accessTokenKey),
-        _storage.delete(key: refreshTokenKey),
+        _storage.delete(accessTokenKey),
+        _storage.delete(refreshTokenKey),
       ]);
       return false;
     }
@@ -183,7 +185,7 @@ class AuthenticatedApiClient {
         ? body['accessToken'] as String?
         : null;
     if (accessToken == null || accessToken.isEmpty) return false;
-    await _storage.write(key: accessTokenKey, value: accessToken);
+    await _storage.write(accessTokenKey, accessToken);
     return true;
   }
 }

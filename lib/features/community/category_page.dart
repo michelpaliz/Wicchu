@@ -65,15 +65,11 @@ class _CategoryPageState extends State<CategoryPage>
 
   Future<void> _createPost() async {
     if (!widget.canPost || !widget.community.canPublish) return;
-    final post = await Navigator.push<CommunityPost>(
+    final post = await openPostComposer(
       context,
-      MaterialPageRoute(
-        builder: (_) => CreatePostPage(
-          community: widget.community,
-          repository: widget.repository,
-          initialCategory: widget.category,
-        ),
-      ),
+      community: widget.community,
+      repository: widget.repository,
+      initialCategory: widget.category,
     );
     if (post != null && mounted) setState(_reload);
   }

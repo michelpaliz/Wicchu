@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../../widgets/responsive_side_panel.dart';
 import 'post_rich_text_editor.dart';
 import 'post_share.dart';
 import 'post_media_gallery.dart';
@@ -28,6 +29,61 @@ class CreatePostPage extends StatefulWidget {
 
   @override
   State<CreatePostPage> createState() => _CreatePostPageState();
+}
+
+Future<CommunityPost?> openPostComposer(
+  BuildContext context, {
+  required Community community,
+  required CommunityRepository repository,
+  CommunityCategory? initialCategory,
+  List<CommunityCategory> categories = const [],
+  CommunityPost? existingPost,
+}) {
+  final page = CreatePostPage(
+    community: community,
+    repository: repository,
+    initialCategory: initialCategory,
+    categories: categories,
+    existingPost: existingPost,
+  );
+  if (MediaQuery.sizeOf(context).width < webDesktopBreakpoint) {
+    return Navigator.push<CommunityPost>(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+    );
+  }
+  return showGeneralDialog<CommunityPost>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.black54,
+    transitionDuration: const Duration(milliseconds: 260),
+    pageBuilder: (context, animation, secondaryAnimation) => SafeArea(
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: SizedBox(
+          width: 560,
+          height: double.infinity,
+          child: Material(
+            color: Theme.of(context).colorScheme.surface,
+            elevation: 18,
+            clipBehavior: Clip.antiAlias,
+            borderRadius: const BorderRadius.horizontal(
+              left: Radius.circular(24),
+            ),
+            child: page,
+          ),
+        ),
+      ),
+    ),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final offset = Tween<Offset>(
+        begin: const Offset(1, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+      return SlideTransition(position: offset, child: child);
+    },
+  );
 }
 
 class _CreatePostPageState extends State<CreatePostPage> {
@@ -896,16 +952,12 @@ Future<CommunityPost?> openEditPost(
     if (community == null) throw StateError('Community not found');
     final categories = await repository.listCategories(community.id);
     if (!context.mounted) return null;
-    return await Navigator.push<CommunityPost>(
+    return await openPostComposer(
       context,
-      MaterialPageRoute(
-        builder: (_) => CreatePostPage(
-          community: community,
-          repository: repository,
-          categories: categories,
-          existingPost: post,
-        ),
-      ),
+      community: community,
+      repository: repository,
+      categories: categories,
+      existingPost: post,
     );
   } catch (error) {
     if (context.mounted) {

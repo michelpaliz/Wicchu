@@ -1,12 +1,12 @@
 {
-    "name": "Wicchu",
+    "name": "Wicchu · Tu comunidad, más cerca",
     "short_name": "Wicchu",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#F8FFFC",
+    "theme_color": "#075F55",
+    "description": "Comunidades locales organizadas, perfiles públicos y negocios cerca de ti.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

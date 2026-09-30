@@ -29,6 +29,7 @@ class AdminDashboardPage extends StatefulWidget {
 
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   late Future<AdminAttentionSummary> _summary;
+  late Future<CommunityInsights> _insights;
   late Community _community = widget.community;
 
   bool get _canConfigure =>
@@ -45,6 +46,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   void _reload() {
     _summary = repository.getAdminAttention(community.id);
+    _insights = repository.getCommunityInsights(community.id);
   }
 
   @override
@@ -215,6 +217,29 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               );
             },
           ),
+          if (_canConfigure && !community.isPublicProfile) ...[
+            const SizedBox(height: 16),
+            FutureBuilder<CommunityInsights>(
+              future: _insights,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const _MonetizationLoadingCard();
+                }
+                if (snapshot.hasError) {
+                  return const SizedBox.shrink();
+                }
+                return _MonetizationCard(
+                  insights: snapshot.data!,
+                  onInvite: () => _openQueue(
+                    CommunityInvitationsPage(
+                      community: community,
+                      repository: repository,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
           _MenuSection(
             label: 'Content',
             children: [
@@ -377,6 +402,216 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     );
     if (updated != null && mounted) setState(() => _community = updated);
   }
+}
+
+class _MonetizationLoadingCard extends StatelessWidget {
+  const _MonetizationLoadingCard();
+
+  @override
+  Widget build(BuildContext context) => const Card(
+    margin: EdgeInsets.zero,
+    child: Padding(
+      padding: EdgeInsets.all(20),
+      child: LinearProgressIndicator(),
+    ),
+  );
+}
+
+class _MonetizationCard extends StatelessWidget {
+  const _MonetizationCard({required this.insights, required this.onInvite});
+
+  final CommunityInsights insights;
+  final VoidCallback onInvite;
+
+  @override
+  Widget build(BuildContext context) {
+    final eligibility = insights.monetization;
+    final colors = Theme.of(context).colorScheme;
+    final membersProgress = eligibility.memberTarget == 0
+        ? 0.0
+        : (insights.totalMembers / eligibility.memberTarget).clamp(0.0, 1.0);
+    final activeProgress = eligibility.monthlyActiveTarget == 0
+        ? 0.0
+        : (insights.monthlyActiveUsers / eligibility.monthlyActiveTarget).clamp(
+            0.0,
+            1.0,
+          );
+
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  eligibility.eligible
+                      ? Icons.celebration_outlined
+                      : Icons.monetization_on_outlined,
+                  color: colors.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    context.tr(
+                      eligibility.eligible
+                          ? 'Monetization unlocked'
+                          : 'Monetization',
+                    ),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                _EligibilityBadge(eligible: eligibility.eligible),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              context.tr(
+                eligibility.eligible
+                    ? 'Your community is eligible for earning opportunities from local promotions.'
+                    : 'Build an active community to unlock earning opportunities from local promotions.',
+              ),
+            ),
+            const SizedBox(height: 20),
+            _MonetizationRequirement(
+              icon: Icons.group_outlined,
+              label: context.tr('Members'),
+              value: insights.totalMembers,
+              target: eligibility.memberTarget,
+              progress: membersProgress,
+            ),
+            const SizedBox(height: 16),
+            _MonetizationRequirement(
+              icon: Icons.circle,
+              label: context.tr('Monthly active members'),
+              value: insights.monthlyActiveUsers,
+              target: eligibility.monthlyActiveTarget,
+              progress: activeProgress,
+              iconColor: Colors.green,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(
+                  eligibility.goodStanding
+                      ? Icons.verified_user_outlined
+                      : Icons.gpp_bad_outlined,
+                  color: eligibility.goodStanding ? Colors.green : colors.error,
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Text(context.tr('Community status'))),
+                Text(
+                  context.tr(
+                    eligibility.goodStanding ? 'Good standing' : 'Restricted',
+                  ),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: eligibility.goodStanding
+                        ? Colors.green
+                        : colors.error,
+                  ),
+                ),
+              ],
+            ),
+            if (!eligibility.eligible) ...[
+              const SizedBox(height: 20),
+              Text(
+                context
+                    .tr('{members} members and {active} active members to go', {
+                      'members': '${eligibility.membersRemaining}',
+                      'active': '${eligibility.monthlyActiveRemaining}',
+                    }),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: onInvite,
+                icon: const Icon(Icons.person_add_alt_1_outlined),
+                label: Text(context.tr('Invite people')),
+              ),
+            ] else ...[
+              const SizedBox(height: 20),
+              Text(
+                context.tr('Start earning from local promotions'),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EligibilityBadge extends StatelessWidget {
+  const _EligibilityBadge({required this.eligible});
+  final bool eligible;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: (eligible ? Colors.green : Theme.of(context).colorScheme.secondary)
+          .withValues(alpha: .12),
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Text(
+      context.tr(eligible ? 'Eligible' : 'Not yet eligible'),
+      style: TextStyle(
+        fontWeight: FontWeight.w700,
+        color: eligible
+            ? Colors.green.shade700
+            : Theme.of(context).colorScheme.secondary,
+      ),
+    ),
+  );
+}
+
+class _MonetizationRequirement extends StatelessWidget {
+  const _MonetizationRequirement({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.target,
+    required this.progress,
+    this.iconColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final int value;
+  final int target;
+  final double progress;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Icon(icon, size: 18, color: iconColor),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label)),
+          Text(
+            '$value / $target',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      LinearProgressIndicator(value: progress, minHeight: 8),
+    ],
+  );
 }
 
 class _ActionRow extends StatelessWidget {

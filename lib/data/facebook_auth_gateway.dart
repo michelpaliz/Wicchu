@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 
 import '../domain/auth_gateway.dart';
 import 'authenticated_api_client.dart';
+import 'session_token_store.dart';
 
 class FacebookAuthGateway implements AuthGateway {
   FacebookAuthGateway({
@@ -18,7 +19,7 @@ class FacebookAuthGateway implements AuthGateway {
     FlutterSecureStorage? storage,
     String? apiBaseUrl,
   }) : _client = client ?? http.Client(),
-       _storage = storage ?? const FlutterSecureStorage(),
+       _storage = SessionTokenStore(secureStorage: storage),
        _apiBaseUrl =
            apiBaseUrl ??
            const String.fromEnvironment(
@@ -27,7 +28,7 @@ class FacebookAuthGateway implements AuthGateway {
            );
 
   final http.Client _client;
-  final FlutterSecureStorage _storage;
+  final SessionTokenStore _storage;
   final String _apiBaseUrl;
   Future<void>? _googleInitialization;
 
@@ -40,7 +41,7 @@ class FacebookAuthGateway implements AuthGateway {
   @override
   Future<bool> hasSession() async =>
       (await _storage.read(
-        key: AuthenticatedApiClient.refreshTokenKey,
+        AuthenticatedApiClient.refreshTokenKey,
       ))?.isNotEmpty ==
       true;
 
@@ -287,9 +288,7 @@ class FacebookAuthGateway implements AuthGateway {
     Map<String, dynamic>? body,
     Map<String, String> extraHeaders = const {},
   }) async {
-    final token = await _storage.read(
-      key: AuthenticatedApiClient.accessTokenKey,
-    );
+    final token = await _storage.read(AuthenticatedApiClient.accessTokenKey);
     if (token == null || token.isEmpty) {
       throw const AuthException('Please sign in again.');
     }
@@ -357,12 +356,12 @@ class FacebookAuthGateway implements AuthGateway {
     );
     await Future.wait([
       _storage.write(
-        key: AuthenticatedApiClient.accessTokenKey,
-        value: session.accessToken,
+        AuthenticatedApiClient.accessTokenKey,
+        session.accessToken,
       ),
       _storage.write(
-        key: AuthenticatedApiClient.refreshTokenKey,
-        value: session.refreshToken,
+        AuthenticatedApiClient.refreshTokenKey,
+        session.refreshToken,
       ),
     ]);
     return session;
@@ -371,7 +370,7 @@ class FacebookAuthGateway implements AuthGateway {
   @override
   Future<void> signOut() async {
     final accessToken = await _storage.read(
-      key: AuthenticatedApiClient.accessTokenKey,
+      AuthenticatedApiClient.accessTokenKey,
     );
     if (accessToken?.isNotEmpty == true) {
       try {
@@ -390,8 +389,8 @@ class FacebookAuthGateway implements AuthGateway {
     await Future.wait([
       FacebookAuth.instance.logOut(),
       GoogleSignIn.instance.signOut(),
-      _storage.delete(key: AuthenticatedApiClient.accessTokenKey),
-      _storage.delete(key: AuthenticatedApiClient.refreshTokenKey),
+      _storage.delete(AuthenticatedApiClient.accessTokenKey),
+      _storage.delete(AuthenticatedApiClient.refreshTokenKey),
     ]);
   }
 

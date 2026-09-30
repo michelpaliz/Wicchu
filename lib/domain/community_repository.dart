@@ -57,6 +57,7 @@ class CommunityInsights {
     this.comments30d = 0,
     this.reactions30d = 0,
     this.memberGrowth = const [],
+    this.monetization = const CommunityMonetizationEligibility(),
   });
 
   final int totalMembers;
@@ -69,6 +70,27 @@ class CommunityInsights {
   final int comments30d;
   final int reactions30d;
   final List<MemberGrowthPoint> memberGrowth;
+  final CommunityMonetizationEligibility monetization;
+}
+
+class CommunityMonetizationEligibility {
+  const CommunityMonetizationEligibility({
+    this.eligible = false,
+    this.memberTarget = 1000,
+    this.monthlyActiveTarget = 250,
+    this.membersRemaining = 1000,
+    this.monthlyActiveRemaining = 250,
+    this.goodStanding = true,
+    this.restrictionReason,
+  });
+
+  final bool eligible;
+  final int memberTarget;
+  final int monthlyActiveTarget;
+  final int membersRemaining;
+  final int monthlyActiveRemaining;
+  final bool goodStanding;
+  final String? restrictionReason;
 }
 
 class CreatePostInput {

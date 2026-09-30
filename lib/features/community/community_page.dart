@@ -136,15 +136,11 @@ class _CommunityPageState extends State<CommunityPage>
         );
         return;
       }
-      final post = await Navigator.push<CommunityPost>(
+      final post = await openPostComposer(
         context,
-        MaterialPageRoute(
-          builder: (_) => CreatePostPage(
-            community: community,
-            repository: repository,
-            categories: categories,
-          ),
-        ),
+        community: community,
+        repository: repository,
+        categories: categories,
       );
       if (post != null && mounted) setState(_reload);
     } catch (error) {
