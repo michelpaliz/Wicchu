@@ -11,6 +11,25 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
+    if (path.endsWith('/admin/insights')) {
+      return {
+        'insights': {
+          'totalMembers': 2043,
+          'newMembers30d': 143,
+          'newMembersChangePercent': 12.4,
+          'monthlyActiveUsers': 527,
+          'weeklyActiveUsers': 248,
+          'monthlyActivityRate': 25.8,
+          'posts30d': 84,
+          'comments30d': 326,
+          'reactions30d': 1204,
+          'memberGrowth': [
+            {'date': '2026-09-01', 'members': 1900},
+            {'date': '2026-09-30', 'members': 2043},
+          ],
+        },
+      };
+    }
     if (path == '/api/community/v1/promotions/eligibility') {
       return {
         'eligibility': {
@@ -128,6 +147,22 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 }
 
 void main() {
+  test('community insights are decoded from the admin endpoint', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final insights = await repository.getCommunityInsights('community-1');
+
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/admin/insights',
+    );
+    expect(insights.totalMembers, 2043);
+    expect(insights.monthlyActiveUsers, 527);
+    expect(insights.monthlyActivityRate, 25.8);
+    expect(insights.memberGrowth.last.members, 2043);
+  });
+
   test(
     'public profile category is sent and decoded without relabeling legacy profiles',
     () async {

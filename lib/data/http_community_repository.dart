@@ -962,6 +962,40 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<CommunityInsights> getCommunityInsights(String communityId) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/admin/insights',
+    );
+    final insights = _object(body, 'insights');
+    final growth = insights['memberGrowth'];
+    return CommunityInsights(
+      totalMembers: (insights['totalMembers'] as num?)?.toInt() ?? 0,
+      newMembers30d: (insights['newMembers30d'] as num?)?.toInt() ?? 0,
+      newMembersChangePercent: (insights['newMembersChangePercent'] as num?)
+          ?.toDouble(),
+      monthlyActiveUsers:
+          (insights['monthlyActiveUsers'] as num?)?.toInt() ?? 0,
+      weeklyActiveUsers: (insights['weeklyActiveUsers'] as num?)?.toInt() ?? 0,
+      monthlyActivityRate:
+          (insights['monthlyActivityRate'] as num?)?.toDouble() ?? 0,
+      posts30d: (insights['posts30d'] as num?)?.toInt() ?? 0,
+      comments30d: (insights['comments30d'] as num?)?.toInt() ?? 0,
+      reactions30d: (insights['reactions30d'] as num?)?.toInt() ?? 0,
+      memberGrowth: growth is List
+          ? growth
+                .whereType<Map<String, dynamic>>()
+                .map((point) {
+                  return MemberGrowthPoint(
+                    date: DateTime.parse(point['date'] as String),
+                    members: (point['members'] as num?)?.toInt() ?? 0,
+                  );
+                })
+                .toList(growable: false)
+          : const [],
+    );
+  }
+
+  @override
   Future<List<CommunityPost>> listPendingPosts(String communityId) async {
     final body = await _api.get(
       '/api/community/v1/communities/$communityId/admin/pending-posts',

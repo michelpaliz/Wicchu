@@ -11,6 +11,7 @@ import 'promotion_review_page.dart';
 import 'rule_management_page.dart';
 import '../community/community_invitations_page.dart';
 import '../community/community_avatar.dart';
+import 'community_insights_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({
@@ -225,6 +226,18 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     : 'Community activity and key details',
                 onTap: () => _openOverview(),
               ),
+              if (_canConfigure)
+                _MenuRow(
+                  icon: Icons.insights_outlined,
+                  label: 'Insights',
+                  description: 'Understand community growth and engagement',
+                  onTap: () => _openQueue(
+                    CommunityInsightsPage(
+                      community: community,
+                      repository: repository,
+                    ),
+                  ),
+                ),
               if (_canConfigure)
                 _MenuRow(
                   icon: Icons.folder_outlined,

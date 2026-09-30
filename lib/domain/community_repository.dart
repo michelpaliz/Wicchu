@@ -38,6 +38,39 @@ class AdminAttentionSummary {
   final int pendingPromotions;
 }
 
+class MemberGrowthPoint {
+  const MemberGrowthPoint({required this.date, required this.members});
+
+  final DateTime date;
+  final int members;
+}
+
+class CommunityInsights {
+  const CommunityInsights({
+    this.totalMembers = 0,
+    this.newMembers30d = 0,
+    this.newMembersChangePercent,
+    this.monthlyActiveUsers = 0,
+    this.weeklyActiveUsers = 0,
+    this.monthlyActivityRate = 0,
+    this.posts30d = 0,
+    this.comments30d = 0,
+    this.reactions30d = 0,
+    this.memberGrowth = const [],
+  });
+
+  final int totalMembers;
+  final int newMembers30d;
+  final double? newMembersChangePercent;
+  final int monthlyActiveUsers;
+  final int weeklyActiveUsers;
+  final double monthlyActivityRate;
+  final int posts30d;
+  final int comments30d;
+  final int reactions30d;
+  final List<MemberGrowthPoint> memberGrowth;
+}
+
 class CreatePostInput {
   const CreatePostInput({
     required this.categoryId,
@@ -239,6 +272,7 @@ abstract interface class CommunityRepository {
     String category = 'other',
   });
   Future<AdminAttentionSummary> getAdminAttention(String communityId);
+  Future<CommunityInsights> getCommunityInsights(String communityId);
   Future<List<CommunityReport>> listReports(String communityId);
   Future<void> decideReport(
     String communityId,

@@ -797,6 +797,10 @@ class DemoCommunityRepository implements CommunityRepository {
       const AdminAttentionSummary();
 
   @override
+  Future<CommunityInsights> getCommunityInsights(String communityId) async =>
+      const CommunityInsights();
+
+  @override
   Future<List<CommunityReport>> listReports(String communityId) async => [];
 
   @override
