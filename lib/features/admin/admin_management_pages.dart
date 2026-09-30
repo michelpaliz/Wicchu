@@ -1115,6 +1115,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   String? _imageBlobName;
   late String? _coverImageUrl = widget.community.coverImageUrl;
   String? _coverImageBlobName;
+  bool _editingName = false;
   bool _saving = false;
   bool _uploadingImage = false;
   bool? _anonymousInCommunity;
@@ -1137,6 +1138,53 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     super.dispose();
   }
 
+  Widget _settingsSection(String title, IconData icon, List<Widget> children) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: theme.colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    context.tr(title),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Card(
+            margin: EdgeInsets.zero,
+            elevation: 0,
+            color: theme.colorScheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(
+                color: theme.colorScheme.onSurface.withValues(alpha: .08),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: children,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -1153,164 +1201,197 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     body: Form(
       key: _form,
       child: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          Text(
-            context.tr(
-              widget.community.isPublicProfile
-                  ? 'Page cover photo'
-                  : 'Community cover photo',
-            ),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          AspectRatio(
-            aspectRatio: 16 / 7,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Material(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                child: InkWell(
-                  onTap: _uploadingImage ? null : () => _pickImage(cover: true),
-                  child: _coverImageUrl == null
-                      ? const Center(
-                          child: Icon(Icons.landscape_outlined, size: 48),
-                        )
-                      : Image.network(
-                          _coverImageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Center(
-                            child: Icon(Icons.broken_image_outlined),
-                          ),
-                        ),
-                ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: SizedBox(
+              height: 104,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                  ),
+                  if (_coverImageUrl != null)
+                    Image.network(
+                      _coverImageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) =>
+                          const Icon(Icons.landscape_outlined, size: 32),
+                    ),
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: FilledButton.tonalIcon(
+                      key: const ValueKey('edit-community-cover'),
+                      onPressed: _uploadingImage || _saving
+                          ? null
+                          : () => _pickImage(cover: true),
+                      icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                      label: Text(context.tr('Change cover photo')),
+                    ),
+                  ),
+                  if (_coverImageUrl != null)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: IconButton.filledTonal(
+                        tooltip: context.tr('Remove cover photo'),
+                        onPressed: _uploadingImage || _saving
+                            ? null
+                            : () => setState(() {
+                                _coverImageUrl = null;
+                                _coverImageBlobName = '';
+                              }),
+                        icon: const Icon(Icons.close, size: 18),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
+          const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextButton.icon(
-                onPressed: _uploadingImage
-                    ? null
-                    : () => _pickImage(cover: true),
-                icon: const Icon(Icons.photo_camera_outlined),
-                label: Text(context.tr('Change cover photo')),
-              ),
-              if (_coverImageUrl != null)
-                TextButton(
-                  onPressed: _uploadingImage
-                      ? null
-                      : () => setState(() {
-                          _coverImageUrl = null;
-                          _coverImageBlobName = '';
-                        }),
-                  child: Text(context.tr('Remove')),
+              SizedBox(
+                width: 72,
+                child: Center(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      ClipOval(
+                        child: SizedBox.square(
+                          dimension: 64,
+                          child: _imageUrl == null
+                              ? ColoredBox(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primaryContainer,
+                                  child: Icon(
+                                    !widget.community.isPublicProfile
+                                        ? Icons.groups_outlined
+                                        : _profileCategory ==
+                                              ProfileCategory.localBusiness
+                                        ? Icons.storefront_outlined
+                                        : _profileCategory ==
+                                              ProfileCategory.organization
+                                        ? Icons.apartment_outlined
+                                        : Icons.person_outline,
+                                    size: 30,
+                                  ),
+                                )
+                              : Image.network(
+                                  _imageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => ColoredBox(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.errorContainer,
+                                    child: const Icon(
+                                      Icons.broken_image_outlined,
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ),
+                      Positioned(
+                        right: -8,
+                        bottom: -8,
+                        child: IconButton.filled(
+                          tooltip: context.tr(
+                            widget.community.isPublicProfile
+                                ? 'Change page photo'
+                                : 'Change community photo',
+                          ),
+                          onPressed: _uploadingImage
+                              ? null
+                              : () => _pickImage(cover: false),
+                          icon: _uploadingImage
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.photo_camera_outlined),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _name,
+                      builder: (context, value, _) => Text(
+                        value.text,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      context.tr(widget.community.spaceTypeLabel),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _saving
+                              ? null
+                              : () => setState(
+                                  () => _editingName = !_editingName,
+                                ),
+                          icon: const Icon(Icons.edit_outlined, size: 16),
+                          label: Text(context.tr('Edit')),
+                        ),
+                        if (_imageUrl != null)
+                          TextButton(
+                            onPressed: _uploadingImage || _saving
+                                ? null
+                                : () => setState(() {
+                                    _imageUrl = null;
+                                    _imageBlobName = '';
+                                  }),
+                            child: Text(context.tr('Remove photo')),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            context.tr(
-              widget.community.isPublicProfile
-                  ? (_profileCategory == ProfileCategory.localBusiness
-                        ? 'Business profile photo'
-                        : 'Profile photo')
-                  : 'Community profile photo',
-            ),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                ClipOval(
-                  child: SizedBox.square(
-                    dimension: 80,
-                    child: _imageUrl == null
-                        ? ColoredBox(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer,
-                            child: Icon(
-                              !widget.community.isPublicProfile
-                                  ? Icons.groups_outlined
-                                  : _profileCategory ==
-                                        ProfileCategory.localBusiness
-                                  ? Icons.storefront_outlined
-                                  : _profileCategory ==
-                                        ProfileCategory.organization
-                                  ? Icons.apartment_outlined
-                                  : Icons.person_outline,
-                              size: 48,
-                            ),
-                          )
-                        : Image.network(
-                            _imageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => ColoredBox(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.errorContainer,
-                              child: const Icon(Icons.broken_image_outlined),
-                            ),
-                          ),
-                  ),
-                ),
-                Positioned(
-                  right: -8,
-                  bottom: -8,
-                  child: IconButton.filled(
-                    tooltip: context.tr(
+          if (_editingName)
+            TextFormField(
+              controller: _name,
+              maxLength: CommunityInputLimits.name,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? context.tr(
                       widget.community.isPublicProfile
-                          ? 'Change page photo'
-                          : 'Change community photo',
-                    ),
-                    onPressed: _uploadingImage
-                        ? null
-                        : () => _pickImage(cover: false),
-                    icon: _uploadingImage
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.photo_camera_outlined),
-                  ),
-                ),
-              ],
+                          ? 'Add a page name.'
+                          : 'Add a community name.',
+                    )
+                  : value.characters.length > CommunityInputLimits.name
+                  ? context.tr('Use at most {count} characters.', {
+                      'count': '${CommunityInputLimits.name}',
+                    })
+                  : null,
+              decoration: InputDecoration(labelText: context.tr('Name')),
             ),
-          ),
-          if (_imageUrl != null)
-            TextButton(
-              onPressed: _uploadingImage
-                  ? null
-                  : () => setState(() {
-                      _imageUrl = null;
-                      _imageBlobName = '';
-                    }),
-              child: Text(context.tr('Remove photo')),
-            ),
-          const SizedBox(height: 20),
-          TextFormField(
-            controller: _name,
-            maxLength: CommunityInputLimits.name,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            validator: (value) => value == null || value.trim().isEmpty
-                ? context.tr(
-                    widget.community.isPublicProfile
-                        ? 'Add a page name.'
-                        : 'Add a community name.',
-                  )
-                : value.characters.length > CommunityInputLimits.name
-                ? context.tr('Use at most {count} characters.', {
-                    'count': '${CommunityInputLimits.name}',
-                  })
-                : null,
-            decoration: InputDecoration(labelText: context.tr('Name')),
-          ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _description,
@@ -1324,7 +1405,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                     'count': '${CommunityInputLimits.description}',
                   })
                 : null,
-            minLines: 2,
+            minLines: 1,
             maxLines: 4,
             decoration: InputDecoration(labelText: context.tr('Description')),
           ),
@@ -1374,139 +1455,150 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               ),
           ],
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Icon(
-                _visibility == CommunityVisibility.public
-                    ? Icons.public
-                    : Icons.lock_outline,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 10),
-              Expanded(child: Text(context.tr('Visibility'))),
-              DropdownButtonHideUnderline(
-                child: DropdownButton<CommunityVisibility>(
-                  value: _visibility,
-                  borderRadius: BorderRadius.circular(12),
-                  icon: const Icon(Icons.keyboard_arrow_down),
-                  items: [
-                    for (final value in CommunityVisibility.values)
-                      DropdownMenuItem(
-                        value: value,
-                        child: Text(context.tr(value.name)),
-                      ),
-                  ],
-                  onChanged: _saving
-                      ? null
-                      : (value) =>
-                            setState(() => _visibility = value ?? _visibility),
+          _settingsSection('General', Icons.settings_outlined, [
+            Row(
+              children: [
+                Icon(
+                  _visibility == CommunityVisibility.public
+                      ? Icons.public
+                      : Icons.lock_outline,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            context.tr(
-              widget.community.isPublicProfile
-                  ? 'Business location'
-                  : 'Community location',
-            ),
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: FutureBuilder<List<Town>>(
-                  future: _towns,
-                  builder: (context, snapshot) {
-                    final towns = <Town>[
-                      _town,
-                      for (final town in snapshot.data ?? const <Town>[])
-                        if (town.id != _town.id) town,
-                    ];
-                    return DropdownButtonFormField<Town>(
-                      key: ValueKey(_town.id),
-                      initialValue: _town,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: context.tr('Town'),
-                        isDense: true,
-                        prefixIcon: const Icon(
-                          Icons.location_city_outlined,
-                          size: 20,
+                const SizedBox(width: 10),
+                Expanded(child: Text(context.tr('Visibility'))),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<CommunityVisibility>(
+                    value: _visibility,
+                    borderRadius: BorderRadius.circular(12),
+                    icon: const Icon(Icons.keyboard_arrow_down),
+                    items: [
+                      for (final value in CommunityVisibility.values)
+                        DropdownMenuItem(
+                          value: value,
+                          child: Text(context.tr(value.name)),
                         ),
-                      ),
-                      items: [
-                        for (final town in towns)
-                          DropdownMenuItem(
-                            value: town,
-                            child: Text(
-                              '${town.name} · ${town.countryCode}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                    ],
+                    onChanged: _saving
+                        ? null
+                        : (value) => setState(
+                            () => _visibility = value ?? _visibility,
                           ),
-                      ],
-                      onChanged: _saving
-                          ? null
-                          : (value) {
-                              if (value != null) setState(() => _town = value);
-                            },
-                    );
-                  },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: context.tr('Use my current town'),
-                onPressed: _locatingTown || _saving ? null : _useCurrentTown,
-                color: Theme.of(context).colorScheme.primary,
-                icon: _locatingTown
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.my_location, size: 22),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 6, bottom: 12),
-            child: Text(
+              ],
+            ),
+          ]),
+          const SizedBox(height: 12),
+          _settingsSection('Location', Icons.location_on_outlined, [
+            Text(
               context.tr(
                 widget.community.isPublicProfile
-                    ? 'Helps nearby people find your profile.'
-                    : 'This location is used for discovery and local weather.',
+                    ? 'Business location'
+                    : 'Community location',
               ),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
             ),
-          ),
-          if (!widget.community.isPublicProfile ||
-              _profileCategory != ProfileCategory.localBusiness) ...[
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(context.tr('Require post approval')),
-              value: _approvalRequired,
-              onChanged: (value) => setState(() => _approvalRequired = value),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: FutureBuilder<List<Town>>(
+                    future: _towns,
+                    builder: (context, snapshot) {
+                      final towns = <Town>[
+                        _town,
+                        for (final town in snapshot.data ?? const <Town>[])
+                          if (town.id != _town.id) town,
+                      ];
+                      return DropdownButtonFormField<Town>(
+                        key: ValueKey(_town.id),
+                        initialValue: _town,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: context.tr('Town'),
+                          isDense: true,
+                          prefixIcon: const Icon(
+                            Icons.location_city_outlined,
+                            size: 20,
+                          ),
+                        ),
+                        items: [
+                          for (final town in towns)
+                            DropdownMenuItem(
+                              value: town,
+                              child: Text(
+                                '${town.name} · ${town.countryCode}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: _saving
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _town = value);
+                                }
+                              },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: context.tr('Use my current town'),
+                  onPressed: _locatingTown || _saving ? null : _useCurrentTown,
+                  color: Theme.of(context).colorScheme.primary,
+                  icon: _locatingTown
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location, size: 22),
+                ),
+              ],
             ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              secondary: const Icon(Icons.cloud_outlined),
-              title: Text(context.tr('Show local weather')),
-              subtitle: Text(
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 12),
+              child: Text(
                 context.tr(
-                  'Display current conditions for the community town.',
+                  widget.community.isPublicProfile
+                      ? 'Helps nearby people find your profile.'
+                      : 'This location is used for discovery and local weather.',
+                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              value: _showWeather,
-              onChanged: (value) => setState(() => _showWeather = value),
             ),
+          ]),
+          if (!widget.community.isPublicProfile ||
+              _profileCategory != ProfileCategory.localBusiness) ...[
+            _settingsSection('Posts and content', Icons.article_outlined, [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(context.tr('Require post approval')),
+                value: _approvalRequired,
+                onChanged: (value) => setState(() => _approvalRequired = value),
+              ),
+            ]),
+            _settingsSection('Additional information', Icons.info_outline, [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(Icons.cloud_outlined),
+                title: Text(context.tr('Show local weather')),
+                subtitle: Text(
+                  context.tr(
+                    'Display current conditions for the community town.',
+                  ),
+                ),
+                value: _showWeather,
+                onChanged: (value) => setState(() => _showWeather = value),
+              ),
+            ]),
           ],
           if (widget.community.isPublicProfile) ...[
             TextFormField(
@@ -1558,54 +1650,57 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             ),
           ],
           const SizedBox(height: 8),
-          _compactPrivacySetting(
-            title: 'Hide my identity',
-            description:
-                'When enabled, members will see “Community Admin” instead of your name and photo in this community. Other administrators can still identify you.',
-            extraHelp: 'This setting saves automatically.',
-            value: _anonymousInCommunity ?? false,
-            onChanged: _anonymousInCommunity == null || _savingAnonymity
-                ? null
-                : _setAnonymity,
-            expanded: _showIdentityHelp,
-            onHelp: () =>
-                setState(() => _showIdentityHelp = !_showIdentityHelp),
-            status: _anonymityLoadFailed
-                ? IconButton(
-                    tooltip: context.tr('Retry'),
-                    onPressed: _loadAnonymity,
-                    icon: const Icon(Icons.refresh, size: 18),
-                  )
-                : _savingAnonymity || _anonymousInCommunity == null
-                ? Semantics(
-                    label: context.tr(
-                      _savingAnonymity ? 'Saving…' : 'Loading…',
+          _settingsSection('Privacy', Icons.privacy_tip_outlined, [
+            _compactPrivacySetting(
+              title: 'Hide my identity',
+              description:
+                  'When enabled, members will see “Community Admin” instead of your name and photo in this community. Other administrators can still identify you.',
+              extraHelp: 'This setting saves automatically.',
+              value: _anonymousInCommunity ?? false,
+              onChanged: _anonymousInCommunity == null || _savingAnonymity
+                  ? null
+                  : _setAnonymity,
+              expanded: _showIdentityHelp,
+              onHelp: () =>
+                  setState(() => _showIdentityHelp = !_showIdentityHelp),
+              status: _anonymityLoadFailed
+                  ? IconButton(
+                      tooltip: context.tr('Retry'),
+                      onPressed: _loadAnonymity,
+                      icon: const Icon(Icons.refresh, size: 18),
+                    )
+                  : _savingAnonymity || _anonymousInCommunity == null
+                  ? Semantics(
+                      label: context.tr(
+                        _savingAnonymity ? 'Saving…' : 'Loading…',
+                      ),
+                      liveRegion: true,
+                      child: const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : Tooltip(
+                      message: context.tr(
+                        _anonymitySaved
+                            ? 'Saved automatically'
+                            : 'This setting saves automatically.',
+                      ),
+                      triggerMode: TooltipTriggerMode.tap,
+                      child: Icon(
+                        _anonymitySaved
+                            ? Icons.check_circle_outline
+                            : Icons.cloud_done_outlined,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
-                    liveRegion: true,
-                    child: const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : Tooltip(
-                    message: context.tr(
-                      _anonymitySaved
-                          ? 'Saved automatically'
-                          : 'This setting saves automatically.',
-                    ),
-                    triggerMode: TooltipTriggerMode.tap,
-                    child: Icon(
-                      _anonymitySaved
-                          ? Icons.check_circle_outline
-                          : Icons.cloud_done_outlined,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-          ),
+            ),
+          ]),
           const SizedBox(height: 16),
-          Card(
-            child: ListTile(
+          _settingsSection('Content', Icons.link, [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.link),
               title: Text(context.tr('Official links')),
               subtitle: Text(
@@ -1616,25 +1711,25 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               trailing: const Icon(Icons.chevron_right),
               onTap: _saving ? null : _openOfficialLinks,
             ),
-          ),
-          const SizedBox(height: 24),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.rule_outlined),
-            title: Text(context.tr('Community rules')),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _saving
-                ? null
-                : () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RuleManagementPage(
-                        community: widget.community,
-                        repository: widget.repository,
+            const Divider(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.rule_outlined),
+              title: Text(context.tr('Community rules')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _saving
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RuleManagementPage(
+                          community: widget.community,
+                          repository: widget.repository,
+                        ),
                       ),
                     ),
-                  ),
-          ),
+            ),
+          ]),
           const SizedBox(height: 24),
           FilledButton.icon(
             style: FilledButton.styleFrom(

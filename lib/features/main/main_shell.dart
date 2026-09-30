@@ -2510,65 +2510,120 @@ class _ActivityTabState extends State<_ActivityTab> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Notifications'))),
+    appBar: AppBar(
+      title: Text(
+        context.tr('Notifications'),
+        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+      ),
+      actions: [
+        IconButton(
+          tooltip: context.tr('Notification settings'),
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => Navigator.push<void>(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  AccountSettingsPage(repository: widget.repository),
+            ),
+          ),
+        ),
+      ],
+    ),
     body: Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Wrap(
-            spacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Column(
             children: [
-              ChoiceChip(
-                side: BorderSide.none,
-                shape: const StadiumBorder(),
-                selectedColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.12),
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.04),
-                labelStyle: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 320),
+                  child: Row(
+                    children: [
+                      for (final unread in [false, true]) ...[
+                        if (unread) const SizedBox(width: 8),
+                        Expanded(
+                          child: ChoiceChip(
+                            side: BorderSide.none,
+                            shape: const StadiumBorder(),
+                            selectedColor: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: .14),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: .04),
+                            labelStyle: TextStyle(
+                              color: _unreadOnly == unread
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                            label: SizedBox(
+                              width: double.infinity,
+                              child: Text(
+                                context.tr(
+                                  unread ? 'Unread' : 'All notifications',
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 8,
+                            ),
+                            selected: _unreadOnly == unread,
+                            showCheckmark: false,
+                            onSelected: (_) =>
+                                setState(() => _unreadOnly = unread),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                label: Text(context.tr('All notifications')),
-                selected: !_unreadOnly,
-                showCheckmark: false,
-                onSelected: (_) => setState(() => _unreadOnly = false),
               ),
-              ChoiceChip(
-                side: BorderSide.none,
-                shape: const StadiumBorder(),
-                selectedColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.12),
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.04),
-                labelStyle: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                label: Text(context.tr('Unread')),
-                selected: _unreadOnly,
-                showCheckmark: false,
-                onSelected: (_) => setState(() => _unreadOnly = true),
-              ),
+              const SizedBox(height: 10),
               FutureBuilder<NotificationFeed>(
                 future: _feed,
-                builder: (context, snapshot) => TextButton(
-                  onPressed:
-                      !_markingAll &&
-                          snapshot.connectionState == ConnectionState.done &&
-                          !snapshot.hasError &&
-                          (snapshot.data?.unreadCount ?? 0) > 0
-                      ? _markAllRead
-                      : null,
-                  child: _markingAll
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(context.tr('Mark all read')),
+                builder: (context, snapshot) => SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    key: const ValueKey('mark-all-notifications-read'),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: .06),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    onPressed:
+                        !_markingAll &&
+                            snapshot.connectionState == ConnectionState.done &&
+                            !snapshot.hasError &&
+                            (snapshot.data?.unreadCount ?? 0) > 0
+                        ? _markAllRead
+                        : null,
+                    icon: _markingAll
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.done_all, size: 22),
+                    label: Text(
+                      context.tr('Mark all read'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -2703,7 +2758,12 @@ class _ActivityTabState extends State<_ActivityTab> {
                             child: Text(
                               context.tr(group),
                               style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700),
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
                             ),
                           ),
                         _notificationRow(notification),
@@ -2751,15 +2811,32 @@ class _ActivityTabState extends State<_ActivityTab> {
       CommunityNotificationType.promotionRejected => Icons.error_outline,
     };
     final colors = Theme.of(context).colorScheme;
-    return Material(
+    final badgeColor = switch (notification.type) {
+      CommunityNotificationType.postReaction ||
+      CommunityNotificationType.commentReaction => Colors.pink.shade600,
+      CommunityNotificationType.postComment ||
+      CommunityNotificationType.commentReply => Colors.blue.shade600,
+      _ => colors.primary,
+    };
+    return Card(
+      key: ValueKey('notification-${notification.id}'),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: colors.outlineVariant.withValues(alpha: .4)),
+      ),
       color: notification.isRead
           ? colors.surface
           : colors.primary.withValues(alpha: 0.07),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 10,
+          vertical: 12,
         ),
+        titleAlignment: ListTileTitleAlignment.top,
+        horizontalTitleGap: 16,
         leading: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -2774,11 +2851,11 @@ class _ActivityTabState extends State<_ActivityTab> {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: colors.primaryContainer,
+                  color: badgeColor,
                   shape: BoxShape.circle,
                   border: Border.all(color: colors.surface, width: 2),
                 ),
-                child: Icon(icon, size: 14, color: colors.primary),
+                child: Icon(icon, size: 13, color: Colors.white),
               ),
             ),
           ],
@@ -2812,8 +2889,15 @@ class _ActivityTabState extends State<_ActivityTab> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : notification.isRead
-            ? null
-            : Icon(Icons.circle, size: 8, color: colors.primary),
+            ? Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: colors.onSurfaceVariant,
+              )
+            : Semantics(
+                label: context.tr('Unread'),
+                child: Icon(Icons.circle, size: 8, color: colors.primary),
+              ),
         onTap: () => _openNotification(notification),
       ),
     );

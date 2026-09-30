@@ -124,6 +124,9 @@ const _spanish = <String, String>{
       'Lee las normas para mantener un espacio seguro y respetuoso.',
   'Website, directions and more': 'Sitio web, cómo llegar y más',
 
+  'Unable to load members': 'No se pudieron cargar los miembros',
+  'Help our community grow': 'Ayúdanos a hacer crecer la comunidad',
+  'Invite people from {town}': 'Invita a más personas de {town}.',
   'Administration': 'Administración',
   'No members found': 'No se encontraron miembros',
 
@@ -292,7 +295,26 @@ const _spanish = <String, String>{
   'No categories found': 'No se encontraron categorías',
   'No communities found': 'No se encontraron comunidades',
   'No activity yet': 'Todavía no hay actividad',
-  'Mark all read': 'Marcar todo como leído',
+  'Mark all read': 'Marcar todas como leídas',
+  'Additional information': 'Información adicional',
+  'Posts and content': 'Publicaciones y contenido',
+  'Remove cover photo': 'Eliminar foto de portada',
+  'Shown as a {network} link.': 'Se mostrará como un enlace de {network}.',
+  'Clear link': 'Borrar enlace',
+  'Enter the full URL of your link.': 'Introduce la URL completa de tu enlace.',
+  'Name shown on the profile (e.g. Telegram, Website, Facebook).':
+      'Nombre que se mostrará (ej. Telegram, Web, Facebook).',
+  'Official links appear in the profile so people can find you easily.':
+      'Los enlaces oficiales aparecerán en el perfil para que puedan encontrarte fácilmente.',
+  'Add links to your social networks, website or other official channels.':
+      'Añade enlaces a tus redes sociales, página web u otros canales oficiales.',
+  'Map': 'Mapa',
+  'Open link': 'Abrir enlace',
+  'Websites, social networks, maps and other useful links.':
+      'Sitios web, redes sociales, mapas y otros enlaces útiles.',
+  'Find important links for this community or profile here.':
+      'Aquí puedes encontrar enlaces importantes de esta comunidad o perfil.',
+  'Notification settings': 'Ajustes de notificaciones',
   'Log out': 'Cerrar sesión',
   'Signing out…': 'Cerrando sesión…',
   '{communities} Communities · {posts} Posts':
@@ -1159,7 +1181,7 @@ const _spanish = <String, String>{
   "All notifications": "Todas",
   "Unread": "No leídas",
   "This week": "Esta semana",
-  "Earlier": "Anteriores",
+  "Earlier": "Más antiguas",
   "You’re all caught up": "Estás al día",
   "You have no new notifications.": "No tienes notificaciones nuevas.",
   "We’ll let you know when there is relevant activity.":

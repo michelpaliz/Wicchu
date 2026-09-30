@@ -19,9 +19,11 @@ import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import '../admin/admin_dashboard_page.dart';
 import '../admin/admin_management_pages.dart';
+import '../admin/official_links_page.dart';
 import '../profile/member_profile_page.dart';
 import 'community_avatar.dart';
 import 'community_share.dart';
+import 'community_invitations_page.dart';
 import 'post_media_gallery.dart';
 import 'post_card.dart';
 import 'post_share.dart';
@@ -40,9 +42,11 @@ class CommunityProfilePage extends StatefulWidget {
     this.onSwitchCommunity,
     this.onAccountMenu,
     this.screen = CommunityScreen.feed,
+    this.showAdministration = false,
   });
 
   final CommunityScreen screen;
+  final bool showAdministration;
   final Community community;
   final CommunityRepository repository;
   final bool embedded;
@@ -72,10 +76,13 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   late Future<CommunityHelpfulness> _helpfulness;
   Future<CommunityWeather?>? _weather;
   bool _savingMembership = false;
+  bool _savingLinks = false;
+  bool _showLinksTip = true;
   bool _openingComposer = false;
   Future<WicchuProfile>? _composerProfile;
   String? _categoryId;
-  int _memberFilter = 0;
+  late int _memberFilter = widget.showAdministration ? 1 : 0;
+  bool _descriptionExpanded = false;
   String _memberQuery = '';
   bool _searchMembers = false;
   bool _savingHelpfulness = false;
@@ -87,6 +94,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       _community.myRole == CommunityRole.owner ||
       _community.myRole == CommunityRole.admin ||
       _community.myRole == CommunityRole.moderator;
+  bool get _canInviteToCommunity =>
+      !_community.isPublicProfile &&
+      _joined &&
+      (_canManage || _community.visibility == CommunityVisibility.public);
   bool get _canPublish => _joined && _community.canPublish;
   String _spaceText(String communityText) {
     if (!_community.isPublicProfile) return communityText;
@@ -135,19 +146,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   String get _publicWebsiteUrl =>
       WicchuUrls.community(_community.id, _community.slug);
-
-  Future<void> _openPublicWebsite() => launchUrl(
-    Uri.parse(_publicWebsiteUrl),
-    mode: LaunchMode.externalApplication,
-  );
-
-  Future<void> _copyPublicWebsite() async {
-    await Clipboard.setData(ClipboardData(text: _publicWebsiteUrl));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.tr('Website address copied.'))),
-    );
-  }
 
   @override
   void initState() {
@@ -497,6 +495,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.screen == CommunityScreen.links) return _usefulLinksScreen();
     if (widget.screen == CommunityScreen.rules ||
         widget.screen == CommunityScreen.links ||
         widget.screen == CommunityScreen.rating) {
@@ -598,7 +597,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     });
   }
 
-  Future<void> _openMembers() async {
+  Future<void> _openMembers({bool administration = false}) async {
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
@@ -606,6 +605,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           community: _community,
           repository: widget.repository,
           screen: CommunityScreen.members,
+          showAdministration: administration,
         ),
       ),
     );
@@ -752,92 +752,130 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           icon: Icon(_searchingPosts ? Icons.close : Icons.search_rounded),
         ),
       if (!_searchingPosts) ...[
-        if (!_isLocalBusiness)
+        if (!_isLocalBusiness && widget.screen != CommunityScreen.information)
           IconButton(
             tooltip: context.tr('Share'),
             onPressed: () => shareCommunity(context, _community),
             icon: const Icon(Icons.ios_share_outlined),
           ),
-        PopupMenuButton<String>(
+        IconButton(
           key: const ValueKey('community-profile-menu'),
           tooltip: context.tr('More options'),
-          onSelected: (value) {
-            if (value == 'media') {
-              Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => Scaffold(
-                    appBar: AppBar(title: Text(context.tr('Media'))),
-                    body: _mediaTab(),
-                  ),
-                ),
-              );
-            } else if (value == 'links') {
-              _openInformationSection(CommunityScreen.links);
-            } else if (value == 'search') {
-              _togglePostSearch();
-            } else if (value == 'share') {
-              shareCommunity(context, _community);
-            } else if (value == 'edit') {
-              _editCommunity();
-            }
-          },
-          itemBuilder: (context) => [
-            if (_isLocalBusiness) ...[
-              if (_joined && widget.screen == CommunityScreen.feed)
-                PopupMenuItem(
-                  value: 'search',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search_rounded, size: 20),
-                      const SizedBox(width: 12),
-                      Text(context.tr('Search posts')),
-                    ],
-                  ),
-                ),
-              PopupMenuItem(
-                value: 'share',
-                child: Row(
-                  children: [
-                    const Icon(Icons.ios_share_outlined, size: 20),
-                    const SizedBox(width: 12),
-                    Text(context.tr('Share')),
-                  ],
-                ),
-              ),
-            ],
-            if (_community.links.isNotEmpty)
-              PopupMenuItem(
-                value: 'links',
-                child: Row(
-                  children: [
-                    const Icon(Icons.link, size: 20),
-                    const SizedBox(width: 12),
-                    Text(context.tr('Useful links')),
-                  ],
-                ),
-              ),
-            PopupMenuItem(value: 'media', child: Text(context.tr('Media'))),
-            if (_community.myRole == CommunityRole.owner ||
-                _community.myRole == CommunityRole.admin)
-              PopupMenuItem(
-                value: 'edit',
-                child: Text(
-                  context.tr(
-                    _community.isPublicProfile
-                        ? (_community.profileCategory ==
-                                  ProfileCategory.localBusiness
-                              ? 'Edit business'
-                              : 'Edit profile')
-                        : 'Edit community',
-                  ),
-                ),
-              ),
-          ],
+          icon: const Icon(Icons.more_horiz),
+          onPressed: _showCommunityOptions,
         ),
       ],
     ],
   );
+
+  Future<void> _showCommunityOptions() async {
+    final value = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      builder: (sheetContext) {
+        Widget option(
+          String value,
+          String label,
+          IconData icon, {
+          bool enabled = true,
+        }) => ListTile(
+          enabled: enabled,
+          leading: Icon(
+            icon,
+            color: enabled ? Theme.of(sheetContext).colorScheme.primary : null,
+          ),
+          title: Text(
+            context.tr(label),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 2,
+          ),
+          onTap: enabled ? () => Navigator.pop(sheetContext, value) : null,
+        );
+        return SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!_community.isPublicProfile &&
+                      widget.screen == CommunityScreen.feed)
+                    option(
+                      'information',
+                      'Community information',
+                      Icons.info_outline,
+                    ),
+                  if (_isLocalBusiness) ...[
+                    if (_joined && widget.screen == CommunityScreen.feed)
+                      option('search', 'Search posts', Icons.search),
+                    option('share', 'Share', Icons.ios_share_outlined),
+                  ],
+                  if (!_community.isPublicProfile ||
+                      _community.links.isNotEmpty)
+                    option('links', 'Useful links', Icons.link),
+                  option('media', 'Media', Icons.photo_library_outlined),
+                  if (_community.myRole == CommunityRole.owner ||
+                      _community.myRole == CommunityRole.admin)
+                    option(
+                      'edit',
+                      _community.isPublicProfile
+                          ? (_isLocalBusiness
+                                ? 'Edit business'
+                                : 'Edit profile')
+                          : 'Edit community',
+                      Icons.edit_outlined,
+                    ),
+                  if (!_community.isPublicProfile &&
+                      _joined &&
+                      _community.myRole != CommunityRole.owner)
+                    option(
+                      'leave',
+                      'Leave community',
+                      Icons.logout,
+                      enabled: !_savingMembership,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted || value == null) return;
+    if (value == 'media') {
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: Text(context.tr('Media'))),
+            body: _mediaTab(),
+          ),
+        ),
+      );
+    } else if (value == 'information') {
+      _openInformation();
+    } else if (value == 'leave') {
+      _confirmLeave();
+    } else if (value == 'links') {
+      _openInformationSection(CommunityScreen.links);
+    } else if (value == 'search') {
+      _togglePostSearch();
+    } else if (value == 'share') {
+      shareCommunity(context, _community);
+    } else if (value == 'edit') {
+      _editCommunity();
+    }
+  }
 
   Future<void> _editCommunity() async {
     final updated = await Navigator.push<Community>(
@@ -1127,13 +1165,44 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                      Row(
                         children: [
-                          _communityIdentity(),
-                          if (_joined) _communityRoleBadge(),
+                          Expanded(child: _communityIdentity()),
+                          const SizedBox(width: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_joined) _communityRoleBadge(),
+                              if (_joined && _canInviteToCommunity)
+                                const SizedBox(width: 6),
+                              if (_canInviteToCommunity)
+                                IconButton.filledTonal(
+                                  key: const ValueKey(
+                                    'community-header-invite',
+                                  ),
+                                  tooltip: context.tr('Invite people'),
+                                  onPressed: _inviteToCommunity,
+                                  style: IconButton.styleFrom(
+                                    fixedSize: const Size(44, 44),
+                                    minimumSize: const Size(44, 44),
+                                    maximumSize: const Size(44, 44),
+                                    padding: EdgeInsets.zero,
+                                    shape: const CircleBorder(),
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withValues(alpha: .08),
+                                    foregroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.person_add_alt_1_outlined,
+                                    size: 20,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
                       _memberCountLink(compact: true),
@@ -1680,7 +1749,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
-  Widget _communityRoleBadge() {
+  Widget _communityRoleBadge({bool expanded = false}) {
     final scheme = Theme.of(context).colorScheme;
     final message = _community.isPublicProfile
         ? context.tr(switch (_community.myRole) {
@@ -1702,37 +1771,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         if (value == 'manage') {
           _openManagement();
         } else if (value == 'leave') {
-          final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text(
-                context.tr(
-                  _community.isPublicProfile
-                      ? 'Unfollow'
-                      : 'Leave this community?',
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(context.tr('Cancel')),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text(
-                    context.tr(
-                      _community.isPublicProfile
-                          ? 'Unfollow'
-                          : 'Leave community',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-          if (confirmed == true && mounted && !_savingMembership) {
-            await _toggleMembership();
-          }
+          await _confirmLeave();
         }
       },
       itemBuilder: (_) => [
@@ -1775,37 +1814,77 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       child: Semantics(
         button: true,
         label: message,
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(
-            child: Container(
-              width: 34,
-              height: 28,
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: .10),
-                borderRadius: BorderRadius.circular(14),
+        child: expanded
+            ? Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _canManage ? Icons.shield_outlined : Icons.check,
+                      size: 18,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      context.tr(
+                        _community.isPublicProfile ? 'Following' : 'Joined',
+                      ),
+                      style: TextStyle(
+                        color: scheme.primary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.expand_more, size: 18, color: scheme.primary),
+                  ],
+                ),
+              )
+            : SizedBox(
+                width: 44,
+                height: 44,
+                child: Center(
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: .08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _canManage
+                          ? Icons.admin_panel_settings_outlined
+                          : Icons.check,
+                      size: 20,
+                      color: scheme.primary,
+                    ),
+                  ),
+                ),
               ),
-              child: Icon(
-                _canManage ? Icons.admin_panel_settings_outlined : Icons.check,
-                size: 20,
-                color: scheme.primary,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
 
-  Widget _aboutWeather() => FutureBuilder<CommunityWeather?>(
+  Widget _aboutWeather({
+    bool compact = false,
+  }) => FutureBuilder<CommunityWeather?>(
     future: _weather,
     builder: (context, snapshot) {
       final weather = snapshot.data;
       if (weather == null) return const SizedBox.shrink();
       final theme = Theme.of(context);
       return Material(
-        color: theme.colorScheme.primary.withValues(alpha: .05),
+        color: compact
+            ? Colors.transparent
+            : theme.colorScheme.primary.withValues(alpha: .05),
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -1850,40 +1929,69 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               ),
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _weatherIcon(weather.weatherCode, weather.isDay),
-                  size: 26,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          child: compact
+              ? ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 40),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        '${weather.temperature.round()}°',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      Icon(
+                        _weatherIcon(weather.weatherCode, weather.isDay),
+                        size: 16,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      Text(
-                        context.tr(weather.description),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall,
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: DefaultTextStyle(
+                          style: theme.textTheme.bodySmall!.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          child: Wrap(
+                            spacing: 4,
+                            children: [
+                              Text('${weather.temperature.round()}°C ·'),
+                              Text(context.tr(weather.description)),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _weatherIcon(weather.weatherCode, weather.isDay),
+                        size: 26,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${weather.temperature.round()}°',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              context.tr(weather.description),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, size: 18),
+                    ],
+                  ),
                 ),
-                const Icon(Icons.chevron_right, size: 18),
-              ],
-            ),
-          ),
         ),
       );
     },
@@ -1963,112 +2071,672 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
-  Widget _aboutTab(BuildContext context) => ListView(
-    key: const ValueKey('community-information-content'),
-    padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
-    children: [
-      if (widget.screen == CommunityScreen.information)
-        _compactCommunityHeader(),
-      _Section(
-        title: context.tr('About {name}', {'name': _community.name}),
-        icon: Icons.article_outlined,
-        trailing: _community.showWeather && _weather != null
-            ? _aboutWeather()
-            : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _aboutTab(BuildContext context) => !_community.isPublicProfile
+      ? _communityInformation()
+      : ListView(
+          key: const ValueKey('community-information-content'),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
           children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Text(
-                _community.description.trim().isEmpty
-                    ? context.tr('No description provided')
-                    : _community.description,
+            if (widget.screen == CommunityScreen.information)
+              _compactCommunityHeader(),
+            _Section(
+              title: context.tr('About {name}', {'name': _community.name}),
+              icon: Icons.article_outlined,
+              trailing: _community.showWeather && _weather != null
+                  ? _aboutWeather()
+                  : null,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Text(
+                      _community.description.trim().isEmpty
+                          ? context.tr('No description provided')
+                          : _community.description,
+                    ),
+                  ),
+                  Divider(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: .08),
+                  ),
+                  const SizedBox(height: 12),
+                  _aboutMetadata(),
+                ],
               ),
             ),
-            Divider(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: .08),
+            FutureBuilder<CommunityHelpfulness>(
+              future: _helpfulness,
+              builder: (context, snapshot) {
+                final feedback = snapshot.data;
+                final summary = feedback == null
+                    ? (snapshot.hasError
+                          ? context.tr('Unable to load rating')
+                          : context.tr('Loading…'))
+                    : feedback.isPublic
+                    ? context.tr(
+                        _spaceText(
+                          '{percentage}% of members find this community helpful',
+                        ),
+                        {'percentage': '${feedback.helpfulPercentage ?? 0}'},
+                      )
+                    : context.trCount(
+                        (feedback.minimumResponses - feedback.responseCount)
+                            .clamp(0, feedback.minimumResponses),
+                        singular: _spaceText(
+                          '{count} more response is needed to show the community score.',
+                        ),
+                        plural: _spaceText(
+                          '{count} more responses are needed to show the community score.',
+                        ),
+                      );
+                return _informationRow(
+                  _spaceText('Community rating'),
+                  Icons.star_rounded,
+                  summary,
+                  () => _openInformationSection(CommunityScreen.rating),
+                  iconColor: Colors.amber.shade700,
+                );
+              },
             ),
-            const SizedBox(height: 12),
-            _aboutMetadata(),
+            _informationRow(
+              _community.isPublicProfile ? 'Followers' : 'Members',
+              Icons.groups_outlined,
+              context.trCount(
+                _community.memberCount,
+                singular: _community.isPublicProfile
+                    ? '{count} follower'
+                    : '{count} member',
+                plural: _community.isPublicProfile
+                    ? '{count} followers'
+                    : '{count} members',
+              ),
+              _openMembers,
+              count: _community.memberCount,
+              rowKey: const ValueKey('information-members-entry'),
+            ),
+            FutureBuilder<CommunityRules>(
+              future: _rules,
+              builder: (context, snapshot) => _informationRow(
+                _spaceText('Community rules'),
+                Icons.shield_outlined,
+                context.tr(
+                  'Read the guidelines for a safe and respectful community.',
+                ),
+                () => _openInformationSection(CommunityScreen.rules),
+                count: snapshot.hasData ? snapshot.data!.rules.length : null,
+              ),
+            ),
+            _informationRow(
+              'Useful links',
+              Icons.link,
+              context.tr('Website, directions and more'),
+              () => _openInformationSection(CommunityScreen.links),
+              count: _community.links.length + 2,
+            ),
+          ],
+        );
+
+  Future<void> _confirmLeave() async {
+    if (_savingMembership || _community.myRole == CommunityRole.owner) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          context.tr(
+            _community.isPublicProfile ? 'Unfollow' : 'Leave this community?',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.tr('Cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              context.tr(
+                _community.isPublicProfile ? 'Unfollow' : 'Leave community',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await _toggleMembership();
+  }
+
+  void _inviteToCommunity() {
+    if (!_canInviteToCommunity) return;
+    if (_canManage) {
+      Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CommunityInvitationsPage(
+            community: _community,
+            repository: widget.repository,
+          ),
+        ),
+      );
+    } else {
+      shareCommunity(context, _community);
+    }
+  }
+
+  Widget _communityInformation() {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final location = '${_community.town.name}, ${_community.town.countryCode}';
+    final canInvite = _canInviteToCommunity;
+    Widget card(Widget child, {bool tinted = false}) => Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      color: tinted ? colors.primary.withValues(alpha: .05) : colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: tinted
+            ? BorderSide.none
+            : BorderSide(color: colors.onSurface.withValues(alpha: .08)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+    Widget stat(String value, String label, {VoidCallback? onTap, Key? key}) =>
+        Expanded(
+          child: InkWell(
+            key: key,
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              child: Column(
+                children: [
+                  Text(
+                    value,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    context.tr(label),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+    Widget action(IconData icon, String label, VoidCallback? onTap) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton.filledTonal(
+          tooltip: context.tr(label),
+          onPressed: onTap,
+          style: IconButton.styleFrom(
+            backgroundColor: colors.primary.withValues(alpha: .07),
+            foregroundColor: colors.primary,
+            fixedSize: const Size(46, 46),
+          ),
+          icon: Icon(icon, size: 23),
+        ),
+        const SizedBox(height: 4),
+        Text(context.tr(label), style: theme.textTheme.labelMedium),
+      ],
+    );
+    Widget detail(
+      IconData icon,
+      String title,
+      String value, {
+      VoidCallback? onTap,
+      Widget? extra,
+    }) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: .06),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: colors.primary, size: 21),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: onTap,
+                  borderRadius: BorderRadius.circular(8),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                context.tr(title),
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                value,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 13,
+                                  color: colors.onSurfaceVariant,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (onTap != null)
+                          Icon(
+                            Icons.chevron_right,
+                            size: 18,
+                            color: colors.onSurfaceVariant,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                ?extra,
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    final divider = Divider(
+      height: 1,
+      indent: 62,
+      endIndent: 16,
+      color: colors.onSurface.withValues(alpha: .08),
+    );
+    return ListView(
+      key: const ValueKey('community-information-content'),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 4, bottom: 4),
+                  child: _expandableCommunityImage(
+                    CommunityAvatar(community: _community, radius: 36),
+                    _community.imageUrl,
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: colors.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colors.surface, width: 2),
+                    ),
+                    child: Icon(
+                      Icons.groups,
+                      size: 15,
+                      color: colors.onPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _community.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 20,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (_joined)
+                        _communityRoleBadge(expanded: true)
+                      else
+                        TextButton.icon(
+                          onPressed: _savingMembership
+                              ? null
+                              : _toggleMembership,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: Text(context.tr('Join')),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    location,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-      ),
-      FutureBuilder<CommunityHelpfulness>(
-        future: _helpfulness,
-        builder: (context, snapshot) {
-          final feedback = snapshot.data;
-          final summary = feedback == null
-              ? (snapshot.hasError
-                    ? context.tr('Unable to load rating')
-                    : context.tr('Loading…'))
-              : feedback.isPublic
-              ? context.tr(
-                  _spaceText(
-                    '{percentage}% of members find this community helpful',
-                  ),
-                  {'percentage': '${feedback.helpfulPercentage ?? 0}'},
-                )
-              : context.trCount(
-                  (feedback.minimumResponses - feedback.responseCount).clamp(
-                    0,
-                    feedback.minimumResponses,
-                  ),
-                  singular: _spaceText(
-                    '{count} more response is needed to show the community score.',
-                  ),
-                  plural: _spaceText(
-                    '{count} more responses are needed to show the community score.',
-                  ),
-                );
-          return _informationRow(
-            _spaceText('Community rating'),
-            Icons.star_rounded,
-            summary,
-            () => _openInformationSection(CommunityScreen.rating),
-            iconColor: Colors.amber.shade700,
-          );
-        },
-      ),
-      _informationRow(
-        _community.isPublicProfile ? 'Followers' : 'Members',
-        Icons.groups_outlined,
-        context.trCount(
-          _community.memberCount,
-          singular: _community.isPublicProfile
-              ? '{count} follower'
-              : '{count} member',
-          plural: _community.isPublicProfile
-              ? '{count} followers'
-              : '{count} members',
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            stat(
+              '${_community.memberCount}',
+              'Members',
+              key: const ValueKey('information-members-entry'),
+              onTap: _openMembers,
+            ),
+            if (_joined) ...[
+              SizedBox(
+                height: 24,
+                child: VerticalDivider(color: colors.outlineVariant),
+              ),
+              FutureBuilder<List<CommunityPost>>(
+                future: _posts,
+                builder: (context, snapshot) => stat(
+                  snapshot.hasData ? '${snapshot.data!.length}' : '—',
+                  'Posts',
+                  onTap: () => _openInformationSection(CommunityScreen.feed),
+                ),
+              ),
+              SizedBox(
+                height: 24,
+                child: VerticalDivider(color: colors.outlineVariant),
+              ),
+              FutureBuilder<List<CommunityMember>>(
+                future: _members,
+                builder: (context, snapshot) => stat(
+                  snapshot.hasData
+                      ? '${snapshot.data!.where((m) => m.role != CommunityRole.member).length}'
+                      : '—',
+                  'Administration',
+                  onTap: () => _openMembers(administration: true),
+                ),
+              ),
+            ],
+          ],
         ),
-        _openMembers,
-        count: _community.memberCount,
-        rowKey: const ValueKey('information-members-entry'),
-      ),
-      FutureBuilder<CommunityRules>(
-        future: _rules,
-        builder: (context, snapshot) => _informationRow(
-          _spaceText('Community rules'),
-          Icons.shield_outlined,
+        const SizedBox(height: 8),
+        if (_community.description.trim().isNotEmpty)
+          card(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final style = theme.textTheme.bodyMedium!.copyWith(
+                    fontSize: 14,
+                    height: 1.4,
+                  );
+                  final painter = TextPainter(
+                    text: TextSpan(text: _community.description, style: style),
+                    maxLines: 2,
+                    textDirection: Directionality.of(context),
+                    textScaler: MediaQuery.textScalerOf(context),
+                  )..layout(maxWidth: constraints.maxWidth);
+                  final overflows = painter.didExceedMaxLines;
+                  painter.dispose();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _community.description,
+                        maxLines: _descriptionExpanded ? null : 2,
+                        overflow: _descriptionExpanded
+                            ? TextOverflow.visible
+                            : TextOverflow.ellipsis,
+                        style: style,
+                      ),
+                      if (overflows)
+                        TextButton(
+                          key: const ValueKey('community-description-toggle'),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            alignment: Alignment.centerLeft,
+                          ),
+                          onPressed: () => setState(
+                            () => _descriptionExpanded = !_descriptionExpanded,
+                          ),
+                          child: Text(
+                            context.tr(
+                              _descriptionExpanded ? 'See less' : 'See more',
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox(height: 6),
+                    ],
+                  );
+                },
+              ),
+            ),
+            tinted: true,
+          ),
+
+        Padding(
+          padding: const EdgeInsets.only(bottom: 18, top: 2),
+          child: Wrap(
+            alignment: WrapAlignment.spaceEvenly,
+            spacing: 24,
+            runSpacing: 12,
+            children: [
+              if (canInvite)
+                action(
+                  Icons.person_add_alt_1_outlined,
+                  'Invite',
+                  _inviteToCommunity,
+                ),
+              action(
+                Icons.share_outlined,
+                'Share',
+                () => shareCommunity(context, _community),
+              ),
+              if (_joined && _community.myRole != CommunityRole.owner)
+                action(
+                  Icons.logout,
+                  'Leave community',
+                  _savingMembership ? null : _confirmLeave,
+                ),
+            ],
+          ),
+        ),
+        card(
+          Column(
+            children: [
+              detail(
+                Icons.location_on_outlined,
+                'Location',
+                location,
+                onTap: () => launchUrl(
+                  Uri.https('www.google.com', '/maps/search/', {
+                    'api': '1',
+                    'query': location,
+                  }),
+                  mode: LaunchMode.externalApplication,
+                ),
+                extra: _community.showWeather && _weather != null
+                    ? _aboutWeather(compact: true)
+                    : null,
+              ),
+              divider,
+              detail(
+                Icons.groups_outlined,
+                'Community type',
+                '${context.tr('Community')} · ${context.tr(_community.visibility == CommunityVisibility.public ? 'Public' : 'Private')}',
+              ),
+              divider,
+              detail(
+                Icons.calendar_today_outlined,
+                'Creation date',
+                MaterialLocalizations.of(
+                  context,
+                ).formatMediumDate(_community.createdAt.toLocal()),
+              ),
+            ],
+          ),
+        ),
+        if (_joined)
+          FutureBuilder<List<CommunityMember>>(
+            future: _members,
+            builder: (context, snapshot) {
+              final admins =
+                  snapshot.data
+                      ?.where((m) => m.role != CommunityRole.member)
+                      .toList() ??
+                  <CommunityMember>[];
+              return card(
+                ListTile(
+                  key: const ValueKey('information-administration-entry'),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  leading: Icon(
+                    Icons.shield_outlined,
+                    color: colors.primary,
+                    size: 28,
+                  ),
+                  title: Text(
+                    context.tr('Administration'),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: admins.isEmpty
+                        ? Text(
+                            context.tr(
+                              snapshot.hasError
+                                  ? 'Unable to load members'
+                                  : snapshot.hasData
+                                  ? 'No members found'
+                                  : 'Loading…',
+                            ),
+                          )
+                        : Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: [
+                              for (final member in admins.take(3))
+                                Tooltip(
+                                  message: member.name,
+                                  child: UserAvatar(
+                                    name: member.name,
+                                    imageUrl: member.avatarUrl,
+                                    radius: 17,
+                                  ),
+                                ),
+                              if (admins.length > 3)
+                                CircleAvatar(
+                                  radius: 17,
+                                  child: Text(
+                                    '+${admins.length - 3}',
+                                    style: theme.textTheme.labelSmall,
+                                  ),
+                                ),
+                            ],
+                          ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => _openMembers(administration: true),
+                ),
+              );
+            },
+          ),
+        _informationRow(
+          'Community rules',
+          Icons.article_outlined,
           context.tr(
             'Read the guidelines for a safe and respectful community.',
           ),
           () => _openInformationSection(CommunityScreen.rules),
-          count: snapshot.hasData ? snapshot.data!.rules.length : null,
         ),
-      ),
-      _informationRow(
-        'Useful links',
-        Icons.link,
-        context.tr('Website, directions and more'),
-        () => _openInformationSection(CommunityScreen.links),
-        count: _community.links.length + 2,
-      ),
-    ],
-  );
+        _informationRow(
+          'Useful links',
+          Icons.link,
+          context.tr('Website, directions and more'),
+          () => _openInformationSection(CommunityScreen.links),
+          count: _community.links.length + 2,
+        ),
+        _informationRow(
+          'Community rating',
+          Icons.star_outline,
+          context.tr('Do you find this community helpful?'),
+          () => _openInformationSection(CommunityScreen.rating),
+        ),
+        if (canInvite)
+          card(
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.group_add_outlined,
+                    color: colors.primary,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.tr('Help our community grow'),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          context.tr('Invite people from {town}', {
+                            'town': _community.town.name,
+                          }),
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 8),
+                        FilledButton.icon(
+                          onPressed: _inviteToCommunity,
+                          icon: const Icon(Icons.person_add_alt_1, size: 18),
+                          label: Text(context.tr('Invite')),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            tinted: true,
+          ),
+      ],
+    );
+  }
 
   Future<void> _openInformationSection(CommunityScreen screen) async {
     await Navigator.push<void>(
@@ -2081,6 +2749,16 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         ),
       ),
     );
+    if (!mounted) return;
+    if (screen == CommunityScreen.links) {
+      try {
+        final updated = await widget.repository.getCommunity(_community.id);
+        if (!mounted) return;
+        setState(() => _community = updated);
+      } catch (_) {
+        // Keep the current information available if refresh fails.
+      }
+    }
     if (mounted) setState(_reload);
   }
 
@@ -2250,59 +2928,356 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     ),
   );
 
-  Widget _officialLinkButtons() => Wrap(
-    spacing: 6,
-    runSpacing: 4,
-    children: [
-      for (final link in _community.links)
-        ProfileLinkButton(
-          network: profileLinkNetwork(link.url),
-          label: link.label,
-          onTap: () => launchUrl(
-            Uri.parse(link.url),
-            mode: LaunchMode.externalApplication,
-          ),
-        ),
-    ],
-  );
+  bool get _canEditLinks =>
+      _community.myRole == CommunityRole.owner ||
+      _community.myRole == CommunityRole.admin;
 
-  Widget _linksContent() => _Section(
-    title: context.tr('Useful links'),
-    icon: Icons.link,
-    child: Column(
-      children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.language),
-          title: Text(
-            _publicWebsiteUrl.replaceFirst('https://', ''),
-            style: TextStyle(color: Theme.of(context).colorScheme.primary),
-          ),
-          onLongPress: _copyPublicWebsite,
-          onTap: _openPublicWebsite,
-          trailing: IconButton(
-            tooltip: context.tr('Public website'),
-            onPressed: _openPublicWebsite,
-            icon: const Icon(Icons.open_in_new),
-          ),
+  Future<void> _saveLinks(List<CommunityLink> links) async {
+    if (_savingLinks) return;
+    setState(() => _savingLinks = true);
+    try {
+      final current = await widget.repository.getCommunity(_community.id);
+      final updated = await widget.repository.updateCommunity(
+        current,
+        town: current.town,
+        name: current.name,
+        description: current.description,
+        visibility: current.visibility,
+        approvalRequired: current.approvalRequired,
+        showWeather: current.showWeather,
+        links: links,
+        profileCategory: current.profileCategory,
+        businessServices: current.businessServices,
+        businessLocation: current.businessLocation,
+        imageUrl: current.imageUrl,
+        coverImageUrl: current.coverImageUrl,
+      );
+      if (mounted) setState(() => _community = updated);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _savingLinks = false);
+    }
+  }
+
+  Future<void> _editUsefulLink({int? index}) async {
+    final link = await Navigator.push<CommunityLink>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OfficialLinkEditor(
+          link: index == null ? null : _community.links[index],
         ),
-        if (_community.links.isNotEmpty)
-          Align(alignment: Alignment.centerLeft, child: _officialLinkButtons()),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.map_outlined),
-          title: Text(context.tr('Directions')),
-          subtitle: Text(
-            _community.businessLocation?.showExactAddress == true &&
-                    _community.businessLocation!.address.isNotEmpty
-                ? _community.businessLocation!.address
-                : _community.town.name,
+      ),
+    );
+    if (!mounted || link == null) return;
+    final links = [..._community.links];
+    if (index == null) {
+      links.add(link);
+    } else {
+      links[index] = link;
+    }
+    await _saveLinks(links);
+  }
+
+  Future<void> _openUsefulUrl(String url) async {
+    try {
+      if (!await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      )) {
+        throw Exception('Unable to open link');
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('Unable to open link. Please try again.')),
           ),
-          trailing: const Icon(Icons.open_in_new, size: 20),
-          onTap: _openDirections,
-        ),
+        );
+      }
+    }
+  }
+
+  Widget _usefulLinksScreen() => Scaffold(
+    appBar: AppBar(
+      title: Text(
+        context.tr('Useful links'),
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+      ),
+      actions: [
+        if (_canEditLinks)
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: .07),
+              ),
+              onPressed: _savingLinks || _community.links.length >= 10
+                  ? null
+                  : () => _editUsefulLink(),
+              icon: const Icon(Icons.add, size: 20),
+              label: Text(context.tr('Add')),
+            ),
+          ),
       ],
     ),
+    body: SafeArea(
+      child: Column(
+        children: [
+          if (_savingLinks) const LinearProgressIndicator(),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Text(
+                    context.tr(
+                      'Find important links for this community or profile here.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                _linksContent(),
+              ],
+            ),
+          ),
+          if (_showLinksTip)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: .06),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.tr('Useful links'),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          context.tr(
+                            'Websites, social networks, maps and other useful links.',
+                          ),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: context.tr('Close'),
+                    onPressed: () => setState(() => _showLinksTip = false),
+                    icon: const Icon(Icons.close, size: 20),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _usefulLinkCard({
+    required String title,
+    required String type,
+    required String subtitle,
+    required IconData icon,
+    required String url,
+    VoidCallback? onOpen,
+    int? index,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      color: colors.surface,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: colors.onSurface.withValues(alpha: .08)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 4, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: .07),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: colors.primary, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: InkWell(
+                onTap: onOpen ?? () => _openUsefulUrl(url),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: .07),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        context.tr(type),
+                        style: TextStyle(fontSize: 12, color: colors.primary),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: context.tr('Open link'),
+                  onPressed: onOpen ?? () => _openUsefulUrl(url),
+                  icon: const Icon(Icons.open_in_new, size: 20),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: context.tr('More options'),
+                  enabled: !_savingLinks,
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  onSelected: (value) async {
+                    if (value == 'copy') {
+                      await Clipboard.setData(ClipboardData(text: url));
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              context.tr('Website address copied.'),
+                            ),
+                          ),
+                        );
+                      }
+                    } else if (value == 'edit') {
+                      _editUsefulLink(index: index);
+                    } else if (value == 'remove' && index != null) {
+                      await _saveLinks([..._community.links]..removeAt(index));
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'copy',
+                      child: Text(context.tr('Copy link')),
+                    ),
+                    if (_canEditLinks && index != null) ...[
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Text(context.tr('Edit')),
+                      ),
+                      PopupMenuItem(
+                        value: 'remove',
+                        child: Text(context.tr('Remove')),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _linksContent() => Column(
+    children: [
+      _usefulLinkCard(
+        title: _publicWebsiteUrl.replaceFirst('https://', ''),
+        type: 'Website',
+        subtitle: _community.name,
+        icon: Icons.language,
+        url: _publicWebsiteUrl,
+      ),
+      for (final (index, link) in _community.links.indexed)
+        _usefulLinkCard(
+          index: index,
+          title: link.label,
+          url: link.url,
+          subtitle: link.url.replaceFirst('https://', ''),
+          type: switch (profileLinkNetwork(link.url)) {
+            'telegram' => 'Telegram',
+            'instagram' => 'Instagram',
+            'facebook' => 'Facebook',
+            'whatsapp' => 'WhatsApp',
+            'youtube' => 'YouTube',
+            _ => 'Website',
+          },
+          icon: switch (profileLinkNetwork(link.url)) {
+            'telegram' => Icons.send_outlined,
+            'instagram' => Icons.camera_alt_outlined,
+            'facebook' => Icons.facebook,
+            'whatsapp' => Icons.chat_outlined,
+            'youtube' => Icons.play_circle_outline,
+            _ => Icons.language,
+          },
+        ),
+      _usefulLinkCard(
+        title: context.tr('Directions'),
+        type: 'Map',
+        subtitle:
+            _community.businessLocation?.showExactAddress == true &&
+                _community.businessLocation!.address.isNotEmpty
+            ? _community.businessLocation!.address
+            : _community.town.name,
+        icon: Icons.map_outlined,
+        url: _directionsUri.toString(),
+        onOpen: _openDirections,
+      ),
+    ],
   );
 
   Widget _rulesContent() => FutureBuilder<CommunityRules>(
@@ -2349,17 +3324,21 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     },
   );
 
-  Future<void> _openDirections() async {
+  Uri get _directionsUri {
     final location = _community.businessLocation;
     final destination = location?.hasCoordinates == true
         ? '${location!.latitude},${location.longitude}'
         : location?.address.isNotEmpty == true
         ? location!.address
         : '${_community.town.name}, ${_community.town.countryCode}';
-    final uri = Uri.https('www.google.com', '/maps/dir/', {
+    return Uri.https('www.google.com', '/maps/dir/', {
       'api': '1',
       'destination': destination,
     });
+  }
+
+  Future<void> _openDirections() async {
+    final uri = _directionsUri;
     try {
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         throw Exception('Unable to open link');

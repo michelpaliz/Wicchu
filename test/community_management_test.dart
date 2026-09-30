@@ -522,6 +522,9 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Community rules'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Community rules'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add rule'));

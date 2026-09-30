@@ -798,7 +798,11 @@ void main() {
       'Community rating',
     ]) {
       final row = find.widgetWithText(ListTile, destination);
-      await tester.ensureVisible(row);
+      await tester.scrollUntilVisible(
+        row,
+        180,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       await tester.tap(row);
       await tester.pumpAndSettle();
@@ -821,8 +825,10 @@ void main() {
       );
     }
 
-    await tester.ensureVisible(
+    await tester.scrollUntilVisible(
       find.byKey(const ValueKey('information-members-entry')),
+      -180,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(find.byKey(const ValueKey('information-members-entry')));
     await tester.pumpAndSettle();
@@ -1214,6 +1220,8 @@ void main() {
   });
 
   testWidgets('opens a notification post and marks it read', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final repository = _NotificationsRepository();
     final post = await repository.createPost(
       'town-x-community',
@@ -1229,6 +1237,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Notifications'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Notification settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Post activity'), findsOneWidget);
+    await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Alex commented on your post'));
     await tester.pumpAndSettle();
