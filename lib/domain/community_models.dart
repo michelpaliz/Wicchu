@@ -723,6 +723,9 @@ class PlatformReport {
     required this.status,
     required this.createdAt,
     this.evidence = const {},
+    this.actions = const [],
+    this.resolvedAt,
+    this.resolvedByName,
   });
 
   final String id;
@@ -737,6 +740,23 @@ class PlatformReport {
   final String status;
   final DateTime createdAt;
   final Map<String, dynamic> evidence;
+  final List<PlatformModerationAction> actions;
+  final DateTime? resolvedAt;
+  final String? resolvedByName;
+}
+
+class PlatformModerationAction {
+  const PlatformModerationAction({
+    required this.action,
+    required this.moderatorName,
+    required this.createdAt,
+    this.note = '',
+  });
+
+  final String action;
+  final String moderatorName;
+  final String note;
+  final DateTime createdAt;
 }
 
 class ModerationAction {

@@ -1016,6 +1016,9 @@ class HttpCommunityRepository implements CommunityRepository {
           final target = json['targetUser'] is Map<String, dynamic>
               ? json['targetUser'] as Map<String, dynamic>
               : const <String, dynamic>{};
+          final resolver = json['resolvedByUser'] is Map<String, dynamic>
+              ? json['resolvedByUser'] as Map<String, dynamic>
+              : const <String, dynamic>{};
           return PlatformReport(
             id: _id(json),
             targetType: json['targetType'] == 'community_admin'
@@ -1042,6 +1045,31 @@ class HttpCommunityRepository implements CommunityRepository {
             evidence: json['evidence'] is Map<String, dynamic>
                 ? json['evidence'] as Map<String, dynamic>
                 : const {},
+            actions: (json['actions'] as List? ?? const [])
+                .whereType<Map<String, dynamic>>()
+                .map((action) {
+                  final moderator = action['moderator'] is Map<String, dynamic>
+                      ? action['moderator'] as Map<String, dynamic>
+                      : const <String, dynamic>{};
+                  return PlatformModerationAction(
+                    action: action['action']?.toString() ?? '',
+                    moderatorName:
+                        moderator['displayName']?.toString() ??
+                        moderator['name']?.toString() ??
+                        'Wicchu moderator',
+                    note: action['note']?.toString() ?? '',
+                    createdAt:
+                        DateTime.tryParse(
+                          action['createdAt']?.toString() ?? '',
+                        ) ??
+                        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+                  );
+                })
+                .toList(growable: false),
+            resolvedAt: DateTime.tryParse(json['resolvedAt']?.toString() ?? ''),
+            resolvedByName:
+                resolver['displayName']?.toString() ??
+                resolver['name']?.toString(),
           );
         })
         .toList(growable: false);

@@ -135,6 +135,30 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                 children: [SelectableText(report.evidence.toString())],
               ),
             ],
+            if (!pending && report.actions.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(),
+              Text(
+                context.tr('Resolution'),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              for (final action in report.actions) ...[
+                Text(
+                  context.tr(_actionLabel(action.action)),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text('${context.tr('Moderator')}: ${action.moderatorName}'),
+                Text(
+                  '${context.tr('Resolved')}: ${MaterialLocalizations.of(context).formatMediumDate(action.createdAt.toLocal())}',
+                ),
+                if (action.note.isNotEmpty)
+                  Text('${context.tr('Note')}: ${action.note}'),
+                const SizedBox(height: 8),
+              ],
+            ],
             if (pending) ...[
               const SizedBox(height: 16),
               Wrap(

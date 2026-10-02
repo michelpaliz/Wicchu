@@ -123,6 +123,8 @@ const _spanish = <String, String>{
   'Reporter': 'Reportado por',
   'Submitted': 'Enviado',
   'Evidence snapshot': 'Evidencia guardada',
+  'Resolution': 'Resolución',
+  'Note': 'Nota',
   'Dismiss report': 'Descartar reporte',
   'Warn admin': 'Advertir al administrador',
   'Remove admin role': 'Quitar rol de administrador',
