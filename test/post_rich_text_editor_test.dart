@@ -5,6 +5,54 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:wicchu/features/community/post_rich_text_editor.dart';
 
 void main() {
+  testWidgets('typing keeps the keyboard connection through form rebuilds', (
+    tester,
+  ) async {
+    final controller = PostTextController('');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: controller,
+            builder: (_, _) => PostRichTextEditor(controller: controller),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final editor = tester.widget<quill.QuillEditor>(
+      find.byType(quill.QuillEditor),
+    );
+    editor.focusNode.requestFocus();
+    await tester.pumpAndSettle();
+    expect(editor.focusNode.hasFocus, isTrue);
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'Hola\n',
+        selection: TextSelection.collapsed(offset: 4),
+      ),
+    );
+    await tester.pump();
+    expect(controller.document.toPlainText(), 'Hola\n');
+    expect(
+      tester
+          .widget<quill.QuillEditor>(find.byType(quill.QuillEditor))
+          .focusNode
+          .hasFocus,
+      isTrue,
+    );
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'Hola vecinos\n',
+        selection: TextSelection.collapsed(offset: 12),
+      ),
+    );
+    await tester.pump();
+    expect(controller.document.toPlainText(), 'Hola vecinos\n');
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
   test('post limit counts visible graphemes and preserves overlong drafts', () {
     final controller = PostTextController('**Hola** 👨‍👩‍👧‍👦');
     addTearDown(controller.dispose);

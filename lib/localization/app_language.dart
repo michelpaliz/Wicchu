@@ -229,6 +229,8 @@ const _spanish = <String, String>{
   'Dark': 'Oscuro',
   'Home': 'Inicio',
   'Grid': 'Cuadrícula',
+  'Allow photo access for Wicchu in iPhone Settings, then try again.':
+      'Permite el acceso a las fotos para Wicchu en Ajustes del iPhone y vuelve a intentarlo.',
   'Saved': 'Guardados',
   'Find people from your communities here.':
       'Aquí encontrarás personas de tus comunidades.',

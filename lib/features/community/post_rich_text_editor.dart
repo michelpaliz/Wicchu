@@ -67,9 +67,27 @@ class PostTextController extends quill.QuillController {
   }
 }
 
-class PostRichTextEditor extends StatelessWidget {
+class PostRichTextEditor extends StatefulWidget {
   const PostRichTextEditor({super.key, required this.controller});
   final PostTextController controller;
+
+  @override
+  State<PostRichTextEditor> createState() => _PostRichTextEditorState();
+}
+
+class _PostRichTextEditorState extends State<PostRichTextEditor> {
+  // QuillEditor.basic creates new nodes when omitted. Keep these alive
+  // while validity/selection changes rebuild the enclosing form.
+  final _focusNode = FocusNode();
+  final _scrollController = ScrollController();
+  PostTextController get controller => widget.controller;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Localizations.override(
@@ -100,6 +118,8 @@ class PostRichTextEditor extends StatelessWidget {
             ),
             quill.QuillEditor.basic(
               controller: controller,
+              focusNode: _focusNode,
+              scrollController: _scrollController,
               config: quill.QuillEditorConfig(
                 minHeight: 150,
                 maxHeight: 320,

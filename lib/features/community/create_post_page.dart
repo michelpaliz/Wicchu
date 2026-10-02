@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:image_picker/image_picker.dart';
 
 import '../../domain/community_models.dart';
@@ -726,6 +727,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
   Future<void> _chooseMedia() async {
+    if (_uploading || _saving) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     final video = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
@@ -878,42 +881,63 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
   Future<void> _pickMedia({required bool video}) async {
+    if (_uploading || _saving) return;
     if (_attachments.length >= 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.tr('A post supports up to 10 files.'))),
       );
       return;
     }
-    final picker = ImagePicker();
-    final file = video
-        ? await picker.pickVideo(source: ImageSource.gallery)
-        : await picker.pickImage(source: ImageSource.gallery, imageQuality: 90);
-    if (file == null || !mounted) return;
-    final bytes = await file.readAsBytes();
-    if (bytes.length > 25 * 1024 * 1024) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('The file must be under 25 MB.'))),
-        );
-      }
-      return;
-    }
-    final mimeType = file.mimeType ?? _mimeTypeFor(file.name, video: video);
     setState(() => _uploading = true);
     try {
+      final picker = ImagePicker();
+      final file = video
+          ? await picker.pickVideo(source: ImageSource.gallery)
+          : await picker.pickImage(
+              source: ImageSource.gallery,
+              imageQuality: 90,
+              requestFullMetadata: false,
+            );
+      if (file == null || !mounted) return;
+      if (await file.length() > 25 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.tr('The file must be under 25 MB.')),
+            ),
+          );
+        }
+        return;
+      }
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
       final media = await widget.repository.uploadPostMedia(
         bytes: bytes,
         filename: file.name,
-        mimeType: mimeType,
+        mimeType: file.mimeType ?? _mimeTypeFor(file.name, video: video),
       );
       if (mounted) {
         setState(() => _attachments.add(_PostAttachment(media, bytes)));
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+        final denied =
+            error is PlatformException &&
+            {
+              'photo_access_denied',
+              'photo_access_restricted',
+            }.contains(error.code);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              denied
+                  ? context.tr(
+                      'Allow photo access for Wicchu in iPhone Settings, then try again.',
+                    )
+                  : context.trError(error),
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _uploading = false);
@@ -925,6 +949,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
     return switch (extension) {
       'png' => 'image/png',
       'webp' => 'image/webp',
+      'heic' => 'image/heic',
+      'heif' => 'image/heif',
+      'gif' => 'image/gif',
       'mov' => 'video/quicktime',
       'mp4' => 'video/mp4',
       _ => video ? 'video/mp4' : 'image/jpeg',
