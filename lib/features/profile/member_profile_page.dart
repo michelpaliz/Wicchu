@@ -15,6 +15,7 @@ import '../community/user_avatar.dart';
 import '../community/post_share.dart';
 import '../community/create_post_page.dart';
 import '../community/post_card.dart';
+import '../community/report_dialog.dart';
 
 class MemberProfilePage extends StatefulWidget {
   const MemberProfilePage({
@@ -46,6 +47,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   }
 
   bool _blocking = false;
+  bool _reporting = false;
   late final Future<WicchuProfile?> _viewer = widget.repository
       .getProfile()
       .then<WicchuProfile?>((profile) => profile)
@@ -134,6 +136,21 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.block_outlined),
+                ),
+        ),
+        FutureBuilder<WicchuProfile?>(
+          future: _viewer,
+          builder: (context, viewer) => viewer.data?.id == widget.userId
+              ? const SizedBox.shrink()
+              : IconButton(
+                  tooltip: context.tr('Report profile'),
+                  onPressed: _reporting ? null : _reportMember,
+                  icon: _reporting
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.flag_outlined),
                 ),
         ),
       ],
@@ -660,6 +677,35 @@ class _MemberProfilePageState extends State<MemberProfilePage>
       }
     } finally {
       if (mounted) setState(() => _blocking = false);
+    }
+  }
+
+  Future<void> _reportMember() async {
+    final report = await showContentReportDialog(
+      context,
+      title: 'Report profile',
+    );
+    if (report == null || !mounted) return;
+    setState(() => _reporting = true);
+    try {
+      await widget.repository.reportMember(
+        widget.userId,
+        report.$1,
+        category: report.$2,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.tr('Report submitted'))));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _reporting = false);
     }
   }
 

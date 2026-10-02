@@ -83,12 +83,6 @@ class _LoginPageState extends State<LoginPage> {
                       filled: true,
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  FacebookSignInButton(
-                    onPressed: _signInFacebook,
-                    isLoading: _loadingProvider == 'facebook',
-                    disabled: _loadingProvider != null,
-                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Row(
@@ -151,13 +145,6 @@ class _LoginPageState extends State<LoginPage> {
     foregroundColor: foregroundColor,
     isLoading: _loadingProvider == provider,
     disabled: _loadingProvider != null,
-  );
-
-  Future<void> _signInFacebook() => _signIn(
-    provider: 'facebook',
-    action: widget.authGateway.signInWithFacebook,
-    unavailableMessage:
-        'Facebook sign-in will be available soon. In the meantime, use Google or email and password.',
   );
 
   Future<void> _openEmail() async {

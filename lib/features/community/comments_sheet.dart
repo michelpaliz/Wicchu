@@ -5,6 +5,7 @@ import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'post_card.dart';
 import 'user_avatar.dart';
+import 'report_dialog.dart';
 
 Future<int?> showPostComments(
   BuildContext context,
@@ -206,6 +207,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             savingReaction: _savingReactions.contains(root.id),
                             onReaction: () => _toggleReaction(root),
                             onReply: () => _startReply(root),
+                            onReport: () => _reportComment(root),
                           ),
                           if (replies.isNotEmpty)
                             Align(
@@ -283,6 +285,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                         onReaction: () =>
                                             _toggleReaction(reply),
                                         onReply: () => _startReply(reply),
+                                        onReport: () => _reportComment(reply),
                                       ),
                                     ),
                                 ],
@@ -429,6 +432,32 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     _inputFocus.requestFocus();
   }
 
+  Future<void> _reportComment(Comment comment) async {
+    final report = await showContentReportDialog(
+      context,
+      title: 'Report comment',
+    );
+    if (report == null || !mounted) return;
+    try {
+      await widget.repository.reportComment(
+        comment.id,
+        report.$1,
+        category: report.$2,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.tr('Report submitted'))));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
+
   Future<bool> _ensureRulesAccepted() async {
     final result = await widget.repository.listRules(widget.post.communityId);
     if (!result.acceptanceRequired) return true;
@@ -542,6 +571,7 @@ class _CommentItem extends StatelessWidget {
     this.canReply = false,
     this.compact = false,
     this.onReply,
+    this.onReport,
   });
 
   final bool compact;
@@ -550,6 +580,7 @@ class _CommentItem extends StatelessWidget {
   final VoidCallback onReaction;
   final bool canReply;
   final VoidCallback? onReply;
+  final VoidCallback? onReport;
 
   @override
   Widget build(BuildContext context) {
@@ -600,6 +631,24 @@ class _CommentItem extends StatelessWidget {
                         fontWeight: FontWeight.w400,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
+                    ),
+                    PopupMenuButton<String>(
+                      tooltip: context.tr('More options'),
+                      padding: EdgeInsets.zero,
+                      onSelected: (_) => onReport?.call(),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'report',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.flag_outlined, size: 20),
+                              const SizedBox(width: 10),
+                              Text(context.tr('Report comment')),
+                            ],
+                          ),
+                        ),
+                      ],
+                      icon: const Icon(Icons.more_horiz, size: 20),
                     ),
                   ],
                 ),

@@ -793,6 +793,39 @@ class DemoCommunityRepository implements CommunityRepository {
   }) async {}
 
   @override
+  Future<void> reportComment(
+    String commentId,
+    String reason, {
+    String category = 'other',
+  }) async {}
+
+  @override
+  Future<void> reportMember(
+    String userId,
+    String reason, {
+    String category = 'other',
+  }) async {}
+
+  @override
+  Future<void> reportCommunity(
+    String communityId,
+    String reason, {
+    String category = 'other',
+  }) async {}
+
+  @override
+  Future<List<PlatformReport>> listPlatformReports({
+    bool resolved = false,
+  }) async => [];
+
+  @override
+  Future<void> decidePlatformReport(
+    String reportId, {
+    required String action,
+    String? note,
+  }) async {}
+
+  @override
   Future<AdminAttentionSummary> getAdminAttention(String communityId) async =>
       const AdminAttentionSummary();
 

@@ -42,7 +42,7 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
                 child: ListTile(
                   title: Text(item.reason),
                   subtitle: Text(
-                    '${item.category == 'child_safety' ? context.tr('Child safety') : context.tr('Other concern')} · ${context.tr('Post {id}', {'id': item.targetId})}',
+                    '${context.tr(_categoryLabel(item.category))} · ${context.tr(_targetLabel(item.targetType), {'id': item.targetId})}',
                   ),
                   trailing: Wrap(
                     children: [
@@ -52,7 +52,7 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
                       ),
                       FilledButton(
                         onPressed: () => decide(item, true),
-                        child: Text(context.tr('Remove post')),
+                        child: Text(context.tr(_resolveLabel(item.targetType))),
                       ),
                     ],
                   ),
@@ -79,6 +79,31 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
       }
     }
   }
+
+  String _categoryLabel(String category) => switch (category) {
+    'spam' => 'Spam',
+    'harassment' => 'Harassment',
+    'hate' => 'Hate speech',
+    'violence' => 'Violence',
+    'sexual' => 'Sexual content',
+    'child_safety' => 'Child safety',
+    'self_harm' => 'Self-harm',
+    'scam' => 'Scam or fraud',
+    'illegal' => 'Illegal activity',
+    _ => 'Other concern',
+  };
+
+  String _targetLabel(ModerationTargetType type) => switch (type) {
+    ModerationTargetType.comment => 'Comment {id}',
+    ModerationTargetType.member => 'Member {id}',
+    ModerationTargetType.post => 'Post {id}',
+  };
+
+  String _resolveLabel(ModerationTargetType type) => switch (type) {
+    ModerationTargetType.comment => 'Remove comment',
+    ModerationTargetType.member => 'Restrict member',
+    ModerationTargetType.post => 'Remove post',
+  };
 }
 
 class _ReportsEmptyState extends StatelessWidget {

@@ -430,12 +430,6 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                         isLoading: _socialProvider == 'google',
                         disabled: _loading,
                       ),
-                      const SizedBox(height: 10),
-                      FacebookSignInButton(
-                        onPressed: () => _socialSignIn(true),
-                        isLoading: _socialProvider == 'facebook',
-                        disabled: _loading,
-                      ),
                       const SizedBox(height: 28),
                       Material(
                         color: Theme.of(

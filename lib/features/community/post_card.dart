@@ -9,6 +9,7 @@ import '../../localization/app_language.dart';
 import 'post_media_gallery.dart';
 import 'post_markdown.dart';
 import 'user_avatar.dart';
+import 'report_dialog.dart';
 
 String formatPostTime(BuildContext context, DateTime createdAt) {
   final difference = DateTime.now().difference(createdAt.toLocal());
@@ -440,64 +441,8 @@ class _PostCardState extends State<PostCard> {
   }
 
   Future<void> _report() async {
-    final controller = TextEditingController();
-    var category = 'other';
-    final report = await showDialog<(String, String)>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(dialogContext.tr('Report post')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: category,
-                decoration: InputDecoration(
-                  labelText: dialogContext.tr('Report category'),
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: 'other',
-                    child: Text(dialogContext.tr('Other concern')),
-                  ),
-                  DropdownMenuItem(
-                    value: 'child_safety',
-                    child: Text(dialogContext.tr('Child safety')),
-                  ),
-                ],
-                onChanged: (value) =>
-                    setDialogState(() => category = value ?? 'other'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                maxLength: 1000,
-                minLines: 2,
-                maxLines: 5,
-                decoration: InputDecoration(
-                  hintText: dialogContext.tr('Describe the concern'),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(dialogContext.tr('Cancel')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, (
-                controller.text.trim(),
-                category,
-              )),
-              child: Text(dialogContext.tr('Report')),
-            ),
-          ],
-        ),
-      ),
-    );
-    controller.dispose();
-    if (report == null || report.$1.isEmpty || !mounted) return;
+    final report = await showContentReportDialog(context, title: 'Report post');
+    if (report == null || !mounted) return;
     try {
       await widget.onReport!(report.$1, report.$2);
       if (mounted) {

@@ -22,6 +22,7 @@ import '../../theme/theme_menu.dart';
 import '../admin/create_community_page.dart';
 import '../admin/managed_communities_page.dart';
 import '../admin/pending_posts_page.dart';
+import '../admin/platform_moderation_page.dart';
 import '../community/community_page.dart';
 import '../community/community_profile_page.dart';
 import '../community/community_avatar.dart';
@@ -3623,6 +3624,25 @@ class _ProfileTabState extends State<_ProfileTab> {
             ]),
             _accountSection('Management'),
             _accountCard([
+              FutureBuilder<WicchuProfile>(
+                future: _profile,
+                builder: (context, snapshot) =>
+                    snapshot.data?.platformModerator == true
+                    ? _ProfileRow(
+                        icon: Icons.health_and_safety_outlined,
+                        label: 'Wicchu Safety',
+                        subtitle: 'Platform moderation',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PlatformModerationPage(
+                              repository: widget.repository,
+                            ),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
               _ProfileRow(
                 icon: Icons.shield_outlined,
                 label: 'Spaces I manage',

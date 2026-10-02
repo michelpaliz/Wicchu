@@ -35,6 +35,7 @@ class HttpCommunityRepository implements CommunityRepository {
       communityCount: (json['communityCount'] as num?)?.toInt() ?? 0,
       postCount: (json['postCount'] as num?)?.toInt() ?? 0,
       savedPostCount: (json['savedPostCount'] as num?)?.toInt() ?? 0,
+      platformModerator: json['platformModerator'] as bool? ?? false,
     );
   }
 
@@ -962,6 +963,106 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<void> reportComment(
+    String commentId,
+    String reason, {
+    String category = 'other',
+  }) async {
+    await _api.post(
+      '/api/community/v1/comments/$commentId/reports',
+      body: {'reason': reason, 'category': category},
+    );
+  }
+
+  @override
+  Future<void> reportMember(
+    String userId,
+    String reason, {
+    String category = 'other',
+  }) async {
+    await _api.post(
+      '/api/community/v1/users/$userId/reports',
+      body: {'reason': reason, 'category': category},
+    );
+  }
+
+  @override
+  Future<void> reportCommunity(
+    String communityId,
+    String reason, {
+    String category = 'other',
+  }) async {
+    await _api.post(
+      '/api/community/v1/communities/$communityId/platform-reports',
+      body: {'reason': reason, 'category': category},
+    );
+  }
+
+  @override
+  Future<List<PlatformReport>> listPlatformReports({
+    bool resolved = false,
+  }) async {
+    final body = await _api.get(
+      '/api/community/v1/platform/reports?status=${resolved ? 'resolved' : 'pending'}',
+    );
+    return _list(body, 'reports')
+        .map((json) {
+          final community = json['community'] is Map<String, dynamic>
+              ? json['community'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          final reporter = json['reporter'] is Map<String, dynamic>
+              ? json['reporter'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          final target = json['targetUser'] is Map<String, dynamic>
+              ? json['targetUser'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          return PlatformReport(
+            id: _id(json),
+            targetType: json['targetType'] == 'community_admin'
+                ? PlatformReportTargetType.communityAdmin
+                : PlatformReportTargetType.community,
+            targetId: json['targetId']?.toString() ?? '',
+            communityId: json['communityId']?.toString() ?? '',
+            communityName: community['name']?.toString() ?? 'Community',
+            reporterName:
+                reporter['displayName']?.toString() ??
+                reporter['name']?.toString() ??
+                'Wicchu member',
+            targetName:
+                target['displayName']?.toString() ??
+                target['name']?.toString() ??
+                community['name']?.toString() ??
+                'Community',
+            category: json['category']?.toString() ?? 'other',
+            reason: json['reason']?.toString() ?? '',
+            status: json['status']?.toString() ?? 'pending',
+            createdAt:
+                DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+                DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+            evidence: json['evidence'] is Map<String, dynamic>
+                ? json['evidence'] as Map<String, dynamic>
+                : const {},
+          );
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> decidePlatformReport(
+    String reportId, {
+    required String action,
+    String? note,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/platform/reports/$reportId',
+      body: {
+        'action': action,
+        if (note?.trim().isNotEmpty ?? false) 'note': note!.trim(),
+      },
+    );
+  }
+
+  @override
   Future<AdminAttentionSummary> getAdminAttention(String communityId) async {
     final body = await _api.get(
       '/api/community/v1/communities/$communityId/admin/summary',
@@ -1056,7 +1157,11 @@ class HttpCommunityRepository implements CommunityRepository {
             id: _id(json),
             reporterId: json['reporterId']?.toString() ?? '',
             communityId: json['communityId']?.toString() ?? '',
-            targetType: ModerationTargetType.post,
+            targetType: switch (json['targetType']) {
+              'comment' => ModerationTargetType.comment,
+              'member' => ModerationTargetType.member,
+              _ => ModerationTargetType.post,
+            },
             targetId: json['targetId']?.toString() ?? '',
             category: json['category'] as String? ?? 'other',
             reason: json['reason'] as String? ?? '',

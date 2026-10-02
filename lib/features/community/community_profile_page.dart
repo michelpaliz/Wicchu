@@ -26,6 +26,7 @@ import 'community_share.dart';
 import 'community_invitations_page.dart';
 import 'post_media_gallery.dart';
 import 'post_card.dart';
+import 'report_dialog.dart';
 import 'post_share.dart';
 import 'comments_sheet.dart';
 import 'create_post_page.dart';
@@ -840,6 +841,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       Icons.logout,
                       enabled: !_savingMembership,
                     ),
+                  if (_community.myRole != CommunityRole.owner)
+                    option(
+                      'report',
+                      _community.isPublicProfile
+                          ? 'Report page'
+                          : 'Report community',
+                      Icons.flag_outlined,
+                    ),
                 ],
               ),
             ),
@@ -870,6 +879,34 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       shareCommunity(context, _community);
     } else if (value == 'edit') {
       _editCommunity();
+    } else if (value == 'report') {
+      _reportCommunity();
+    }
+  }
+
+  Future<void> _reportCommunity() async {
+    final report = await showContentReportDialog(
+      context,
+      title: _community.isPublicProfile ? 'Report page' : 'Report community',
+    );
+    if (report == null || !mounted) return;
+    try {
+      await widget.repository.reportCommunity(
+        _community.id,
+        report.$1,
+        category: report.$2,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('Report sent to Wicchu Safety'))),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
     }
   }
 

@@ -122,6 +122,7 @@ class WicchuProfile {
     required this.savedPostCount,
     this.avatarUrl,
     this.location,
+    this.platformModerator = false,
   });
 
   final String id;
@@ -132,6 +133,7 @@ class WicchuProfile {
   final int communityCount;
   final int postCount;
   final int savedPostCount;
+  final bool platformModerator;
 }
 
 class PublicMemberProfile {
@@ -703,6 +705,38 @@ class CommunityReport {
   final String reason;
   final ReportStatus status;
   final DateTime createdAt;
+}
+
+enum PlatformReportTargetType { community, communityAdmin }
+
+class PlatformReport {
+  const PlatformReport({
+    required this.id,
+    required this.targetType,
+    required this.targetId,
+    required this.communityId,
+    required this.communityName,
+    required this.reporterName,
+    required this.targetName,
+    required this.category,
+    required this.reason,
+    required this.status,
+    required this.createdAt,
+    this.evidence = const {},
+  });
+
+  final String id;
+  final PlatformReportTargetType targetType;
+  final String targetId;
+  final String communityId;
+  final String communityName;
+  final String reporterName;
+  final String targetName;
+  final String category;
+  final String reason;
+  final String status;
+  final DateTime createdAt;
+  final Map<String, dynamic> evidence;
 }
 
 class ModerationAction {

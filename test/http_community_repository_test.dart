@@ -147,6 +147,46 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 }
 
 void main() {
+  test('comment and member reports use their moderation endpoints', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.reportComment(
+      'comment-1',
+      'Harassing reply',
+      category: 'harassment',
+    );
+    expect(api.lastPath, '/api/community/v1/comments/comment-1/reports');
+    expect(api.lastBody, {
+      'reason': 'Harassing reply',
+      'category': 'harassment',
+    });
+
+    await repository.reportMember('user-2', 'Impersonation', category: 'scam');
+    expect(api.lastPath, '/api/community/v1/users/user-2/reports');
+    expect(api.lastBody, {'reason': 'Impersonation', 'category': 'scam'});
+  });
+
+  test('community reports go to the platform moderation endpoint', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.reportCommunity(
+      'community-1',
+      'The administrators are abusing their role',
+      category: 'harassment',
+    );
+
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/platform-reports',
+    );
+    expect(api.lastBody, {
+      'reason': 'The administrators are abusing their role',
+      'category': 'harassment',
+    });
+  });
+
   test('community insights are decoded from the admin endpoint', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);

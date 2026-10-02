@@ -293,6 +293,27 @@ abstract interface class CommunityRepository {
     String reason, {
     String category = 'other',
   });
+  Future<void> reportComment(
+    String commentId,
+    String reason, {
+    String category = 'other',
+  });
+  Future<void> reportMember(
+    String userId,
+    String reason, {
+    String category = 'other',
+  });
+  Future<void> reportCommunity(
+    String communityId,
+    String reason, {
+    String category = 'other',
+  });
+  Future<List<PlatformReport>> listPlatformReports({bool resolved = false});
+  Future<void> decidePlatformReport(
+    String reportId, {
+    required String action,
+    String? note,
+  });
   Future<AdminAttentionSummary> getAdminAttention(String communityId);
   Future<CommunityInsights> getCommunityInsights(String communityId);
   Future<List<CommunityReport>> listReports(String communityId);
