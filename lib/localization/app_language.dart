@@ -114,6 +114,13 @@ class LanguageMenu extends StatelessWidget {
 }
 
 const _spanish = <String, String>{
+  'Tell us what is wrong. Reports are confidential.':
+      'Cuéntanos qué ocurre. Las denuncias son confidenciales.',
+  'Report to': 'Enviar denuncia a',
+  'Reports are routed to community moderators or Wicchu Safety as appropriate.':
+      'Las denuncias se envían a los moderadores de la comunidad o al equipo de seguridad de Wicchu según corresponda.',
+  'Additional details (optional)': 'Detalles adicionales (opcional)',
+  'Submit report': 'Enviar denuncia',
   'Wicchu Safety': 'Seguridad de Wicchu',
   'Platform moderation': 'Moderación de la plataforma',
   'Resolved': 'Resueltos',
