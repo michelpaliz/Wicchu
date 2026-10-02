@@ -237,8 +237,13 @@ class _CategoryPageState extends State<CategoryPage>
                           post.id,
                           saved: saved,
                         ),
-                        onReport: (reason, category) => widget.repository
-                            .reportPost(post.id, reason, category: category),
+                        onReport: (reason, category, {hidePost}) =>
+                            widget.repository.reportPost(
+                              post.id,
+                              reason,
+                              category: category,
+                              hidePost: hidePost == true,
+                            ),
                         onShare: () => sharePost(
                           widget.repository,
                           post,

@@ -122,6 +122,24 @@ const _spanish = <String, String>{
   'Additional details (optional)': 'Detalles adicionales (opcional)',
   'Submit report': 'Enviar denuncia',
   'Wicchu Safety': 'Seguridad de Wicchu',
+  'Contact Wicchu Safety': 'Contactar a Seguridad de Wicchu',
+  'Safety request': 'Solicitud de seguridad',
+  'Safety issue': 'Problema de seguridad',
+  'Resolve request': 'Resolver solicitud',
+  'Send to Wicchu Safety': 'Enviar a Seguridad de Wicchu',
+  'Request sent to Wicchu Safety': 'Solicitud enviada a Seguridad de Wicchu',
+  'Account or space may be compromised':
+      'La cuenta o el espacio pueden estar comprometidos',
+  'Another administrator is abusing their role':
+      'Otro administrador está abusando de su función',
+  'Ownership dispute': 'Disputa de propiedad',
+  'Impersonation': 'Suplantación de identidad',
+  'Illegal or dangerous activity': 'Actividad ilegal o peligrosa',
+  'Content cannot be removed': 'No se puede eliminar el contenido',
+  'Appeal a platform restriction': 'Apelar una restricción de la plataforma',
+  'Other safety concern': 'Otro problema de seguridad',
+  'Explain what happened and what help you need':
+      'Explica qué ocurrió y qué ayuda necesitas',
   'Platform moderation': 'Moderación de la plataforma',
   'Resolved': 'Resueltos',
   'No pending platform reports.': 'No hay reportes de plataforma pendientes.',
@@ -133,6 +151,7 @@ const _spanish = <String, String>{
   'Resolution': 'Resolución',
   'Note': 'Nota',
   'Dismiss report': 'Descartar reporte',
+  'Dismiss request': 'Descartar solicitud',
   'Warn admin': 'Advertir al administrador',
   'Remove admin role': 'Quitar rol de administrador',
   'Suspend user': 'Suspender usuario',
@@ -146,6 +165,21 @@ const _spanish = <String, String>{
   'Only community and Wicchu moderators can see this.':
       'Solo los moderadores de la comunidad y de Wicchu pueden verla.',
   'Ban duration': 'Duración de la expulsión',
+  'Transfer ownership': 'Transferir propiedad',
+  'Send transfer': 'Enviar transferencia',
+  'Ownership transfer': 'Transferencia de propiedad',
+  'Ownership transfer sent. The administrator must accept it.':
+      'Transferencia enviada. El administrador debe aceptarla.',
+  'The owner invited you to take ownership of this space.':
+      'El propietario te invitó a asumir la propiedad de este espacio.',
+  '{name} must accept the transfer. After acceptance, they will become the owner and you will become an administrator.':
+      '{name} debe aceptar la transferencia. Después, será propietario y tú pasarás a ser administrador.',
+  'Step down as administrator': 'Dejar el cargo de administrador',
+  'Step down as administrator?': '¿Dejar el cargo de administrador?',
+  'Step down': 'Dejar el cargo',
+  'You will become a regular member and lose access to management tools.':
+      'Pasarás a ser miembro y perderás acceso a las herramientas de administración.',
+  'You are now a regular member.': 'Ahora eres un miembro regular.',
   'Permanent': 'Permanente',
   '1 day': '1 día',
   '7 days': '7 días',
@@ -169,6 +203,7 @@ const _spanish = <String, String>{
   'Report page': 'Reportar página',
   'Report community': 'Reportar comunidad',
   'Report sent to Wicchu Safety': 'Reporte enviado a Seguridad de Wicchu',
+  'Hide post': 'Ocultar publicación',
   'Report comment': 'Reportar comentario',
   'Report profile': 'Reportar perfil',
   'Spam': 'Spam',

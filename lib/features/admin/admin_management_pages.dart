@@ -567,6 +567,14 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                       onTap: () =>
                           Navigator.pop(sheetContext, 'role:${role.name}'),
                     ),
+                if (widget.community.myRole == CommunityRole.owner &&
+                    member.status == MembershipStatus.active &&
+                    member.role == CommunityRole.admin)
+                  ListTile(
+                    leading: const Icon(Icons.swap_horiz_rounded),
+                    title: Text(context.tr('Transfer ownership')),
+                    onTap: () => Navigator.pop(sheetContext, 'transfer'),
+                  ),
                 if (member.status == MembershipStatus.banned)
                   ListTile(
                     leading: const Icon(Icons.lock_open),
@@ -604,8 +612,59 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
       );
     } else if (action.startsWith('role:')) {
       await _setRole(member, CommunityRole.values.byName(action.substring(5)));
+    } else if (action == 'transfer') {
+      await _transferOwnership(member);
     } else {
       await _changeAccess(member, action);
+    }
+  }
+
+  Future<void> _transferOwnership(CommunityMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.tr('Transfer ownership')),
+        content: Text(
+          dialogContext.tr(
+            '{name} must accept the transfer. After acceptance, they will become the owner and you will become an administrator.',
+            {'name': member.name},
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(dialogContext.tr('Send transfer')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await widget.repository.createOwnershipTransfer(
+        widget.community.id,
+        member.userId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.tr(
+                'Ownership transfer sent. The administrator must accept it.',
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
     }
   }
 

@@ -95,7 +95,10 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
   Widget _reportCard(PlatformReport report) {
     final pending = report.status == 'pending';
     final isBanAppeal = report.evidence['kind'] == 'ban_appeal';
-    final targetType = isBanAppeal
+    final isSafetyRequest = report.evidence['kind'] == 'manager_safety_request';
+    final targetType = isSafetyRequest
+        ? 'Safety request'
+        : isBanAppeal
         ? 'Ban appeal'
         : report.targetType == PlatformReportTargetType.community
         ? 'Community'
@@ -172,7 +175,11 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                     onPressed: _saving.contains(report.id)
                         ? null
                         : () => _decide(report, 'dismiss'),
-                    child: Text(context.tr('Dismiss report')),
+                    child: Text(
+                      context.tr(
+                        isSafetyRequest ? 'Dismiss request' : 'Dismiss report',
+                      ),
+                    ),
                   ),
                   if (isBanAppeal)
                     FilledButton.tonal(
@@ -180,6 +187,13 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                           ? null
                           : () => _decide(report, 'restore_membership'),
                       child: Text(context.tr('Restore membership')),
+                    ),
+                  if (isSafetyRequest)
+                    FilledButton.tonal(
+                      onPressed: _saving.contains(report.id)
+                          ? null
+                          : () => _decide(report, 'close_request'),
+                      child: Text(context.tr('Resolve request')),
                     ),
                   if (report.targetType ==
                       PlatformReportTargetType.communityAdmin) ...[
@@ -219,16 +233,16 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
   }
 
   Future<void> _decide(PlatformReport report, String action) async {
-    final note = TextEditingController();
+    var note = '';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(dialogContext.tr(_actionLabel(action))),
         content: TextField(
-          controller: note,
           minLines: 2,
           maxLines: 5,
           maxLength: 1000,
+          onChanged: (value) => note = value,
           decoration: InputDecoration(
             labelText: dialogContext.tr('Internal note or warning message'),
           ),
@@ -245,15 +259,13 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
         ],
       ),
     );
-    final value = note.text;
-    note.dispose();
     if (confirmed != true || !mounted) return;
     setState(() => _saving.add(report.id));
     try {
       await widget.repository.decidePlatformReport(
         report.id,
         action: action,
-        note: value,
+        note: note,
       );
       if (mounted) _reload();
     } catch (error) {
@@ -284,6 +296,7 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
     'dismiss' => 'Dismiss report',
     'warn' => 'Warn admin',
     'restore_membership' => 'Restore membership',
+    'close_request' => 'Resolve request',
     'remove_admin_role' => 'Remove admin role',
     'suspend_user' => 'Suspend user',
     _ => 'Suspend community',

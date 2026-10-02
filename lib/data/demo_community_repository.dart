@@ -336,6 +336,15 @@ class DemoCommunityRepository implements CommunityRepository {
   ) async {}
 
   @override
+  Future<void> createOwnershipTransfer(
+    String communityId,
+    String targetUserId,
+  ) async {}
+
+  @override
+  Future<void> stepDownCommunityRole(String communityId) async {}
+
+  @override
   Future<void> leaveCommunity(String communityId) async {}
 
   @override
@@ -792,6 +801,7 @@ class DemoCommunityRepository implements CommunityRepository {
     String postId,
     String reason, {
     String category = 'other',
+    bool hidePost = false,
   }) async {}
 
   @override
@@ -817,6 +827,13 @@ class DemoCommunityRepository implements CommunityRepository {
 
   @override
   Future<void> appealCommunityBan(String communityId, String reason) async {}
+
+  @override
+  Future<void> contactWicchuSafety(
+    String communityId,
+    String reason, {
+    required String issue,
+  }) async {}
 
   @override
   Future<List<PlatformReport>> listPlatformReports({

@@ -842,7 +842,20 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       Icons.logout,
                       enabled: !_savingMembership,
                     ),
-                  if (_community.myRole != CommunityRole.owner)
+                  if (_community.myRole == CommunityRole.admin ||
+                      _community.myRole == CommunityRole.moderator)
+                    option(
+                      'stepDown',
+                      'Step down as administrator',
+                      Icons.person_remove_outlined,
+                    ),
+                  if (_canManage)
+                    option(
+                      'contactSafety',
+                      'Contact Wicchu Safety',
+                      Icons.health_and_safety_outlined,
+                    )
+                  else
                     option(
                       'report',
                       _community.isPublicProfile
@@ -882,6 +895,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       _editCommunity();
     } else if (value == 'report') {
       _reportCommunity();
+    } else if (value == 'contactSafety') {
+      _contactWicchuSafety();
+    } else if (value == 'stepDown') {
+      _stepDownAsAdministrator();
     }
   }
 
@@ -900,6 +917,147 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.tr('Report sent to Wicchu Safety'))),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
+
+  Future<void> _contactWicchuSafety() async {
+    const issues = <String, String>{
+      'account_compromised': 'Account or space may be compromised',
+      'admin_abuse': 'Another administrator is abusing their role',
+      'ownership_dispute': 'Ownership dispute',
+      'impersonation': 'Impersonation',
+      'illegal_dangerous': 'Illegal or dangerous activity',
+      'cannot_remove_content': 'Content cannot be removed',
+      'platform_restriction': 'Appeal a platform restriction',
+      'other': 'Other safety concern',
+    };
+    var issue = 'other';
+    var reason = '';
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(dialogContext.tr('Contact Wicchu Safety')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: issue,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: dialogContext.tr('Safety issue'),
+                  ),
+                  items: issues.entries
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item.key,
+                          child: Text(
+                            dialogContext.tr(item.value),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) =>
+                      setDialogState(() => issue = value ?? 'other'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  autofocus: true,
+                  minLines: 3,
+                  maxLines: 6,
+                  maxLength: 1000,
+                  onChanged: (value) => reason = value,
+                  decoration: InputDecoration(
+                    hintText: dialogContext.tr(
+                      'Explain what happened and what help you need',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(dialogContext.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (reason.trim().isNotEmpty) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              child: Text(dialogContext.tr('Send to Wicchu Safety')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (submitted != true || !mounted) return;
+    try {
+      await widget.repository.contactWicchuSafety(
+        _community.id,
+        reason.trim(),
+        issue: issue,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('Request sent to Wicchu Safety'))),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
+
+  Future<void> _stepDownAsAdministrator() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.tr('Step down as administrator?')),
+        content: Text(
+          dialogContext.tr(
+            'You will become a regular member and lose access to management tools.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(dialogContext.tr('Step down')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await widget.repository.stepDownCommunityRole(_community.id);
+      final updated = await widget.repository.getCommunity(_community.id);
+      if (mounted) {
+        setState(() {
+          _community = updated;
+          _joined = updated.isJoined;
+          _reload();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('You are now a regular member.'))),
         );
       }
     } catch (error) {
@@ -1792,11 +1950,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                               post.id,
                               saved: saved,
                             ),
-                            onReport: (reason, category) =>
+                            onReport: (reason, category, {hidePost}) =>
                                 widget.repository.reportPost(
                                   post.id,
                                   reason,
                                   category: category,
+                                  hidePost: hidePost == true,
                                 ),
                             onShare: () => sharePost(
                               widget.repository,

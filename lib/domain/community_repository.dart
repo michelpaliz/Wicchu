@@ -194,6 +194,8 @@ abstract interface class CommunityRepository {
     String communityId,
     String invitationId,
   );
+  Future<void> createOwnershipTransfer(String communityId, String targetUserId);
+  Future<void> stepDownCommunityRole(String communityId);
   Future<CommunityRules> listRules(String communityId);
   Future<CommunityRule> createRule(
     String communityId, {
@@ -294,6 +296,7 @@ abstract interface class CommunityRepository {
     String postId,
     String reason, {
     String category = 'other',
+    bool hidePost = false,
   });
   Future<void> reportComment(
     String commentId,
@@ -311,6 +314,11 @@ abstract interface class CommunityRepository {
     String category = 'other',
   });
   Future<void> appealCommunityBan(String communityId, String reason);
+  Future<void> contactWicchuSafety(
+    String communityId,
+    String reason, {
+    required String issue,
+  });
   Future<List<PlatformReport>> listPlatformReports({bool resolved = false});
   Future<void> decidePlatformReport(
     String reportId, {

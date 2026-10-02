@@ -96,7 +96,8 @@ class PostCard extends StatefulWidget {
   final bool saved;
   final Future<void> Function(bool saved)? onSaved;
   final List<PostMedia> media;
-  final Future<void> Function(String reason, String category)? onReport;
+  final Future<void> Function(String reason, String category, {bool? hidePost})?
+  onReport;
   final Future<void> Function()? onShare;
   final PostPromotion? promotion;
   final Future<void> Function()? onPromotionImpression;
@@ -123,6 +124,7 @@ class _PostCardState extends State<PostCard> {
   bool _impressionSent = false;
   late PostPoll? _poll = widget.poll;
   bool _savingVote = false;
+  bool _hidden = false;
   bool _deleting = false;
 
   Future<void> _deletePost() async {
@@ -194,6 +196,7 @@ class _PostCardState extends State<PostCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (_hidden) return const SizedBox.shrink();
     final accent = categoryColor(widget.category, context);
     final theme = Theme.of(context);
     final communityFirst = widget.communityFirst && widget.showCommunity;
@@ -446,9 +449,26 @@ class _PostCardState extends State<PostCard> {
     try {
       await widget.onReport!(report.$1, report.$2);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.tr('Report submitted'))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('Report submitted')),
+            action: SnackBarAction(
+              label: context.tr('Hide post'),
+              onPressed: () async {
+                try {
+                  await widget.onReport!(report.$1, report.$2, hidePost: true);
+                  if (mounted) setState(() => _hidden = true);
+                } catch (error) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(context.trError(error))),
+                    );
+                  }
+                }
+              },
+            ),
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {

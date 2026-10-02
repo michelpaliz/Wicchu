@@ -451,6 +451,24 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<void> createOwnershipTransfer(
+    String communityId,
+    String targetUserId,
+  ) async {
+    await _api.post(
+      '/api/community/v1/communities/$communityId/ownership-transfers',
+      body: {'targetUserId': targetUserId},
+    );
+  }
+
+  @override
+  Future<void> stepDownCommunityRole(String communityId) async {
+    await _api.patch(
+      '/api/community/v1/communities/$communityId/membership/step-down',
+    );
+  }
+
+  @override
   Future<CommunityRules> listRules(String communityId) async {
     final body = await _api.get(
       '/api/community/v1/communities/$communityId/rules',
@@ -966,10 +984,11 @@ class HttpCommunityRepository implements CommunityRepository {
     String postId,
     String reason, {
     String category = 'other',
+    bool hidePost = false,
   }) async {
     await _api.post(
       '/api/community/v1/posts/$postId/reports',
-      body: {'reason': reason, 'category': category},
+      body: {'reason': reason, 'category': category, 'hidePost': hidePost},
     );
   }
 
@@ -1014,6 +1033,18 @@ class HttpCommunityRepository implements CommunityRepository {
     await _api.post(
       '/api/community/v1/communities/$communityId/ban-appeals',
       body: {'reason': reason},
+    );
+  }
+
+  @override
+  Future<void> contactWicchuSafety(
+    String communityId,
+    String reason, {
+    required String issue,
+  }) async {
+    await _api.post(
+      '/api/community/v1/communities/$communityId/safety-requests',
+      body: {'reason': reason, 'issue': issue},
     );
   }
 

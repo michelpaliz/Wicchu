@@ -33,6 +33,30 @@ Reporting and blocking are separate. Reporting alerts moderators; blocking immed
 
 The member loses access to the community immediately. A temporary ban is restored automatically after its expiration date.
 
+## Transfer ownership of a community or local business
+
+Only the current owner can start a transfer, and the recipient must already be an active administrator.
+
+1. Open **Account** → **Spaces I manage**.
+2. Select the community, public profile, or local business.
+3. Open **Members** or **Followers**.
+4. Select an active administrator.
+5. Select **Transfer ownership**.
+6. Review the confirmation and select **Send transfer**.
+7. The administrator opens **Account** → **Invitations**.
+8. They review the ownership invitation and select **Accept** or **Decline**.
+
+After acceptance, the recipient becomes the owner and the previous owner becomes an administrator. The transfer expires after seven days if it is not accepted. Starting a new transfer revokes any older pending ownership transfer for that space.
+
+## Step down as an administrator
+
+1. Open the managed community or business.
+2. Select **More options** (`•••`).
+3. Select **Step down as administrator**.
+4. Confirm **Step down**.
+
+The account becomes a regular member and loses management access. Owners must transfer ownership before they can step down or leave.
+
 ## Review the details of an existing ban
 
 1. Open **Account** → **Spaces I manage**.
@@ -89,14 +113,28 @@ The account must have the backend `platformModerator` permission. Regular commun
 
 This report appears in **Account** → **Wicchu Safety** → **Pending** for platform moderators.
 
+## Contact Wicchu Safety as an owner or administrator
+
+Owners, administrators, and moderators see **Contact Wicchu Safety** instead of reporting their own community or business.
+
+1. Open the managed community, profile, or local business.
+2. Select **More options** (`•••`).
+3. Select **Contact Wicchu Safety**.
+4. Choose the issue, such as a compromised account, administrator abuse, ownership dispute, impersonation, dangerous activity, content that cannot be removed, or a platform restriction.
+5. Explain what happened and select **Send to Wicchu Safety**.
+
+The request appears as a **Safety request** in the platform moderation queue. A Wicchu moderator can resolve or dismiss it and record an internal resolution note.
+
 ## Report a post
 
 1. Open the post.
 2. Select its **More options** (`•••`) menu.
 3. Select **Report post**.
 4. Choose a category, enter the reason, and submit.
+5. After **Report submitted** appears, select **Hide post** if the reporter does not want to see it again.
 
 The report appears in that community's moderation queue.
+Hiding is personal and persistent: the post disappears only for the reporter and remains available to moderators while they review the report.
 
 ## Report a comment
 

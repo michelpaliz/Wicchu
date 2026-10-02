@@ -516,14 +516,22 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
         children: [
           Row(
             children: [
-              _icon(item.isLink ? Icons.link : Icons.mail_outline),
+              _icon(
+                item.isOwnershipTransfer
+                    ? Icons.swap_horiz_rounded
+                    : item.isLink
+                    ? Icons.link
+                    : Icons.mail_outline,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.isLink
+                      item.isOwnershipTransfer
+                          ? context.tr('Ownership transfer')
+                          : item.isLink
                           ? context.tr('Invitation link')
                           : item.email ?? context.tr('Invitation'),
                       style: const TextStyle(fontWeight: FontWeight.w600),
@@ -777,12 +785,23 @@ class _MyCommunityInvitationsPageState
           separatorBuilder: (_, _) => const Divider(),
           itemBuilder: (context, index) {
             final item = items[index];
+            final ownershipTransfer = item.isOwnershipTransfer;
             return ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const CircleAvatar(child: Icon(Icons.groups_outlined)),
+              leading: CircleAvatar(
+                child: Icon(
+                  ownershipTransfer
+                      ? Icons.swap_horiz_rounded
+                      : Icons.groups_outlined,
+                ),
+              ),
               title: Text(item.communityName ?? context.tr('Community')),
               subtitle: Text(
-                context.tr('You were invited to join this community.'),
+                context.tr(
+                  ownershipTransfer
+                      ? 'The owner invited you to take ownership of this space.'
+                      : 'You were invited to join this community.',
+                ),
               ),
               trailing: Wrap(
                 spacing: 4,

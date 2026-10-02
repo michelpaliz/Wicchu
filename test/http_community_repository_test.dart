@@ -11,6 +11,21 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
+    if (path == '/api/community/v1/me/invitations') {
+      return {
+        'invitations': [
+          {
+            'id': 'transfer-1',
+            'communityId': 'community-1',
+            'type': 'ownership_transfer',
+            'status': 'pending',
+            'createdAt': '2026-10-01T12:00:00.000Z',
+            'expiresAt': '2026-10-08T12:00:00.000Z',
+            'community': {'id': 'community-1', 'name': 'Riverside'},
+          },
+        ],
+      };
+    }
     if (path.endsWith('/admin/insights')) {
       return {
         'insights': {
@@ -187,6 +202,25 @@ void main() {
     });
   });
 
+  test('reported posts can be hidden for the reporting user', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.reportPost(
+      'post-1',
+      'I do not want to see this again',
+      category: 'harassment',
+      hidePost: true,
+    );
+
+    expect(api.lastPath, '/api/community/v1/posts/post-1/reports');
+    expect(api.lastBody, {
+      'reason': 'I do not want to see this again',
+      'category': 'harassment',
+      'hidePost': true,
+    });
+  });
+
   test('member bans send public, private, and expiry details', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);
@@ -228,6 +262,51 @@ void main() {
     );
     expect(api.lastBody, {
       'reason': 'I believe this decision should be reviewed.',
+    });
+  });
+
+  test(
+    'ownership transfers and administrator step-down use dedicated endpoints',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+
+      await repository.createOwnershipTransfer('community-1', 'admin-2');
+      expect(
+        api.lastPath,
+        '/api/community/v1/communities/community-1/ownership-transfers',
+      );
+      expect(api.lastBody, {'targetUserId': 'admin-2'});
+
+      await repository.stepDownCommunityRole('community-1');
+      expect(
+        api.lastPath,
+        '/api/community/v1/communities/community-1/membership/step-down',
+      );
+
+      final invitations = await repository.listMyCommunityInvitations();
+      expect(invitations.single.isOwnershipTransfer, isTrue);
+      expect(invitations.single.communityName, 'Riverside');
+    },
+  );
+
+  test('community managers can contact Wicchu Safety', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.contactWicchuSafety(
+      'community-1',
+      'Another administrator changed our business information.',
+      issue: 'admin_abuse',
+    );
+
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/safety-requests',
+    );
+    expect(api.lastBody, {
+      'reason': 'Another administrator changed our business information.',
+      'issue': 'admin_abuse',
     });
   });
 
