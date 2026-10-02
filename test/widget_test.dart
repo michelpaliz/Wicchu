@@ -530,7 +530,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Delete account'));
     await tester.pumpAndSettle();
     expect(find.text('Continue with email'), findsOneWidget);
-    expect(find.text('Continue with Facebook'), findsNothing);
+    expect(find.text('Continue with Facebook'), findsOneWidget);
     expect(find.text('Delete account'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -560,7 +560,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Continue with Facebook'), findsNothing);
+    expect(find.text('Continue with Facebook'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
 
     await tester.tap(find.text('Continue with Google'));
@@ -1294,9 +1294,7 @@ void main() {
     expect(find.text('Reject'), findsOneWidget);
   });
 
-  testWidgets('offers Google and hides Facebook when signed out', (
-    tester,
-  ) async {
+  testWidgets('offers Google and Facebook when signed out', (tester) async {
     await tester.pumpWidget(
       WicchuApp(
         repository: DemoCommunityRepository(),
@@ -1305,7 +1303,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Continue with Facebook'), findsNothing);
+    expect(find.text('Continue with Facebook'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
   });
 

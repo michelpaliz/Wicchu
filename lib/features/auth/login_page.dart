@@ -71,6 +71,12 @@ class _LoginPageState extends State<LoginPage> {
                     isLoading: _loadingProvider == 'google',
                     disabled: _loadingProvider != null,
                   ),
+                  const SizedBox(height: 12),
+                  FacebookSignInButton(
+                    onPressed: _signInFacebook,
+                    isLoading: _loadingProvider == 'facebook',
+                    disabled: _loadingProvider != null,
+                  ),
                   if (defaultTargetPlatform == TargetPlatform.iOS) ...[
                     const SizedBox(height: 12),
                     _signInButton(
@@ -164,6 +170,12 @@ class _LoginPageState extends State<LoginPage> {
     provider: 'google',
     action: widget.authGateway.signInWithGoogle,
     unavailableMessage: 'Google sign-in is unavailable.',
+  );
+
+  Future<void> _signInFacebook() => _signIn(
+    provider: 'facebook',
+    action: widget.authGateway.signInWithFacebook,
+    unavailableMessage: 'Facebook sign-in is unavailable.',
   );
 
   Future<void> _signInApple() => _signIn(

@@ -430,6 +430,12 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                         isLoading: _socialProvider == 'google',
                         disabled: _loading,
                       ),
+                      const SizedBox(height: 12),
+                      FacebookSignInButton(
+                        onPressed: () => _socialSignIn(true),
+                        isLoading: _socialProvider == 'facebook',
+                        disabled: _loading,
+                      ),
                       const SizedBox(height: 28),
                       Material(
                         color: Theme.of(
@@ -544,14 +550,13 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
     } catch (error) {
       if (mounted) {
         setState(
-          () => _error =
-              facebook &&
-                  !(error is AuthException &&
-                      error.message == 'Facebook sign-in was cancelled.')
-              ? context.tr(
-                  'Facebook sign-in will be available soon. In the meantime, use Google or email and password.',
-                )
-              : context.trError(error),
+          () => _error = error is AuthException
+              ? context.trError(error)
+              : context.tr(
+                  facebook
+                      ? 'Facebook sign-in is unavailable.'
+                      : 'Google sign-in is unavailable.',
+                ),
         );
       }
     } finally {
