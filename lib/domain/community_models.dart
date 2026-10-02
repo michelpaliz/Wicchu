@@ -253,6 +253,9 @@ class Community {
     this.profileCategory,
     this.businessServices = const [],
     this.businessLocation,
+    this.membershipStatus,
+    this.banPublicReason,
+    this.banExpiresAt,
   });
 
   final String id;
@@ -280,8 +283,12 @@ class Community {
       ? profileCategory?.label ?? 'Public profile'
       : 'Community';
   final BusinessLocation? businessLocation;
+  final MembershipStatus? membershipStatus;
+  final String? banPublicReason;
+  final DateTime? banExpiresAt;
 
   bool get isJoined => myRole != null;
+  bool get isBanned => membershipStatus == MembershipStatus.banned;
 
   bool get canPublish =>
       isJoined &&
@@ -450,6 +457,10 @@ class CommunityMember {
     this.isOnline = false,
     this.lastActiveAt,
     this.isAnonymous = false,
+    this.banPublicReason,
+    this.banInternalNote,
+    this.bannedAt,
+    this.banExpiresAt,
   });
 
   final String userId;
@@ -462,6 +473,10 @@ class CommunityMember {
   final bool isOnline;
   final DateTime? lastActiveAt;
   final bool isAnonymous;
+  final String? banPublicReason;
+  final String? banInternalNote;
+  final DateTime? bannedAt;
+  final DateTime? banExpiresAt;
 }
 
 class CommunityCategory {

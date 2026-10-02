@@ -187,6 +187,50 @@ void main() {
     });
   });
 
+  test('member bans send public, private, and expiry details', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+    final expiresAt = DateTime.utc(2026, 10, 9, 12);
+
+    await repository.setMemberAccess(
+      'community-1',
+      'user-2',
+      action: 'ban',
+      reason: 'Repeated harassment',
+      internalNote: 'Two moderator warnings were ignored',
+      expiresAt: expiresAt,
+    );
+
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/admin/members/user-2/access',
+    );
+    expect(api.lastBody, {
+      'action': 'ban',
+      'reason': 'Repeated harassment',
+      'internalNote': 'Two moderator warnings were ignored',
+      'expiresAt': '2026-10-09T12:00:00.000Z',
+    });
+  });
+
+  test('ban appeals go directly to Wicchu Safety', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.appealCommunityBan(
+      'community-1',
+      'I believe this decision should be reviewed.',
+    );
+
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/ban-appeals',
+    );
+    expect(api.lastBody, {
+      'reason': 'I believe this decision should be reviewed.',
+    });
+  });
+
   test('community insights are decoded from the admin endpoint', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);

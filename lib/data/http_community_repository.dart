@@ -619,6 +619,10 @@ class HttpCommunityRepository implements CommunityRepository {
             isOnline: json['isOnline'] == true,
             lastActiveAt: _optionalDate(json['lastActiveAt']),
             isAnonymous: json['isAnonymous'] == true,
+            banPublicReason: json['banPublicReason']?.toString(),
+            banInternalNote: json['banInternalNote']?.toString(),
+            bannedAt: _optionalDate(json['bannedAt']),
+            banExpiresAt: _optionalDate(json['banExpiresAt']),
           );
         })
         .toList(growable: false);
@@ -642,10 +646,17 @@ class HttpCommunityRepository implements CommunityRepository {
     String userId, {
     required String action,
     String? reason,
+    String? internalNote,
+    DateTime? expiresAt,
   }) async {
     await _api.patch(
       '/api/community/v1/communities/$communityId/admin/members/$userId/access',
-      body: {'action': action, 'reason': ?reason},
+      body: {
+        'action': action,
+        'reason': ?reason,
+        'internalNote': ?internalNote,
+        if (expiresAt != null) 'expiresAt': expiresAt.toUtc().toIso8601String(),
+      },
     );
   }
 
@@ -995,6 +1006,14 @@ class HttpCommunityRepository implements CommunityRepository {
     await _api.post(
       '/api/community/v1/communities/$communityId/platform-reports',
       body: {'reason': reason, 'category': category},
+    );
+  }
+
+  @override
+  Future<void> appealCommunityBan(String communityId, String reason) async {
+    await _api.post(
+      '/api/community/v1/communities/$communityId/ban-appeals',
+      body: {'reason': reason},
     );
   }
 
@@ -1398,6 +1417,14 @@ class HttpCommunityRepository implements CommunityRepository {
         'member' => CommunityRole.member,
         _ => null,
       },
+      membershipStatus: switch (json['membershipStatus']) {
+        'active' => MembershipStatus.active,
+        'pending' => MembershipStatus.pending,
+        'banned' => MembershipStatus.banned,
+        _ => null,
+      },
+      banPublicReason: json['banPublicReason']?.toString(),
+      banExpiresAt: _optionalDate(json['banExpiresAt']),
       approvalRequired: json['approvalRequired'] as bool? ?? false,
       showWeather: json['showWeather'] as bool? ?? false,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),

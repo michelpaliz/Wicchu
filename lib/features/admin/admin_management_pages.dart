@@ -517,6 +517,29 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   ),
                 ),
               ),
+              if (member.status == MembershipStatus.banned)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${context.tr('Reason shown to member')}: ${member.banPublicReason ?? context.tr('Community rules violation.')}',
+                        ),
+                        if (member.banInternalNote?.isNotEmpty == true)
+                          Text(
+                            '${context.tr('Internal moderator note')}: ${member.banInternalNote}',
+                          ),
+                        if (member.banExpiresAt != null)
+                          Text(
+                            '${context.tr('Access returns on')}: ${MaterialLocalizations.of(context).formatMediumDate(member.banExpiresAt!.toLocal())}',
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ListTile(
                 leading: const Icon(Icons.person_outline),
                 title: Text(context.tr('View profile')),
@@ -987,36 +1010,104 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
 
   Future<void> _changeAccess(CommunityMember member, String action) async {
     String? reason;
+    String? internalNote;
+    DateTime? expiresAt;
     if (action == 'ban') {
-      final controller = TextEditingController();
-      reason = await showDialog<String>(
+      var publicReasonInput = '';
+      var internalNoteInput = '';
+      var durationDays = 0;
+      final input = await showDialog<_BanInput>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(dialogContext.tr('Ban member')),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLength: 1000,
-            maxLines: 3,
-            decoration: InputDecoration(labelText: dialogContext.tr('Reason')),
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(dialogContext.tr('Ban member')),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    autofocus: true,
+                    maxLength: 1000,
+                    maxLines: 3,
+                    onChanged: (value) => publicReasonInput = value,
+                    decoration: InputDecoration(
+                      labelText: dialogContext.tr('Reason shown to member'),
+                      helperText: dialogContext.tr(
+                        'The member will receive this reason.',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    maxLength: 1000,
+                    maxLines: 3,
+                    onChanged: (value) => internalNoteInput = value,
+                    decoration: InputDecoration(
+                      labelText: dialogContext.tr(
+                        'Internal moderator note (optional)',
+                      ),
+                      helperText: dialogContext.tr(
+                        'Only community and Wicchu moderators can see this.',
+                      ),
+                    ),
+                  ),
+                  DropdownButtonFormField<int>(
+                    initialValue: durationDays,
+                    decoration: InputDecoration(
+                      labelText: dialogContext.tr('Ban duration'),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: 0,
+                        child: Text(dialogContext.tr('Permanent')),
+                      ),
+                      DropdownMenuItem(
+                        value: 1,
+                        child: Text(dialogContext.tr('1 day')),
+                      ),
+                      DropdownMenuItem(
+                        value: 7,
+                        child: Text(dialogContext.tr('7 days')),
+                      ),
+                      DropdownMenuItem(
+                        value: 30,
+                        child: Text(dialogContext.tr('30 days')),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => durationDays = value ?? 0),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(dialogContext.tr('Cancel')),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final value = publicReasonInput.trim();
+                  if (value.isEmpty) return;
+                  Navigator.pop(
+                    dialogContext,
+                    _BanInput(value, internalNoteInput.trim(), durationDays),
+                  );
+                },
+                child: Text(dialogContext.tr('Ban member')),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(dialogContext.tr('Cancel')),
-            ),
-            FilledButton(
-              onPressed: () {
-                final value = controller.text.trim();
-                if (value.isNotEmpty) Navigator.pop(dialogContext, value);
-              },
-              child: Text(dialogContext.tr('Ban member')),
-            ),
-          ],
         ),
       );
-      controller.dispose();
-      if (reason == null) return;
+      if (input == null) return;
+      reason = input.reason;
+      internalNote = input.internalNote;
+      if (input.durationDays > 0) {
+        expiresAt = DateTime.now().toUtc().add(
+          Duration(days: input.durationDays),
+        );
+      }
     } else {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -1055,6 +1146,8 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         member.userId,
         action: action,
         reason: reason,
+        internalNote: internalNote,
+        expiresAt: expiresAt,
       );
       if (mounted) _reload();
     } catch (error) {
@@ -1065,6 +1158,14 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
       }
     }
   }
+}
+
+class _BanInput {
+  const _BanInput(this.reason, this.internalNote, this.durationDays);
+
+  final String reason;
+  final String internalNote;
+  final int durationDays;
 }
 
 class CommunitySettingsPage extends StatefulWidget {

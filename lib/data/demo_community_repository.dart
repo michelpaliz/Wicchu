@@ -481,6 +481,8 @@ class DemoCommunityRepository implements CommunityRepository {
     String userId, {
     required String action,
     String? reason,
+    String? internalNote,
+    DateTime? expiresAt,
   }) async {}
 
   @override
@@ -812,6 +814,9 @@ class DemoCommunityRepository implements CommunityRepository {
     String reason, {
     String category = 'other',
   }) async {}
+
+  @override
+  Future<void> appealCommunityBan(String communityId, String reason) async {}
 
   @override
   Future<List<PlatformReport>> listPlatformReports({

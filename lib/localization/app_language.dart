@@ -130,6 +130,33 @@ const _spanish = <String, String>{
   'Remove admin role': 'Quitar rol de administrador',
   'Suspend user': 'Suspender usuario',
   'Suspend community': 'Suspender comunidad',
+  'Ban appeal': 'Apelación de expulsión',
+  'Restore membership': 'Restaurar membresía',
+  'Reason shown to member': 'Motivo mostrado al miembro',
+  'The member will receive this reason.': 'El miembro recibirá este motivo.',
+  'Internal moderator note (optional)': 'Nota interna del moderador (opcional)',
+  'Internal moderator note': 'Nota interna del moderador',
+  'Only community and Wicchu moderators can see this.':
+      'Solo los moderadores de la comunidad y de Wicchu pueden verla.',
+  'Ban duration': 'Duración de la expulsión',
+  'Permanent': 'Permanente',
+  '1 day': '1 día',
+  '7 days': '7 días',
+  '30 days': '30 días',
+  'Your community access is restricted':
+      'Tu acceso a la comunidad está restringido',
+  'This restriction is permanent unless it is reviewed.':
+      'Esta restricción es permanente a menos que se revise.',
+  'Access returns on': 'El acceso se restablece el',
+  'Community rules violation.': 'Incumplimiento de las reglas de la comunidad.',
+  'Request Wicchu Safety review': 'Solicitar revisión de Seguridad de Wicchu',
+  'Why should this ban be reviewed?':
+      '¿Por qué debería revisarse esta expulsión?',
+  'Submit appeal': 'Enviar apelación',
+  'Your appeal was sent to Wicchu Safety.':
+      'Tu apelación fue enviada a Seguridad de Wicchu.',
+  'Community posts are unavailable while your access is restricted.':
+      'Las publicaciones no están disponibles mientras tu acceso esté restringido.',
   'Internal note or warning message': 'Nota interna o mensaje de advertencia',
   'Confirm': 'Confirmar',
   'Report page': 'Reportar página',

@@ -239,6 +239,8 @@ abstract interface class CommunityRepository {
     String userId, {
     required String action,
     String? reason,
+    String? internalNote,
+    DateTime? expiresAt,
   });
   Future<Community> updateCommunity(
     Community community, {
@@ -308,6 +310,7 @@ abstract interface class CommunityRepository {
     String reason, {
     String category = 'other',
   });
+  Future<void> appealCommunityBan(String communityId, String reason);
   Future<List<PlatformReport>> listPlatformReports({bool resolved = false});
   Future<void> decidePlatformReport(
     String reportId, {

@@ -87,6 +87,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   String _memberQuery = '';
   bool _searchMembers = false;
   bool _savingHelpfulness = false;
+  bool _submittingBanAppeal = false;
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
   bool _searchingPosts = false;
@@ -1239,7 +1240,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         ],
                       ),
                       _memberCountLink(compact: true),
-                      if (!_joined)
+                      if (!_joined && !_community.isBanned)
                         TextButton.icon(
                           onPressed: _savingMembership
                               ? null
@@ -1273,9 +1274,102 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               ],
             ),
           ),
+          if (_community.isBanned) _banNotice(context),
         ],
       ),
     );
+  }
+
+  Widget _banNotice(BuildContext context) {
+    final expiresAt = _community.banExpiresAt;
+    final duration = expiresAt == null
+        ? context.tr('This restriction is permanent unless it is reviewed.')
+        : '${context.tr('Access returns on')} ${MaterialLocalizations.of(context).formatMediumDate(expiresAt.toLocal())}.';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.tr('Your community access is restricted'),
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${context.tr('Reason')}: ${_community.banPublicReason ?? context.tr('Community rules violation.')}',
+          ),
+          const SizedBox(height: 4),
+          Text(duration),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _submittingBanAppeal ? null : _appealBan,
+            icon: const Icon(Icons.gavel_outlined),
+            label: Text(context.tr('Request Wicchu Safety review')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _appealBan() async {
+    var appealReason = '';
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.tr('Request Wicchu Safety review')),
+        content: TextField(
+          autofocus: true,
+          minLines: 3,
+          maxLines: 6,
+          maxLength: 1000,
+          onChanged: (value) => appealReason = value,
+          decoration: InputDecoration(
+            labelText: dialogContext.tr('Why should this ban be reviewed?'),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (appealReason.trim().isNotEmpty) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: Text(dialogContext.tr('Submit appeal')),
+          ),
+        ],
+      ),
+    );
+    final reason = appealReason.trim();
+    if (submitted != true || !mounted) return;
+    setState(() => _submittingBanAppeal = true);
+    try {
+      await widget.repository.appealCommunityBan(_community.id, reason);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('Your appeal was sent to Wicchu Safety.')),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _submittingBanAppeal = false);
+    }
   }
 
   Future<void> _refreshPosts() async {
@@ -1353,7 +1447,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   Widget _postsTab() {
     if (!_joined) {
-      return Center(child: Text(context.tr('Join to view community posts.')));
+      return Center(
+        child: Text(
+          context.tr(
+            _community.isBanned
+                ? 'Community posts are unavailable while your access is restricted.'
+                : 'Join to view community posts.',
+          ),
+        ),
+      );
     }
     return FutureBuilder<List<CommunityCategory>>(
       future: _categories,

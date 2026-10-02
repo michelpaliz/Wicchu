@@ -94,7 +94,10 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
 
   Widget _reportCard(PlatformReport report) {
     final pending = report.status == 'pending';
-    final targetType = report.targetType == PlatformReportTargetType.community
+    final isBanAppeal = report.evidence['kind'] == 'ban_appeal';
+    final targetType = isBanAppeal
+        ? 'Ban appeal'
+        : report.targetType == PlatformReportTargetType.community
         ? 'Community'
         : 'Community admin';
     return Card(
@@ -171,6 +174,13 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                         : () => _decide(report, 'dismiss'),
                     child: Text(context.tr('Dismiss report')),
                   ),
+                  if (isBanAppeal)
+                    FilledButton.tonal(
+                      onPressed: _saving.contains(report.id)
+                          ? null
+                          : () => _decide(report, 'restore_membership'),
+                      child: Text(context.tr('Restore membership')),
+                    ),
                   if (report.targetType ==
                       PlatformReportTargetType.communityAdmin) ...[
                     OutlinedButton(
@@ -192,12 +202,13 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                       child: Text(context.tr('Suspend user')),
                     ),
                   ],
-                  FilledButton(
-                    onPressed: _saving.contains(report.id)
-                        ? null
-                        : () => _decide(report, 'suspend_community'),
-                    child: Text(context.tr('Suspend community')),
-                  ),
+                  if (!isBanAppeal)
+                    FilledButton(
+                      onPressed: _saving.contains(report.id)
+                          ? null
+                          : () => _decide(report, 'suspend_community'),
+                      child: Text(context.tr('Suspend community')),
+                    ),
                 ],
               ),
             ],
@@ -272,6 +283,7 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
   String _actionLabel(String action) => switch (action) {
     'dismiss' => 'Dismiss report',
     'warn' => 'Warn admin',
+    'restore_membership' => 'Restore membership',
     'remove_admin_role' => 'Remove admin role',
     'suspend_user' => 'Suspend user',
     _ => 'Suspend community',
