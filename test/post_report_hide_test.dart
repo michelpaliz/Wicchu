@@ -30,7 +30,9 @@ void main() {
     await tester.tap(find.text('Report post'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Harassing content');
-    await tester.tap(find.text('Report'));
+    await tester.ensureVisible(find.text('Submit report'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Submit report'));
     await tester.pumpAndSettle();
 
     expect(hideValues, [false]);
