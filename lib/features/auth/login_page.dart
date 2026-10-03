@@ -195,17 +195,10 @@ class _LoginPageState extends State<LoginPage> {
       widget.onSignedIn();
     } on AuthException catch (error) {
       if (mounted) {
-        final facebookFailed =
-            provider == 'facebook' &&
-            error.message != 'Facebook sign-in was cancelled.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              facebookFailed
-                  ? context.tr(unavailableMessage)
-                  : context.trError(error),
-            ),
-            duration: Duration(seconds: facebookFailed ? 7 : 4),
+            content: Text(context.trError(error)),
+            duration: Duration(seconds: provider == 'facebook' ? 7 : 4),
           ),
         );
       }

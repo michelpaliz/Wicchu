@@ -33,6 +33,14 @@ class _HomeDiscoveryRepository extends DemoCommunityRepository {
       super.listPosts(followedId!, query: query);
 }
 
+class _FailingFacebookGateway extends _FakeAuthGateway {
+  _FailingFacebookGateway() : super(signedIn: false);
+
+  @override
+  Future<AuthSession> signInWithFacebook() async =>
+      throw const AuthException('Facebook token could not be verified.');
+}
+
 class _FakeAuthGateway implements AuthGateway {
   _FakeAuthGateway({required this.signedIn});
   final bool signedIn;
@@ -1292,6 +1300,20 @@ void main() {
     expect(find.text('Please review this post'), findsOneWidget);
     expect(find.text('Approve'), findsOneWidget);
     expect(find.text('Reject'), findsOneWidget);
+  });
+
+  testWidgets('Facebook authentication errors remain visible', (tester) async {
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FailingFacebookGateway(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Facebook'));
+    await tester.pumpAndSettle();
+    expect(find.text('Facebook token could not be verified.'), findsOneWidget);
+    expect(find.text('Facebook sign-in is unavailable.'), findsNothing);
   });
 
   testWidgets('offers Google and Facebook when signed out', (tester) async {
