@@ -667,6 +667,11 @@ const _spanish = <String, String>{
       'El inicio de sesión con Facebook estará disponible pronto. Mientras tanto, usa Google o tu correo electrónico y contraseña.',
   'Facebook sign-in is unavailable.':
       'El inicio de sesión con Facebook no está disponible.',
+  'Facebook email permission was not granted. Allow email access or register with email.':
+      'No se concedió el permiso de correo electrónico de Facebook. Permite el acceso o regístrate con tu correo.',
+  'This Facebook account does not provide an email address. Register with a verified email instead.':
+      'Esta cuenta de Facebook no proporciona un correo electrónico. Regístrate con un correo verificado.',
+  'Use email': 'Usar correo',
   'Google sign-in is unavailable.':
       'El inicio de sesión con Google no está disponible.',
   '{count} members': '{count} miembros',

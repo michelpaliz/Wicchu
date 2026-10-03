@@ -86,6 +86,7 @@ class FacebookAuthGateway implements AuthGateway {
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw AuthException(
         body['message'] as String? ?? 'Unable to sign in to Wicchu.',
+        code: body['code'] as String?,
       );
     }
 

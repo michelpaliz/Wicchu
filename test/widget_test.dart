@@ -42,20 +42,24 @@ class _FailingFacebookGateway extends _FakeAuthGateway {
 }
 
 class _FakeAuthGateway implements AuthGateway {
-  _FakeAuthGateway({required this.signedIn});
+  _FakeAuthGateway({required this.signedIn, this.facebookError});
   final bool signedIn;
+  final AuthException? facebookError;
 
   @override
   Future<bool> hasSession() async => signedIn;
 
   @override
-  Future<AuthSession> signInWithFacebook() async => const AuthSession(
-    accessToken: 'access',
-    refreshToken: 'refresh',
-    userId: 'user-1',
-    userName: 'test_user',
-    isNewUser: true,
-  );
+  Future<AuthSession> signInWithFacebook() async {
+    if (facebookError != null) throw facebookError!;
+    return const AuthSession(
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      userId: 'user-1',
+      userName: 'test_user',
+      isNewUser: true,
+    );
+  }
 
   @override
   Future<AuthSession> signInWithGoogle() => signInWithFacebook();
@@ -1327,6 +1331,33 @@ void main() {
 
     expect(find.text('Continue with Facebook'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
+  });
+
+  testWidgets('offers verified email registration when Facebook has no email', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FakeAuthGateway(
+          signedIn: false,
+          facebookError: const AuthException(
+            'This Facebook account does not provide an email address. Register with a verified email instead.',
+            code: 'FACEBOOK_EMAIL_UNAVAILABLE',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue with Facebook'));
+    await tester.pumpAndSettle();
+    expect(find.text('Use email'), findsOneWidget);
+
+    await tester.tap(find.text('Use email'));
+    await tester.pumpAndSettle();
+    expect(find.text('Create account'), findsWidgets);
   });
 
   testWidgets('switches between Spanish and English across the home screen', (

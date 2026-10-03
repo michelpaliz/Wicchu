@@ -153,12 +153,13 @@ class _LoginPageState extends State<LoginPage> {
     disabled: _loadingProvider != null,
   );
 
-  Future<void> _openEmail() async {
+  Future<void> _openEmail({bool startInRegistration = false}) async {
     final signedIn = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (emailContext) => EmailAuthPage(
           authGateway: widget.authGateway,
+          startInRegistration: startInRegistration,
           onSignedIn: () => Navigator.of(emailContext).pop(true),
         ),
       ),
@@ -195,10 +196,28 @@ class _LoginPageState extends State<LoginPage> {
       widget.onSignedIn();
     } on AuthException catch (error) {
       if (mounted) {
+        final requiresEmailRegistration =
+            provider == 'facebook' &&
+            const {
+              'FACEBOOK_EMAIL_PERMISSION_DENIED',
+              'FACEBOOK_EMAIL_UNAVAILABLE',
+            }.contains(error.code);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.trError(error)),
-            duration: Duration(seconds: provider == 'facebook' ? 7 : 4),
+            duration: Duration(
+              seconds: requiresEmailRegistration
+                  ? 8
+                  : provider == 'facebook'
+                  ? 7
+                  : 4,
+            ),
+            action: requiresEmailRegistration
+                ? SnackBarAction(
+                    label: context.tr('Use email'),
+                    onPressed: () => _openEmail(startInRegistration: true),
+                  )
+                : null,
           ),
         );
       }

@@ -10,10 +10,12 @@ class EmailAuthPage extends StatefulWidget {
     super.key,
     required this.authGateway,
     required this.onSignedIn,
+    this.startInRegistration = false,
   });
 
   final AuthGateway authGateway;
   final VoidCallback onSignedIn;
+  final bool startInRegistration;
 
   @override
   State<EmailAuthPage> createState() => _EmailAuthPageState();
@@ -26,7 +28,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
-  bool _registering = false;
+  late bool _registering;
   bool _resetting = false;
   String? _error;
   bool _resetSent = false;
@@ -35,6 +37,12 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
   String? _socialProvider;
   bool _obscurePassword = true;
   bool _obscureConfirmation = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _registering = widget.startInRegistration;
+  }
 
   @override
   void dispose() {
@@ -549,15 +557,22 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
       if (mounted) widget.onSignedIn();
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = error is AuthException
+        final requiresEmailRegistration =
+            error is AuthException &&
+            const {
+              'FACEBOOK_EMAIL_PERMISSION_DENIED',
+              'FACEBOOK_EMAIL_UNAVAILABLE',
+            }.contains(error.code);
+        setState(() {
+          if (requiresEmailRegistration) _registering = true;
+          _error = error is AuthException
               ? context.trError(error)
               : context.tr(
                   facebook
                       ? 'Facebook sign-in is unavailable.'
                       : 'Google sign-in is unavailable.',
-                ),
-        );
+                );
+        });
       }
     } finally {
       if (mounted) {
