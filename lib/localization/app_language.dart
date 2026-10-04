@@ -1228,6 +1228,11 @@ const _spanish = <String, String>{
   'Allow location use when you request nearby communities':
       'Permitir el uso de la ubicación al buscar comunidades cercanas',
   'Account security': 'Seguridad de la cuenta',
+  'Facebook account': 'Cuenta de Facebook',
+  'Connected': 'Conectada',
+  'Connect Facebook for future sign-ins':
+      'Conecta Facebook para futuros inicios de sesión',
+  'Facebook account connected.': 'Cuenta de Facebook conectada.',
   'Authentication credentials are stored securely on this device.':
       'Las credenciales de acceso se guardan de forma segura en este dispositivo.',
   'Data deletion': 'Eliminación de datos',

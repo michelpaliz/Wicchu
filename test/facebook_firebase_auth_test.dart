@@ -105,6 +105,47 @@ void main() {
     );
     expect(backendCalled, isFalse);
   });
+
+  test('signed-in users can securely link Facebook', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      'wicchu_access_token': 'wicchu-access',
+      'wicchu_refresh_token': 'wicchu-refresh',
+    });
+    final firebase = _RecordingFirebaseAuthenticator();
+    Map<String, dynamic>? requestBody;
+    String? authorization;
+    final gateway = FacebookAuthGateway(
+      client: MockClient((request) async {
+        expect(request.url.path, '/api/auth/facebook/link');
+        authorization = request.headers['authorization'];
+        requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({'facebook': true}),
+          200,
+          headers: const {'content-type': 'application/json'},
+        );
+      }),
+      apiBaseUrl: 'https://example.test',
+      firebaseFacebookAuthenticator: firebase,
+      facebookLogin: (_) async => LoginResult(
+        status: LoginStatus.success,
+        accessToken: ClassicToken(
+          declinedPermissions: const [],
+          grantedPermissions: const ['email', 'public_profile'],
+          userId: 'facebook-user',
+          expires: DateTime.now().add(const Duration(hours: 1)),
+          tokenString: 'facebook-access-token',
+          applicationId: '1526807682821937',
+        ),
+      ),
+    );
+
+    await gateway.linkFacebookAccount();
+
+    expect(authorization, 'Bearer wicchu-access');
+    expect(requestBody?['accessToken'], 'facebook-access-token');
+    expect(requestBody?['firebaseIdToken'], 'firebase-id-token');
+  });
 }
 
 class _FailingFirebaseAuthenticator implements FirebaseFacebookAuthenticator {

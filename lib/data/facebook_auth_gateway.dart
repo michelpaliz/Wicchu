@@ -15,7 +15,7 @@ import '../services/firebase_facebook_auth_service.dart';
 import 'authenticated_api_client.dart';
 import 'session_token_store.dart';
 
-class FacebookAuthGateway implements AuthGateway {
+class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
   FacebookAuthGateway({
     http.Client? client,
     FlutterSecureStorage? storage,
@@ -24,6 +24,11 @@ class FacebookAuthGateway implements AuthGateway {
     Future<LoginResult> Function(String nonce)? facebookLogin,
   }) : _client = client ?? http.Client(),
        _storage = SessionTokenStore(secureStorage: storage),
+       _authenticatedClient = AuthenticatedApiClient(
+         client: client,
+         storage: storage,
+         apiBaseUrl: apiBaseUrl,
+       ),
        _firebaseFacebookAuthenticator =
            firebaseFacebookAuthenticator ??
            DefaultFirebaseFacebookAuthenticator(),
@@ -42,6 +47,7 @@ class FacebookAuthGateway implements AuthGateway {
 
   final http.Client _client;
   final SessionTokenStore _storage;
+  final AuthenticatedApiClient _authenticatedClient;
   final FirebaseFacebookAuthenticator _firebaseFacebookAuthenticator;
   final Future<LoginResult> Function(String nonce) _facebookLogin;
   final String _apiBaseUrl;
@@ -62,6 +68,49 @@ class FacebookAuthGateway implements AuthGateway {
 
   @override
   Future<AuthSession> signInWithFacebook() async {
+    final login = await _authenticateWithFacebook();
+    final response = await _client.post(
+      Uri.parse('$_apiBaseUrl/api/auth/facebook'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'accessToken': login.token.tokenString,
+        'tokenType': login.token.type.name,
+        'nonce': login.nonce,
+        'firebaseIdToken': login.firebase.idToken,
+      }),
+    );
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AuthException(
+        body['message'] as String? ?? 'Unable to sign in to Wicchu.',
+        code: body['code'] as String?,
+      );
+    }
+
+    return _saveSession(body);
+  }
+
+  @override
+  Future<bool> isFacebookLinked() async {
+    final result = await _authenticatedClient.get('/api/auth/connections');
+    return result['facebook'] == true;
+  }
+
+  @override
+  Future<void> linkFacebookAccount() async {
+    final login = await _authenticateWithFacebook();
+    await _authenticatedClient.post(
+      '/api/auth/facebook/link',
+      body: {
+        'accessToken': login.token.tokenString,
+        'tokenType': login.token.type.name,
+        'nonce': login.nonce,
+        'firebaseIdToken': login.firebase.idToken,
+      },
+    );
+  }
+
+  Future<_FacebookCredentialBundle> _authenticateWithFacebook() async {
     if (kIsWeb && !FacebookAuth.instance.isWebSdkInitialized) {
       const appId = String.fromEnvironment('FACEBOOK_APP_ID');
       const graphVersion = String.fromEnvironment('FACEBOOK_GRAPH_VERSION');
@@ -111,25 +160,11 @@ class FacebookAuthGateway implements AuthGateway {
     } on FirebaseFacebookAuthFailure catch (error) {
       throw AuthException(error.message, code: error.code);
     }
-    final response = await _client.post(
-      Uri.parse('$_apiBaseUrl/api/auth/facebook'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'accessToken': facebookToken.tokenString,
-        'tokenType': facebookToken.type.name,
-        'nonce': nonce,
-        'firebaseIdToken': firebaseResult.idToken,
-      }),
+    return _FacebookCredentialBundle(
+      token: facebookToken,
+      firebase: firebaseResult,
+      nonce: nonce,
     );
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw AuthException(
-        body['message'] as String? ?? 'Unable to sign in to Wicchu.',
-        code: body['code'] as String?,
-      );
-    }
-
-    return _saveSession(body);
   }
 
   @override
@@ -439,4 +474,16 @@ class FacebookAuthGateway implements AuthGateway {
     final bytes = List<int>.generate(32, (_) => random.nextInt(256));
     return base64UrlEncode(sha256.convert(bytes).bytes).replaceAll('=', '');
   }
+}
+
+class _FacebookCredentialBundle {
+  const _FacebookCredentialBundle({
+    required this.token,
+    required this.firebase,
+    required this.nonce,
+  });
+
+  final AccessToken token;
+  final FirebaseFacebookAuthResult firebase;
+  final String nonce;
 }

@@ -30,6 +30,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool _promotionNotifications = true;
   bool _locationDiscovery = true;
   bool _showOnlineStatus = true;
+  bool _facebookLinked = false;
+  bool _linkingFacebook = false;
   bool _loaded = false;
 
   @override
@@ -44,10 +46,14 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         SharedPreferences.getInstance(),
         widget.repository.getNotificationPreferences(),
         widget.repository.getMySocialLinks(),
+        widget.authGateway is FacebookAccountLinker
+            ? (widget.authGateway as FacebookAccountLinker).isFacebookLinked()
+            : Future<bool?>.value(null),
       ]);
       final preferences = results[0] as SharedPreferences;
       final notifications = results[1] as NotificationPreferences;
       final socialLinks = results[2] as SocialLinks;
+      final facebookLinked = results[3] as bool?;
       if (!mounted) return;
       setState(() {
         _postNotifications = notifications.postActivity;
@@ -55,6 +61,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         _promotionNotifications = notifications.promotions;
         _locationDiscovery = preferences.getBool('location_discovery') ?? true;
         _showOnlineStatus = socialLinks.showOnlineStatus;
+        _facebookLinked = facebookLinked ?? false;
         _loaded = true;
       });
     } catch (error) {
@@ -228,6 +235,33 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                     ),
                   ),
                 ),
+                if (widget.authGateway is FacebookAccountLinker)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.facebook),
+                    title: Text(context.tr('Facebook account')),
+                    subtitle: Text(
+                      context.tr(
+                        _facebookLinked
+                            ? 'Connected'
+                            : 'Connect Facebook for future sign-ins',
+                      ),
+                    ),
+                    trailing: _linkingFacebook
+                        ? const SizedBox.square(
+                            dimension: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            _facebookLinked
+                                ? Icons.check_circle_outline
+                                : Icons.chevron_right,
+                          ),
+                    enabled: !_facebookLinked && !_linkingFacebook,
+                    onTap: _facebookLinked || _linkingFacebook
+                        ? null
+                        : _connectFacebook,
+                  ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.privacy_tip_outlined),
@@ -339,6 +373,30 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
+
+  Future<void> _connectFacebook() async {
+    final gateway = widget.authGateway;
+    final FacebookAccountLinker? linker = gateway is FacebookAccountLinker
+        ? gateway as FacebookAccountLinker
+        : null;
+    if (linker == null || _linkingFacebook) return;
+    setState(() => _linkingFacebook = true);
+    try {
+      await linker.linkFacebookAccount();
+      if (!mounted) return;
+      setState(() => _facebookLinked = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Facebook account connected.'))),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    } finally {
+      if (mounted) setState(() => _linkingFacebook = false);
     }
   }
 
