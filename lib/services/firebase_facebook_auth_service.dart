@@ -3,7 +3,6 @@ import 'dart:developer' as developer;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 class FirebaseFacebookAuthResult {
   const FirebaseFacebookAuthResult({required this.idToken});
@@ -22,22 +21,18 @@ class FirebaseFacebookAuthFailure implements Exception {
 }
 
 abstract interface class FirebaseFacebookAuthenticator {
-  Future<FirebaseFacebookAuthResult> authenticate(String facebookAccessToken);
+  Future<FirebaseFacebookAuthResult> authenticate({
+    required String facebookToken,
+    required String tokenType,
+    required String nonce,
+    String? existingGoogleIdToken,
+  });
 }
 
 class DefaultFirebaseFacebookAuthenticator
     implements FirebaseFacebookAuthenticator {
-  DefaultFirebaseFacebookAuthenticator({GoogleSignIn? googleSignIn})
-    : _googleSignIn = googleSignIn ?? GoogleSignIn.instance;
+  DefaultFirebaseFacebookAuthenticator();
 
-  final GoogleSignIn _googleSignIn;
-  Future<void>? _googleInitialization;
-
-  static const _googleWebClientId = String.fromEnvironment(
-    'GOOGLE_WEB_CLIENT_ID',
-    defaultValue:
-        '414702659593-94b8of4j0mgj16pr0r13a6a1dpm9mvpu.apps.googleusercontent.com',
-  );
   static const _firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
   static const _firebaseAppId = String.fromEnvironment('FIREBASE_APP_ID');
   static const _firebaseSenderId = String.fromEnvironment(
@@ -48,9 +43,12 @@ class DefaultFirebaseFacebookAuthenticator
   );
 
   @override
-  Future<FirebaseFacebookAuthResult> authenticate(
-    String facebookAccessToken,
-  ) async {
+  Future<FirebaseFacebookAuthResult> authenticate({
+    required String facebookToken,
+    required String tokenType,
+    required String nonce,
+    String? existingGoogleIdToken,
+  }) async {
     try {
       await _ensureFirebaseInitialized();
     } on FirebaseFacebookAuthFailure {
@@ -75,10 +73,47 @@ class DefaultFirebaseFacebookAuthenticator
         'Firebase Authentication could not initialize.',
       );
     }
-    final facebookCredential = FacebookAuthProvider.credential(
-      facebookAccessToken,
-    );
+    final AuthCredential facebookCredential;
+    if (tokenType == 'limited') {
+      if (nonce.isEmpty) {
+        throw const FirebaseFacebookAuthFailure(
+          'facebook-nonce-missing',
+          'Facebook Limited Login did not return a valid nonce.',
+        );
+      }
+      facebookCredential = OAuthProvider(
+        'facebook.com',
+      ).credential(idToken: facebookToken, rawNonce: nonce);
+    } else {
+      facebookCredential = FacebookAuthProvider.credential(facebookToken);
+    }
     try {
+      if (existingGoogleIdToken != null && existingGoogleIdToken.isNotEmpty) {
+        final googleResult = await FirebaseAuth.instance.signInWithCredential(
+          GoogleAuthProvider.credential(idToken: existingGoogleIdToken),
+        );
+        final googleUser = googleResult.user;
+        if (googleUser == null) {
+          throw const FirebaseFacebookAuthFailure(
+            'firebase-user-missing',
+            'Firebase could not load the Google account for linking.',
+          );
+        }
+        try {
+          await googleUser.linkWithCredential(facebookCredential);
+        } on FirebaseAuthException catch (error) {
+          _logFirebaseError('facebook_link', error);
+          if (error.code != 'provider-already-linked') {
+            throw FirebaseFacebookAuthFailure(
+              error.code,
+              error.message ?? 'Firebase could not connect Facebook.',
+            );
+          }
+        }
+        return FirebaseFacebookAuthResult(
+          idToken: await _requiredIdToken(FirebaseAuth.instance.currentUser),
+        );
+      }
       final result = await FirebaseAuth.instance.signInWithCredential(
         facebookCredential,
       );
@@ -87,96 +122,20 @@ class DefaultFirebaseFacebookAuthenticator
       );
     } on FirebaseAuthException catch (error) {
       _logFirebaseError('facebook_sign_in', error);
-      if (error.code != 'account-exists-with-different-credential') {
-        throw FirebaseFacebookAuthFailure(
-          error.code,
-          error.message ?? 'Firebase could not authenticate Facebook.',
-        );
+      if (error.code == 'account-exists-with-different-credential') {
+        // The Wicchu API determines the existing provider and requires the
+        // user to sign in with it before linking from authenticated Settings.
+        return const FirebaseFacebookAuthResult(idToken: '');
       }
-      return _linkFacebookToGoogle(
-        facebookCredential: facebookCredential,
-        expectedEmail: error.email,
+      throw FirebaseFacebookAuthFailure(
+        error.code,
+        error.message ?? 'Firebase could not authenticate Facebook.',
       );
     }
   }
 
-  Future<FirebaseFacebookAuthResult> _linkFacebookToGoogle({
-    required AuthCredential facebookCredential,
-    required String? expectedEmail,
-  }) async {
-    try {
-      _googleInitialization ??= _googleSignIn.initialize(
-        clientId: kIsWeb ? _googleWebClientId : null,
-        serverClientId: _googleWebClientId,
-      );
-      await _googleInitialization;
-      if (!_googleSignIn.supportsAuthenticate()) {
-        throw const FirebaseFacebookAuthFailure(
-          'google-link-unavailable',
-          'Sign in with Google first to connect this Facebook account.',
-        );
-      }
-      final googleAccount = await _googleSignIn.authenticate();
-      if (expectedEmail != null &&
-          expectedEmail.isNotEmpty &&
-          googleAccount.email.toLowerCase() != expectedEmail.toLowerCase()) {
-        throw const FirebaseFacebookAuthFailure(
-          'google-link-email-mismatch',
-          'Choose the Google account that uses the same email as Facebook.',
-        );
-      }
-      final googleIdToken = googleAccount.authentication.idToken;
-      if (googleIdToken == null || googleIdToken.isEmpty) {
-        throw const FirebaseFacebookAuthFailure(
-          'google-link-token-missing',
-          'Google did not return an identity token for account linking.',
-        );
-      }
-      final googleCredential = GoogleAuthProvider.credential(
-        idToken: googleIdToken,
-      );
-      final googleResult = await FirebaseAuth.instance.signInWithCredential(
-        googleCredential,
-      );
-      final user = googleResult.user;
-      if (user == null) {
-        throw const FirebaseFacebookAuthFailure(
-          'google-link-user-missing',
-          'Firebase could not load the Google account for linking.',
-        );
-      }
-      try {
-        await user.linkWithCredential(facebookCredential);
-      } on FirebaseAuthException catch (error) {
-        _logFirebaseError('facebook_link', error);
-        if (error.code != 'provider-already-linked') {
-          throw FirebaseFacebookAuthFailure(
-            error.code,
-            error.message ?? 'Firebase could not link Facebook to Google.',
-          );
-        }
-      }
-      return FirebaseFacebookAuthResult(
-        idToken: await _requiredIdToken(FirebaseAuth.instance.currentUser),
-      );
-    } on FirebaseFacebookAuthFailure {
-      rethrow;
-    } on FirebaseAuthException catch (error) {
-      _logFirebaseError('google_link_sign_in', error);
-      throw FirebaseFacebookAuthFailure(
-        error.code,
-        error.message ?? 'Firebase could not link Facebook to Google.',
-      );
-    } catch (error) {
-      developer.log(
-        'Facebook/Google linking exception: ${error.runtimeType}',
-        name: 'wicchu.facebook_auth',
-      );
-      throw const FirebaseFacebookAuthFailure(
-        'facebook-google-link-failed',
-        'Could not connect Facebook to the existing Google account.',
-      );
-    }
+  static Future<void> signOutIfInitialized() async {
+    if (Firebase.apps.isNotEmpty) await FirebaseAuth.instance.signOut();
   }
 
   Future<void> _ensureFirebaseInitialized() async {

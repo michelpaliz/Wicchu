@@ -1360,6 +1360,98 @@ void main() {
     expect(find.text('Create account'), findsWidgets);
   });
 
+  testWidgets('existing Facebook email directs user to email sign-in', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FakeAuthGateway(
+          signedIn: false,
+          facebookError: const AuthException(
+            'An account already uses this email.',
+            code: 'EMAIL_ALREADY_REGISTERED',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue with Facebook'));
+    await tester.pumpAndSettle();
+    expect(find.text('Account already exists'), findsOneWidget);
+    expect(find.text('Sign in with email'), findsOneWidget);
+    expect(find.text('Forgot password?'), findsOneWidget);
+
+    await tester.tap(find.text('Sign in with email'));
+    await tester.pumpAndSettle();
+    expect(find.text('Welcome back'), findsOneWidget);
+  });
+
+  testWidgets('existing Facebook email can open password recovery', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FakeAuthGateway(
+          signedIn: false,
+          facebookError: const AuthException(
+            'An account already uses this email.',
+            code: 'EMAIL_ALREADY_REGISTERED',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue with Facebook'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Forgot password?'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reset password'), findsOneWidget);
+    expect(find.text('Recover access to your account'), findsOneWidget);
+  });
+
+  testWidgets('Facebook conflict directs an existing Google user correctly', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FakeAuthGateway(
+          signedIn: false,
+          facebookError: const AuthException(
+            'Sign in with your existing method.',
+            code: 'ACCOUNT_LINK_REQUIRED',
+            existingProvider: 'google',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue with Facebook'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Continue with Google'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Forgot password?'), findsNothing);
+    expect(
+      find.textContaining('Continue with Google, then connect Facebook'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('switches between Spanish and English across the home screen', (
     tester,
   ) async {

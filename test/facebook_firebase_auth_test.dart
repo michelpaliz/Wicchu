@@ -10,12 +10,21 @@ import 'package:wicchu/services/firebase_facebook_auth_service.dart';
 
 class _RecordingFirebaseAuthenticator implements FirebaseFacebookAuthenticator {
   String? receivedAccessToken;
+  String? receivedTokenType;
+  String? receivedNonce;
+  String? receivedGoogleIdToken;
 
   @override
-  Future<FirebaseFacebookAuthResult> authenticate(
-    String facebookAccessToken,
-  ) async {
-    receivedAccessToken = facebookAccessToken;
+  Future<FirebaseFacebookAuthResult> authenticate({
+    required String facebookToken,
+    required String tokenType,
+    required String nonce,
+    String? existingGoogleIdToken,
+  }) async {
+    receivedAccessToken = facebookToken;
+    receivedTokenType = tokenType;
+    receivedNonce = nonce;
+    receivedGoogleIdToken = existingGoogleIdToken;
     return const FirebaseFacebookAuthResult(idToken: 'firebase-id-token');
   }
 }
@@ -66,6 +75,9 @@ void main() {
       expect(requestBody?['firebaseIdToken'], 'firebase-id-token');
       expect(requestBody?['accessToken'], 'facebook-access-token');
       expect(requestBody?['tokenType'], 'classic');
+      expect(requestBody?['app'], 'wicchu');
+      expect(firebase.receivedTokenType, 'classic');
+      expect(firebase.receivedNonce, isNotEmpty);
       expect(session.accessToken, 'wicchu-access');
       expect(session.userId, 'user-1');
     },
@@ -106,6 +118,51 @@ void main() {
     expect(backendCalled, isFalse);
   });
 
+  test(
+    'Limited Login passes its ID token type and raw nonce to Firebase',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final firebase = _RecordingFirebaseAuthenticator();
+      String? loginNonce;
+      final gateway = FacebookAuthGateway(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'accessToken': 'wicchu-access',
+              'refreshToken': 'wicchu-refresh',
+              'userId': 'user-1',
+              'userName': 'facebook_user',
+              'isNewUser': false,
+            }),
+            200,
+          ),
+        ),
+        apiBaseUrl: 'https://example.test',
+        firebaseFacebookAuthenticator: firebase,
+        facebookLogin: (nonce) async {
+          loginNonce = nonce;
+          return LoginResult(
+            status: LoginStatus.success,
+            accessToken: LimitedToken(
+              userId: 'facebook-user',
+              userName: 'Facebook User',
+              userEmail: 'member@example.com',
+              nonce: nonce,
+              tokenString: 'facebook-id-token',
+            ),
+          );
+        },
+      );
+
+      await gateway.signInWithFacebook();
+
+      expect(firebase.receivedAccessToken, 'facebook-id-token');
+      expect(firebase.receivedTokenType, 'limited');
+      expect(firebase.receivedNonce, loginNonce);
+      expect(firebase.receivedNonce, isNotEmpty);
+    },
+  );
+
   test('signed-in users can securely link Facebook', () async {
     FlutterSecureStorage.setMockInitialValues({
       'wicchu_access_token': 'wicchu-access',
@@ -116,8 +173,23 @@ void main() {
     String? authorization;
     final gateway = FacebookAuthGateway(
       client: MockClient((request) async {
-        expect(request.url.path, '/api/auth/facebook/link');
         authorization = request.headers['authorization'];
+        if (request.url.path == '/api/auth/profile') {
+          return http.Response(
+            jsonEncode({'registrationProvider': 'password'}),
+            200,
+          );
+        }
+        if (request.url.path == '/api/auth/reauthenticate') {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['purpose'], 'account_linking');
+          expect(body['password'], 'current-password');
+          return http.Response(
+            jsonEncode({'reauthenticationToken': 'recent-proof'}),
+            200,
+          );
+        }
+        expect(request.url.path, '/api/auth/facebook/link');
         requestBody = jsonDecode(request.body) as Map<String, dynamic>;
         return http.Response(
           jsonEncode({'facebook': true}),
@@ -140,19 +212,24 @@ void main() {
       ),
     );
 
-    await gateway.linkFacebookAccount();
+    await gateway.linkFacebookAccount(password: 'current-password');
 
     expect(authorization, 'Bearer wicchu-access');
     expect(requestBody?['accessToken'], 'facebook-access-token');
     expect(requestBody?['firebaseIdToken'], 'firebase-id-token');
+    expect(requestBody?['reauthenticationToken'], 'recent-proof');
   });
 }
 
 class _FailingFirebaseAuthenticator implements FirebaseFacebookAuthenticator {
   @override
-  Future<FirebaseFacebookAuthResult> authenticate(String facebookAccessToken) =>
-      throw const FirebaseFacebookAuthFailure(
-        'operation-not-allowed',
-        'Firebase Facebook provider is disabled.',
-      );
+  Future<FirebaseFacebookAuthResult> authenticate({
+    required String facebookToken,
+    required String tokenType,
+    required String nonce,
+    String? existingGoogleIdToken,
+  }) => throw const FirebaseFacebookAuthFailure(
+    'operation-not-allowed',
+    'Firebase Facebook provider is disabled.',
+  );
 }

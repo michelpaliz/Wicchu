@@ -36,13 +36,14 @@ abstract interface class AuthGateway {
 
 abstract interface class FacebookAccountLinker {
   Future<bool> isFacebookLinked();
-  Future<void> linkFacebookAccount();
+  Future<void> linkFacebookAccount({String? password});
 }
 
 class AuthException implements Exception {
-  const AuthException(this.message, {this.code});
+  const AuthException(this.message, {this.code, this.existingProvider});
   final String message;
   final String? code;
+  final String? existingProvider;
 
   @override
   String toString() => message;

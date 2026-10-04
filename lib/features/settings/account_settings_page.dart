@@ -384,7 +384,14 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     if (linker == null || _linkingFacebook) return;
     setState(() => _linkingFacebook = true);
     try {
-      await linker.linkFacebookAccount();
+      try {
+        await linker.linkFacebookAccount();
+      } on AuthException catch (error) {
+        if (error.code != 'PASSWORD_REAUTH_REQUIRED' || !mounted) rethrow;
+        final password = await _requestFacebookLinkPassword();
+        if (password == null || password.isEmpty) return;
+        await linker.linkFacebookAccount(password: password);
+      }
       if (!mounted) return;
       setState(() => _facebookLinked = true);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -398,6 +405,32 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     } finally {
       if (mounted) setState(() => _linkingFacebook = false);
     }
+  }
+
+  Future<String?> _requestFacebookLinkPassword() async {
+    var password = '';
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.tr('Confirm your identity')),
+        content: TextField(
+          autofocus: true,
+          obscureText: true,
+          onChanged: (value) => password = value,
+          decoration: InputDecoration(labelText: dialogContext.tr('Password')),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(dialogContext.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, password),
+            child: Text(dialogContext.tr('Continue')),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _openPrivacyPolicy() async {

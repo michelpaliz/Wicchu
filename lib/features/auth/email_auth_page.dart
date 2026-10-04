@@ -11,11 +11,13 @@ class EmailAuthPage extends StatefulWidget {
     required this.authGateway,
     required this.onSignedIn,
     this.startInRegistration = false,
+    this.startInPasswordReset = false,
   });
 
   final AuthGateway authGateway;
   final VoidCallback onSignedIn;
   final bool startInRegistration;
+  final bool startInPasswordReset;
 
   @override
   State<EmailAuthPage> createState() => _EmailAuthPageState();
@@ -29,7 +31,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
   late bool _registering;
-  bool _resetting = false;
+  late bool _resetting;
   String? _error;
   bool _resetSent = false;
   bool _verificationResent = false;
@@ -42,6 +44,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
   void initState() {
     super.initState();
     _registering = widget.startInRegistration;
+    _resetting = widget.startInPasswordReset;
   }
 
   @override
@@ -557,6 +560,19 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
       if (mounted) widget.onSignedIn();
     } catch (error) {
       if (mounted) {
+        if (error is AuthException &&
+            (error.code == 'ACCOUNT_LINK_REQUIRED' ||
+                error.code == 'EMAIL_ALREADY_REGISTERED')) {
+          setState(() {
+            _loading = false;
+            _socialProvider = null;
+          });
+          await _showExistingAccountDialog(
+            error.existingProvider,
+            requestedProvider: facebook ? 'facebook' : 'google',
+          );
+          return;
+        }
         final requiresEmailRegistration =
             error is AuthException &&
             const {
@@ -582,6 +598,94 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
         });
       }
     }
+  }
+
+  Future<void> _showExistingAccountDialog(
+    String? existingProvider, {
+    required String requestedProvider,
+  }) async {
+    final provider = existingProvider ?? 'password';
+    final isGoogle = provider == 'google';
+    final isApple = provider == 'apple';
+    final isFacebook = provider == 'facebook';
+    final connectingFacebook = requestedProvider == 'facebook';
+    final message = connectingFacebook
+        ? isGoogle
+              ? 'A Wicchu account already uses this email. Continue with Google, then connect Facebook from Settings.'
+              : isApple
+              ? 'A Wicchu account already uses this email. Continue with Apple, then connect Facebook from Settings.'
+              : 'A Wicchu account already uses this email. Sign in with email first, then connect Facebook from Settings.'
+        : isFacebook
+        ? 'A Wicchu account already uses this email. Continue with Facebook instead.'
+        : isApple
+        ? 'A Wicchu account already uses this email. Continue with Apple instead.'
+        : 'A Wicchu account already uses this email. Sign in with email instead.';
+    final action = await showDialog<_ExistingAccountAction>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.account_circle_outlined),
+        title: Text(dialogContext.tr('Account already exists')),
+        content: Text(dialogContext.tr(message)),
+        actions: [
+          if (!isGoogle && !isApple && !isFacebook)
+            TextButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                _ExistingAccountAction.resetPassword,
+              ),
+              child: Text(dialogContext.tr('Forgot password?')),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+              dialogContext,
+              isGoogle
+                  ? _ExistingAccountAction.google
+                  : isApple
+                  ? _ExistingAccountAction.apple
+                  : isFacebook
+                  ? _ExistingAccountAction.facebook
+                  : _ExistingAccountAction.signIn,
+            ),
+            child: Text(
+              dialogContext.tr(
+                isGoogle
+                    ? 'Continue with Google'
+                    : isApple
+                    ? 'Continue with Apple'
+                    : isFacebook
+                    ? 'Continue with Facebook'
+                    : 'Sign in with email',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == _ExistingAccountAction.google ||
+        action == _ExistingAccountAction.apple ||
+        action == _ExistingAccountAction.facebook) {
+      try {
+        await switch (action) {
+          _ExistingAccountAction.google =>
+            widget.authGateway.signInWithGoogle(),
+          _ExistingAccountAction.apple => widget.authGateway.signInWithApple(),
+          _ExistingAccountAction.facebook =>
+            widget.authGateway.signInWithFacebook(),
+          _ => throw StateError('Unsupported sign-in action'),
+        };
+        if (mounted) widget.onSignedIn();
+      } catch (error) {
+        if (mounted) setState(() => _error = context.trError(error));
+      }
+      return;
+    }
+    setState(() {
+      _registering = false;
+      _resetting = action == _ExistingAccountAction.resetPassword;
+      _error = null;
+      _resetSent = false;
+    });
   }
 
   Future<void> _submit() async {
@@ -676,3 +780,5 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
     }
   }
 }
+
+enum _ExistingAccountAction { signIn, resetPassword, google, apple, facebook }

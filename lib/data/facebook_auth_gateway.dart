@@ -77,6 +77,7 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
         'tokenType': login.token.type.name,
         'nonce': login.nonce,
         'firebaseIdToken': login.firebase.idToken,
+        'app': 'wicchu',
       }),
     );
     final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -84,6 +85,7 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
       throw AuthException(
         body['message'] as String? ?? 'Unable to sign in to Wicchu.',
         code: body['code'] as String?,
+        existingProvider: body['existingProvider'] as String?,
       );
     }
 
@@ -97,8 +99,44 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
   }
 
   @override
-  Future<void> linkFacebookAccount() async {
-    final login = await _authenticateWithFacebook();
+  Future<void> linkFacebookAccount({String? password}) async {
+    final profile = await _authenticatedRequest('GET', '/api/auth/profile');
+    final provider = profile['registrationProvider'] as String? ?? 'password';
+    final reauthentication = <String, dynamic>{
+      'provider': provider,
+      'purpose': 'account_linking',
+    };
+    String? existingGoogleIdToken;
+    if (provider == 'password') {
+      if (password == null || password.isEmpty) {
+        throw const AuthException(
+          'Enter your password to connect Facebook.',
+          code: 'PASSWORD_REAUTH_REQUIRED',
+        );
+      }
+      reauthentication['password'] = password;
+    } else if (provider == 'google') {
+      existingGoogleIdToken = await _googleIdToken();
+      reauthentication['idToken'] = existingGoogleIdToken;
+    } else if (provider == 'apple') {
+      reauthentication.addAll(await _appleCredentialPayload());
+    } else {
+      throw const AuthException(
+        'Facebook is already the sign-in method for this account.',
+      );
+    }
+    final proof = await _authenticatedRequest(
+      'POST',
+      '/api/auth/reauthenticate',
+      body: reauthentication,
+    );
+    final reauthenticationToken = proof['reauthenticationToken'] as String?;
+    if (reauthenticationToken == null || reauthenticationToken.isEmpty) {
+      throw const AuthException('Account verification failed.');
+    }
+    final login = await _authenticateWithFacebook(
+      existingGoogleIdToken: existingGoogleIdToken,
+    );
     await _authenticatedClient.post(
       '/api/auth/facebook/link',
       body: {
@@ -106,11 +144,14 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
         'tokenType': login.token.type.name,
         'nonce': login.nonce,
         'firebaseIdToken': login.firebase.idToken,
+        'reauthenticationToken': reauthenticationToken,
       },
     );
   }
 
-  Future<_FacebookCredentialBundle> _authenticateWithFacebook() async {
+  Future<_FacebookCredentialBundle> _authenticateWithFacebook({
+    String? existingGoogleIdToken,
+  }) async {
     if (kIsWeb && !FacebookAuth.instance.isWebSdkInitialized) {
       const appId = String.fromEnvironment('FACEBOOK_APP_ID');
       const graphVersion = String.fromEnvironment('FACEBOOK_GRAPH_VERSION');
@@ -155,7 +196,10 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
     late final FirebaseFacebookAuthResult firebaseResult;
     try {
       firebaseResult = await _firebaseFacebookAuthenticator.authenticate(
-        facebookToken.tokenString,
+        facebookToken: facebookToken.tokenString,
+        tokenType: facebookToken.type.name,
+        nonce: nonce,
+        existingGoogleIdToken: existingGoogleIdToken,
       );
     } on FirebaseFacebookAuthFailure catch (error) {
       throw AuthException(error.message, code: error.code);
@@ -169,6 +213,24 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
 
   @override
   Future<AuthSession> signInWithGoogle() async {
+    final idToken = await _googleIdToken();
+    final response = await _client.post(
+      Uri.parse('$_apiBaseUrl/api/auth/google'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'idToken': idToken, 'app': 'wicchu'}),
+    );
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AuthException(
+        body['message'] as String? ?? 'Unable to sign in with Google.',
+        code: body['code'] as String?,
+        existingProvider: body['existingProvider'] as String?,
+      );
+    }
+    return _saveSession(body);
+  }
+
+  Future<String> _googleIdToken() async {
     if (_googleWebClientId.isEmpty) {
       throw const AuthException('Google sign-in is not configured.');
     }
@@ -188,18 +250,7 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
     if (idToken == null || idToken.isEmpty) {
       throw const AuthException('Google did not return an identity token.');
     }
-    final response = await _client.post(
-      Uri.parse('$_apiBaseUrl/api/auth/google'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({'idToken': idToken}),
-    );
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw AuthException(
-        body['message'] as String? ?? 'Unable to sign in with Google.',
-      );
-    }
-    return _saveSession(body);
+    return idToken;
   }
 
   @override
@@ -391,6 +442,7 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
       throw AuthException(
         result['message'] as String? ?? 'Unable to complete the request.',
         code: result['code'] as String?,
+        existingProvider: result['existingProvider'] as String?,
       );
     }
     return result;
@@ -416,6 +468,7 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
             body['error'] as String? ??
             'Unable to complete the request.',
         code: body['code'] as String?,
+        existingProvider: body['existingProvider'] as String?,
       );
     }
     return body;
@@ -464,6 +517,7 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
     await Future.wait([
       FacebookAuth.instance.logOut(),
       GoogleSignIn.instance.signOut(),
+      DefaultFirebaseFacebookAuthenticator.signOutIfInitialized(),
       _storage.delete(AuthenticatedApiClient.accessTokenKey),
       _storage.delete(AuthenticatedApiClient.refreshTokenKey),
     ]);
@@ -472,7 +526,7 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
   String _createNonce() {
     final random = Random.secure();
     final bytes = List<int>.generate(32, (_) => random.nextInt(256));
-    return base64UrlEncode(sha256.convert(bytes).bytes).replaceAll('=', '');
+    return base64UrlEncode(bytes).replaceAll('=', '');
   }
 }
 

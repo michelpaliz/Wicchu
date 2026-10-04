@@ -54,17 +54,62 @@ void main() {
     expect(auth.linkCalls, 1);
     expect(find.text('Facebook account connected.'), findsOneWidget);
   });
+
+  testWidgets('password accounts reauthenticate before connecting Facebook', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final auth = _LinkingAuthGateway(requirePassword: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AccountSettingsPage(
+          repository: DemoCommunityRepository(),
+          authGateway: auth,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Facebook account'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.ensureVisible(find.text('Facebook account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Facebook account'));
+    await tester.pump();
+
+    expect(find.text('Confirm your identity'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(auth.linkCalls, 2);
+    expect(auth.receivedPassword, 'correct-password');
+    expect(find.text('Facebook account connected.'), findsOneWidget);
+  });
 }
 
 class _LinkingAuthGateway implements AuthGateway, FacebookAccountLinker {
+  _LinkingAuthGateway({this.requirePassword = false});
+
+  final bool requirePassword;
   int linkCalls = 0;
+  String? receivedPassword;
 
   @override
   Future<bool> isFacebookLinked() async => false;
 
   @override
-  Future<void> linkFacebookAccount() async {
+  Future<void> linkFacebookAccount({String? password}) async {
     linkCalls += 1;
+    receivedPassword = password;
+    if (requirePassword && password == null) {
+      throw const AuthException(
+        'Enter your password.',
+        code: 'PASSWORD_REAUTH_REQUIRED',
+      );
+    }
   }
 
   @override

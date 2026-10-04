@@ -1233,6 +1233,20 @@ const _spanish = <String, String>{
   'Connect Facebook for future sign-ins':
       'Conecta Facebook para futuros inicios de sesión',
   'Facebook account connected.': 'Cuenta de Facebook conectada.',
+  'Account already exists': 'La cuenta ya existe',
+  'A Wicchu account already uses this email. Sign in with email first, then connect Facebook from Settings.':
+      'Una cuenta de Wicchu ya usa este correo. Primero inicia sesión con correo y después conecta Facebook desde Configuración.',
+  'A Wicchu account already uses this email. Continue with Google, then connect Facebook from Settings.':
+      'Una cuenta de Wicchu ya usa este correo. Continúa con Google y después conecta Facebook desde Configuración.',
+  'A Wicchu account already uses this email. Continue with Apple, then connect Facebook from Settings.':
+      'Una cuenta de Wicchu ya usa este correo. Continúa con Apple y después conecta Facebook desde Configuración.',
+  'A Wicchu account already uses this email. Continue with Facebook instead.':
+      'Una cuenta de Wicchu ya usa este correo. Continúa con Facebook.',
+  'A Wicchu account already uses this email. Continue with Apple instead.':
+      'Una cuenta de Wicchu ya usa este correo. Continúa con Apple.',
+  'A Wicchu account already uses this email. Sign in with email instead.':
+      'Una cuenta de Wicchu ya usa este correo. Inicia sesión con correo.',
+  'Confirm your identity': 'Confirma tu identidad',
   'Authentication credentials are stored securely on this device.':
       'Las credenciales de acceso se guardan de forma segura en este dispositivo.',
   'Data deletion': 'Eliminación de datos',

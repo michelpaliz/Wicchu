@@ -153,13 +153,17 @@ class _LoginPageState extends State<LoginPage> {
     disabled: _loadingProvider != null,
   );
 
-  Future<void> _openEmail({bool startInRegistration = false}) async {
+  Future<void> _openEmail({
+    bool startInRegistration = false,
+    bool startInPasswordReset = false,
+  }) async {
     final signedIn = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (emailContext) => EmailAuthPage(
           authGateway: widget.authGateway,
           startInRegistration: startInRegistration,
+          startInPasswordReset: startInPasswordReset,
           onSignedIn: () => Navigator.of(emailContext).pop(true),
         ),
       ),
@@ -196,6 +200,15 @@ class _LoginPageState extends State<LoginPage> {
       widget.onSignedIn();
     } on AuthException catch (error) {
       if (mounted) {
+        if (error.code == 'ACCOUNT_LINK_REQUIRED' ||
+            error.code == 'EMAIL_ALREADY_REGISTERED') {
+          setState(() => _loadingProvider = null);
+          await _showExistingAccountDialog(
+            error.existingProvider,
+            requestedProvider: provider,
+          );
+          return;
+        }
         final requiresEmailRegistration =
             provider == 'facebook' &&
             const {
@@ -234,4 +247,76 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) setState(() => _loadingProvider = null);
     }
   }
+
+  Future<void> _showExistingAccountDialog(
+    String? existingProvider, {
+    required String requestedProvider,
+  }) async {
+    final provider = existingProvider ?? 'password';
+    final isGoogle = provider == 'google';
+    final isApple = provider == 'apple';
+    final isFacebook = provider == 'facebook';
+    final connectingFacebook = requestedProvider == 'facebook';
+    final message = connectingFacebook
+        ? isGoogle
+              ? 'A Wicchu account already uses this email. Continue with Google, then connect Facebook from Settings.'
+              : isApple
+              ? 'A Wicchu account already uses this email. Continue with Apple, then connect Facebook from Settings.'
+              : 'A Wicchu account already uses this email. Sign in with email first, then connect Facebook from Settings.'
+        : isFacebook
+        ? 'A Wicchu account already uses this email. Continue with Facebook instead.'
+        : isApple
+        ? 'A Wicchu account already uses this email. Continue with Apple instead.'
+        : 'A Wicchu account already uses this email. Sign in with email instead.';
+    final action = await showDialog<_ExistingAccountAction>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.account_circle_outlined),
+        title: Text(dialogContext.tr('Account already exists')),
+        content: Text(dialogContext.tr(message)),
+        actions: [
+          if (!isGoogle && !isApple && !isFacebook)
+            TextButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                _ExistingAccountAction.resetPassword,
+              ),
+              child: Text(dialogContext.tr('Forgot password?')),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+              dialogContext,
+              isGoogle
+                  ? _ExistingAccountAction.google
+                  : isApple
+                  ? _ExistingAccountAction.apple
+                  : isFacebook
+                  ? _ExistingAccountAction.facebook
+                  : _ExistingAccountAction.signIn,
+            ),
+            child: Text(
+              dialogContext.tr(
+                isGoogle
+                    ? 'Continue with Google'
+                    : isApple
+                    ? 'Continue with Apple'
+                    : isFacebook
+                    ? 'Continue with Facebook'
+                    : 'Sign in with email',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == _ExistingAccountAction.google) return _signInGoogle();
+    if (action == _ExistingAccountAction.apple) return _signInApple();
+    if (action == _ExistingAccountAction.facebook) return _signInFacebook();
+    await _openEmail(
+      startInPasswordReset: action == _ExistingAccountAction.resetPassword,
+    );
+  }
 }
+
+enum _ExistingAccountAction { signIn, resetPassword, google, apple, facebook }
