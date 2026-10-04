@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
@@ -10,6 +11,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:http/http.dart' as http;
 
 import '../domain/auth_gateway.dart';
+import '../services/firebase_facebook_auth_service.dart';
 import 'authenticated_api_client.dart';
 import 'session_token_store.dart';
 
@@ -18,8 +20,19 @@ class FacebookAuthGateway implements AuthGateway {
     http.Client? client,
     FlutterSecureStorage? storage,
     String? apiBaseUrl,
+    FirebaseFacebookAuthenticator? firebaseFacebookAuthenticator,
+    Future<LoginResult> Function(String nonce)? facebookLogin,
   }) : _client = client ?? http.Client(),
        _storage = SessionTokenStore(secureStorage: storage),
+       _firebaseFacebookAuthenticator =
+           firebaseFacebookAuthenticator ??
+           DefaultFirebaseFacebookAuthenticator(),
+       _facebookLogin =
+           facebookLogin ??
+           ((nonce) => FacebookAuth.instance.login(
+             permissions: const ['email', 'public_profile'],
+             nonce: nonce,
+           )),
        _apiBaseUrl =
            apiBaseUrl ??
            const String.fromEnvironment(
@@ -29,6 +42,8 @@ class FacebookAuthGateway implements AuthGateway {
 
   final http.Client _client;
   final SessionTokenStore _storage;
+  final FirebaseFacebookAuthenticator _firebaseFacebookAuthenticator;
+  final Future<LoginResult> Function(String nonce) _facebookLogin;
   final String _apiBaseUrl;
   Future<void>? _googleInitialization;
 
@@ -61,9 +76,24 @@ class FacebookAuthGateway implements AuthGateway {
       );
     }
     final nonce = _createNonce();
-    final result = await FacebookAuth.instance.login(
-      permissions: const ['email', 'public_profile'],
-      nonce: nonce,
+    late final LoginResult result;
+    try {
+      result = await _facebookLogin(nonce);
+    } catch (error) {
+      developer.log(
+        'Facebook SDK exception=${error.runtimeType} accessTokenReturned=false',
+        name: 'wicchu.facebook_auth',
+      );
+      throw const AuthException(
+        'Facebook Login failed before returning a result.',
+        code: 'FACEBOOK_SDK_EXCEPTION',
+      );
+    }
+    developer.log(
+      'Facebook Login result status=${result.status.name} '
+      'message=${result.message ?? 'none'} '
+      'accessTokenReturned=${result.accessToken != null}',
+      name: 'wicchu.facebook_auth',
     );
     if (result.status == LoginStatus.cancelled) {
       throw const AuthException('Facebook sign-in was cancelled.');
@@ -73,6 +103,14 @@ class FacebookAuthGateway implements AuthGateway {
     }
 
     final facebookToken = result.accessToken!;
+    late final FirebaseFacebookAuthResult firebaseResult;
+    try {
+      firebaseResult = await _firebaseFacebookAuthenticator.authenticate(
+        facebookToken.tokenString,
+      );
+    } on FirebaseFacebookAuthFailure catch (error) {
+      throw AuthException(error.message, code: error.code);
+    }
     final response = await _client.post(
       Uri.parse('$_apiBaseUrl/api/auth/facebook'),
       headers: const {'Content-Type': 'application/json'},
@@ -80,6 +118,7 @@ class FacebookAuthGateway implements AuthGateway {
         'accessToken': facebookToken.tokenString,
         'tokenType': facebookToken.type.name,
         'nonce': nonce,
+        'firebaseIdToken': firebaseResult.idToken,
       }),
     );
     final body = jsonDecode(response.body) as Map<String, dynamic>;

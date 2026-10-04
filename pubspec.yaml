@@ -52,6 +52,7 @@ dependencies:
   flutter_markdown_plus: ^1.0.12
   app_links: ^7.0.0
   firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
   firebase_messaging: ^16.7.0
   socket_io_client: ^3.1.6
   flutter_quill: ^11.6.0
