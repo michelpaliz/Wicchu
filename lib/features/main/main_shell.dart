@@ -1644,6 +1644,7 @@ class _HomeTabState extends State<_HomeTab>
                                   hidePost: hidePost == true,
                                 ),
                             onShare: () => sharePost(
+                              context,
                               widget.repository,
                               post,
                               communityName:

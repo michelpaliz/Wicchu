@@ -1985,6 +1985,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                   hidePost: hidePost == true,
                                 ),
                             onShare: () => sharePost(
+                              context,
                               widget.repository,
                               post,
                               communityName: _community.name,

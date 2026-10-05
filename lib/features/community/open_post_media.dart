@@ -42,7 +42,8 @@ Future<void> openCommunityPostMedia(
         repository.setPostReaction(post.id, reacted: reacted),
     onComments: () => showPostComments(context, repository, post),
     onSaved: (saved) => repository.setPostSaved(post.id, saved: saved),
-    onShare: () => sharePost(repository, post, communityName: communityName),
+    onShare: () =>
+        sharePost(context, repository, post, communityName: communityName),
     onReport: (reason, category, {hidePost}) => repository.reportPost(
       post.id,
       reason,

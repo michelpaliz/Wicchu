@@ -247,6 +247,7 @@ class _CategoryPageState extends State<CategoryPage>
                               hidePost: hidePost == true,
                             ),
                         onShare: () => sharePost(
+                          context,
                           widget.repository,
                           post,
                           communityName: widget.community.name,

@@ -857,6 +857,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               FilledButton.icon(
                 onPressed: () async {
                   await sharePost(
+                    dialogContext,
                     widget.repository,
                     post,
                     communityName: widget.community.name,

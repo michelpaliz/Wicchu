@@ -155,6 +155,7 @@ class _SharedPostPageState extends State<SharedPostPage>
                           hidePost: hidePost == true,
                         ),
               onShare: () => sharePost(
+                context,
                 widget.repository,
                 post,
                 communityName: preview.communityName,

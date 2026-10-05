@@ -744,6 +744,13 @@ const _spanish = <String, String>{
       'Tu publicación ya está visible. ¿Quieres compartirla también fuera de la comunidad?',
   'Not now': 'Ahora no',
   'Share post': 'Compartir publicación',
+  'Share to Instagram or Facebook': 'Compartir en Instagram o Facebook',
+  'Share Wicchu link': 'Compartir enlace de Wicchu',
+  'Preparing media…': 'Preparando contenido…',
+  'Exports the original media. Choose the destination in the next screen.':
+      'Exporta el contenido original. Elige el destino en la siguiente pantalla.',
+  'Caption copied. Choose Instagram or Facebook and paste it if needed.':
+      'Texto copiado. Elige Instagram o Facebook y pégalo si es necesario.',
   'Bold': 'Negrita',
   'bold text': 'texto en negrita',
   'Italic': 'Cursiva',

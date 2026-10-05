@@ -165,6 +165,7 @@ class _PostDetailPageState extends State<PostDetailPage>
                       hidePost: hidePost == true,
                     ),
                 onShare: () => sharePost(
+                  context,
                   widget.repository,
                   post,
                   communityName: widget.community,

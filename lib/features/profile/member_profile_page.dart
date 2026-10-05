@@ -324,7 +324,8 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                       mediaFirst: true,
                       compact: true,
                       authorAvatarUrl: post.authorAvatarUrl,
-                      onShare: () => sharePost(widget.repository, post),
+                      onShare: () =>
+                          sharePost(context, widget.repository, post),
                       category:
                           _categories[post.categoryId]?.name ?? 'Publication',
                       icon: _categories[post.categoryId]?.icon ?? '💬',

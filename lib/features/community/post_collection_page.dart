@@ -193,7 +193,7 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                   category: category,
                   hidePost: hidePost == true,
                 ),
-            onShare: () => sharePost(widget.repository, post),
+            onShare: () => sharePost(context, widget.repository, post),
           );
         }
 

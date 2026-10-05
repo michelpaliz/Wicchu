@@ -615,6 +615,7 @@ class _CommunityPageState extends State<CommunityPage>
                                     hidePost: hidePost == true,
                                   ),
                               onShare: () => sharePost(
+                                context,
                                 repository,
                                 post,
                                 communityName: community.name,
