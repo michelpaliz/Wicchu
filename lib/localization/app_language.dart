@@ -1148,6 +1148,15 @@ const _spanish = <String, String>{
       'No hay denuncias abiertas que requieran tu atención.',
   'New reports will appear here for you to review.':
       'Las nuevas denuncias aparecerán aquí para que puedas revisarlas.',
+  'Reported by {name}': 'Reportado por {name}',
+  'Reported post': 'Publicación reportada',
+  'Reported comment': 'Comentario reportado',
+  'Reported member': 'Miembro reportado',
+  'Reported content is no longer available.':
+      'El contenido reportado ya no está disponible.',
+  'Report reason': 'Motivo del reporte',
+  '{count} media attachments': '{count} archivos multimedia',
+  'Wicchu member': 'Miembro de Wicchu',
   'View profile': 'Ver perfil',
   'Set role: {role}': 'Asignar rol: {role}',
   'Search members': 'Buscar miembros',

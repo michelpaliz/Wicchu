@@ -1455,8 +1455,17 @@ class HttpCommunityRepository implements CommunityRepository {
       '/api/community/v1/communities/$communityId/admin/reports',
     );
     return _list(body, 'reports')
-        .map(
-          (json) => CommunityReport(
+        .map((json) {
+          final reporter = json['reporter'] is Map<String, dynamic>
+              ? json['reporter'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          final target = json['targetPreview'] is Map<String, dynamic>
+              ? json['targetPreview'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          final targetAuthor = target['author'] is Map<String, dynamic>
+              ? target['author'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          return CommunityReport(
             id: _id(json),
             reporterId: json['reporterId']?.toString() ?? '',
             communityId: json['communityId']?.toString() ?? '',
@@ -1472,8 +1481,16 @@ class HttpCommunityRepository implements CommunityRepository {
             createdAt:
                 DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
                 DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-          ),
-        )
+            reporterName: reporter['name']?.toString(),
+            reporterAvatarUrl: reporter['avatarUrl']?.toString(),
+            targetAuthorName: targetAuthor['name']?.toString(),
+            targetAuthorAvatarUrl: targetAuthor['avatarUrl']?.toString(),
+            targetText: target['text']?.toString(),
+            targetStatus: target['status']?.toString(),
+            targetPostId: target['postId']?.toString(),
+            targetMediaCount: (target['mediaCount'] as num?)?.toInt() ?? 0,
+          );
+        })
         .toList(growable: false);
   }
 

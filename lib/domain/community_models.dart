@@ -745,6 +745,14 @@ class CommunityReport {
     required this.reason,
     required this.status,
     required this.createdAt,
+    this.reporterName,
+    this.reporterAvatarUrl,
+    this.targetAuthorName,
+    this.targetAuthorAvatarUrl,
+    this.targetText,
+    this.targetStatus,
+    this.targetPostId,
+    this.targetMediaCount = 0,
   });
 
   final String id;
@@ -756,6 +764,14 @@ class CommunityReport {
   final String reason;
   final ReportStatus status;
   final DateTime createdAt;
+  final String? reporterName;
+  final String? reporterAvatarUrl;
+  final String? targetAuthorName;
+  final String? targetAuthorAvatarUrl;
+  final String? targetText;
+  final String? targetStatus;
+  final String? targetPostId;
+  final int targetMediaCount;
 }
 
 enum PlatformReportTargetType { community, communityAdmin, message }

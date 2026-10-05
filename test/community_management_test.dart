@@ -11,6 +11,7 @@ import 'package:wicchu/data/http_community_repository.dart';
 import 'package:wicchu/domain/community_repository.dart';
 import 'package:wicchu/features/admin/admin_dashboard_page.dart';
 import 'package:wicchu/features/admin/admin_overview_page.dart';
+import 'package:wicchu/features/admin/admin_review_queues.dart';
 import 'package:wicchu/features/admin/rule_management_page.dart';
 import 'package:wicchu/features/admin/admin_management_pages.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
@@ -50,6 +51,41 @@ class AttentionRepository extends DemoCommunityRepository {
     if (fail) throw Exception('Unable to load');
     return summary;
   }
+}
+
+class ReportUiRepository extends DemoCommunityRepository {
+  @override
+  Future<List<CommunityReport>> listReports(String communityId) async => [
+    CommunityReport(
+      id: 'report-post',
+      reporterId: 'reporter-1',
+      communityId: communityId,
+      targetType: ModerationTargetType.post,
+      targetId: 'post-1',
+      category: 'spam',
+      reason: 'Repeated promotional links',
+      status: ReportStatus.open,
+      createdAt: DateTime.utc(2026, 10, 5),
+      reporterName: 'Ana Rivera',
+      targetAuthorName: 'Reported Member',
+      targetText: 'Buy this product now',
+      targetMediaCount: 2,
+    ),
+    CommunityReport(
+      id: 'report-comment',
+      reporterId: 'reporter-2',
+      communityId: communityId,
+      targetType: ModerationTargetType.comment,
+      targetId: 'comment-1',
+      category: 'harassment',
+      reason: 'Personal attack',
+      status: ReportStatus.open,
+      createdAt: DateTime.utc(2026, 10, 5),
+      reporterName: 'Luis Perez',
+      targetAuthorName: 'Comment Author',
+      targetText: 'An insulting comment',
+    ),
+  ];
 }
 
 class RulesApi extends AuthenticatedApiClient {
@@ -100,6 +136,33 @@ class CategoryApi extends AuthenticatedApiClient {
 }
 
 void main() {
+  testWidgets('report queue shows reporter and post or comment evidence', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = ReportUiRepository();
+    final community = (await repository.listJoinedCommunities()).first;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReportsQueuePage(community: community, repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reported by Ana Rivera'), findsOneWidget);
+    expect(find.text('Buy this product now'), findsOneWidget);
+    expect(find.text('2 media attachments'), findsOneWidget);
+    expect(find.text('Reported by Luis Perez'), findsOneWidget);
+    expect(find.text('An insulting comment'), findsOneWidget);
+    expect(find.text('Remove post'), findsOneWidget);
+    expect(find.text('Remove comment'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'invitations validate email and separate expired links from active links',
     (tester) async {

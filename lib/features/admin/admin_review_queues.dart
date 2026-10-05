@@ -36,33 +36,135 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
           return const _ReportsEmptyState();
         }
         return ListView(
-          children: [
-            for (final item in snapshot.data!)
-              Card(
-                child: ListTile(
-                  title: Text(item.reason),
-                  subtitle: Text(
-                    '${context.tr(_categoryLabel(item.category))} · ${context.tr(_targetLabel(item.targetType), {'id': item.targetId})}',
-                  ),
-                  trailing: Wrap(
-                    children: [
-                      TextButton(
-                        onPressed: () => decide(item, false),
-                        child: Text(context.tr('Dismiss')),
-                      ),
-                      FilledButton(
-                        onPressed: () => decide(item, true),
-                        child: Text(context.tr(_resolveLabel(item.targetType))),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
+          padding: const EdgeInsets.all(12),
+          children: [for (final item in snapshot.data!) _reportCard(item)],
         );
       },
     ),
   );
+
+  Widget _reportCard(CommunityReport item) {
+    final theme = Theme.of(context);
+    final reporterName = item.reporterName?.trim().isNotEmpty == true
+        ? item.reporterName!
+        : context.tr('Wicchu member');
+    final authorName = item.targetAuthorName?.trim().isNotEmpty == true
+        ? item.targetAuthorName!
+        : context.tr('Wicchu member');
+    final date = MaterialLocalizations.of(
+      context,
+    ).formatMediumDate(item.createdAt.toLocal());
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundImage: item.reporterAvatarUrl?.isNotEmpty == true
+                      ? NetworkImage(item.reporterAvatarUrl!)
+                      : null,
+                  child: item.reporterAvatarUrl?.isNotEmpty == true
+                      ? null
+                      : const Icon(Icons.person_outline, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('Reported by {name}', {
+                          'name': reporterName,
+                        }),
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      Text(date, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+                Chip(label: Text(context.tr(_categoryLabel(item.category)))),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.tr(_targetTitle(item.targetType)),
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(authorName, style: theme.textTheme.titleSmall),
+                  if (item.targetText?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 8),
+                    Text(item.targetText!),
+                  ] else if (item.targetType !=
+                      ModerationTargetType.member) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      context.tr('Reported content is no longer available.'),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                  if (item.targetMediaCount > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.perm_media_outlined, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          context.tr('{count} media attachments', {
+                            'count': '${item.targetMediaCount}',
+                          }),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              context.tr('Report reason'),
+              style: theme.textTheme.labelLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(item.reason),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => decide(item, false),
+                  child: Text(context.tr('Dismiss')),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () => decide(item, true),
+                  child: Text(context.tr(_resolveLabel(item.targetType))),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> decide(CommunityReport item, bool resolve) async {
     try {
       await widget.repository.decideReport(
@@ -93,10 +195,10 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
     _ => 'Other concern',
   };
 
-  String _targetLabel(ModerationTargetType type) => switch (type) {
-    ModerationTargetType.comment => 'Comment {id}',
-    ModerationTargetType.member => 'Member {id}',
-    ModerationTargetType.post => 'Post {id}',
+  String _targetTitle(ModerationTargetType type) => switch (type) {
+    ModerationTargetType.comment => 'Reported comment',
+    ModerationTargetType.member => 'Reported member',
+    ModerationTargetType.post => 'Reported post',
   };
 
   String _resolveLabel(ModerationTargetType type) => switch (type) {

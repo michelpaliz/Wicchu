@@ -140,6 +140,31 @@ class _RecordingApiClient extends AuthenticatedApiClient {
         ],
       };
     }
+    if (path.endsWith('/admin/reports')) {
+      return {
+        'reports': [
+          {
+            'id': 'report-1',
+            'reporterId': 'reporter-1',
+            'communityId': 'community-1',
+            'targetType': 'comment',
+            'targetId': 'comment-1',
+            'category': 'harassment',
+            'reason': 'Personal attack',
+            'status': 'open',
+            'createdAt': '2026-10-05T10:00:00.000Z',
+            'reporter': {'name': 'Ana Rivera', 'avatarUrl': null},
+            'targetPreview': {
+              'author': {'name': 'Reported Member', 'avatarUrl': null},
+              'text': 'An insulting comment',
+              'status': 'published',
+              'postId': 'post-1',
+              'mediaCount': 0,
+            },
+          },
+        ],
+      };
+    }
     if (path.contains('/posts/')) {
       return {
         'post': {
@@ -370,6 +395,19 @@ void main() {
     await repository.reportMember('user-2', 'Impersonation', category: 'scam');
     expect(api.lastPath, '/api/community/v1/users/user-2/reports');
     expect(api.lastBody, {'reason': 'Impersonation', 'category': 'scam'});
+  });
+
+  test('community report queue maps reporter and content previews', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final report = (await repository.listReports('community-1')).single;
+
+    expect(report.targetType, ModerationTargetType.comment);
+    expect(report.reporterName, 'Ana Rivera');
+    expect(report.targetAuthorName, 'Reported Member');
+    expect(report.targetText, 'An insulting comment');
+    expect(report.targetPostId, 'post-1');
   });
 
   test('community reports go to the platform moderation endpoint', () async {
