@@ -174,7 +174,10 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
         version: graphVersion,
       );
     }
-    final nonce = _createNonce();
+    final rawNonce = _createNonce();
+    // Firebase hashes rawNonce when verifying the Limited Login ID token.
+    // Facebook must receive that hash, not the original challenge.
+    final nonce = sha256.convert(utf8.encode(rawNonce)).toString();
     late final LoginResult result;
     try {
       result = await _facebookLogin(nonce);
@@ -212,7 +215,7 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
       firebaseResult = await _firebaseFacebookAuthenticator.authenticate(
         facebookToken: facebookToken.tokenString,
         tokenType: facebookToken.type.name,
-        nonce: nonce,
+        nonce: rawNonce,
         existingGoogleIdToken: existingGoogleIdToken,
       );
     } on FirebaseFacebookAuthFailure catch (error) {

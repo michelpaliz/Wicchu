@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -158,7 +159,11 @@ void main() {
 
       expect(firebase.receivedAccessToken, 'facebook-id-token');
       expect(firebase.receivedTokenType, 'limited');
-      expect(firebase.receivedNonce, loginNonce);
+      expect(
+        sha256.convert(utf8.encode(firebase.receivedNonce!)).toString(),
+        loginNonce,
+      );
+      expect(firebase.receivedNonce, isNot(loginNonce));
       expect(firebase.receivedNonce, isNotEmpty);
     },
   );
