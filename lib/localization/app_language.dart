@@ -569,6 +569,8 @@ const _spanish = <String, String>{
   'Football': 'Fútbol',
   'Students': 'Estudiantes',
   'Cycling': 'Ciclismo',
+  'Emoji': 'Emojis',
+  'Private conversation': 'Conversación privada',
   'Today': 'Hoy',
   'Yesterday': 'Ayer',
   'María replied to your post': 'María respondió a tu publicación',

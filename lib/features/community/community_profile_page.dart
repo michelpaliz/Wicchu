@@ -1787,12 +1787,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                   categoryIcon: category?.icon ?? '💬',
                                 );
                                 if (mounted) {
-                                  setState(
-                                    () => _posts = widget.repository.listPosts(
+                                  setState(() {
+                                    _posts = widget.repository.listPosts(
                                       _community.id,
                                       query: _searchController.text,
-                                    ),
-                                  );
+                                    );
+                                  });
                                 }
                                 return;
                               }

@@ -285,7 +285,11 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                             categoryIcon:
                                 _categories[post.categoryId]?.icon ?? '💬',
                           );
-                          if (mounted) setState(() => _posts = _loadPosts());
+                          if (mounted) {
+                            setState(() {
+                              _posts = _loadPosts();
+                            });
+                          }
                           return;
                         }
                         await Navigator.push(

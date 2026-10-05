@@ -8,6 +8,7 @@ import '../../localization/app_language.dart';
 import '../../services/presence_service.dart';
 import '../community/report_dialog.dart';
 import '../community/user_avatar.dart';
+import '../profile/member_profile_page.dart';
 
 class ConversationListPage extends StatefulWidget {
   const ConversationListPage({super.key, required this.repository});
@@ -748,19 +749,52 @@ class _DirectChatPageState extends State<DirectChatPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       titleSpacing: 0,
+      toolbarHeight: 72,
+      scrolledUnderElevation: 0,
+      leading: BackButton(),
       title: Row(
         children: [
           UserAvatar(
             name: widget.conversation.otherUser.name,
             imageUrl: widget.conversation.otherUser.avatarUrl,
-            radius: 18,
+            radius: 23,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              widget.conversation.otherUser.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MemberProfilePage(
+                    userId: widget.conversation.otherUser.id,
+                    repository: widget.repository,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.conversation.otherUser.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    context.tr(
+                      _otherUserTyping ? 'Typing…' : 'Private conversation',
+                    ),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -798,7 +832,16 @@ class _DirectChatPageState extends State<DirectChatPage> {
     ),
     body: Column(
       children: [
-        Expanded(child: _messageBody()),
+        Expanded(
+          child: RepaintBoundary(
+            child: CustomPaint(
+              painter: _ChatWallpaper(
+                Theme.of(context).colorScheme.primary.withValues(alpha: .035),
+              ),
+              child: _messageBody(),
+            ),
+          ),
+        ),
         if (_requestStatus == MessageRequestStatus.pending &&
             !widget.conversation.requestedByMe)
           SafeArea(
@@ -886,54 +929,206 @@ class _DirectChatPageState extends State<DirectChatPage> {
         if (_requestStatus != MessageRequestStatus.declined &&
             (_requestStatus == MessageRequestStatus.accepted ||
                 widget.conversation.requestedByMe))
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _composer,
-                      enabled: !_sending && _canSendMessage,
-                      minLines: 1,
-                      maxLines: 5,
-                      maxLength: 2000,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: context.tr(
-                          _canSendMessage
-                              ? 'Write a message'
-                              : 'Waiting for acceptance',
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .035),
+                  blurRadius: 16,
+                  offset: const Offset(0, -3),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.outlineVariant.withValues(alpha: .3),
+                          ),
                         ),
-                        counterText: '',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(22),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 3),
+                              child: IconButton(
+                                tooltip: context.tr('Emoji'),
+                                onPressed: _sending || !_canSendMessage
+                                    ? null
+                                    : _chooseEmoji,
+                                icon: const Icon(
+                                  Icons.sentiment_satisfied_alt_outlined,
+                                  size: 26,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: _composer,
+                                enabled: !_sending && _canSendMessage,
+                                minLines: 1,
+                                maxLines: 5,
+                                maxLength: 2000,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  height: 1.35,
+                                ),
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                decoration: InputDecoration(
+                                  hintText: context.tr(
+                                    _canSendMessage
+                                        ? 'Write a message'
+                                        : 'Waiting for acceptance',
+                                  ),
+                                  counterText: '',
+                                  filled: false,
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  contentPadding: const EdgeInsets.fromLTRB(
+                                    4,
+                                    16,
+                                    16,
+                                    16,
+                                  ),
+                                ),
+                                onChanged: _composerChanged,
+                                onSubmitted: (_) => _send(),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      onChanged: _composerChanged,
-                      onSubmitted: (_) => _send(),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  IconButton.filled(
-                    tooltip: context.tr('Send'),
-                    onPressed: _sending || !_canSendMessage ? null : _send,
-                    icon: _sending
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _composer,
+                      builder: (context, value, _) => SizedBox.square(
+                        dimension: 54,
+                        child: IconButton.filled(
+                          tooltip: context.tr('Send'),
+                          onPressed:
+                              _sending ||
+                                  !_canSendMessage ||
+                                  value.text.trim().isEmpty
+                              ? null
+                              : _send,
+                          icon: _sending
+                              ? const SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.send_rounded, size: 26),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
       ],
     ),
   );
+
+  Future<void> _chooseEmoji() async {
+    final emoji = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            children: [
+              for (final emoji in [
+                '😀',
+                '😊',
+                '😂',
+                '❤️',
+                '👍',
+                '👏',
+                '🙏',
+                '🌿',
+                '🎉',
+                '👋',
+                '😍',
+                '💪',
+              ])
+                SizedBox(
+                  width: 64,
+                  height: 60,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context, emoji),
+                    child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (emoji == null || !mounted) return;
+    final selection = _composer.selection;
+    final start = selection.isValid ? selection.start : _composer.text.length;
+    final end = selection.isValid ? selection.end : start;
+    final text = _composer.text.replaceRange(start, end, emoji);
+    if (text.characters.length > 2000) return;
+    _composer.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: start + emoji.length),
+    );
+    _composerChanged(text);
+  }
+
+  Widget _dateChip(DateTime date) {
+    final local = date.toLocal();
+    final today = DateUtils.dateOnly(DateTime.now());
+    final day = DateUtils.dateOnly(local);
+    final label = day == today
+        ? context.tr('Today')
+        : day == DateTime(today.year, today.month, today.day - 1)
+        ? context.tr('Yesterday')
+        : MaterialLocalizations.of(context).formatMediumDate(local);
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(top: 4, bottom: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _messageBody() {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -960,7 +1155,8 @@ class _DirectChatPageState extends State<DirectChatPage> {
     }
     return ListView.builder(
       controller: _scroll,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       itemCount: _messages.length + (_nextCursor == null ? 0 : 1),
       itemBuilder: (context, index) {
         if (_nextCursor != null && index == 0) {
@@ -980,66 +1176,145 @@ class _DirectChatPageState extends State<DirectChatPage> {
         final message = _messages[index - (_nextCursor == null ? 0 : 1)];
         final mine = message.senderId == _viewerId;
         final colors = Theme.of(context).colorScheme;
-        return Align(
-          alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-          child: GestureDetector(
-            onLongPress: message.removedAt == null
-                ? () => _messageActions(message)
-                : null,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 320),
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: mine ? colors.primary : colors.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    message.removedAt == null
-                        ? message.body
-                        : context.tr('Message removed'),
-                    style: TextStyle(
-                      color: mine ? colors.onPrimary : colors.onSurface,
-                      fontStyle: message.removedAt == null
-                          ? null
-                          : FontStyle.italic,
-                    ),
+        final messageIndex = index - (_nextCursor == null ? 0 : 1);
+        final showDate =
+            messageIndex == 0 ||
+            !DateUtils.isSameDay(
+              _messages[messageIndex - 1].createdAt.toLocal(),
+              message.createdAt.toLocal(),
+            );
+        return Column(
+          children: [
+            if (showDate) _dateChip(message.createdAt),
+            Align(
+              alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+              child: GestureDetector(
+                onLongPress: message.removedAt == null
+                    ? () => _messageActions(message)
+                    : null,
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.sizeOf(context).width * .78,
                   ),
-                  const SizedBox(height: 3),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _shortTime(context, message.createdAt),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: mine
-                              ? colors.onPrimary.withValues(alpha: .75)
-                              : colors.onSurfaceVariant,
-                        ),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 15,
+                    vertical: 11,
+                  ),
+                  decoration: BoxDecoration(
+                    color: mine ? colors.primary : colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(22),
+                      topRight: const Radius.circular(22),
+                      bottomLeft: Radius.circular(mine ? 22 : 6),
+                      bottomRight: Radius.circular(mine ? 6 : 22),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .035),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
                       ),
-                      if (mine) ...[
-                        const SizedBox(width: 4),
-                        Icon(
-                          message.readAt == null ? Icons.done : Icons.done_all,
-                          size: 15,
-                          color: message.readAt == null
-                              ? colors.onPrimary.withValues(alpha: .75)
-                              : colors.onPrimary,
-                        ),
-                      ],
                     ],
                   ),
-                ],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        message.removedAt == null
+                            ? message.body
+                            : context.tr('Message removed'),
+                        style: TextStyle(
+                          fontSize: 16,
+                          height: 1.35,
+                          color: mine ? colors.onPrimary : colors.onSurface,
+                          fontStyle: message.removedAt == null
+                              ? null
+                              : FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            MaterialLocalizations.of(context).formatTimeOfDay(
+                              TimeOfDay.fromDateTime(
+                                message.createdAt.toLocal(),
+                              ),
+                            ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: mine
+                                      ? colors.onPrimary.withValues(alpha: .75)
+                                      : colors.onSurfaceVariant,
+                                ),
+                          ),
+                          if (mine) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              message.readAt == null
+                                  ? Icons.done
+                                  : Icons.done_all,
+                              size: 15,
+                              color: message.readAt == null
+                                  ? colors.onPrimary.withValues(alpha: .75)
+                                  : colors.onPrimary,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         );
       },
     );
   }
+}
+
+class _ChatWallpaper extends CustomPainter {
+  const _ChatWallpaper(this.color);
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    const icons = [
+      Icons.eco_outlined,
+      Icons.landscape_outlined,
+      Icons.camera_alt_outlined,
+      Icons.park_outlined,
+      Icons.chat_bubble_outline,
+      Icons.wb_sunny_outlined,
+    ];
+    for (var row = 0; row * 120 < size.height; row++) {
+      for (var column = 0; column * 110 < size.width; column++) {
+        final icon = icons[(row * 3 + column) % icons.length];
+        final painter = TextPainter(
+          text: TextSpan(
+            text: String.fromCharCode(icon.codePoint),
+            style: TextStyle(
+              fontFamily: icon.fontFamily,
+              package: icon.fontPackage,
+              fontSize: 48,
+              color: color,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        painter.paint(
+          canvas,
+          Offset(column * 110.0 + (row.isEven ? 8 : 35), row * 120.0 + 20),
+        );
+        painter.dispose();
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ChatWallpaper oldDelegate) => color != oldDelegate.color;
 }
 
 String _shortTime(BuildContext context, DateTime value) {

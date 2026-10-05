@@ -115,7 +115,16 @@ void main() {
     await tester.tap(find.text('Load older messages'));
     await tester.pumpAndSettle();
     expect(find.text('Older hello'), findsOneWidget);
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('👋'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '👋',
+    );
     await tester.enterText(find.byType(TextField), 'Hi Ana');
+    await tester.pump();
     await tester.tap(find.byTooltip('Send'));
     await tester.pumpAndSettle();
     expect(repository.sentBody, 'Hi Ana');
