@@ -1407,8 +1407,18 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                               ? null
                               : _toggleMembership,
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(64, 34),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            textStyle: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            shape: const StadiumBorder(),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: .07),
                             visualDensity: VisualDensity.compact,
+                            tapTargetSize: MaterialTapTargetSize.padded,
                           ),
                           icon: _savingMembership
                               ? const SizedBox.square(
@@ -2036,8 +2046,29 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     _memberCountLink(compact: true),
                     if (!_joined)
                       TextButton.icon(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(64, 34),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          shape: const StadiumBorder(),
+                          backgroundColor: theme.colorScheme.primary.withValues(
+                            alpha: .07,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          tapTargetSize: MaterialTapTargetSize.padded,
+                        ),
                         onPressed: _savingMembership ? null : _toggleMembership,
-                        icon: const Icon(Icons.add),
+                        icon: _savingMembership
+                            ? const SizedBox.square(
+                                dimension: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.add, size: 16),
                         label: Text(
                           context.tr(
                             _community.isPublicProfile ? 'Follow' : 'Join',

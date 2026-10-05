@@ -690,13 +690,21 @@ class _MembershipButtonState extends State<_MembershipButton> {
   Widget build(BuildContext context) {
     final isOwner = widget.community.myRole == CommunityRole.owner;
     return FilledButton.tonalIcon(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(64, 34),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        shape: const StadiumBorder(),
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.padded,
+      ),
       onPressed: _saving || isOwner ? null : _toggle,
       icon: _saving
           ? const SizedBox.square(
               dimension: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : Icon(_joined ? Icons.check : Icons.add),
+          : Icon(_joined ? Icons.check : Icons.add, size: 16),
       label: Text(
         context.tr(isOwner ? 'Owner' : (_joined ? 'Joined' : 'Join')),
       ),

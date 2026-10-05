@@ -572,6 +572,8 @@ const _spanish = <String, String>{
   'Cycling': 'Ciclismo',
   'Emoji': 'Emojis',
   'Private conversation': 'Conversación privada',
+  'Request to join': 'Solicitar',
+  'Requested': 'Solicitado',
   'Today': 'Hoy',
   'Yesterday': 'Ayer',
   'María replied to your post': 'María respondió a tu publicación',

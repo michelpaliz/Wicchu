@@ -2045,7 +2045,7 @@ class _ExploreTabState extends State<_ExploreTab> {
             ),
           ),
         ),
-        if (visibility != null) ...[
+        if (visibility == CommunityVisibility.private) ...[
           const SizedBox(width: 6),
           Tooltip(
             message: context.tr(
@@ -2089,17 +2089,29 @@ class _ExploreTabState extends State<_ExploreTab> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final compact =
-                  constraints.maxWidth < 340 ||
+                  constraints.maxWidth < 280 ||
                   MediaQuery.textScalerOf(context).scale(1) > 1.2;
-              final action = community.isJoined
+              final pending =
+                  community.membershipStatus == MembershipStatus.pending;
+              final action = community.isJoined && !pending
                   ? SpaceRoleIcon(space: community)
                   : FilledButton(
-                      onPressed: _saving.contains(community.id)
+                      onPressed:
+                          pending ||
+                              community.isBanned ||
+                              _saving.contains(community.id)
                           ? null
                           : () => _toggleMembership(community),
                       style: FilledButton.styleFrom(
-                        minimumSize: const Size(72, 36),
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        minimumSize: const Size(64, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        shape: const StadiumBorder(),
+                        visualDensity: VisualDensity.standard,
+                        tapTargetSize: MaterialTapTargetSize.padded,
                       ),
                       child: _saving.contains(community.id)
                           ? const SizedBox.square(
@@ -2108,15 +2120,22 @@ class _ExploreTabState extends State<_ExploreTab> {
                             )
                           : Text(
                               context.tr(
-                                community.isPublicProfile ? 'Follow' : 'Join',
+                                pending
+                                    ? 'Requested'
+                                    : community.isPublicProfile
+                                    ? 'Follow'
+                                    : community.visibility ==
+                                          CommunityVisibility.private
+                                    ? 'Request to join'
+                                    : 'Join',
                               ),
                             ),
                     );
               return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   SizedBox(
-                    width: compact ? 48 : 56,
+                    width: compact ? 44 : 50,
                     child: Column(
                       children: [
                         Stack(
@@ -2124,21 +2143,22 @@ class _ExploreTabState extends State<_ExploreTab> {
                           children: [
                             CommunityAvatar(
                               community: community,
-                              radius: compact ? 24 : 28,
+                              radius: compact ? 22 : 25,
                             ),
-                            Positioned(
-                              left: -4,
-                              top: -2,
-                              child: CircleAvatar(
-                                radius: 11,
-                                backgroundColor: scheme.surface,
-                                child: Icon(
-                                  typeIcon,
-                                  size: 15,
-                                  color: scheme.primary,
+                            if (community.isPublicProfile)
+                              Positioned(
+                                left: -4,
+                                top: -2,
+                                child: CircleAvatar(
+                                  radius: 11,
+                                  backgroundColor: scheme.surface,
+                                  child: Icon(
+                                    typeIcon,
+                                    size: 15,
+                                    color: scheme.primary,
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ],
@@ -2149,26 +2169,15 @@ class _ExploreTabState extends State<_ExploreTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                community.name,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontSize: 16,
-                                  height: 1.2,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            if (!compact && !community.isJoined) ...[
-                              const SizedBox(width: 8),
-                              action,
-                            ],
-                          ],
+                        Text(
+                          community.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontSize: 16,
+                            height: 1.2,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Wrap(
@@ -2198,7 +2207,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                             ),
                           ],
                         ),
-                        if (!community.isJoined && compact) ...[
+                        if ((!community.isJoined || pending) && compact) ...[
                           const SizedBox(height: 2),
                           Wrap(
                             spacing: 8,
@@ -2210,7 +2219,12 @@ class _ExploreTabState extends State<_ExploreTab> {
                       ],
                     ),
                   ),
-                  if (community.isJoined) SpaceRoleIcon(space: community),
+                  if (!compact && (!community.isJoined || pending)) ...[
+                    const SizedBox(width: 8),
+                    action,
+                  ],
+                  if (community.isJoined && !pending)
+                    SpaceRoleIcon(space: community),
                 ],
               );
             },
