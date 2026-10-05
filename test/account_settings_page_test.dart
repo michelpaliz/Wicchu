@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/auth_gateway.dart';
+import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/settings/account_settings_page.dart';
 
 void main() {
@@ -53,6 +54,31 @@ void main() {
 
     expect(auth.linkCalls, 1);
     expect(find.text('Facebook account connected.'), findsOneWidget);
+  });
+
+  testWidgets('updates who can start private conversations', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repository = DemoCommunityRepository();
+    await tester.pumpWidget(
+      MaterialApp(home: AccountSettingsPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Who can message me'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.ensureVisible(find.text('Who can message me'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Who can message me'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('People in my communities'));
+    await tester.pumpAndSettle();
+
+    expect(
+      await repository.getMessagingPrivacy(),
+      MessagingPrivacy.sharedCommunities,
+    );
   });
 
   testWidgets('password accounts reauthenticate before connecting Facebook', (

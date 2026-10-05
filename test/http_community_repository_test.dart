@@ -11,6 +11,39 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
+    if (path == '/api/community/v1/messages/conversations') {
+      return {
+        'conversations': [
+          {
+            'id': 'conversation-1',
+            'otherUser': {'id': 'user-2', 'name': 'Ana', 'avatarUrl': null},
+            'lastMessagePreview': 'Hello',
+            'lastMessageAt': '2026-10-05T10:00:00.000Z',
+            'unreadCount': 2,
+          },
+        ],
+      };
+    }
+    if (path == '/api/community/v1/messages/privacy') {
+      return {'messagingPrivacy': 'shared_communities'};
+    }
+    if (path.startsWith(
+      '/api/community/v1/messages/conversations/conversation-1?',
+    )) {
+      return {
+        'messages': [
+          {
+            'id': 'message-1',
+            'conversationId': 'conversation-1',
+            'senderId': 'user-2',
+            'recipientId': 'current-user',
+            'body': 'Hello',
+            'createdAt': '2026-10-05T10:00:00.000Z',
+          },
+        ],
+        'nextCursor': path.contains('before=') ? null : 'older-message-id',
+      };
+    }
     if (path == '/api/community/v1/me/invitations') {
       return {
         'invitations': [
@@ -113,6 +146,27 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   }) async {
     lastPath = path;
     lastBody = body;
+    if (path == '/api/community/v1/messages/conversations') {
+      return {
+        'conversation': {
+          'id': 'conversation-1',
+          'otherUser': {'id': body?['userId'], 'name': 'Ana'},
+          'unreadCount': 0,
+        },
+      };
+    }
+    if (path == '/api/community/v1/messages/conversations/conversation-1') {
+      return {
+        'message': {
+          'id': 'message-2',
+          'conversationId': 'conversation-1',
+          'senderId': 'current-user',
+          'recipientId': 'user-2',
+          'body': body?['body'],
+          'createdAt': '2026-10-05T10:01:00.000Z',
+        },
+      };
+    }
     if (path == '/api/community/v1/towns/resolve') {
       return {
         'town': {
@@ -148,6 +202,9 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   }) async {
     lastPath = path;
     lastBody = body;
+    if (path == '/api/community/v1/messages/privacy') {
+      return {'messagingPrivacy': body?['messagingPrivacy']};
+    }
     return {
       'community': {
         'id': 'community-1',
@@ -159,9 +216,77 @@ class _RecordingApiClient extends AuthenticatedApiClient {
       },
     };
   }
+
+  @override
+  Future<Map<String, dynamic>> delete(String path) async {
+    lastPath = path;
+    return {'deleted': true};
+  }
 }
 
 void main() {
+  test('direct messaging uses private conversation endpoints', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final conversations = await repository.listDirectConversations();
+    expect(conversations.single.otherUser.name, 'Ana');
+    expect(conversations.single.unreadCount, 2);
+
+    final started = await repository.startDirectConversation('user-2');
+    expect(started.id, 'conversation-1');
+    expect(api.lastBody, {'userId': 'user-2'});
+
+    final messages = await repository.listDirectMessages('conversation-1');
+    expect(messages.messages.single.body, 'Hello');
+    expect(messages.nextCursor, 'older-message-id');
+    final older = await repository.listDirectMessages(
+      'conversation-1',
+      before: messages.nextCursor,
+    );
+    expect(older.nextCursor, isNull);
+    expect(api.lastPath, contains('before=older-message-id'));
+
+    await repository.markDirectConversationRead('conversation-1');
+    expect(
+      api.lastPath,
+      '/api/community/v1/messages/conversations/conversation-1/read',
+    );
+
+    final sent = await repository.sendDirectMessage(
+      'conversation-1',
+      'Private hello',
+    );
+    expect(sent.body, 'Private hello');
+    expect(api.lastBody, {'body': 'Private hello'});
+
+    await repository.reportDirectMessage(
+      'message-1',
+      'Harassment',
+      category: 'harassment',
+    );
+    expect(api.lastPath, '/api/community/v1/messages/message-1/reports');
+    expect(api.lastBody, {'reason': 'Harassment', 'category': 'harassment'});
+
+    await repository.deleteDirectMessage('message-1', everyone: true);
+    expect(api.lastPath, '/api/community/v1/messages/message-1?scope=everyone');
+    await repository.deleteDirectConversation('conversation-1');
+    expect(
+      api.lastPath,
+      '/api/community/v1/messages/conversations/conversation-1',
+    );
+
+    expect(
+      await repository.getMessagingPrivacy(),
+      MessagingPrivacy.sharedCommunities,
+    );
+    expect(
+      await repository.updateMessagingPrivacy(MessagingPrivacy.nobody),
+      MessagingPrivacy.nobody,
+    );
+    expect(api.lastBody, {'messagingPrivacy': 'nobody'});
+  });
+
   test('comment and member reports use their moderation endpoints', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);

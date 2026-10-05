@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -10,6 +12,17 @@ class PresenceService with WidgetsBindingObserver {
 
   io.Socket? _socket;
   bool _started = false;
+  final _chatMessages = StreamController<Map<String, dynamic>>.broadcast();
+  final _chatMessageUpdates =
+      StreamController<Map<String, dynamic>>.broadcast();
+  final _chatTyping = StreamController<Map<String, dynamic>>.broadcast();
+  final _chatReadReceipts = StreamController<Map<String, dynamic>>.broadcast();
+
+  Stream<Map<String, dynamic>> get chatMessages => _chatMessages.stream;
+  Stream<Map<String, dynamic>> get chatMessageUpdates =>
+      _chatMessageUpdates.stream;
+  Stream<Map<String, dynamic>> get chatTyping => _chatTyping.stream;
+  Stream<Map<String, dynamic>> get chatReadReceipts => _chatReadReceipts.stream;
 
   Future<void> start() async {
     if (_started) return;
@@ -23,15 +36,44 @@ class PresenceService with WidgetsBindingObserver {
       'API_BASE_URL',
       defaultValue: 'https://hexora.dev',
     );
-    _socket = io.io(
-      baseUrl,
-      io.OptionBuilder()
-          .setTransports(['websocket'])
-          .setAuth({'token': token})
-          .disableAutoConnect()
-          .enableReconnection()
-          .build(),
-    )..connect();
+    _socket =
+        io.io(
+            baseUrl,
+            io.OptionBuilder()
+                .setTransports(['websocket'])
+                .setAuth({'token': token})
+                .disableAutoConnect()
+                .enableReconnection()
+                .build(),
+          )
+          ..on('chat:message', (value) {
+            if (value is Map) {
+              _chatMessages.add(Map<String, dynamic>.from(value));
+            }
+          })
+          ..on('chat:message_updated', (value) {
+            if (value is Map) {
+              _chatMessageUpdates.add(Map<String, dynamic>.from(value));
+            }
+          })
+          ..on('chat:typing', (value) {
+            if (value is Map) {
+              _chatTyping.add(Map<String, dynamic>.from(value));
+            }
+          })
+          ..on('chat:read', (value) {
+            if (value is Map) {
+              _chatReadReceipts.add(Map<String, dynamic>.from(value));
+            }
+          })
+          ..connect();
+  }
+
+  void sendTyping(String conversationId, bool isTyping) {
+    _socket?.emit('chat:typing', {
+      'conversationId': conversationId,
+      'isTyping': isTyping,
+    });
   }
 
   @override

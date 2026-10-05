@@ -723,7 +723,7 @@ class CommunityReport {
   final DateTime createdAt;
 }
 
-enum PlatformReportTargetType { community, communityAdmin }
+enum PlatformReportTargetType { community, communityAdmin, message }
 
 class PlatformReport {
   const PlatformReport({
@@ -813,3 +813,69 @@ class BlockedUser {
   final String name;
   final String? avatarUrl;
 }
+
+class DirectConversation {
+  const DirectConversation({
+    required this.id,
+    required this.otherUser,
+    required this.unreadCount,
+    this.lastMessagePreview = '',
+    this.lastMessageAt,
+    this.lastMessageMine = false,
+    this.lastMessageRemoved = false,
+  });
+
+  final String id;
+  final WicchuUser otherUser;
+  final String lastMessagePreview;
+  final DateTime? lastMessageAt;
+  final bool lastMessageMine;
+  final bool lastMessageRemoved;
+  final int unreadCount;
+}
+
+class DirectMessage {
+  const DirectMessage({
+    required this.id,
+    required this.conversationId,
+    required this.senderId,
+    required this.recipientId,
+    required this.body,
+    required this.createdAt,
+    this.readAt,
+    this.removedAt,
+  });
+
+  final String id;
+  final String conversationId;
+  final String senderId;
+  final String recipientId;
+  final String body;
+  final DateTime createdAt;
+  final DateTime? readAt;
+  final DateTime? removedAt;
+
+  DirectMessage copyWith({
+    DateTime? readAt,
+    DateTime? removedAt,
+    String? body,
+  }) => DirectMessage(
+    id: id,
+    conversationId: conversationId,
+    senderId: senderId,
+    recipientId: recipientId,
+    body: body ?? this.body,
+    createdAt: createdAt,
+    readAt: readAt ?? this.readAt,
+    removedAt: removedAt ?? this.removedAt,
+  );
+}
+
+class DirectMessagePage {
+  const DirectMessagePage({required this.messages, this.nextCursor});
+
+  final List<DirectMessage> messages;
+  final String? nextCursor;
+}
+
+enum MessagingPrivacy { everyone, sharedCommunities, nobody }

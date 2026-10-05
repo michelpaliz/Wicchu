@@ -1247,6 +1247,38 @@ const _spanish = <String, String>{
   'A Wicchu account already uses this email. Sign in with email instead.':
       'Una cuenta de Wicchu ya usa este correo. Inicia sesión con correo.',
   'Confirm your identity': 'Confirma tu identidad',
+  'Messages': 'Mensajes',
+  'Message': 'Mensaje',
+  'Private conversations': 'Conversaciones privadas',
+  'No messages yet': 'Aún no hay mensajes',
+  'Open a member profile and tap Message to start a conversation.':
+      'Abre el perfil de un miembro y toca Mensaje para iniciar una conversación.',
+  'Start the conversation': 'Inicia la conversación',
+  'Write a message': 'Escribe un mensaje',
+  'Send': 'Enviar',
+  'Say hello': 'Di hola',
+  'Report message': 'Reportar mensaje',
+  'Direct message': 'Mensaje directo',
+  'Direct messages': 'Mensajes directos',
+  'Warn user': 'Advertir al usuario',
+  'Remove message': 'Eliminar mensaje',
+  'Load older messages': 'Cargar mensajes anteriores',
+  'Delete conversation': 'Eliminar conversación',
+  'Delete conversation?': '¿Eliminar conversación?',
+  'This removes the conversation from your account only.':
+      'Esto elimina la conversación solamente de tu cuenta.',
+  'Delete for me': 'Eliminar para mí',
+  'Delete for everyone': 'Eliminar para todos',
+  'Message removed': 'Mensaje eliminado',
+  'Typing…': 'Escribiendo…',
+  'Who can message me': 'Quién puede enviarme mensajes',
+  'Everyone': 'Todos',
+  'People in my communities': 'Personas de mis comunidades',
+  'Nobody': 'Nadie',
+  'Only people who share a community with you can start a new conversation.':
+      'Solo las personas que comparten una comunidad contigo pueden iniciar una conversación nueva.',
+  'You will no longer be able to see or send messages in this conversation.':
+      'Ya no podrás ver ni enviar mensajes en esta conversación.',
   'Authentication credentials are stored securely on this device.':
       'Las credenciales de acceso se guardan de forma segura en este dispositivo.',
   'Data deletion': 'Eliminación de datos',

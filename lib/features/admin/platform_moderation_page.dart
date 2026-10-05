@@ -100,9 +100,11 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
         ? 'Safety request'
         : isBanAppeal
         ? 'Ban appeal'
-        : report.targetType == PlatformReportTargetType.community
-        ? 'Community'
-        : 'Community admin';
+        : switch (report.targetType) {
+            PlatformReportTargetType.community => 'Community',
+            PlatformReportTargetType.communityAdmin => 'Community admin',
+            PlatformReportTargetType.message => 'Direct message',
+          };
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       child: Padding(
@@ -126,7 +128,8 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
-            Text('${context.tr('Community')}: ${report.communityName}'),
+            if (report.targetType != PlatformReportTargetType.message)
+              Text('${context.tr('Community')}: ${report.communityName}'),
             Text('${context.tr('Reporter')}: ${report.reporterName}'),
             Text(
               '${context.tr('Submitted')}: ${MaterialLocalizations.of(context).formatMediumDate(report.createdAt.toLocal())}',
@@ -216,7 +219,29 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                       child: Text(context.tr('Suspend user')),
                     ),
                   ],
-                  if (!isBanAppeal)
+                  if (report.targetType ==
+                      PlatformReportTargetType.message) ...[
+                    OutlinedButton(
+                      onPressed: _saving.contains(report.id)
+                          ? null
+                          : () => _decide(report, 'warn'),
+                      child: Text(context.tr('Warn user')),
+                    ),
+                    FilledButton.tonal(
+                      onPressed: _saving.contains(report.id)
+                          ? null
+                          : () => _decide(report, 'remove_message'),
+                      child: Text(context.tr('Remove message')),
+                    ),
+                    FilledButton(
+                      onPressed: _saving.contains(report.id)
+                          ? null
+                          : () => _decide(report, 'suspend_user'),
+                      child: Text(context.tr('Suspend user')),
+                    ),
+                  ],
+                  if (!isBanAppeal &&
+                      report.targetType != PlatformReportTargetType.message)
                     FilledButton(
                       onPressed: _saving.contains(report.id)
                           ? null
@@ -294,7 +319,8 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
 
   String _actionLabel(String action) => switch (action) {
     'dismiss' => 'Dismiss report',
-    'warn' => 'Warn admin',
+    'warn' => 'Warn user',
+    'remove_message' => 'Remove message',
     'restore_membership' => 'Restore membership',
     'close_request' => 'Resolve request',
     'remove_admin_role' => 'Remove admin role',

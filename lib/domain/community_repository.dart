@@ -124,6 +124,23 @@ abstract interface class CommunityRepository {
   Future<List<BlockedUser>> listBlockedUsers();
   Future<void> blockUser(String userId);
   Future<void> unblockUser(String userId);
+  Future<List<DirectConversation>> listDirectConversations();
+  Future<DirectConversation> startDirectConversation(String userId);
+  Future<DirectMessagePage> listDirectMessages(
+    String conversationId, {
+    String? before,
+  });
+  Future<void> markDirectConversationRead(String conversationId);
+  Future<DirectMessage> sendDirectMessage(String conversationId, String body);
+  Future<void> deleteDirectMessage(String messageId, {required bool everyone});
+  Future<void> deleteDirectConversation(String conversationId);
+  Future<MessagingPrivacy> getMessagingPrivacy();
+  Future<MessagingPrivacy> updateMessagingPrivacy(MessagingPrivacy value);
+  Future<void> reportDirectMessage(
+    String messageId,
+    String reason, {
+    required String category,
+  });
   Future<List<CommunityPost>> listMemberPosts(
     String userId, {
     String kind = 'all',

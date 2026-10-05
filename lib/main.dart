@@ -13,6 +13,7 @@ import 'domain/community_repository.dart';
 import 'features/auth/login_page.dart';
 import 'features/main/main_shell.dart';
 import 'features/community/shared_post_page.dart';
+import 'features/chat/direct_chat_pages.dart';
 import 'features/community/community_invitations_page.dart';
 import 'features/community/community_profile_page.dart';
 import 'features/promotions/promotions_page.dart';
@@ -54,6 +55,7 @@ class _WicchuAppState extends State<WicchuApp> {
   bool _pendingInvitations = false;
   String? _pendingInvitationToken;
   bool _pendingPromotions = false;
+  String? _pendingChatSenderId;
   late Future<bool> _hasSession;
   String _languageCode = kIsWeb ? 'es' : 'en';
   bool _languageChangedByUser = false;
@@ -85,6 +87,14 @@ class _WicchuAppState extends State<WicchuApp> {
       languageCode: _languageCode,
       onTap: (data) {
         final type = data['type']?.toString() ?? '';
+        if (type == 'direct_message') {
+          final senderId = data['senderId']?.toString();
+          if (senderId?.isNotEmpty == true && mounted) {
+            setState(() => _pendingChatSenderId = senderId);
+            _openPendingPost();
+          }
+          return;
+        }
         if (type.startsWith('promotion_')) {
           if (mounted) setState(() => _pendingPromotions = true);
           _openPendingPost();
@@ -120,21 +130,28 @@ class _WicchuAppState extends State<WicchuApp> {
         };
         final type = data['type']?.toString() ?? '';
         final postId = data['postId']?.toString();
+        final senderId = data['senderId']?.toString();
+        final canOpenChat =
+            type == 'direct_message' && senderId?.isNotEmpty == true;
+        final canOpenPost =
+            openableTypes.contains(type) && postId?.isNotEmpty == true;
         _scaffoldMessengerKey.currentState
           ?..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
               content: Text(message),
-              action:
-                  !openableTypes.contains(type) ||
-                      postId == null ||
-                      postId.isEmpty
+              action: !canOpenChat && !canOpenPost
                   ? null
                   : SnackBarAction(
                       label: 'View',
                       onPressed: () {
+                        if (canOpenChat) {
+                          setState(() => _pendingChatSenderId = senderId);
+                          _openPendingPost();
+                          return;
+                        }
                         _queueLink(
-                          Uri(scheme: 'wicchu', host: 'posts', path: postId),
+                          Uri(scheme: 'wicchu', host: 'posts', path: postId!),
                         );
                         _openPendingPost();
                       },
@@ -247,6 +264,31 @@ class _WicchuAppState extends State<WicchuApp> {
   }
 
   void _openPendingPost() {
+    final chatSenderId = _pendingChatSenderId;
+    if (chatSenderId != null) {
+      _pendingChatSenderId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          final conversation = await widget.repository.startDirectConversation(
+            chatSenderId,
+          );
+          if (!mounted) return;
+          await _navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => DirectChatPage(
+                repository: widget.repository,
+                conversation: conversation,
+              ),
+            ),
+          );
+        } catch (error) {
+          _scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(error.toString())),
+          );
+        }
+      });
+      return;
+    }
     final communityId = _pendingCommunityId;
     if (communityId != null) {
       _pendingCommunityId = null;

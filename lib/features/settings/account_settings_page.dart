@@ -8,6 +8,7 @@ import '../../domain/community_repository.dart';
 import '../../domain/community_models.dart';
 import '../../config/wicchu_urls.dart';
 import '../../domain/auth_gateway.dart';
+import '../chat/direct_chat_pages.dart';
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({
@@ -31,6 +32,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool _locationDiscovery = true;
   bool _showOnlineStatus = true;
   bool _facebookLinked = false;
+  MessagingPrivacy _messagingPrivacy = MessagingPrivacy.everyone;
   bool _linkingFacebook = false;
   bool _loaded = false;
 
@@ -49,11 +51,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         widget.authGateway is FacebookAccountLinker
             ? (widget.authGateway as FacebookAccountLinker).isFacebookLinked()
             : Future<bool?>.value(null),
+        widget.repository.getMessagingPrivacy(),
       ]);
       final preferences = results[0] as SharedPreferences;
       final notifications = results[1] as NotificationPreferences;
       final socialLinks = results[2] as SocialLinks;
       final facebookLinked = results[3] as bool?;
+      final messagingPrivacy = results[4] as MessagingPrivacy;
       if (!mounted) return;
       setState(() {
         _postNotifications = notifications.postActivity;
@@ -62,6 +66,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         _locationDiscovery = preferences.getBool('location_discovery') ?? true;
         _showOnlineStatus = socialLinks.showOnlineStatus;
         _facebookLinked = facebookLinked ?? false;
+        _messagingPrivacy = messagingPrivacy;
         _loaded = true;
       });
     } catch (error) {
@@ -195,6 +200,35 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.chat_bubble_outline),
+                  trailing: const Icon(Icons.chevron_right),
+                  title: Text(context.tr('Messages')),
+                  subtitle: Text(context.tr('Private conversations')),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ConversationListPage(repository: widget.repository),
+                    ),
+                  ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.mark_chat_unread_outlined),
+                  title: Text(context.tr('Who can message me')),
+                  subtitle: Text(
+                    context.tr(switch (_messagingPrivacy) {
+                      MessagingPrivacy.everyone => 'Everyone',
+                      MessagingPrivacy.sharedCommunities =>
+                        'People in my communities',
+                      MessagingPrivacy.nobody => 'Nobody',
+                    }),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _chooseMessagingPrivacy,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.block_outlined),
                   trailing: const Icon(Icons.chevron_right),
                   title: Text(context.tr('Blocked users')),
@@ -306,6 +340,58 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
             ],
           ),
   );
+
+  Future<void> _chooseMessagingPrivacy() async {
+    final selected = await showDialog<MessagingPrivacy>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(dialogContext.tr('Who can message me')),
+        children: MessagingPrivacy.values
+            .map(
+              (value) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(dialogContext, value),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    value == _messagingPrivacy
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                  ),
+                  title: Text(
+                    dialogContext.tr(switch (value) {
+                      MessagingPrivacy.everyone => 'Everyone',
+                      MessagingPrivacy.sharedCommunities =>
+                        'People in my communities',
+                      MessagingPrivacy.nobody => 'Nobody',
+                    }),
+                  ),
+                  subtitle: value == MessagingPrivacy.sharedCommunities
+                      ? Text(
+                          dialogContext.tr(
+                            'Only people who share a community with you can start a new conversation.',
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (selected == null || selected == _messagingPrivacy) return;
+    final previous = _messagingPrivacy;
+    setState(() => _messagingPrivacy = selected);
+    try {
+      final saved = await widget.repository.updateMessagingPrivacy(selected);
+      if (mounted) setState(() => _messagingPrivacy = saved);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _messagingPrivacy = previous);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
 
   Widget _headerIcon(IconData icon) => CircleAvatar(
     radius: 22,

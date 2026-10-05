@@ -16,6 +16,7 @@ import '../community/post_share.dart';
 import '../community/create_post_page.dart';
 import '../community/post_card.dart';
 import '../community/report_dialog.dart';
+import '../chat/direct_chat_pages.dart';
 
 class MemberProfilePage extends StatefulWidget {
   const MemberProfilePage({
@@ -549,6 +550,12 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                       tooltip: context.tr('Find friends'),
                       onPressed: _findPeople,
                     ),
+                  if (!own)
+                    _profileAction(
+                      icon: Icons.chat_bubble_outline,
+                      tooltip: context.tr('Message'),
+                      onPressed: _openChat,
+                    ),
                   if (!profile.socialLinks.isEmpty)
                     IconButton(
                       tooltip: context.tr('Social links'),
@@ -639,6 +646,30 @@ class _MemberProfilePageState extends State<MemberProfilePage>
         ),
       ),
     );
+  }
+
+  Future<void> _openChat() async {
+    try {
+      final conversation = await widget.repository.startDirectConversation(
+        widget.userId,
+      );
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DirectChatPage(
+            repository: widget.repository,
+            conversation: conversation,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
   }
 
   Future<void> _blockUser() async {

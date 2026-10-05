@@ -87,6 +87,157 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<List<DirectConversation>> listDirectConversations() async {
+    final body = await _api.get('/api/community/v1/messages/conversations');
+    return _list(
+      body,
+      'conversations',
+    ).map(_directConversationFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<DirectConversation> startDirectConversation(String userId) async {
+    final body = await _api.post(
+      '/api/community/v1/messages/conversations',
+      body: {'userId': userId},
+    );
+    return _directConversationFromJson(_object(body, 'conversation'));
+  }
+
+  @override
+  Future<DirectMessagePage> listDirectMessages(
+    String conversationId, {
+    String? before,
+  }) async {
+    final cursor = before == null
+        ? ''
+        : '&before=${Uri.encodeQueryComponent(before)}';
+    final body = await _api.get(
+      '/api/community/v1/messages/conversations/$conversationId?limit=50$cursor',
+    );
+    return DirectMessagePage(
+      messages: _list(
+        body,
+        'messages',
+      ).map(_directMessageFromJson).toList(growable: false),
+      nextCursor: body['nextCursor']?.toString(),
+    );
+  }
+
+  @override
+  Future<void> markDirectConversationRead(String conversationId) async {
+    await _api.patch(
+      '/api/community/v1/messages/conversations/$conversationId/read',
+    );
+  }
+
+  @override
+  Future<DirectMessage> sendDirectMessage(
+    String conversationId,
+    String body,
+  ) async {
+    final response = await _api.post(
+      '/api/community/v1/messages/conversations/$conversationId',
+      body: {'body': body},
+    );
+    return _directMessageFromJson(_object(response, 'message'));
+  }
+
+  @override
+  Future<void> deleteDirectMessage(
+    String messageId, {
+    required bool everyone,
+  }) async {
+    await _api.delete(
+      '/api/community/v1/messages/$messageId?scope=${everyone ? 'everyone' : 'me'}',
+    );
+  }
+
+  @override
+  Future<void> deleteDirectConversation(String conversationId) async {
+    await _api.delete(
+      '/api/community/v1/messages/conversations/$conversationId',
+    );
+  }
+
+  @override
+  Future<MessagingPrivacy> getMessagingPrivacy() async {
+    final body = await _api.get('/api/community/v1/messages/privacy');
+    return _messagingPrivacy(body['messagingPrivacy']);
+  }
+
+  @override
+  Future<MessagingPrivacy> updateMessagingPrivacy(
+    MessagingPrivacy value,
+  ) async {
+    final body = await _api.patch(
+      '/api/community/v1/messages/privacy',
+      body: {'messagingPrivacy': _messagingPrivacyValue(value)},
+    );
+    return _messagingPrivacy(body['messagingPrivacy']);
+  }
+
+  static MessagingPrivacy _messagingPrivacy(Object? value) => switch (value) {
+    'shared_communities' => MessagingPrivacy.sharedCommunities,
+    'nobody' => MessagingPrivacy.nobody,
+    _ => MessagingPrivacy.everyone,
+  };
+
+  static String _messagingPrivacyValue(MessagingPrivacy value) =>
+      switch (value) {
+        MessagingPrivacy.everyone => 'everyone',
+        MessagingPrivacy.sharedCommunities => 'shared_communities',
+        MessagingPrivacy.nobody => 'nobody',
+      };
+
+  @override
+  Future<void> reportDirectMessage(
+    String messageId,
+    String reason, {
+    required String category,
+  }) async {
+    await _api.post(
+      '/api/community/v1/messages/$messageId/reports',
+      body: {'reason': reason, 'category': category},
+    );
+  }
+
+  static DirectConversation _directConversationFromJson(
+    Map<String, dynamic> json,
+  ) {
+    final user = json['otherUser'] is Map<String, dynamic>
+        ? json['otherUser'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    return DirectConversation(
+      id: json['id']?.toString() ?? '',
+      otherUser: WicchuUser(
+        id: user['id']?.toString() ?? '',
+        name: user['name']?.toString() ?? 'Wicchu member',
+        avatarUrl: user['avatarUrl'] as String?,
+      ),
+      lastMessagePreview: json['lastMessagePreview']?.toString() ?? '',
+      lastMessageAt: _optionalDate(json['lastMessageAt']),
+      lastMessageMine: json['lastMessageMine'] == true,
+      lastMessageRemoved: json['lastMessageRemoved'] == true,
+      unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  static DirectMessage _directMessageFromJson(Map<String, dynamic> json) =>
+      DirectMessage(
+        id: json['id']?.toString() ?? '',
+        conversationId: json['conversationId']?.toString() ?? '',
+        senderId: json['senderId']?.toString() ?? '',
+        recipientId: json['recipientId']?.toString() ?? '',
+        body: json['body']?.toString() ?? '',
+        createdAt:
+            _optionalDate(json['createdAt']) ??
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+        readAt: _optionalDate(json['readAt']),
+        removedAt: _optionalDate(json['removedAt']),
+      );
+
+  @override
   Future<SocialLinks> getMySocialLinks() async {
     final body = await _api.get('/api/community/v1/me/social-links');
     return _socialLinksFromJson({
@@ -1071,12 +1222,18 @@ class HttpCommunityRepository implements CommunityRepository {
               : const <String, dynamic>{};
           return PlatformReport(
             id: _id(json),
-            targetType: json['targetType'] == 'community_admin'
-                ? PlatformReportTargetType.communityAdmin
-                : PlatformReportTargetType.community,
+            targetType: switch (json['targetType']) {
+              'community_admin' => PlatformReportTargetType.communityAdmin,
+              'message' => PlatformReportTargetType.message,
+              _ => PlatformReportTargetType.community,
+            },
             targetId: json['targetId']?.toString() ?? '',
             communityId: json['communityId']?.toString() ?? '',
-            communityName: community['name']?.toString() ?? 'Community',
+            communityName:
+                community['name']?.toString() ??
+                (json['targetType'] == 'message'
+                    ? 'Direct messages'
+                    : 'Community'),
             reporterName:
                 reporter['displayName']?.toString() ??
                 reporter['name']?.toString() ??

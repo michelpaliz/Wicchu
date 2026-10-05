@@ -976,6 +976,78 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<void> unblockUser(String userId) async =>
       _blockedUsers.removeWhere((item) => item.userId == userId);
 
+  final List<DirectMessage> _directMessages = [];
+
+  @override
+  Future<List<DirectConversation>> listDirectConversations() async => const [];
+
+  @override
+  Future<DirectConversation> startDirectConversation(String userId) async =>
+      DirectConversation(
+        id: 'demo-$userId',
+        otherUser: WicchuUser(id: userId, name: 'Wicchu member'),
+        unreadCount: 0,
+      );
+
+  @override
+  Future<DirectMessagePage> listDirectMessages(
+    String conversationId, {
+    String? before,
+  }) async => DirectMessagePage(
+    messages: _directMessages
+        .where((item) => item.conversationId == conversationId)
+        .toList(growable: false),
+  );
+
+  @override
+  Future<void> markDirectConversationRead(String conversationId) async {}
+
+  @override
+  Future<DirectMessage> sendDirectMessage(
+    String conversationId,
+    String body,
+  ) async {
+    final message = DirectMessage(
+      id: 'demo-message-${_directMessages.length + 1}',
+      conversationId: conversationId,
+      senderId: 'user-1',
+      recipientId: 'demo-recipient',
+      body: body,
+      createdAt: DateTime.now(),
+    );
+    _directMessages.add(message);
+    return message;
+  }
+
+  @override
+  Future<void> deleteDirectMessage(
+    String messageId, {
+    required bool everyone,
+  }) async => _directMessages.removeWhere((item) => item.id == messageId);
+
+  @override
+  Future<void> deleteDirectConversation(String conversationId) async =>
+      _directMessages.removeWhere(
+        (item) => item.conversationId == conversationId,
+      );
+
+  MessagingPrivacy _messagingPrivacy = MessagingPrivacy.everyone;
+
+  @override
+  Future<MessagingPrivacy> getMessagingPrivacy() async => _messagingPrivacy;
+
+  @override
+  Future<MessagingPrivacy> updateMessagingPrivacy(
+    MessagingPrivacy value,
+  ) async => _messagingPrivacy = value;
+
+  @override
+  Future<void> reportDirectMessage(
+    String messageId,
+    String reason, {
+    required String category,
+  }) async {}
+
   static String _iconFor(String name) => switch (name) {
     'News' => '📢',
     'Marketplace' => '🛒',
