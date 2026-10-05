@@ -765,12 +765,18 @@ const _spanish = <String, String>{
   'Not now': 'Ahora no',
   'Share post': 'Compartir publicación',
   'Share to Instagram or Facebook': 'Compartir en Instagram o Facebook',
+  'Create an Instagram or Facebook post':
+      'Crear una publicación en Instagram o Facebook',
   'Share Wicchu link': 'Compartir enlace de Wicchu',
   'Preparing media…': 'Preparando contenido…',
   'Exports the original media. Choose the destination in the next screen.':
       'Exporta el contenido original. Elige el destino en la siguiente pantalla.',
   'Caption copied. Choose Instagram or Facebook and paste it if needed.':
       'Texto copiado. Elige Instagram o Facebook y pégalo si es necesario.',
+  'Exports only the original media so the social app can open its post composer.':
+      'Exporta únicamente el contenido original para que la aplicación social abra su editor de publicaciones.',
+  'Caption copied. In Instagram, choose Feed and paste the caption.':
+      'Texto copiado. En Instagram, elige Feed y pega el texto.',
   'Bold': 'Negrita',
   'bold text': 'texto en negrita',
   'Italic': 'Cursiva',

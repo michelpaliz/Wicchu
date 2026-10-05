@@ -82,7 +82,13 @@ void main() {
     await tester.tap(find.text('Open share'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Share to Instagram or Facebook'), findsOneWidget);
+    expect(find.text('Create an Instagram or Facebook post'), findsOneWidget);
+    expect(
+      find.text(
+        'Exports only the original media so the social app can open its post composer.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Share Wicchu link'), findsOneWidget);
   });
 }

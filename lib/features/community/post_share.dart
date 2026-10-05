@@ -71,8 +71,7 @@ Future<void> _shareMedia(BuildContext context, CommunityPost post) async {
     if (!context.mounted) return;
     await SharePlus.instance.share(
       ShareParams(
-        title: context.tr('Share to Instagram or Facebook'),
-        text: socialPostCaption(post),
+        title: context.tr('Create an Instagram or Facebook post'),
         files: prepared.files,
         fileNameOverrides: prepared.fileNames,
         sharePositionOrigin: _shareOrigin(context),
@@ -83,7 +82,7 @@ Future<void> _shareMedia(BuildContext context, CommunityPost post) async {
         SnackBar(
           content: Text(
             context.tr(
-              'Caption copied. Choose Instagram or Facebook and paste it if needed.',
+              'Caption copied. In Instagram, choose Feed and paste the caption.',
             ),
           ),
         ),
@@ -117,10 +116,12 @@ Future<void> sharePost(
           if (post.media.isNotEmpty)
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: Text(sheetContext.tr('Share to Instagram or Facebook')),
+              title: Text(
+                sheetContext.tr('Create an Instagram or Facebook post'),
+              ),
               subtitle: Text(
                 sheetContext.tr(
-                  'Exports the original media. Choose the destination in the next screen.',
+                  'Exports only the original media so the social app can open its post composer.',
                 ),
               ),
               onTap: () => Navigator.pop(sheetContext, 'media'),
