@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../domain/community_models.dart';
 import '../../localization/app_language.dart';
+import '../../widgets/wicchu_network_image.dart';
 
 Future<void> openPostMediaViewer(
   BuildContext context,
@@ -53,7 +55,12 @@ class PostMediaGallery extends StatelessWidget {
                           preview: true,
                         )
                       else
-                        _MediaImage(url: media[index].url, fit: BoxFit.cover),
+                        _MediaImage(
+                          url: media[index].previewUrl,
+                          cacheKey: media[index].previewCacheKey,
+                          fit: BoxFit.cover,
+                          decodeWidth: 1200,
+                        ),
                       if (media[index].type == 'video')
                         const Center(
                           child: CircleAvatar(
@@ -175,6 +182,7 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
                     : _ZoomableImage(
                         key: ValueKey('image-$index-${item.url}'),
                         url: item.url,
+                        cacheKey: item.blobName,
                         active: index == _index,
                         onZoomChanged: (zoomed) {
                           if (index == _index && zoomed != _zoomed) {
@@ -229,10 +237,12 @@ class _ZoomableImage extends StatefulWidget {
   const _ZoomableImage({
     super.key,
     required this.url,
+    this.cacheKey,
     required this.active,
     required this.onZoomChanged,
   });
   final String url;
+  final String? cacheKey;
   final bool active;
   final ValueChanged<bool> onZoomChanged;
   @override
@@ -290,16 +300,27 @@ class _ZoomableImageState extends State<_ZoomableImage> {
       onInteractionUpdate: (_) =>
           widget.onZoomChanged(_transform.value.getMaxScaleOnAxis() > 1.01),
       child: SizedBox.expand(
-        child: _MediaImage(url: widget.url, fit: BoxFit.contain),
+        child: _MediaImage(
+          url: widget.url,
+          cacheKey: widget.cacheKey,
+          fit: BoxFit.contain,
+        ),
       ),
     ),
   );
 }
 
 class _MediaImage extends StatefulWidget {
-  const _MediaImage({required this.url, required this.fit});
+  const _MediaImage({
+    required this.url,
+    required this.fit,
+    this.cacheKey,
+    this.decodeWidth,
+  });
   final String url;
   final BoxFit fit;
+  final String? cacheKey;
+  final int? decodeWidth;
   @override
   State<_MediaImage> createState() => _MediaImageState();
 }
@@ -307,16 +328,22 @@ class _MediaImage extends StatefulWidget {
 class _MediaImageState extends State<_MediaImage> {
   int _attempt = 0;
   @override
-  Widget build(BuildContext context) => Image.network(
-    widget.url,
+  Widget build(BuildContext context) => WicchuNetworkImage(
     key: ValueKey('${widget.url}-$_attempt'),
+    url: widget.url,
+    cacheKey: widget.cacheKey,
     fit: widget.fit,
-    loadingBuilder: (_, child, progress) => progress == null
-        ? child
-        : const Center(child: CircularProgressIndicator()),
-    errorBuilder: (_, _, _) => _MediaError(
+    decodeWidth: widget.decodeWidth,
+    loadingBuilder: (_) => const ColoredBox(
+      color: Color(0x11000000),
+      child: Center(child: Icon(Icons.image_outlined, color: Colors.white54)),
+    ),
+    errorBuilder: (_) => _MediaError(
       onRetry: () async {
-        await NetworkImage(widget.url).evict();
+        await CachedNetworkImage.evictFromCache(
+          widget.url,
+          cacheKey: stableImageCacheKey(widget.url, cacheKey: widget.cacheKey),
+        );
         if (mounted) setState(() => _attempt++);
       },
     ),

@@ -499,11 +499,23 @@ class CommunityCategory {
 }
 
 class PostMedia {
-  const PostMedia({required this.url, required this.type, this.blobName});
+  const PostMedia({
+    required this.url,
+    required this.type,
+    this.blobName,
+    this.thumbnailUrl,
+    this.thumbnailBlobName,
+  });
 
   final String url;
   final String type;
   final String? blobName;
+  final String? thumbnailUrl;
+  final String? thumbnailBlobName;
+
+  String get previewUrl =>
+      thumbnailUrl?.isNotEmpty == true ? thumbnailUrl! : url;
+  String? get previewCacheKey => thumbnailBlobName ?? blobName;
 }
 
 class PostPromotion {

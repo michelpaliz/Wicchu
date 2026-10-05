@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
+import '../../widgets/wicchu_network_image.dart';
 
 class CommunityAvatar extends StatelessWidget {
   const CommunityAvatar({super.key, required this.community, this.radius = 24});
@@ -28,12 +29,15 @@ class CommunityAvatar extends StatelessWidget {
       child: url == null || url.isEmpty
           ? placeholder
           : ClipOval(
-              child: Image.network(
-                url,
+              child: WicchuNetworkImage(
+                url: url,
                 width: radius * 2,
                 height: radius * 2,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Center(child: placeholder),
+                decodeWidth:
+                    (radius * 2 * MediaQuery.devicePixelRatioOf(context))
+                        .ceil(),
+                errorBuilder: (_) => Center(child: placeholder),
               ),
             ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'wicchu_network_image.dart';
 
 import '../domain/community_models.dart';
 import '../localization/app_language.dart';
@@ -90,10 +91,12 @@ class ProfilePostTile extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (photo != null)
-                Image.network(
-                  photo.url,
+                WicchuNetworkImage(
+                  url: photo.previewUrl,
+                  cacheKey: photo.previewCacheKey,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => fallback,
+                  decodeWidth: 720,
+                  errorBuilder: (_) => fallback,
                 )
               else
                 fallback,

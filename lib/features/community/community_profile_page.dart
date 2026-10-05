@@ -1,6 +1,7 @@
 import '../../widgets/profile_link_button.dart';
 import 'post_collection_page.dart';
 import '../../widgets/profile_post_grid.dart';
+import '../../widgets/wicchu_network_image.dart';
 import '../../widgets/block_visibility_listener.dart';
 import 'business_service_icon.dart';
 import 'post_rules_review_page.dart';
@@ -1290,10 +1291,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     color: scheme.primaryContainer,
                     child: _community.coverImageUrl == null
                         ? null
-                        : Image.network(
-                            _community.coverImageUrl!,
+                        : WicchuNetworkImage(
+                            url: _community.coverImageUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                            decodeWidth: 1600,
+                            errorBuilder: (_) => const SizedBox.shrink(),
                           ),
                   ),
                   _community.coverImageUrl,
@@ -3822,7 +3824,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               onTap: () =>
                   openPostMediaViewer(context, media, initialIndex: index),
               child: item.type == 'image'
-                  ? Image.network(item.url, fit: BoxFit.cover)
+                  ? WicchuNetworkImage(
+                      url: item.previewUrl,
+                      cacheKey: item.previewCacheKey,
+                      fit: BoxFit.cover,
+                      decodeWidth: 720,
+                    )
                   : Container(
                       color: Theme.of(context).colorScheme.surfaceContainerHigh,
                       child: const Icon(Icons.play_circle_outline, size: 40),

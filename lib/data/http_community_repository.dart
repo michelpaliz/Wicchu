@@ -1057,6 +1057,11 @@ class HttpCommunityRepository implements CommunityRepository {
       url: _mediaUrl(media['url'] as String?, media['blobName']) ?? '',
       type: media['type'] as String? ?? 'image',
       blobName: media['blobName'] as String?,
+      thumbnailUrl: _mediaUrl(
+        media['thumbnailUrl'] as String?,
+        media['thumbnailBlobName'],
+      ),
+      thumbnailBlobName: media['thumbnailBlobName'] as String?,
     );
   }
 
@@ -1698,6 +1703,11 @@ class HttpCommunityRepository implements CommunityRepository {
               url: _mediaUrl(item['url'] as String?, item['blobName']) ?? '',
               type: item['type'] as String? ?? 'image',
               blobName: item['blobName'] as String?,
+              thumbnailUrl: _mediaUrl(
+                item['thumbnailUrl'] as String?,
+                item['thumbnailBlobName'],
+              ),
+              thumbnailBlobName: item['thumbnailBlobName'] as String?,
             ),
           )
           .toList(growable: false),

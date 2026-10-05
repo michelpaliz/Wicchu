@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/wicchu_network_image.dart';
 
 class UserAvatar extends StatelessWidget {
   const UserAvatar({
@@ -38,10 +39,13 @@ class UserAvatar extends StatelessWidget {
           color: backgroundColor ?? theme.colorScheme.primaryContainer,
         ),
         child: canLoadImage
-            ? Image.network(
-                uri.toString(),
+            ? WicchuNetworkImage(
+                url: uri.toString(),
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => fallback,
+                decodeWidth:
+                    (radius * 2 * MediaQuery.devicePixelRatioOf(context))
+                        .ceil(),
+                errorBuilder: (_) => fallback,
               )
             : fallback,
       ),
