@@ -6,6 +6,7 @@ import 'package:wicchu/features/admin/admin_management_pages.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
 
 class _BanFlowRepository extends DemoCommunityRepository {
+  MembershipStatus memberStatus = MembershipStatus.active;
   String? action;
   String? publicReason;
   String? internalNote;
@@ -21,7 +22,7 @@ class _BanFlowRepository extends DemoCommunityRepository {
       userId: 'member-1',
       communityId: communityId,
       role: CommunityRole.member,
-      status: MembershipStatus.active,
+      status: memberStatus,
       joinedAt: DateTime.utc(2026),
       name: 'Test member',
     ),
@@ -49,6 +50,32 @@ class _BanFlowRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets('admin can unban a member directly from the member list', (
+    tester,
+  ) async {
+    final repository = _BanFlowRepository()
+      ..memberStatus = MembershipStatus.banned;
+    final community = (await repository.listJoinedCommunities()).first;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemberManagementPage(
+          community: community,
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Unban'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Unban').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.action, 'unban');
+    expect(find.text('Member unbanned'), findsOneWidget);
+  });
+
   testWidgets('admin ban form separates member reason and internal note', (
     tester,
   ) async {

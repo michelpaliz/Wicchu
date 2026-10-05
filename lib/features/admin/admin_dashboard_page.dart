@@ -12,6 +12,7 @@ import 'rule_management_page.dart';
 import '../community/community_invitations_page.dart';
 import '../community/community_avatar.dart';
 import 'community_insights_page.dart';
+import 'removed_posts_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({
@@ -333,6 +334,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 description: 'Review content and manage reports',
                 onTap: () => _openQueue(
                   ReportsQueuePage(
+                    community: community,
+                    repository: repository,
+                  ),
+                ),
+              ),
+              _MenuRow(
+                icon: Icons.restore_page_outlined,
+                label: 'Removed posts',
+                description: 'Review and restore posts removed by moderators',
+                onTap: () => _openQueue(
+                  RemovedPostsPage(
                     community: community,
                     repository: repository,
                   ),

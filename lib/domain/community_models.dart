@@ -610,6 +610,8 @@ class CommunityPost {
     this.poll,
     this.mentionedUserIds = const [],
     this.isAnonymous = false,
+    this.moderationReason = '',
+    this.reviewedAt,
   });
 
   final String id;
@@ -632,6 +634,8 @@ class CommunityPost {
   final PostPoll? poll;
   final List<String> mentionedUserIds;
   final bool isAnonymous;
+  final String moderationReason;
+  final DateTime? reviewedAt;
 }
 
 enum PromotionStatus { pending, active, rejected, completed, cancelled }

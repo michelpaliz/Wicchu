@@ -1502,6 +1502,26 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<List<CommunityPost>> listRemovedPosts(String communityId) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/admin/removed-posts',
+    );
+    return _list(body, 'posts').map(_postFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<void> restorePost(
+    String communityId,
+    String postId, {
+    required String reason,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/communities/$communityId/admin/posts/$postId/restore',
+      body: {'reason': reason},
+    );
+  }
+
+  @override
   Future<void> moderatePost(
     String communityId,
     String postId, {
@@ -1858,7 +1878,7 @@ class HttpCommunityRepository implements CommunityRepository {
           .toList(growable: false),
       status: switch (json['status']) {
         'pending_approval' || 'pendingApproval' => PostStatus.pendingApproval,
-        'removed' => PostStatus.removed,
+        'removed' || 'rejected' => PostStatus.removed,
         _ => PostStatus.published,
       },
       createdAt:
@@ -1880,6 +1900,13 @@ class HttpCommunityRepository implements CommunityRepository {
           .map((value) => value.toString())
           .toList(growable: false),
       isAnonymous: authorJson['isAnonymous'] as bool? ?? false,
+      moderationReason:
+          (json['moderation'] as Map<String, dynamic>?)?['reason']
+              ?.toString() ??
+          '',
+      reviewedAt: _optionalDate(
+        (json['moderation'] as Map<String, dynamic>?)?['reviewedAt'],
+      ),
     );
   }
 

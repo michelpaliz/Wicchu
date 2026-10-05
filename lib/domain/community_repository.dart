@@ -378,6 +378,12 @@ abstract interface class CommunityRepository {
     required bool approve,
   });
   Future<List<CommunityPost>> listPendingPosts(String communityId);
+  Future<List<CommunityPost>> listRemovedPosts(String communityId);
+  Future<void> restorePost(
+    String communityId,
+    String postId, {
+    required String reason,
+  });
   Future<void> moderatePost(
     String communityId,
     String postId, {

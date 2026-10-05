@@ -1040,6 +1040,24 @@ const _spanish = <String, String>{
   'Unban member': 'Desbloquear miembro',
   'Banned': 'Bloqueado',
   'Unban': 'Desbloquear',
+  'Member unbanned': 'Miembro desbloqueado',
+  'Member removed': 'Miembro eliminado',
+  'Member banned': 'Miembro bloqueado',
+  'Removed posts': 'Publicaciones eliminadas',
+  'Review and restore posts removed by moderators':
+      'Revisa y restaura publicaciones eliminadas por moderadores',
+  'Restore post': 'Restaurar publicación',
+  'Restore': 'Restaurar',
+  'Post restored': 'Publicación restaurada',
+  'No removed posts': 'No hay publicaciones eliminadas',
+  'The post will be published again and its author will be notified.':
+      'La publicación volverá a publicarse y se notificará a su autor.',
+  'Restoration reason': 'Motivo de la restauración',
+  'Explain why the moderation decision is being reversed.':
+      'Explica por qué se revierte la decisión de moderación.',
+  'Removal reason': 'Motivo de eliminación',
+  '{count} media item': '{count} elemento multimedia',
+  '{count} media items': '{count} elementos multimedia',
   'This member can request to join the community again.':
       'Este miembro podrá solicitar unirse nuevamente a la comunidad.',
   'This member will regain access to the community.':

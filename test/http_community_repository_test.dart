@@ -31,6 +31,27 @@ class _RecordingApiClient extends AuthenticatedApiClient {
     )) {
       return {'available': !path.contains('userName=taken')};
     }
+    if (path ==
+        '/api/community/v1/communities/community-1/admin/removed-posts') {
+      return {
+        'posts': [
+          {
+            'id': 'post-removed',
+            'communityId': 'community-1',
+            'categoryId': 'category-1',
+            'authorId': 'user-2',
+            'author': {'id': 'user-2', 'name': 'Ana'},
+            'text': 'Removed update',
+            'status': 'removed',
+            'createdAt': '2026-10-01T10:00:00.000Z',
+            'moderation': {
+              'reason': 'Rules violation',
+              'reviewedAt': '2026-10-02T10:00:00.000Z',
+            },
+          },
+        ],
+      };
+    }
     if (path == '/api/community/v1/messages/conversations' ||
         path == '/api/community/v1/messages/conversations?requests=true') {
       return {
@@ -298,6 +319,27 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 }
 
 void main() {
+  test('removed posts can be listed and restored with a reason', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final posts = await repository.listRemovedPosts('community-1');
+    expect(posts.single.status, PostStatus.removed);
+    expect(posts.single.moderationReason, 'Rules violation');
+    expect(posts.single.reviewedAt, DateTime.utc(2026, 10, 2, 10));
+
+    await repository.restorePost(
+      'community-1',
+      'post-removed',
+      reason: 'Decision reviewed',
+    );
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/admin/posts/post-removed/restore',
+    );
+    expect(api.lastBody, {'reason': 'Decision reviewed'});
+  });
+
   test(
     'editable profile loads, validates username and saves all fields',
     () async {

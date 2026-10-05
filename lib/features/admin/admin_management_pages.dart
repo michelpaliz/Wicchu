@@ -897,6 +897,13 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (member.status == MembershipStatus.banned)
+                        TextButton.icon(
+                          key: ValueKey('unban-member-${member.userId}'),
+                          onPressed: () => _changeAccess(member, 'unban'),
+                          icon: const Icon(Icons.lock_open, size: 18),
+                          label: Text(context.tr('Unban')),
+                        ),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -1208,7 +1215,22 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         internalNote: internalNote,
         expiresAt: expiresAt,
       );
-      if (mounted) _reload();
+      if (mounted) {
+        _reload();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.tr(
+                action == 'unban'
+                    ? 'Member unbanned'
+                    : action == 'remove'
+                    ? 'Member removed'
+                    : 'Member banned',
+              ),
+            ),
+          ),
+        );
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(

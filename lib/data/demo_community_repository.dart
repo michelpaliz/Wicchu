@@ -942,6 +942,49 @@ class DemoCommunityRepository implements CommunityRepository {
       );
 
   @override
+  Future<List<CommunityPost>> listRemovedPosts(String communityId) async =>
+      List.unmodifiable(
+        (_posts[communityId] ?? const []).where(
+          (post) => post.status == PostStatus.removed,
+        ),
+      );
+
+  @override
+  Future<void> restorePost(
+    String communityId,
+    String postId, {
+    required String reason,
+  }) async {
+    final posts = _posts[communityId];
+    if (posts == null) return;
+    final index = posts.indexWhere((post) => post.id == postId);
+    if (index < 0) return;
+    final post = posts[index];
+    posts[index] = CommunityPost(
+      id: post.id,
+      communityId: post.communityId,
+      categoryId: post.categoryId,
+      authorId: post.authorId,
+      text: post.text,
+      status: PostStatus.published,
+      createdAt: post.createdAt,
+      media: post.media,
+      authorName: post.authorName,
+      authorAvatarUrl: post.authorAvatarUrl,
+      reactionCount: post.reactionCount,
+      commentCount: post.commentCount,
+      reactedByMe: post.reactedByMe,
+      savedByMe: post.savedByMe,
+      ownedByMe: post.ownedByMe,
+      editedAt: post.editedAt,
+      promotion: post.promotion,
+      poll: post.poll,
+      mentionedUserIds: post.mentionedUserIds,
+      isAnonymous: post.isAnonymous,
+    );
+  }
+
+  @override
   Future<void> moderatePost(
     String communityId,
     String postId, {
