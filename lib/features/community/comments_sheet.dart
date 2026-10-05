@@ -22,7 +22,7 @@ Future<int?> showPostComments(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (_) => _CommentsSheet(
+    builder: (_) => PostComments(
       repository: repository,
       post: post,
       onCountChanged: (count) => latestCount = count,
@@ -31,22 +31,25 @@ Future<int?> showPostComments(
   return latestCount;
 }
 
-class _CommentsSheet extends StatefulWidget {
-  const _CommentsSheet({
+class PostComments extends StatefulWidget {
+  const PostComments({
+    super.key,
     required this.repository,
     required this.post,
     required this.onCountChanged,
+    this.inline = false,
   });
 
+  final bool inline;
   final CommunityRepository repository;
   final CommunityPost post;
   final ValueChanged<int> onCountChanged;
 
   @override
-  State<_CommentsSheet> createState() => _CommentsSheetState();
+  State<PostComments> createState() => _PostCommentsState();
 }
 
-class _CommentsSheetState extends State<_CommentsSheet> {
+class _PostCommentsState extends State<PostComments> {
   final _controller = TextEditingController();
   final _inputFocus = FocusNode();
   late final Future<WicchuProfile?> _viewer = widget.repository
@@ -86,13 +89,17 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.only(
+        bottom: widget.inline ? 0 : MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: SizedBox(
-        height:
-            (MediaQuery.sizeOf(context).height -
-                MediaQuery.viewInsetsOf(context).bottom) *
-            .94,
+        height: widget.inline
+            ? null
+            : (MediaQuery.sizeOf(context).height -
+                      MediaQuery.viewInsetsOf(context).bottom) *
+                  .94,
         child: Column(
+          mainAxisSize: widget.inline ? MainAxisSize.min : MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
@@ -130,13 +137,14 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).closeButtonTooltip,
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
+                  if (!widget.inline)
+                    IconButton(
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).closeButtonTooltip,
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
                 ],
               ),
             ),
@@ -144,7 +152,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
               height: 1,
               color: theme.colorScheme.onSurface.withValues(alpha: .08),
             ),
-            Expanded(
+            _CommentsBody(
+              inline: widget.inline,
               child: FutureBuilder<List<Comment>>(
                 future: _comments,
                 builder: (context, snapshot) {
@@ -178,6 +187,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                       )
                       .toList(growable: false);
                   return ListView.separated(
+                    shrinkWrap: widget.inline,
+                    physics: widget.inline
+                        ? const NeverScrollableScrollPhysics()
+                        : null,
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
@@ -785,4 +798,12 @@ class _CommentsError extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _CommentsBody extends StatelessWidget {
+  const _CommentsBody({required this.inline, required this.child});
+  final bool inline;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => inline ? child : Expanded(child: child);
 }

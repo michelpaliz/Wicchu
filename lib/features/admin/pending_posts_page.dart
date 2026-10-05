@@ -249,6 +249,8 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                                     ? null
                                     : matching.first;
                                 return PostCard(
+                                  repository: widget.repository,
+                                  post: post,
                                   key: ValueKey('preview-${post.id}'),
                                   category: category?.name ?? 'General',
                                   icon: category?.icon ?? '💬',

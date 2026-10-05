@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../domain/community_models.dart';
@@ -10,21 +11,31 @@ Future<void> openPostMediaViewer(
   BuildContext context,
   List<PostMedia> media, {
   int initialIndex = 0,
+  WidgetBuilder? contentBuilder,
+  WidgetBuilder? actionsBuilder,
+  String? author,
 }) async {
   if (media.isEmpty) return;
   await Navigator.push<void>(
     context,
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => PostMediaViewer(media: media, initialIndex: initialIndex),
+      builder: (_) => PostMediaViewer(
+        media: media,
+        initialIndex: initialIndex,
+        contentBuilder: contentBuilder,
+        actionsBuilder: actionsBuilder,
+        author: author,
+      ),
     ),
   );
 }
 
 /// Equal-width previews; the viewer always receives the complete media list.
 class PostMediaGallery extends StatelessWidget {
-  const PostMediaGallery({super.key, required this.media});
+  const PostMediaGallery({super.key, required this.media, this.onOpen});
   final List<PostMedia> media;
+  final ValueChanged<int>? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -94,11 +105,13 @@ class PostMediaGallery extends StatelessWidget {
                         color: Colors.transparent,
                         child: InkWell(
                           key: ValueKey('open-post-media-$index'),
-                          onTap: () => openPostMediaViewer(
-                            context,
-                            media,
-                            initialIndex: index,
-                          ),
+                          onTap: () => onOpen != null
+                              ? onOpen!(index)
+                              : openPostMediaViewer(
+                                  context,
+                                  media,
+                                  initialIndex: index,
+                                ),
                         ),
                       ),
                     ],
@@ -118,9 +131,15 @@ class PostMediaViewer extends StatefulWidget {
     super.key,
     required this.media,
     this.initialIndex = 0,
+    this.contentBuilder,
+    this.actionsBuilder,
+    this.author,
   });
   final List<PostMedia> media;
   final int initialIndex;
+  final WidgetBuilder? contentBuilder;
+  final WidgetBuilder? actionsBuilder;
+  final String? author;
 
   @override
   State<PostMediaViewer> createState() => _PostMediaViewerState();
@@ -133,7 +152,11 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
 
   @override
   void dispose() {
+    if (_immersive) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     _pages.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -145,92 +168,210 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
     );
   }
 
+  final _scroll = ScrollController();
+  bool _immersive = false;
+  double _savedOffset = 0;
+  double _mediaHeight = 0;
+  bool _mediaVisible = true;
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.black,
-    appBar: AppBar(
-      backgroundColor: Colors.black,
-      foregroundColor: Colors.white,
-      leading: IconButton(
-        tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-        icon: const Icon(Icons.close),
-        onPressed: () => Navigator.pop(context),
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      final visible = _scroll.offset < _mediaHeight;
+      if (visible != _mediaVisible) setState(() => _mediaVisible = visible);
+    });
+  }
+
+  void _toggleChrome() {
+    if (!_immersive) {
+      _savedOffset = _scroll.offset;
+      _scroll.jumpTo(0);
+    }
+    setState(() => _immersive = !_immersive);
+    SystemChrome.setEnabledSystemUIMode(
+      _immersive ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+    );
+    if (!_immersive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scroll.hasClients) {
+          _scroll.jumpTo(
+            _savedOffset.clamp(0, _scroll.position.maxScrollExtent),
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = ThemeData.dark(useMaterial3: true).copyWith(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF80CBC4),
+        brightness: Brightness.dark,
+        surface: const Color(0xFF151A1A),
       ),
-      title: Text('${_index + 1} / ${widget.media.length}'),
-      centerTitle: true,
-    ),
-    body: SafeArea(
-      child: Column(
-        children: [
-          Expanded(
-            child: PageView.builder(
-              controller: _pages,
-              physics: _zoomed ? const NeverScrollableScrollPhysics() : null,
-              itemCount: widget.media.length,
-              onPageChanged: (index) => setState(() {
-                _index = index;
-                _zoomed = false;
-              }),
-              itemBuilder: (context, index) {
-                final item = widget.media[index];
-                return item.type == 'video'
-                    ? _MediaVideo(
-                        key: ValueKey('video-$index-${item.url}'),
-                        url: item.url,
-                        active: index == _index,
-                      )
-                    : _ZoomableImage(
-                        key: ValueKey('image-$index-${item.url}'),
-                        url: item.url,
-                        cacheKey: item.blobName,
-                        active: index == _index,
-                        onZoomChanged: (zoomed) {
-                          if (index == _index && zoomed != _zoomed) {
-                            setState(() => _zoomed = zoomed);
-                          }
-                        },
-                      );
-              },
+      scaffoldBackgroundColor: Colors.black,
+      cardTheme: const CardThemeData(
+        color: Color(0xFF151A1A),
+        elevation: 0,
+        margin: EdgeInsets.zero,
+      ),
+    );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Theme(
+        data: dark,
+        child: Builder(
+          builder: (context) => Scaffold(
+            backgroundColor: Colors.black,
+            body: SafeArea(
+              top: !_immersive,
+              bottom: !_immersive,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final height = constraints.maxHeight;
+                  _mediaHeight = _immersive || widget.contentBuilder == null
+                      ? height
+                      : height * .74;
+                  return Stack(
+                    children: [
+                      SingleChildScrollView(
+                        controller: _scroll,
+                        physics: _immersive || _zoomed
+                            ? const NeverScrollableScrollPhysics()
+                            : null,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              height:
+                                  _immersive || widget.contentBuilder == null
+                                  ? height
+                                  : height * .74,
+                              child: PageView.builder(
+                                controller: _pages,
+                                physics: _zoomed
+                                    ? const NeverScrollableScrollPhysics()
+                                    : null,
+                                itemCount: widget.media.length,
+                                onPageChanged: (index) => setState(() {
+                                  _index = index;
+                                  _zoomed = false;
+                                }),
+                                itemBuilder: (context, index) {
+                                  final item = widget.media[index];
+                                  return item.type == 'video'
+                                      ? _MediaVideo(
+                                          key: ValueKey(
+                                            'video-$index-${item.url}',
+                                          ),
+                                          url: item.url,
+                                          active:
+                                              index == _index && _mediaVisible,
+                                          immersive: _immersive,
+                                          onTap: _toggleChrome,
+                                        )
+                                      : _ZoomableImage(
+                                          key: ValueKey(
+                                            'image-$index-${item.url}',
+                                          ),
+                                          url: item.url,
+                                          cacheKey: item.blobName,
+                                          active: index == _index,
+                                          onTap: _toggleChrome,
+                                          onZoomChanged: (zoomed) {
+                                            if (mounted &&
+                                                index == _index &&
+                                                zoomed != _zoomed) {
+                                              setState(() => _zoomed = zoomed);
+                                            }
+                                          },
+                                        );
+                                },
+                              ),
+                            ),
+                            if (widget.contentBuilder != null)
+                              Offstage(
+                                offstage: _immersive,
+                                child: widget.contentBuilder!(context),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (!_immersive)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: ColoredBox(
+                            color: Colors.black54,
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  tooltip: MaterialLocalizations.of(
+                                    context,
+                                  ).closeButtonTooltip,
+                                  onPressed: () => Navigator.pop(context),
+                                  icon: const Icon(Icons.arrow_back),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    widget.author ?? '',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text('${_index + 1} / ${widget.media.length}'),
+                                if (widget.actionsBuilder != null)
+                                  widget.actionsBuilder!(context)
+                                else
+                                  const SizedBox(width: 16),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (!_immersive && widget.contentBuilder == null)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Row(
+                            children: [
+                              IconButton(
+                                tooltip: context.tr('Previous media'),
+                                onPressed: _index > 0
+                                    ? () => _goTo(_index - 1)
+                                    : null,
+                                icon: const Icon(Icons.chevron_left),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  context.tr('Pinch or double-tap to zoom'),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: context.tr('Next media'),
+                                onPressed: _index < widget.media.length - 1
+                                    ? () => _goTo(_index + 1)
+                                    : null,
+                                icon: const Icon(Icons.chevron_right),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: context.tr('Previous media'),
-                  color: Colors.white,
-                  disabledColor: Colors.white24,
-                  onPressed: _index > 0 ? () => _goTo(_index - 1) : null,
-                  icon: const Icon(Icons.chevron_left),
-                ),
-                Expanded(
-                  child: Text(
-                    context.tr(
-                      widget.media[_index].type == 'video'
-                          ? 'Swipe to browse media'
-                          : 'Pinch or double-tap to zoom',
-                    ),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ),
-                IconButton(
-                  tooltip: context.tr('Next media'),
-                  color: Colors.white,
-                  disabledColor: Colors.white24,
-                  onPressed: _index < widget.media.length - 1
-                      ? () => _goTo(_index + 1)
-                      : null,
-                  icon: const Icon(Icons.chevron_right),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ZoomableImage extends StatefulWidget {
@@ -240,11 +381,13 @@ class _ZoomableImage extends StatefulWidget {
     this.cacheKey,
     required this.active,
     required this.onZoomChanged,
+    required this.onTap,
   });
   final String url;
   final String? cacheKey;
   final bool active;
   final ValueChanged<bool> onZoomChanged;
+  final VoidCallback onTap;
   @override
   State<_ZoomableImage> createState() => _ZoomableImageState();
 }
@@ -267,6 +410,7 @@ class _ZoomableImageState extends State<_ZoomableImage> {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
+    onTap: widget.onTap,
     onDoubleTapDown: (details) => _doubleTapPosition = details.localPosition,
     onDoubleTap: () {
       final zoomIn = _transform.value.getMaxScaleOnAxis() <= 1.01;
@@ -383,9 +527,13 @@ class _MediaVideo extends StatefulWidget {
     required this.url,
     this.preview = false,
     this.active = false,
+    this.immersive = false,
+    this.onTap,
   });
   final String url;
   final bool preview;
+  final bool immersive;
+  final VoidCallback? onTap;
   final bool active;
 
   @override
@@ -491,54 +639,61 @@ class _MediaVideoState extends State<_MediaVideo> with WidgetsBindingObserver {
                 child: Center(
                   child: AspectRatio(
                     aspectRatio: value.aspectRatio,
-                    child: VideoPlayer(_controller),
+                    child: GestureDetector(
+                      onTap: widget.onTap,
+                      child: VideoPlayer(_controller),
+                    ),
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: context.tr(
-                        value.isPlaying ? 'Pause video' : 'Play video',
-                      ),
-                      color: Colors.white,
-                      onPressed: widget.active
-                          ? () async {
-                              if (value.isPlaying) {
-                                await _controller.pause();
-                              } else {
-                                if (value.position >= value.duration) {
-                                  await _controller.seekTo(Duration.zero);
+              if (!widget.immersive)
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        tooltip: context.tr(
+                          value.isPlaying ? 'Pause video' : 'Play video',
+                        ),
+                        color: Colors.white,
+                        onPressed: widget.active
+                            ? () async {
+                                if (value.isPlaying) {
+                                  await _controller.pause();
+                                } else {
+                                  if (value.position >= value.duration) {
+                                    await _controller.seekTo(Duration.zero);
+                                  }
+                                  await _controller.play();
                                 }
-                                await _controller.play();
                               }
-                            }
-                          : null,
-                      icon: Icon(
-                        value.isPlaying ? Icons.pause : Icons.play_arrow,
-                      ),
-                    ),
-                    Expanded(
-                      child: VideoProgressIndicator(
-                        _controller,
-                        allowScrubbing: true,
-                        colors: const VideoProgressColors(
-                          playedColor: Colors.white,
-                          bufferedColor: Colors.white38,
-                          backgroundColor: Colors.white12,
+                            : null,
+                        icon: Icon(
+                          value.isPlaying ? Icons.pause : Icons.play_arrow,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '${_time(value.position)} / ${_time(value.duration)}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ],
+                      Expanded(
+                        child: VideoProgressIndicator(
+                          _controller,
+                          allowScrubbing: true,
+                          colors: const VideoProgressColors(
+                            playedColor: Colors.white,
+                            bufferedColor: Colors.white38,
+                            backgroundColor: Colors.white12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '${_time(value.position)} / ${_time(value.duration)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           );
         },

@@ -515,6 +515,8 @@ class _CommunityPageState extends State<CommunityPage>
                         children: [
                           for (final post in posts) ...[
                             PostCard(
+                              repository: repository,
+                              post: post,
                               collapseText: true,
                               onTap: () =>
                                   Navigator.push(

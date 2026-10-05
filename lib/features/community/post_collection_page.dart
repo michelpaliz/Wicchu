@@ -88,6 +88,8 @@ class _PostCollectionPageState extends State<PostCollectionPage>
         Widget buildPost(BuildContext context, int index) {
           final post = posts[index];
           return PostCard(
+            repository: widget.repository,
+            post: post,
             key: ValueKey(post.id),
             collapseText: true,
             mediaFirst: widget.profilePresentation,

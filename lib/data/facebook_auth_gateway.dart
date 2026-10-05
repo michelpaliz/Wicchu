@@ -80,7 +80,16 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
         'app': 'wicchu',
       }),
     );
+    if (kDebugMode) {
+      debugPrint('Facebook login: backend HTTP ${response.statusCode}');
+    }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (kDebugMode && body['code'] is String) {
+      final code = body['code'] as String;
+      if (RegExp(r'^[A-Z][A-Z0-9_]{0,79}$').hasMatch(code)) {
+        debugPrint('Facebook login: backend code=$code');
+      }
+    }
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw AuthException(
         body['message'] as String? ?? 'Unable to sign in to Wicchu.',
@@ -185,6 +194,11 @@ class FacebookAuthGateway implements AuthGateway, FacebookAccountLinker {
       'accessTokenReturned=${result.accessToken != null}',
       name: 'wicchu.facebook_auth',
     );
+    if (kDebugMode) {
+      debugPrint(
+        'Facebook login: SDK status=${result.status.name}, tokenType=${result.accessToken?.type.name ?? "none"}',
+      );
+    }
     if (result.status == LoginStatus.cancelled) {
       throw const AuthException('Facebook sign-in was cancelled.');
     }

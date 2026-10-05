@@ -1,3 +1,4 @@
+import '../community/open_post_media.dart';
 import '../community/post_collection_page.dart';
 import '../../widgets/profile_post_grid.dart';
 import '../../widgets/profile_link_button.dart';
@@ -267,6 +268,24 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                       post: post,
                       categoryIcon: _categories[post.categoryId]?.icon ?? '💬',
                       onTap: () async {
+                        if (post.media.isNotEmpty) {
+                          await openCommunityPostMedia(
+                            context,
+                            widget.repository,
+                            post,
+                            initialIndex: post.media
+                                .indexWhere((m) => m.type == 'image')
+                                .clamp(0, post.media.length - 1),
+                            communityName:
+                                _communityNames[post.communityId] ?? 'Wicchu',
+                            category:
+                                _categories[post.categoryId]?.name ?? 'Post',
+                            categoryIcon:
+                                _categories[post.categoryId]?.icon ?? '💬',
+                          );
+                          if (mounted) setState(() => _posts = _loadPosts());
+                          return;
+                        }
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -292,6 +311,8 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                 children: [
                   for (final post in posts) ...[
                     PostCard(
+                      repository: widget.repository,
+                      post: post,
                       key: ValueKey(post.id),
                       collapseText: true,
                       mediaFirst: true,

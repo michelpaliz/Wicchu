@@ -7,6 +7,8 @@ import '../../domain/community_models.dart';
 import '../../theme/wicchu_theme.dart';
 import '../../localization/app_language.dart';
 import 'post_media_gallery.dart';
+import 'comments_sheet.dart';
+import '../../domain/community_repository.dart';
 import 'post_markdown.dart';
 import 'user_avatar.dart';
 import 'report_dialog.dart';
@@ -68,8 +70,14 @@ class PostCard extends StatefulWidget {
     this.onEdit,
     this.onDelete,
     this.onMentionTap,
+    this.repository,
+    this.post,
+    this.viewerContent = false,
   });
 
+  final CommunityRepository? repository;
+  final CommunityPost? post;
+  final bool viewerContent;
   final String category;
   final String icon;
   final String community;
@@ -109,6 +117,150 @@ class PostCard extends StatefulWidget {
   final VoidCallback? onEdit;
   final Future<void> Function()? onDelete;
   final ValueChanged<String>? onMentionTap;
+
+  Future<
+    ({
+      int likes,
+      int comments,
+      bool reacted,
+      bool saved,
+      bool hidden,
+      PostPoll? poll,
+    })
+  >
+  openMedia(
+    BuildContext context, {
+    int initialIndex = 0,
+    int? currentLikes,
+    int? currentComments,
+    bool? currentReacted,
+    bool? currentSaved,
+    PostPoll? currentPoll,
+  }) async {
+    var count = currentLikes ?? likes;
+    var commentCount = currentComments ?? comments;
+    var liked = currentReacted ?? reacted;
+    var isSaved = currentSaved ?? saved;
+    var hidden = false;
+    var latestPoll = currentPoll ?? poll;
+    final cardKey = GlobalKey<_PostCardState>();
+    final commentsKey = GlobalKey();
+    await openPostMediaViewer(
+      context,
+      media,
+      initialIndex: initialIndex,
+      author: context.tr(author),
+      actionsBuilder: (viewerContext) => IconButton(
+        tooltip: viewerContext.tr('Post options'),
+        icon: const Icon(Icons.more_horiz),
+        onPressed: () => cardKey.currentState?._menu()._open(viewerContext),
+      ),
+      contentBuilder: (viewerContext) => Column(
+        children: [
+          PostCard(
+            key: cardKey,
+            viewerContent: true,
+            category: category,
+            icon: icon,
+            community: community,
+            author: author,
+            authorAvatarUrl: authorAvatarUrl,
+            isAnonymousAuthor: isAnonymousAuthor,
+            time: time,
+            text: text,
+            price: price,
+            promotion: promotion,
+            edited: edited,
+            collapseText: true,
+            compact: true,
+            showCommunity: showCommunity,
+            showActions: showActions,
+            likes: count,
+            comments: commentCount,
+            reacted: liked,
+            saved: isSaved,
+            onAuthorTap: onAuthorTap,
+            onCommunityTap: onCommunityTap,
+            onMentionTap: onMentionTap,
+            onReaction: onReaction == null
+                ? null
+                : (next) async {
+                    count = await onReaction!(next);
+                    liked = next;
+                    return count;
+                  },
+            onSaved: onSaved == null
+                ? null
+                : (next) async {
+                    await onSaved!(next);
+                    isSaved = next;
+                  },
+            onComments: onComments == null
+                ? null
+                : () async {
+                    if (commentsKey.currentContext != null) {
+                      await Scrollable.ensureVisible(
+                        commentsKey.currentContext!,
+                        duration: const Duration(milliseconds: 250),
+                      );
+                      return commentCount;
+                    }
+                    return onComments!();
+                  },
+            onShare: onShare,
+            onReport: onReport == null
+                ? null
+                : (reason, category, {hidePost}) async {
+                    await onReport!(reason, category, hidePost: hidePost);
+                    if (hidePost == true) {
+                      hidden = true;
+                      if (viewerContext.mounted) Navigator.pop(viewerContext);
+                    }
+                  },
+            onEdit: onEdit == null
+                ? null
+                : () {
+                    Navigator.pop(viewerContext);
+                    onEdit!();
+                  },
+            onDelete: onDelete == null
+                ? null
+                : () async {
+                    await onDelete!();
+                    if (viewerContext.mounted) Navigator.pop(viewerContext);
+                  },
+            poll: latestPoll,
+            onPollVote: onPollVote == null
+                ? null
+                : (optionId) async {
+                    latestPoll = await onPollVote!(optionId);
+                    return latestPoll!;
+                  },
+          ),
+          if (repository != null && post != null && onComments != null)
+            PostComments(
+              key: commentsKey,
+              repository: repository!,
+              post: post!,
+              inline: true,
+              onCountChanged: (value) {
+                commentCount = value;
+                final state = cardKey.currentState;
+                state?._updateCommentCount(value);
+              },
+            ),
+        ],
+      ),
+    );
+    return (
+      likes: count,
+      comments: commentCount,
+      reacted: liked,
+      saved: isSaved,
+      hidden: hidden,
+      poll: latestPoll,
+    );
+  }
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -203,8 +355,12 @@ class _PostCardState extends State<PostCard> {
     final authorTap = widget.isAnonymousAuthor ? null : widget.onAuthorTap;
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: theme.dividerColor.withValues(alpha: .55)),
+        borderRadius: widget.viewerContent
+            ? const BorderRadius.vertical(top: Radius.circular(24))
+            : BorderRadius.circular(18),
+        side: widget.viewerContent
+            ? BorderSide.none
+            : BorderSide(color: theme.dividerColor.withValues(alpha: .55)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -289,21 +445,12 @@ class _PostCardState extends State<PostCard> {
                       ],
                     ),
                   ),
-                  _PostMenu(
-                    category: widget.category,
-                    categoryIcon: widget.icon,
-                    saved: _saved,
-                    saving: _savingPost || _deleting,
-                    onSave: widget.onSaved == null ? null : _toggleSaved,
-                    onReport: widget.onReport == null ? null : _report,
-                    onEdit: widget.onEdit,
-                    onDelete: widget.onDelete == null ? null : _deletePost,
-                  ),
+                  if (!widget.viewerContent) _menu(),
                 ],
               ),
               const SizedBox(height: 8),
               if (widget.mediaFirst && widget.media.isNotEmpty) ...[
-                PostMediaGallery(media: widget.media),
+                PostMediaGallery(media: widget.media, onOpen: _openMedia),
                 const SizedBox(height: 8),
               ],
               PostMarkdown(
@@ -324,7 +471,7 @@ class _PostCardState extends State<PostCard> {
               ],
               if (!widget.mediaFirst && widget.media.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                PostMediaGallery(media: widget.media),
+                PostMediaGallery(media: widget.media, onOpen: _openMedia),
               ] else if (widget.showImage && widget.media.isEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -371,6 +518,7 @@ class _PostCardState extends State<PostCard> {
                     _PostAction(
                       icon: CupertinoIcons.arrowshape_turn_up_right,
                       tooltip: context.tr('Share'),
+                      value: widget.viewerContent ? context.tr('Share') : null,
                       onTap: widget.onShare,
                     ),
                   ],
@@ -380,6 +528,43 @@ class _PostCardState extends State<PostCard> {
         ),
       ),
     );
+  }
+
+  _PostMenu _menu() => _PostMenu(
+    category: widget.category,
+    categoryIcon: widget.icon,
+    saved: _saved,
+    saving: _savingPost || _deleting,
+    onSave: widget.onSaved == null ? null : _toggleSaved,
+    onReport: widget.onReport == null ? null : _report,
+    onEdit: widget.onEdit,
+    onDelete: widget.onDelete == null ? null : _deletePost,
+  );
+
+  Future<void> _openMedia(int index) async {
+    final result = await widget.openMedia(
+      context,
+      initialIndex: index,
+      currentLikes: _likes,
+      currentComments: _comments,
+      currentReacted: _reacted,
+      currentSaved: _saved,
+      currentPoll: _poll,
+    );
+    if (mounted) {
+      setState(() {
+        _likes = result.likes;
+        _comments = result.comments;
+        _reacted = result.reacted;
+        _saved = result.saved;
+        _hidden = result.hidden;
+        _poll = result.poll;
+      });
+    }
+  }
+
+  void _updateCommentCount(int value) {
+    if (mounted) setState(() => _comments = value);
   }
 
   Future<void> _vote(String optionId) async {

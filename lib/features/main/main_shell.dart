@@ -1513,6 +1513,8 @@ class _HomeTabState extends State<_HomeTab>
                       children: [
                         for (final post in filteredPosts) ...[
                           PostCard(
+                            repository: widget.repository,
+                            post: post,
                             key: ValueKey(post.id),
                             collapseText: true,
                             showCommunity: true,

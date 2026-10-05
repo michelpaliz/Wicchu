@@ -1,3 +1,4 @@
+import 'open_post_media.dart';
 import '../../widgets/profile_link_button.dart';
 import 'post_collection_page.dart';
 import '../../widgets/profile_post_grid.dart';
@@ -1773,6 +1774,28 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                             post: post,
                             categoryIcon: category?.icon ?? '💬',
                             onTap: () async {
+                              if (post.media.isNotEmpty) {
+                                await openCommunityPostMedia(
+                                  context,
+                                  widget.repository,
+                                  post,
+                                  initialIndex: post.media
+                                      .indexWhere((m) => m.type == 'image')
+                                      .clamp(0, post.media.length - 1),
+                                  communityName: _community.name,
+                                  category: category?.name ?? 'Post',
+                                  categoryIcon: category?.icon ?? '💬',
+                                );
+                                if (mounted) {
+                                  setState(
+                                    () => _posts = widget.repository.listPosts(
+                                      _community.id,
+                                      query: _searchController.text,
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -1829,6 +1852,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: PostCard(
+                            repository: widget.repository,
+                            post: post,
                             key: ValueKey(post.id),
                             collapseText: true,
                             mediaFirst: _community.isPublicProfile,
@@ -3805,7 +3830,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           return Center(child: Text(context.trError(snapshot.error!)));
         }
         final media = (snapshot.data ?? const <CommunityPost>[])
-            .expand((post) => post.media)
+            .expand(
+              (post) => post.media.asMap().entries.map(
+                (entry) => (post: post, index: entry.key, media: entry.value),
+              ),
+            )
             .toList(growable: false);
         if (media.isEmpty) {
           return Center(child: Text(context.tr('No media yet')));
@@ -3819,10 +3848,16 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           ),
           itemCount: media.length,
           itemBuilder: (context, index) {
-            final item = media[index];
+            final entry = media[index];
+            final item = entry.media;
             return InkWell(
-              onTap: () =>
-                  openPostMediaViewer(context, media, initialIndex: index),
+              onTap: () => openCommunityPostMedia(
+                context,
+                widget.repository,
+                entry.post,
+                initialIndex: entry.index,
+                communityName: _community.name,
+              ),
               child: item.type == 'image'
                   ? WicchuNetworkImage(
                       url: item.previewUrl,

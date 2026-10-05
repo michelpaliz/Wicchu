@@ -142,6 +142,8 @@ class _CategoryPageState extends State<CategoryPage>
                   children: [
                     for (final post in posts) ...[
                       PostCard(
+                        repository: widget.repository,
+                        post: post,
                         onTap: () =>
                             Navigator.push(
                               context,

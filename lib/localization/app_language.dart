@@ -1190,6 +1190,7 @@ const _spanish = <String, String>{
   'Use at most {count} characters.': 'Usa un máximo de {count} caracteres.',
   'Manage community': 'Administrar comunidad',
   'Open media {number} of {total}': 'Abrir archivo {number} de {total}',
+  'Post options': 'Opciones de la publicación',
   'Previous media': 'Archivo anterior',
   'Next media': 'Archivo siguiente',
   'Swipe to browse media': 'Desliza para ver más',
