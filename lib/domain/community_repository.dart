@@ -121,6 +121,11 @@ abstract interface class CommunityRepository {
   });
   Future<WicchuProfile> getProfile();
   Future<PublicMemberProfile> getMemberProfile(String userId);
+  Future<PeopleSearchPage> searchPeople({
+    String query = '',
+    String? cursor,
+    int limit = 25,
+  });
   Future<List<BlockedUser>> listBlockedUsers();
   Future<void> blockUser(String userId);
   Future<void> unblockUser(String userId);

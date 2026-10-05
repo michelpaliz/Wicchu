@@ -27,6 +27,20 @@ class _RecordingApiClient extends AuthenticatedApiClient {
     if (path == '/api/community/v1/messages/privacy') {
       return {'messagingPrivacy': 'shared_communities'};
     }
+    if (path.startsWith('/api/community/v1/users?')) {
+      return {
+        'people': [
+          {
+            'id': 'user-2',
+            'name': 'Ana Rivera',
+            'userName': 'ana',
+            'avatarUrl': null,
+            'sharedCommunityCount': 2,
+          },
+        ],
+        'nextCursor': 'MjU',
+      };
+    }
     if (path.startsWith(
       '/api/community/v1/messages/conversations/conversation-1?',
     )) {
@@ -225,6 +239,29 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 }
 
 void main() {
+  test('people search is paginated and never expects an email', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final page = await repository.searchPeople(
+      query: 'Ana Rivera',
+      cursor: 'previous',
+      limit: 25,
+    );
+
+    final uri = Uri.parse(api.lastPath!);
+    expect(uri.path, '/api/community/v1/users');
+    expect(uri.queryParameters, {
+      'query': 'Ana Rivera',
+      'limit': '25',
+      'cursor': 'previous',
+    });
+    expect(page.people.single.name, 'Ana Rivera');
+    expect(page.people.single.userName, 'ana');
+    expect(page.people.single.sharedCommunityCount, 2);
+    expect(page.nextCursor, 'MjU');
+  });
+
   test('direct messaging uses private conversation endpoints', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);

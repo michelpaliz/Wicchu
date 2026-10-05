@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../community/open_post_media.dart';
 import '../community/post_collection_page.dart';
 import '../../widgets/profile_post_grid.dart';
@@ -568,7 +570,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                   if (own)
                     _profileAction(
                       icon: Icons.person_add_outlined,
-                      tooltip: context.tr('Find friends'),
+                      tooltip: context.tr('Find people'),
                       onPressed: _findPeople,
                     ),
                   if (!own)
@@ -661,10 +663,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => _FindPeoplePage(
-          repository: widget.repository,
-          userId: widget.userId,
-        ),
+        builder: (_) => FindPeoplePage(repository: widget.repository),
       ),
     );
   }
@@ -805,52 +804,105 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   }
 }
 
-class _FindPeoplePage extends StatefulWidget {
-  const _FindPeoplePage({required this.repository, required this.userId});
+class FindPeoplePage extends StatefulWidget {
+  const FindPeoplePage({super.key, required this.repository});
   final CommunityRepository repository;
-  final String userId;
 
   @override
-  State<_FindPeoplePage> createState() => _FindPeoplePageState();
+  State<FindPeoplePage> createState() => _FindPeoplePageState();
 }
 
-class _FindPeoplePageState extends State<_FindPeoplePage>
-    with BlockVisibilityListener<_FindPeoplePage> {
+class _FindPeoplePageState extends State<FindPeoplePage>
+    with BlockVisibilityListener<FindPeoplePage> {
+  final _scrollController = ScrollController();
+  final List<PeopleSearchResult> _people = [];
+  Timer? _searchDelay;
   String _query = '';
-  late Future<List<CommunityMember>> _people = _load();
+  String? _nextCursor;
+  Object? _error;
+  bool _loading = false;
+  int _requestGeneration = 0;
+
   @override
   CommunityRepository get visibilityRepository => widget.repository;
-  @override
-  void reloadBlockVisibility() => setState(() {
-    _people = _load();
-  });
 
-  Future<List<CommunityMember>> _load() async {
-    final spaces = await widget.repository.listJoinedCommunities();
-    final lists = await Future.wait(
-      spaces
-          .where((c) => !c.isPublicProfile)
-          .map((c) => widget.repository.listMembers(c.id)),
-    );
-    return {
-      for (final member in lists.expand((list) => list))
-        if (!member.isAnonymous &&
-            member.userId.isNotEmpty &&
-            member.userId != widget.userId)
-          member.userId: member,
-    }.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _load(reset: true);
+  }
+
+  @override
+  void dispose() {
+    _searchDelay?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void reloadBlockVisibility() => _load(reset: true);
+
+  void _onScroll() {
+    if (_scrollController.position.extentAfter < 300 && _nextCursor != null) {
+      _load();
+    }
+  }
+
+  void _search(String value) {
+    _searchDelay?.cancel();
+    _searchDelay = Timer(const Duration(milliseconds: 350), () {
+      _query = value.trim();
+      _load(reset: true);
+    });
+  }
+
+  Future<void> _load({bool reset = false}) async {
+    if (_loading && !reset) return;
+    final generation = reset ? ++_requestGeneration : _requestGeneration;
+    if (reset) {
+      setState(() {
+        _people.clear();
+        _nextCursor = null;
+        _error = null;
+        _loading = true;
+      });
+    } else {
+      setState(() => _loading = true);
+    }
+    try {
+      final page = await widget.repository.searchPeople(
+        query: _query,
+        cursor: reset ? null : _nextCursor,
+      );
+      if (!mounted || generation != _requestGeneration) return;
+      setState(() {
+        final ids = _people.map((person) => person.id).toSet();
+        _people.addAll(page.people.where((person) => ids.add(person.id)));
+        _nextCursor = page.nextCursor;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _error = error);
+      }
+    } finally {
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _loading = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Find friends'))),
+    appBar: AppBar(title: Text(context.tr('Find people'))),
     body: Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
           child: TextField(
-            onChanged: (value) =>
-                setState(() => _query = value.toLowerCase().trim()),
+            onChanged: _search,
+            textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: context.tr('Search people'),
               prefixIcon: const Icon(Icons.search),
@@ -858,60 +910,81 @@ class _FindPeoplePageState extends State<_FindPeoplePage>
           ),
         ),
         Expanded(
-          child: FutureBuilder<List<CommunityMember>>(
-            future: _people,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(
+          child: _people.isEmpty && _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _people.isEmpty && _error != null
+              ? Center(
                   child: TextButton(
-                    onPressed: reloadBlockVisibility,
+                    onPressed: () => _load(reset: true),
                     child: Text(context.tr('Retry')),
                   ),
-                );
-              }
-              final people = (snapshot.data ?? [])
-                  .where((p) => p.name.toLowerCase().contains(_query))
-                  .toList();
-              if (people.isEmpty) {
-                return Center(
+                )
+              : _people.isEmpty
+              ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      context.tr('Find people from your communities here.'),
+                      _query.isEmpty
+                          ? context.tr(
+                              'Find people from your communities here.',
+                            )
+                          : context.tr('No people found.'),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                );
-              }
-              return ListView.builder(
-                itemCount: people.length,
-                itemBuilder: (context, index) {
-                  final person = people[index];
-                  return ListTile(
-                    leading: UserAvatar(
-                      name: person.name,
-                      imageUrl: person.avatarUrl,
-                      radius: 22,
-                    ),
-                    title: Text(person.name),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MemberProfilePage(
-                          userId: person.userId,
-                          repository: widget.repository,
+                )
+              : ListView.builder(
+                  controller: _scrollController,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  itemCount:
+                      _people.length + (_loading || _error != null ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == _people.length) {
+                      return Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Center(
+                          child: _loading
+                              ? const CircularProgressIndicator()
+                              : TextButton(
+                                  onPressed: _load,
+                                  child: Text(context.tr('Retry')),
+                                ),
+                        ),
+                      );
+                    }
+                    final person = _people[index];
+                    final username = person.userName.isEmpty
+                        ? ''
+                        : '@${person.userName}';
+                    final shared = context.trCount(
+                      person.sharedCommunityCount,
+                      singular: '{count} shared community',
+                      plural: '{count} shared communities',
+                    );
+                    return ListTile(
+                      leading: UserAvatar(
+                        name: person.name,
+                        imageUrl: person.avatarUrl,
+                        radius: 22,
+                      ),
+                      title: Text(person.name),
+                      subtitle: Text(
+                        username.isEmpty ? shared : '$username · $shared',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MemberProfilePage(
+                            userId: person.id,
+                            repository: widget.repository,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+                    );
+                  },
+                ),
         ),
       ],
     ),

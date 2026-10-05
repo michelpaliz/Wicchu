@@ -169,6 +169,29 @@ class PublicMemberProfile {
   final DateTime? lastActiveAt;
 }
 
+class PeopleSearchResult {
+  const PeopleSearchResult({
+    required this.id,
+    required this.name,
+    required this.userName,
+    required this.sharedCommunityCount,
+    this.avatarUrl,
+  });
+
+  final String id;
+  final String name;
+  final String userName;
+  final String? avatarUrl;
+  final int sharedCommunityCount;
+}
+
+class PeopleSearchPage {
+  const PeopleSearchPage({required this.people, this.nextCursor});
+
+  final List<PeopleSearchResult> people;
+  final String? nextCursor;
+}
+
 class SocialLinks {
   const SocialLinks({
     this.whatsapp = '',

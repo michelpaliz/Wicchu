@@ -76,6 +76,13 @@ class DemoCommunityRepository implements CommunityRepository {
       );
 
   @override
+  Future<PeopleSearchPage> searchPeople({
+    String query = '',
+    String? cursor,
+    int limit = 25,
+  }) async => const PeopleSearchPage(people: []);
+
+  @override
   Future<SocialLinks> getMySocialLinks() async => _socialLinks;
 
   @override

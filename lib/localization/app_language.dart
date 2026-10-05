@@ -306,6 +306,10 @@ const _spanish = <String, String>{
   'Find people from your communities here.':
       'Aquí encontrarás personas de tus comunidades.',
   'Search people': 'Buscar personas',
+  'Find people': 'Encontrar personas',
+  'No people found.': 'No se encontraron personas.',
+  '{count} shared community': '{count} comunidad en común',
+  '{count} shared communities': '{count} comunidades en común',
   'Find friends': 'Encontrar amigos',
   'Personal profile': 'Perfil personal',
   'Account menu': 'Menú de cuenta',

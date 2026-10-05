@@ -62,6 +62,40 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<PeopleSearchPage> searchPeople({
+    String query = '',
+    String? cursor,
+    int limit = 25,
+  }) async {
+    final parameters = <String, String>{
+      'query': query.trim(),
+      'limit': '$limit',
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    };
+    final path = Uri(
+      path: '/api/community/v1/users',
+      queryParameters: parameters,
+    ).toString();
+    final body = await _api.get(path);
+    return PeopleSearchPage(
+      people: _list(body, 'people')
+          .map(
+            (json) => PeopleSearchResult(
+              id: json['id']?.toString() ?? '',
+              name: json['name']?.toString() ?? 'Wicchu member',
+              userName: json['userName']?.toString() ?? '',
+              avatarUrl: json['avatarUrl'] as String?,
+              sharedCommunityCount:
+                  (json['sharedCommunityCount'] as num?)?.toInt() ?? 0,
+            ),
+          )
+          .where((person) => person.id.isNotEmpty)
+          .toList(growable: false),
+      nextCursor: body['nextCursor']?.toString(),
+    );
+  }
+
+  @override
   Future<List<BlockedUser>> listBlockedUsers() async {
     final body = await _api.get('/api/community/v1/me/blocked-users?limit=100');
     return _array(body, 'items')
