@@ -273,6 +273,23 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 }
 
 void main() {
+  test(
+    'personal profile patch sends only editable fields, including cleared bio',
+    () async {
+      final api = _RecordingApiClient();
+      await HttpCommunityRepository(
+        apiClient: api,
+      ).updateProfile(name: 'Ana', userName: 'ana', bio: '', location: 'Dénia');
+      expect(api.lastPath, '/api/community/v1/me');
+      expect(api.lastBody, {
+        'name': 'Ana',
+        'userName': 'ana',
+        'bio': '',
+        'location': 'Dénia',
+      });
+    },
+  );
+
   test('people search is paginated and never expects an email', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);

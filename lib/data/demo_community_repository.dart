@@ -54,11 +54,30 @@ class DemoCommunityRepository implements CommunityRepository {
 
   static const _towns = [Town(id: 'town-1', name: 'Town X', countryCode: 'EC')];
 
+  String _profileName = 'Michael P.';
+  String _profileUserName = 'michael';
+  String _profileBio = '';
+  String _profileLocation = '';
+
   @override
-  Future<WicchuProfile> getProfile() async => const WicchuProfile(
+  Future<void> updateProfile({
+    required String name,
+    required String userName,
+    required String bio,
+    required String location,
+  }) async {
+    _profileName = name;
+    _profileUserName = userName;
+    _profileBio = bio;
+    _profileLocation = location;
+  }
+
+  @override
+  Future<WicchuProfile> getProfile() async => WicchuProfile(
     id: 'current-user',
-    name: 'Michael P.',
-    userName: 'michael',
+    name: _profileName,
+    userName: _profileUserName,
+    location: _profileLocation,
     communityCount: 1,
     postCount: 0,
     savedPostCount: 0,
@@ -68,8 +87,10 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<PublicMemberProfile> getMemberProfile(String userId) async =>
       PublicMemberProfile(
         id: userId,
-        name: userId == 'current-user' ? 'Michael P.' : 'Wicchu member',
-        userName: '',
+        name: userId == 'current-user' ? _profileName : 'Wicchu member',
+        userName: userId == 'current-user' ? _profileUserName : '',
+        bio: userId == 'current-user' ? _profileBio : null,
+        location: userId == 'current-user' ? _profileLocation : null,
         postCount: (await listMemberPosts(userId)).length,
         communityCount: 1,
         socialLinks: _socialLinks,

@@ -106,3 +106,25 @@ The posts API must independently enforce this rule on create and update requests
 using the authenticated user's current role, and reject unauthorized requests
 with HTTP 403. Community member publishing and existing post edit ownership
 checks remain separate. Client-side checks are not a replacement for API authorization.
+
+
+## Personal profile editing (server support needs verification)
+
+The profile editor now loads identity from `GET /api/community/v1/me` and bio
+from `GET /api/community/v1/users/{currentUserId}`. Personal detail saves require:
+
+`PATCH /api/community/v1/me`
+
+```json
+{"name":"Michael", "userName":"michael", "bio":"About me", "location":"Dénia, España"}
+```
+
+Authenticate the current user; do not accept a target user ID. Validate name
+(required, max 80), userName (required, max 30; letters, digits, dots, underscores,
+hyphens; case-insensitive uniqueness), bio (max 500), and location (max 120).
+Empty bio/location strings clear the fields. Persist and expose updated details
+in both profile GET responses and author summaries. Return a non-2xx status for
+validation/conflict failures; never acknowledge an ignored update. Preserve all
+unrelated account fields. Social links still use their existing separate endpoint.
+The Flutter editor retains input on error and only retries changes not yet saved.
+This PATCH contract has client test coverage; deployed server support is unverified.

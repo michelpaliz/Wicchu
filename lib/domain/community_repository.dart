@@ -120,6 +120,12 @@ abstract interface class CommunityRepository {
     required double longitude,
   });
   Future<WicchuProfile> getProfile();
+  Future<void> updateProfile({
+    required String name,
+    required String userName,
+    required String bio,
+    required String location,
+  });
   Future<PublicMemberProfile> getMemberProfile(String userId);
   Future<PeopleSearchPage> searchPeople({
     String query = '',

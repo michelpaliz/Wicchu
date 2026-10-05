@@ -114,6 +114,21 @@ class LanguageMenu extends StatelessWidget {
 }
 
 const _spanish = <String, String>{
+  'Your profile, your community': 'Tu perfil, tu comunidad',
+  'This information will be visible to other Wicchu users.':
+      'Esta información será visible para otros usuarios de Wicchu.',
+  'Tell us a little about yourself.': 'Cuéntanos un poco sobre ti.',
+  'Tell us about yourself, your interests or what makes you unique…':
+      'Cuéntanos algo sobre ti, tus intereses o lo que te hace especial…',
+  'Add your location': 'Añade tu ubicación',
+
+  'Personal information': 'Información personal',
+  'Bio': 'Biografía',
+  'Profile saved': 'Perfil guardado',
+  'This field is required.': 'Este campo es obligatorio.',
+  'Use letters, numbers, dots, underscores or hyphens.':
+      'Usa letras, números, puntos, guiones bajos o guiones.',
+
   'Tell us what is wrong. Reports are confidential.':
       'Cuéntanos qué ocurre. Las denuncias son confidenciales.',
   'Report to': 'Enviar denuncia a',

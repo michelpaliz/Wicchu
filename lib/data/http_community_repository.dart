@@ -40,6 +40,24 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<void> updateProfile({
+    required String name,
+    required String userName,
+    required String bio,
+    required String location,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/me',
+      body: {
+        'name': name,
+        'userName': userName,
+        'bio': bio,
+        'location': location,
+      },
+    );
+  }
+
+  @override
   Future<PublicMemberProfile> getMemberProfile(String userId) async {
     final body = await _api.get('/api/community/v1/users/$userId');
     final json = _object(body, 'user');
