@@ -930,9 +930,7 @@ class _FindPeoplePageState extends State<FindPeoplePage>
                     padding: const EdgeInsets.all(24),
                     child: Text(
                       _query.isEmpty
-                          ? context.tr(
-                              'Find people from your communities here.',
-                            )
+                          ? context.tr('Find people on Wicchu here.')
                           : context.tr('No people found.'),
                       textAlign: TextAlign.center,
                     ),

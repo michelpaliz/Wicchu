@@ -305,6 +305,7 @@ const _spanish = <String, String>{
   'Saved': 'Guardados',
   'Find people from your communities here.':
       'Aquí encontrarás personas de tus comunidades.',
+  'Find people on Wicchu here.': 'Aquí encontrarás personas en Wicchu.',
   'Search people': 'Buscar personas',
   'Find people': 'Encontrar personas',
   'No people found.': 'No se encontraron personas.',
