@@ -989,12 +989,23 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<List<DirectConversation>> listDirectConversations() async => const [];
 
   @override
+  Future<List<DirectConversation>> listMessageRequests() async => const [];
+
+  @override
   Future<DirectConversation> startDirectConversation(String userId) async =>
       DirectConversation(
         id: 'demo-$userId',
         otherUser: WicchuUser(id: userId, name: 'Wicchu member'),
         unreadCount: 0,
+        requestStatus: MessageRequestStatus.pending,
+        requestedByMe: true,
       );
+
+  @override
+  Future<void> respondToMessageRequest(
+    String conversationId, {
+    required bool accept,
+  }) async {}
 
   @override
   Future<DirectMessagePage> listDirectMessages(

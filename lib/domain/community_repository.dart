@@ -130,7 +130,12 @@ abstract interface class CommunityRepository {
   Future<void> blockUser(String userId);
   Future<void> unblockUser(String userId);
   Future<List<DirectConversation>> listDirectConversations();
+  Future<List<DirectConversation>> listMessageRequests();
   Future<DirectConversation> startDirectConversation(String userId);
+  Future<void> respondToMessageRequest(
+    String conversationId, {
+    required bool accept,
+  });
   Future<DirectMessagePage> listDirectMessages(
     String conversationId, {
     String? before,

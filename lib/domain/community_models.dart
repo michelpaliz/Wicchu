@@ -858,6 +858,9 @@ class DirectConversation {
     this.lastMessageAt,
     this.lastMessageMine = false,
     this.lastMessageRemoved = false,
+    this.requestStatus = MessageRequestStatus.accepted,
+    this.requestedByMe = false,
+    this.canSendMessage = true,
   });
 
   final String id;
@@ -867,7 +870,12 @@ class DirectConversation {
   final bool lastMessageMine;
   final bool lastMessageRemoved;
   final int unreadCount;
+  final MessageRequestStatus requestStatus;
+  final bool requestedByMe;
+  final bool canSendMessage;
 }
+
+enum MessageRequestStatus { pending, accepted, declined }
 
 class DirectMessage {
   const DirectMessage({

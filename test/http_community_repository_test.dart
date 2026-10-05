@@ -11,7 +11,8 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
-    if (path == '/api/community/v1/messages/conversations') {
+    if (path == '/api/community/v1/messages/conversations' ||
+        path == '/api/community/v1/messages/conversations?requests=true') {
       return {
         'conversations': [
           {
@@ -20,6 +21,11 @@ class _RecordingApiClient extends AuthenticatedApiClient {
             'lastMessagePreview': 'Hello',
             'lastMessageAt': '2026-10-05T10:00:00.000Z',
             'unreadCount': 2,
+            if (path.contains('requests=true')) ...{
+              'requestStatus': 'pending',
+              'requestedByMe': false,
+              'canSendMessage': false,
+            },
           },
         ],
       };
@@ -166,6 +172,9 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'id': 'conversation-1',
           'otherUser': {'id': body?['userId'], 'name': 'Ana'},
           'unreadCount': 0,
+          'requestStatus': 'pending',
+          'requestedByMe': true,
+          'canSendMessage': true,
         },
       };
     }
@@ -272,7 +281,26 @@ void main() {
 
     final started = await repository.startDirectConversation('user-2');
     expect(started.id, 'conversation-1');
+    expect(started.requestStatus, MessageRequestStatus.pending);
+    expect(started.requestedByMe, isTrue);
+    expect(started.canSendMessage, isTrue);
     expect(api.lastBody, {'userId': 'user-2'});
+
+    final requests = await repository.listMessageRequests();
+    expect(requests.single.requestStatus, MessageRequestStatus.pending);
+    expect(requests.single.requestedByMe, isFalse);
+    expect(requests.single.canSendMessage, isFalse);
+    expect(
+      api.lastPath,
+      '/api/community/v1/messages/conversations?requests=true',
+    );
+
+    await repository.respondToMessageRequest('conversation-1', accept: true);
+    expect(
+      api.lastPath,
+      '/api/community/v1/messages/conversations/conversation-1/request',
+    );
+    expect(api.lastBody, {'action': 'accept'});
 
     final messages = await repository.listDirectMessages('conversation-1');
     expect(messages.messages.single.body, 'Hello');

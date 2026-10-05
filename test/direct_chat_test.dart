@@ -10,6 +10,7 @@ class _ChatRepository extends DemoCommunityRepository {
   String? reportedCategory;
   String? deletedMessageId;
   bool? deletedForEveryone;
+  bool? acceptedRequest;
 
   @override
   Future<DirectMessagePage> listDirectMessages(
@@ -76,6 +77,14 @@ class _ChatRepository extends DemoCommunityRepository {
     deletedMessageId = messageId;
     deletedForEveryone = everyone;
   }
+
+  @override
+  Future<void> respondToMessageRequest(
+    String conversationId, {
+    required bool accept,
+  }) async {
+    acceptedRequest = accept;
+  }
 }
 
 void main() {
@@ -133,5 +142,42 @@ void main() {
     expect(repository.deletedMessageId, 'message-sent');
     expect(repository.deletedForEveryone, isTrue);
     expect(find.text('Message removed'), findsOneWidget);
+  });
+
+  testWidgets('message request must be accepted before replying', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = _ChatRepository();
+    const conversation = DirectConversation(
+      id: 'conversation-request',
+      otherUser: WicchuUser(id: 'user-2', name: 'Ana'),
+      unreadCount: 1,
+      requestStatus: MessageRequestStatus.pending,
+      requestedByMe: false,
+      canSendMessage: false,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DirectChatPage(
+          repository: repository,
+          conversation: conversation,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Accept'), findsOneWidget);
+    expect(find.text('Decline'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+
+    await tester.tap(find.text('Accept'));
+    await tester.pumpAndSettle();
+
+    expect(repository.acceptedRequest, isTrue);
+    expect(find.byType(TextField), findsOneWidget);
   });
 }

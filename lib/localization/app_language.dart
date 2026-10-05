@@ -1253,6 +1253,25 @@ const _spanish = <String, String>{
       'Una cuenta de Wicchu ya usa este correo. Inicia sesión con correo.',
   'Confirm your identity': 'Confirma tu identidad',
   'Messages': 'Mensajes',
+  'Chats': 'Chats',
+  'Requests': 'Solicitudes',
+  'No message requests': 'No hay solicitudes de mensajes',
+  'New conversations from other people will appear here.':
+      'Las conversaciones nuevas de otras personas aparecerán aquí.',
+  'Message request pending': 'Solicitud de mensaje pendiente',
+  'Accept this request to continue the conversation.':
+      'Acepta esta solicitud para continuar la conversación.',
+  'Message request sent. You can send more after it is accepted.':
+      'Solicitud enviada. Podrás enviar más mensajes cuando sea aceptada.',
+  'Waiting for acceptance': 'Esperando aceptación',
+  'This conversation is unavailable.': 'Esta conversación no está disponible.',
+  'This conversation is unavailable': 'Esta conversación no está disponible',
+  'This message request is no longer available':
+      'Esta solicitud de mensaje ya no está disponible',
+  'This message request is no longer pending':
+      'Esta solicitud de mensaje ya no está pendiente',
+  'Wait for this person to accept your message request':
+      'Espera a que esta persona acepte tu solicitud de mensaje',
   'Message': 'Mensaje',
   'Private conversations': 'Conversaciones privadas',
   'No messages yet': 'Aún no hay mensajes',

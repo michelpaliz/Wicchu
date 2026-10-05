@@ -22,9 +22,20 @@ class _ConversationListPageState extends State<ConversationListPage> {
   late Future<List<DirectConversation>> _conversations = _load();
   StreamSubscription<Map<String, dynamic>>? _subscription;
   StreamSubscription<Map<String, dynamic>>? _updateSubscription;
+  StreamSubscription<Map<String, dynamic>>? _requestSubscription;
+  bool _showRequests = false;
 
-  Future<List<DirectConversation>> _load() =>
-      widget.repository.listDirectConversations();
+  Future<List<DirectConversation>> _load() => _showRequests
+      ? widget.repository.listMessageRequests()
+      : widget.repository.listDirectConversations();
+
+  void _selectList(bool requests) {
+    if (_showRequests == requests) return;
+    setState(() {
+      _showRequests = requests;
+      _conversations = _load();
+    });
+  }
 
   Future<void> _deleteConversation(DirectConversation conversation) async {
     final confirmed = await showDialog<bool>(
@@ -72,18 +83,48 @@ class _ConversationListPageState extends State<ConversationListPage> {
     ) {
       if (mounted) setState(() => _conversations = _load());
     });
+    _requestSubscription = PresenceService.instance.chatRequestUpdates.listen((
+      _,
+    ) {
+      if (mounted) setState(() => _conversations = _load());
+    });
   }
 
   @override
   void dispose() {
     _subscription?.cancel();
     _updateSubscription?.cancel();
+    _requestSubscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Messages'))),
+    appBar: AppBar(
+      title: Text(context.tr('Messages')),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(56),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: SegmentedButton<bool>(
+            segments: [
+              ButtonSegment(
+                value: false,
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: Text(context.tr('Chats')),
+              ),
+              ButtonSegment(
+                value: true,
+                icon: const Icon(Icons.mark_unread_chat_alt_outlined),
+                label: Text(context.tr('Requests')),
+              ),
+            ],
+            selected: {_showRequests},
+            onSelectionChanged: (values) => _selectList(values.first),
+          ),
+        ),
+      ),
+    ),
     body: RefreshIndicator(
       onRefresh: () async {
         final next = _load();
@@ -119,14 +160,18 @@ class _ConversationListPageState extends State<ConversationListPage> {
                 const Icon(Icons.chat_bubble_outline, size: 48),
                 const SizedBox(height: 16),
                 Text(
-                  context.tr('No messages yet'),
+                  context.tr(
+                    _showRequests ? 'No message requests' : 'No messages yet',
+                  ),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   context.tr(
-                    'Open a member profile and tap Message to start a conversation.',
+                    _showRequests
+                        ? 'New conversations from other people will appear here.'
+                        : 'Open a member profile and tap Message to start a conversation.',
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -156,7 +201,10 @@ class _ConversationListPageState extends State<ConversationListPage> {
                   ),
                 ),
                 subtitle: Text(
-                  conversation.lastMessageRemoved
+                  conversation.requestStatus == MessageRequestStatus.pending &&
+                          conversation.requestedByMe
+                      ? context.tr('Message request pending')
+                      : conversation.lastMessageRemoved
                       ? context.tr('Message removed')
                       : conversation.lastMessagePreview.isEmpty
                       ? context.tr('Start the conversation')
@@ -229,6 +277,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
   StreamSubscription<Map<String, dynamic>>? _updateSubscription;
   StreamSubscription<Map<String, dynamic>>? _typingSubscription;
   StreamSubscription<Map<String, dynamic>>? _readSubscription;
+  StreamSubscription<Map<String, dynamic>>? _requestSubscription;
   Timer? _typingTimer;
   Timer? _remoteTypingTimer;
   String? _viewerId;
@@ -238,11 +287,15 @@ class _DirectChatPageState extends State<DirectChatPage> {
   bool _sending = false;
   bool _typingSent = false;
   bool _otherUserTyping = false;
+  late MessageRequestStatus _requestStatus;
+  late bool _canSendMessage;
   Object? _error;
 
   @override
   void initState() {
     super.initState();
+    _requestStatus = widget.conversation.requestStatus;
+    _canSendMessage = widget.conversation.canSendMessage;
     _load();
     _subscription = PresenceService.instance.chatMessages.listen(
       _receiveSocketMessage,
@@ -256,6 +309,9 @@ class _DirectChatPageState extends State<DirectChatPage> {
     _readSubscription = PresenceService.instance.chatReadReceipts.listen(
       _receiveReadReceipt,
     );
+    _requestSubscription = PresenceService.instance.chatRequestUpdates.listen(
+      _receiveRequestUpdate,
+    );
   }
 
   @override
@@ -264,6 +320,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
     _updateSubscription?.cancel();
     _typingSubscription?.cancel();
     _readSubscription?.cancel();
+    _requestSubscription?.cancel();
     _typingTimer?.cancel();
     _remoteTypingTimer?.cancel();
     if (_typingSent) {
@@ -415,7 +472,27 @@ class _DirectChatPageState extends State<DirectChatPage> {
     });
   }
 
+  void _receiveRequestUpdate(Map<String, dynamic> json) {
+    if (json['conversationId']?.toString() != widget.conversation.id ||
+        !mounted) {
+      return;
+    }
+    final status = json['requestStatus']?.toString();
+    if (status == 'accepted') {
+      setState(() {
+        _requestStatus = MessageRequestStatus.accepted;
+        _canSendMessage = true;
+      });
+    } else if (status == 'declined') {
+      setState(() {
+        _requestStatus = MessageRequestStatus.declined;
+        _canSendMessage = false;
+      });
+    }
+  }
+
   void _composerChanged(String value) {
+    if (_requestStatus != MessageRequestStatus.accepted) return;
     final typing = value.trim().isNotEmpty;
     if (typing && !_typingSent) {
       _typingSent = true;
@@ -449,6 +526,9 @@ class _DirectChatPageState extends State<DirectChatPage> {
           _messages.add(message);
         }
         _composer.clear();
+        if (_requestStatus == MessageRequestStatus.pending) {
+          _canSendMessage = false;
+        }
       });
       _composerChanged('');
       _scrollToBottom();
@@ -461,6 +541,40 @@ class _DirectChatPageState extends State<DirectChatPage> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  Future<void> _respondToRequest(bool accept) async {
+    try {
+      await widget.repository.respondToMessageRequest(
+        widget.conversation.id,
+        accept: accept,
+      );
+      if (!mounted) return;
+      if (!accept) {
+        Navigator.pop(context);
+        return;
+      }
+      setState(() {
+        _requestStatus = MessageRequestStatus.accepted;
+        _canSendMessage = true;
+      });
+      await widget.repository.markDirectConversationRead(
+        widget.conversation.id,
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
+
+  Future<void> _reportRequest() async {
+    final incoming = _messages.where(
+      (message) => message.senderId != _viewerId && message.removedAt == null,
+    );
+    if (incoming.isNotEmpty) await _report(incoming.first);
   }
 
   Future<void> _messageActions(DirectMessage message) async {
@@ -685,6 +799,79 @@ class _DirectChatPageState extends State<DirectChatPage> {
     body: Column(
       children: [
         Expanded(child: _messageBody()),
+        if (_requestStatus == MessageRequestStatus.pending &&
+            !widget.conversation.requestedByMe)
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    context.tr(
+                      'Accept this request to continue the conversation.',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => _respondToRequest(false),
+                          child: Text(context.tr('Decline')),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => _respondToRequest(true),
+                          child: Text(context.tr('Accept')),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextButton.icon(
+                        onPressed: _reportRequest,
+                        icon: const Icon(Icons.flag_outlined),
+                        label: Text(context.tr('Report')),
+                      ),
+                      TextButton.icon(
+                        onPressed: _block,
+                        icon: const Icon(Icons.block_outlined),
+                        label: Text(context.tr('Block')),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (_requestStatus == MessageRequestStatus.pending &&
+            widget.conversation.requestedByMe &&
+            !_canSendMessage)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(
+              context.tr(
+                'Message request sent. You can send more after it is accepted.',
+              ),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        if (_requestStatus == MessageRequestStatus.declined)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              context.tr('This conversation is unavailable.'),
+              textAlign: TextAlign.center,
+            ),
+          ),
         if (_otherUserTyping)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
@@ -696,47 +883,54 @@ class _DirectChatPageState extends State<DirectChatPage> {
               ),
             ),
           ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _composer,
-                    enabled: !_sending,
-                    minLines: 1,
-                    maxLines: 5,
-                    maxLength: 2000,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      hintText: context.tr('Write a message'),
-                      counterText: '',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(22),
+        if (_requestStatus != MessageRequestStatus.declined &&
+            (_requestStatus == MessageRequestStatus.accepted ||
+                widget.conversation.requestedByMe))
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _composer,
+                      enabled: !_sending && _canSendMessage,
+                      minLines: 1,
+                      maxLines: 5,
+                      maxLength: 2000,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        hintText: context.tr(
+                          _canSendMessage
+                              ? 'Write a message'
+                              : 'Waiting for acceptance',
+                        ),
+                        counterText: '',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(22),
+                        ),
                       ),
+                      onChanged: _composerChanged,
+                      onSubmitted: (_) => _send(),
                     ),
-                    onChanged: _composerChanged,
-                    onSubmitted: (_) => _send(),
                   ),
-                ),
-                const SizedBox(width: 6),
-                IconButton.filled(
-                  tooltip: context.tr('Send'),
-                  onPressed: _sending ? null : _send,
-                  icon: _sending
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  IconButton.filled(
+                    tooltip: context.tr('Send'),
+                    onPressed: _sending || !_canSendMessage ? null : _send,
+                    icon: _sending
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
       ],
     ),
   );

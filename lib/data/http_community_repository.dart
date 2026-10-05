@@ -130,12 +130,34 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<List<DirectConversation>> listMessageRequests() async {
+    final body = await _api.get(
+      '/api/community/v1/messages/conversations?requests=true',
+    );
+    return _list(
+      body,
+      'conversations',
+    ).map(_directConversationFromJson).toList(growable: false);
+  }
+
+  @override
   Future<DirectConversation> startDirectConversation(String userId) async {
     final body = await _api.post(
       '/api/community/v1/messages/conversations',
       body: {'userId': userId},
     );
     return _directConversationFromJson(_object(body, 'conversation'));
+  }
+
+  @override
+  Future<void> respondToMessageRequest(
+    String conversationId, {
+    required bool accept,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/messages/conversations/$conversationId/request',
+      body: {'action': accept ? 'accept' : 'decline'},
+    );
   }
 
   @override
@@ -254,6 +276,13 @@ class HttpCommunityRepository implements CommunityRepository {
       lastMessageMine: json['lastMessageMine'] == true,
       lastMessageRemoved: json['lastMessageRemoved'] == true,
       unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
+      requestStatus: switch (json['requestStatus']) {
+        'pending' => MessageRequestStatus.pending,
+        'declined' => MessageRequestStatus.declined,
+        _ => MessageRequestStatus.accepted,
+      },
+      requestedByMe: json['requestedByMe'] == true,
+      canSendMessage: json['canSendMessage'] != false,
     );
   }
 

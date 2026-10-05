@@ -17,12 +17,16 @@ class PresenceService with WidgetsBindingObserver {
       StreamController<Map<String, dynamic>>.broadcast();
   final _chatTyping = StreamController<Map<String, dynamic>>.broadcast();
   final _chatReadReceipts = StreamController<Map<String, dynamic>>.broadcast();
+  final _chatRequestUpdates =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<Map<String, dynamic>> get chatMessages => _chatMessages.stream;
   Stream<Map<String, dynamic>> get chatMessageUpdates =>
       _chatMessageUpdates.stream;
   Stream<Map<String, dynamic>> get chatTyping => _chatTyping.stream;
   Stream<Map<String, dynamic>> get chatReadReceipts => _chatReadReceipts.stream;
+  Stream<Map<String, dynamic>> get chatRequestUpdates =>
+      _chatRequestUpdates.stream;
 
   Future<void> start() async {
     if (_started) return;
@@ -64,6 +68,11 @@ class PresenceService with WidgetsBindingObserver {
           ..on('chat:read', (value) {
             if (value is Map) {
               _chatReadReceipts.add(Map<String, dynamic>.from(value));
+            }
+          })
+          ..on('chat:request_updated', (value) {
+            if (value is Map) {
+              _chatRequestUpdates.add(Map<String, dynamic>.from(value));
             }
           })
           ..connect();
