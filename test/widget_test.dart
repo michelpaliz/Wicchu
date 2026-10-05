@@ -178,6 +178,29 @@ class _EmptyExploreRepository extends DemoCommunityRepository {
   Future<List<Community>> listJoinedCommunities() async => [];
 }
 
+class _PeopleExploreRepository extends DemoCommunityRepository {
+  @override
+  Future<PeopleSearchPage> searchPeople({
+    String query = '',
+    String? cursor,
+    int limit = 25,
+  }) async {
+    if (query.isNotEmpty && !'sanyi ramos'.contains(query.toLowerCase())) {
+      return const PeopleSearchPage(people: []);
+    }
+    return const PeopleSearchPage(
+      people: [
+        PeopleSearchResult(
+          id: 'sanyi-id',
+          name: 'Sanyi Ramos',
+          userName: 'sanyi_ramos',
+          sharedCommunityCount: 0,
+        ),
+      ],
+    );
+  }
+}
+
 class _DelayedLogoutGateway extends _FakeAuthGateway {
   _DelayedLogoutGateway() : super(signedIn: true);
   final completion = Completer<void>();
@@ -1210,6 +1233,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Riverside'), findsWidgets);
     expect(find.text('No spaces match these filters.'), findsNothing);
+  });
+
+  testWidgets('People filter searches users instead of communities', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: _PeopleExploreRepository(),
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Explore'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('People'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sanyi Ramos'), findsOneWidget);
+    expect(find.text('@sanyi_ramos · 0 shared communities'), findsOneWidget);
+    expect(find.text('Create community'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('explore-search')),
+      'unknown',
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(find.text('No people found.'), findsOneWidget);
+    expect(find.text('Create community'), findsNothing);
   });
 
   testWidgets('requests popular category posts', (tester) async {

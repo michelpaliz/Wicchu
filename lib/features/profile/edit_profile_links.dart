@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
@@ -27,10 +29,13 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _form = GlobalKey<FormState>();
-  final _controllers = List.generate(4, (_) => TextEditingController());
+  final _controllers = List.generate(3, (_) => TextEditingController());
   final _details = List.generate(4, (_) => TextEditingController());
-  List<String>? _initialDetails;
-  SocialLinks? _initial;
+  EditableMemberProfile? _initial;
+  Timer? _usernameDelay;
+  int _usernameGeneration = 0;
+  bool? _usernameAvailable;
+  bool _checkingUsername = false;
   String? _error;
   bool _loading = true;
   bool _saving = false;
@@ -39,8 +44,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
-    for (final controller in [..._controllers, ..._details]) {
+    for (final controller in _controllers) {
       controller.addListener(_changed);
+    }
+    for (var index = 0; index < _details.length; index++) {
+      _details[index].addListener(index == 1 ? _usernameChanged : _changed);
     }
     _load();
   }
@@ -49,27 +57,78 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (mounted) setState(() {});
   }
 
-  bool get _detailsDirty =>
-      _initialDetails != null &&
-      List.generate(
-        4,
-        (i) => _details[i].text.trim() != _initialDetails![i],
-      ).contains(true);
+  String get _normalizedUsername =>
+      _details[1].text.trim().replaceFirst(RegExp(r'^@+'), '').toLowerCase();
 
-  bool get _dirty => _detailsDirty || _linksDirty;
+  bool _validUsername(String value) =>
+      RegExp(r'^[a-z0-9._]{3,30}$').hasMatch(value) &&
+      !RegExp(r'^[._]|[._]$|[._]{2,}').hasMatch(value);
 
-  bool get _linksDirty {
+  void _usernameChanged() {
+    if (!mounted || _loading) return;
+    _usernameDelay?.cancel();
+    final generation = ++_usernameGeneration;
+    final value = _normalizedUsername;
+    if (value == _initial?.userName.toLowerCase()) {
+      setState(() {
+        _checkingUsername = false;
+        _usernameAvailable = true;
+      });
+      return;
+    }
+    if (!_validUsername(value)) {
+      setState(() {
+        _checkingUsername = false;
+        _usernameAvailable = null;
+      });
+      return;
+    }
+    setState(() {
+      _checkingUsername = true;
+      _usernameAvailable = null;
+    });
+    _usernameDelay = Timer(const Duration(milliseconds: 350), () async {
+      try {
+        final available = await widget.repository.isUsernameAvailable(value);
+        if (!mounted || generation != _usernameGeneration) return;
+        setState(() {
+          _checkingUsername = false;
+          _usernameAvailable = available;
+        });
+        _form.currentState?.validate();
+      } catch (error) {
+        if (!mounted || generation != _usernameGeneration) return;
+        setState(() {
+          _checkingUsername = false;
+          _usernameAvailable = null;
+          _error = context.trError(error);
+        });
+      }
+    });
+  }
+
+  bool get _dirty {
     final initial = _initial;
     if (initial == null) return false;
     final values = [
-      initial.whatsapp,
-      initial.facebook,
-      initial.instagram,
-      initial.email,
+      initial.name,
+      initial.userName,
+      initial.bio,
+      initial.location,
+      initial.socialLinks.whatsapp,
+      initial.socialLinks.facebook,
+      initial.socialLinks.instagram,
+    ];
+    final current = [
+      _details[0].text.trim(),
+      _normalizedUsername,
+      _details[2].text.trim(),
+      _details[3].text.trim(),
+      ..._controllers.map((controller) => controller.text.trim()),
     ];
     return List.generate(
-      4,
-      (i) => _controllers[i].text.trim() != values[i],
+      values.length,
+      (i) => current[i] != values[i],
     ).contains(true);
   }
 
@@ -79,29 +138,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _error = null;
     });
     try {
-      final profile = await widget.repository.getProfile();
-      final member = await widget.repository.getMemberProfile(profile.id);
-      final links = await widget.repository.getMySocialLinks();
+      final profile = await widget.repository.getEditableProfile();
       if (!mounted) return;
-      _initialDetails = [
+      _initial = profile;
+      final details = [
         profile.name,
         profile.userName,
-        member.bio ?? '',
-        profile.location ?? member.location ?? '',
+        profile.bio,
+        profile.location,
       ];
       for (var i = 0; i < 4; i++) {
-        _details[i].text = _initialDetails![i];
+        _details[i].text = details[i];
       }
-      _initial = links;
       final values = [
-        links.whatsapp,
-        links.facebook,
-        links.instagram,
-        links.email,
+        profile.socialLinks.whatsapp,
+        profile.socialLinks.facebook,
+        profile.socialLinks.instagram,
       ];
       for (var i = 0; i < values.length; i++) {
         _controllers[i].text = values[i];
       }
+      _usernameAvailable = true;
     } catch (error) {
       if (mounted) _error = context.trError(error);
     } finally {
@@ -111,6 +168,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   void dispose() {
+    _usernameDelay?.cancel();
     for (final controller in [..._controllers, ..._details]) {
       controller.dispose();
     }
@@ -154,9 +212,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (index == 0 && !RegExp(r'^\+?[0-9 ()-]{7,25}$').hasMatch(value)) {
       return context.tr('Enter a phone number with country code.');
     }
-    if (index == 3 && !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value)) {
-      return context.tr('Enter a valid email address.');
-    }
     if (index == 1 || index == 2) {
       if (value.contains('://')) {
         final uri = Uri.tryParse(value);
@@ -181,28 +236,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _error = null;
     });
     try {
-      if (_detailsDirty) {
-        final details = _details.map((c) => c.text.trim()).toList();
-        await widget.repository.updateProfile(
-          name: details[0],
-          userName: details[1],
-          bio: details[2],
-          location: details[3],
-        );
-        _initialDetails = details;
-      }
+      final initial = _initial!;
       final values = _controllers.map((c) => c.text.trim()).toList();
-      if (_linksDirty) {
-        await widget.repository.updateMySocialLinks(
-          SocialLinks(
+      await widget.repository.updateEditableProfile(
+        EditableMemberProfile(
+          name: _details[0].text.trim(),
+          userName: _normalizedUsername,
+          bio: _details[2].text.trim(),
+          location: _details[3].text.trim(),
+          socialLinks: SocialLinks(
             whatsapp: values[0].replaceAll(RegExp(r'[ ()-]'), ''),
             facebook: values[1].replaceFirst(RegExp(r'^@'), ''),
             instagram: values[2].replaceFirst(RegExp(r'^@'), ''),
-            email: values[3],
-            showOnlineStatus: _initial!.showOnlineStatus,
+            email: initial.socialLinks.email,
+            showOnlineStatus: initial.socialLinks.showOnlineStatus,
           ),
-        );
-      }
+        ),
+      );
       if (!mounted) return;
       setState(() {
         _saving = false;
@@ -300,12 +350,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Widget _contactField(int i) {
     final colors = Theme.of(context).colorScheme;
-    final label = ['WhatsApp', 'Facebook', 'Instagram', context.tr('Email')][i];
+    final label = ['WhatsApp', 'Facebook', 'Instagram'][i];
     final brandColor = [
       const Color(0xff25a95b),
       const Color(0xff1877f2),
       const Color(0xffc13584),
-      colors.primary,
     ][i];
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -336,7 +385,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 Icons.chat_outlined,
                 Icons.facebook,
                 Icons.camera_alt_outlined,
-                Icons.email_outlined,
               ][i],
               color: Colors.white,
               size: 24,
@@ -368,10 +416,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     style: const TextStyle(fontSize: 14),
                     keyboardType: i == 0
                         ? TextInputType.phone
-                        : i == 3
-                        ? TextInputType.emailAddress
                         : TextInputType.url,
-                    textInputAction: i == 3
+                    textInputAction: i == 2
                         ? TextInputAction.done
                         : TextInputAction.next,
                     autocorrect: false,
@@ -383,7 +429,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             '+34 600 123 456',
                             'https://facebook.com/username',
                             '@username',
-                            'name@example.com',
                           ][i],
                           icon: i == 1 || i == 2 ? Icons.link : null,
                         ).copyWith(
@@ -507,29 +552,69 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           if (i < 2 && value.isEmpty) {
                             return context.tr('This field is required.');
                           }
-                          if (i == 1 &&
-                              !RegExp(r'^[a-zA-Z0-9._-]+$').hasMatch(value)) {
+                          if (i == 1) {
+                            final normalized = value
+                                .replaceFirst(RegExp(r'^@+'), '')
+                                .toLowerCase();
+                            final unchanged =
+                                normalized == _initial?.userName.toLowerCase();
+                            if (!unchanged && !_validUsername(normalized)) {
+                              return context.tr(
+                                'Use 3–30 letters, numbers, periods, or underscores.',
+                              );
+                            }
+                            if (!unchanged && _usernameAvailable == false) {
+                              return context.tr(
+                                'This username is already taken.',
+                              );
+                            }
+                          }
+                          if (i == 1 && value.startsWith('@')) {
                             return context.tr(
-                              'Use letters, numbers, dots, underscores or hyphens.',
+                              'Use 3–30 letters, numbers, periods, or underscores.',
                             );
                           }
                           return null;
                         },
-                        decoration: _decoration(
-                          hint: i == 2
-                              ? context.tr(
-                                  'Tell us about yourself, your interests or what makes you unique…',
-                                )
-                              : i == 3
-                              ? context.tr('Add your location')
-                              : null,
-                          icon: [
-                            Icons.person_outline,
-                            Icons.alternate_email,
-                            Icons.notes_outlined,
-                            Icons.location_on_outlined,
-                          ][i],
-                        ),
+                        decoration:
+                            _decoration(
+                              hint: i == 2
+                                  ? context.tr(
+                                      'Tell us about yourself, your interests or what makes you unique…',
+                                    )
+                                  : i == 3
+                                  ? context.tr('Add your location')
+                                  : null,
+                              icon: [
+                                Icons.person_outline,
+                                Icons.alternate_email,
+                                Icons.notes_outlined,
+                                Icons.location_on_outlined,
+                              ][i],
+                            ).copyWith(
+                              suffixIcon: i != 1
+                                  ? null
+                                  : _checkingUsername
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(14),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : _usernameAvailable == true
+                                  ? const Icon(
+                                      Icons.check_circle,
+                                      color: Colors.green,
+                                    )
+                                  : _usernameAvailable == false
+                                  ? Icon(
+                                      Icons.cancel,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
+                                    )
+                                  : null,
+                            ),
                       ),
                       const SizedBox(height: 12),
                     ],
@@ -548,7 +633,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 24),
-                    for (var i = 0; i < 4; i++) _contactField(i),
+                    for (var i = 0; i < 3; i++) _contactField(i),
                     Text(
                       context.tr(
                         'Clear a field to remove it from your profile.',
@@ -587,7 +672,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                onPressed: _saving || !_dirty ? null : _save,
+                onPressed:
+                    _saving ||
+                        !_dirty ||
+                        _checkingUsername ||
+                        _usernameAvailable != true
+                    ? null
+                    : _save,
                 icon: _saving
                     ? const SizedBox.square(
                         dimension: 18,

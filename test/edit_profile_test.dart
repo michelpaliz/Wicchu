@@ -6,8 +6,11 @@ import 'package:wicchu/features/profile/edit_profile_links.dart';
 
 class FailingProfileRepository extends DemoCommunityRepository {
   int saves = 0;
+
   @override
-  Future<SocialLinks> updateMySocialLinks(SocialLinks links) async {
+  Future<EditableMemberProfile> updateEditableProfile(
+    EditableMemberProfile profile,
+  ) async {
     saves++;
     throw Exception('Save failed');
   }
@@ -31,14 +34,10 @@ void main() {
     await tester.pump();
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
-    expect((await repository.getProfile()).name, 'Updated name');
-    expect(
-      (await repository.getMemberProfile('current-user')).name,
-      'Updated name',
-    );
+    expect((await repository.getEditableProfile()).name, 'Updated name');
   });
 
-  testWidgets('invalid email prevents save and failed save retains input', (
+  testWidgets('invalid contact prevents save and failed save retains input', (
     tester,
   ) async {
     final repository = FailingProfileRepository();
@@ -46,22 +45,43 @@ void main() {
       MaterialApp(home: EditProfilePage(repository: repository)),
     );
     await tester.pumpAndSettle();
-    final email = find.byKey(const ValueKey('profile-link-3'));
-    await tester.ensureVisible(email);
-    await tester.enterText(email, 'invalid');
+    final whatsapp = find.byKey(const ValueKey('profile-link-0'));
+    await tester.ensureVisible(whatsapp);
+    await tester.enterText(whatsapp, 'invalid');
     await tester.pump();
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
     expect(repository.saves, 0);
-    await tester.enterText(email, 'neighbor@example.com');
+    await tester.enterText(whatsapp, '+34600123456');
     await tester.pump();
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
     expect(repository.saves, 1);
-    expect(find.text('neighbor@example.com'), findsOneWidget);
+    expect(find.text('+34600123456'), findsOneWidget);
     expect(find.byType(EditProfilePage), findsOneWidget);
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
+  });
+
+  testWidgets('unavailable username is rejected before save', (tester) async {
+    final repository = DemoCommunityRepository();
+    await tester.pumpWidget(
+      MaterialApp(home: EditProfilePage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('profile-detail-1')),
+      'taken',
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    expect(find.text('This username is already taken.'), findsOneWidget);
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNull,
+    );
   });
 }

@@ -11,6 +11,26 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
+    if (path == '/api/community/v1/me/profile') {
+      return {
+        'profile': {
+          'name': 'Ana Rivera',
+          'userName': 'ana',
+          'bio': 'Community volunteer',
+          'location': 'Dénia',
+          'socialLinks': {
+            'whatsapp': '+34600123456',
+            'facebook': 'ana',
+            'instagram': 'ana',
+          },
+        },
+      };
+    }
+    if (path.startsWith(
+      '/api/community/v1/me/profile/username-availability?',
+    )) {
+      return {'available': !path.contains('userName=taken')};
+    }
     if (path == '/api/community/v1/messages/conversations' ||
         path == '/api/community/v1/messages/conversations?requests=true') {
       return {
@@ -253,6 +273,11 @@ class _RecordingApiClient extends AuthenticatedApiClient {
     if (path == '/api/community/v1/messages/privacy') {
       return {'messagingPrivacy': body?['messagingPrivacy']};
     }
+    if (path == '/api/community/v1/me/profile') {
+      return {
+        'profile': {...?body},
+      };
+    }
     return {
       'community': {
         'id': 'community-1',
@@ -274,18 +299,24 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 
 void main() {
   test(
-    'personal profile patch sends only editable fields, including cleared bio',
+    'editable profile loads, validates username and saves all fields',
     () async {
       final api = _RecordingApiClient();
-      await HttpCommunityRepository(
-        apiClient: api,
-      ).updateProfile(name: 'Ana', userName: 'ana', bio: '', location: 'Dénia');
-      expect(api.lastPath, '/api/community/v1/me');
-      expect(api.lastBody, {
-        'name': 'Ana',
-        'userName': 'ana',
-        'bio': '',
-        'location': 'Dénia',
+      final repository = HttpCommunityRepository(apiClient: api);
+
+      final profile = await repository.getEditableProfile();
+      expect(profile.name, 'Ana Rivera');
+      expect(profile.bio, 'Community volunteer');
+      expect(await repository.isUsernameAvailable('available'), isTrue);
+      expect(await repository.isUsernameAvailable('taken'), isFalse);
+
+      await repository.updateEditableProfile(profile);
+      expect(api.lastPath, '/api/community/v1/me/profile');
+      expect(api.lastBody?['name'], 'Ana Rivera');
+      expect(api.lastBody?['socialLinks'], {
+        'whatsapp': '+34600123456',
+        'facebook': 'ana',
+        'instagram': 'ana',
       });
     },
   );

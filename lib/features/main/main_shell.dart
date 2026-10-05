@@ -1738,6 +1738,7 @@ class _ExploreTab extends StatefulWidget {
 
 class _ExploreTabState extends State<_ExploreTab> {
   late Future<List<Community>> _communities;
+  late Future<PeopleSearchPage> _people;
   final _saving = <String>{};
   Timer? _searchDelay;
   final _searchController = TextEditingController();
@@ -1756,7 +1757,9 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   void _reload() {
-    if (_filter == 2) {
+    if (_filter == 6) {
+      _people = widget.repository.searchPeople(query: _query, limit: 50);
+    } else if (_filter == 2) {
       _communities = widget.repository.listJoinedCommunities();
     } else if (_filter == 1) {
       final position = _position;
@@ -1865,6 +1868,13 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   Future<void> _refresh() async {
+    if (_filter == 6) {
+      setState(_reload);
+      try {
+        await _people;
+      } catch (_) {}
+      return;
+    }
     if (_filter == 1) {
       await _findNearby();
       return;
@@ -1928,6 +1938,98 @@ class _ExploreTabState extends State<_ExploreTab> {
     setState(_reload);
     widget.onCommunitiesChanged();
   }
+
+  Future<void> _openPerson(PeopleSearchResult person) async {
+    await openResponsiveSidePanel<void>(
+      context,
+      builder: (_) =>
+          MemberProfilePage(userId: person.id, repository: widget.repository),
+    );
+  }
+
+  Widget _peopleResults() => RefreshIndicator(
+    onRefresh: _refresh,
+    child: FutureBuilder<PeopleSearchPage>(
+      future: _people,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              Padding(
+                padding: EdgeInsets.all(48),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+          );
+        }
+        if (snapshot.hasError) {
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [_LoadError(error: snapshot.error!, onRetry: _refresh)],
+          );
+        }
+        final people = snapshot.data?.people ?? const <PeopleSearchResult>[];
+        if (people.isEmpty) {
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(32),
+            children: [
+              const SizedBox(height: 48),
+              Icon(
+                Icons.person_search_outlined,
+                size: 72,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                context.tr('No people found.'),
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.tr('Try another name or username.'),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          );
+        }
+        return ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: people.length,
+          separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
+          itemBuilder: (context, index) {
+            final person = people[index];
+            final username = person.userName.isEmpty
+                ? ''
+                : '@${person.userName}';
+            final shared = context.trCount(
+              person.sharedCommunityCount,
+              singular: '{count} shared community',
+              plural: '{count} shared communities',
+            );
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              leading: UserAvatar(
+                name: person.name,
+                imageUrl: person.avatarUrl,
+                radius: 24,
+              ),
+              title: Text(person.name),
+              subtitle: Text(username.isEmpty ? shared : '$username · $shared'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _openPerson(person),
+            );
+          },
+        );
+      },
+    ),
+  );
 
   Widget _emptyState() {
     final searching = _query.trim().isNotEmpty;
@@ -2451,17 +2553,18 @@ class _ExploreTabState extends State<_ExploreTab> {
         ),
       ),
       actions: [
-        IconButton(
-          tooltip: context.tr('Discovery filters'),
-          onPressed: _openDiscoveryFilters,
-          icon: Badge(
-            isLabelVisible: _createdWithinDays != 0 || _audienceRange != 0,
-            child: Icon(
-              Icons.tune,
-              color: Theme.of(context).colorScheme.primary,
+        if (_filter != 6)
+          IconButton(
+            tooltip: context.tr('Discovery filters'),
+            onPressed: _openDiscoveryFilters,
+            icon: Badge(
+              isLabelVisible: _createdWithinDays != 0 || _audienceRange != 0,
+              child: Icon(
+                Icons.tune,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
           ),
-        ),
         const SizedBox(width: 8),
       ],
     ),
@@ -2496,132 +2599,141 @@ class _ExploreTabState extends State<_ExploreTab> {
           ),
         ),
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: _refresh,
-            child: FutureBuilder<List<Community>>(
-              future: _communities,
-              builder: (context, snapshot) {
-                Widget? status;
-                if (_filter == 1 && !_usingLocation) {
-                  status = Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      children: [
-                        if (_locating)
-                          const CircularProgressIndicator()
-                        else
-                          const Icon(Icons.location_on_outlined, size: 48),
-                        const SizedBox(height: 16),
-                        Text(
-                          context.tr(
-                            _locating
-                                ? 'Finding nearby communities…'
-                                : 'Use your location to find nearby communities.',
+          child: _filter == 6
+              ? _peopleResults()
+              : RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: FutureBuilder<List<Community>>(
+                    future: _communities,
+                    builder: (context, snapshot) {
+                      Widget? status;
+                      if (_filter == 1 && !_usingLocation) {
+                        status = Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            children: [
+                              if (_locating)
+                                const CircularProgressIndicator()
+                              else
+                                const Icon(
+                                  Icons.location_on_outlined,
+                                  size: 48,
+                                ),
+                              const SizedBox(height: 16),
+                              Text(
+                                context.tr(
+                                  _locating
+                                      ? 'Finding nearby communities…'
+                                      : 'Use your location to find nearby communities.',
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (!_locating)
+                                TextButton(
+                                  onPressed: _findNearby,
+                                  child: Text(context.tr('Use my location')),
+                                ),
+                            ],
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        if (!_locating)
-                          TextButton(
-                            onPressed: _findNearby,
-                            child: Text(context.tr('Use my location')),
-                          ),
-                      ],
-                    ),
-                  );
-                } else if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  status = const Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                } else if (snapshot.hasError) {
-                  status = _LoadError(
-                    error: snapshot.error!,
-                    onRetry: _refresh,
-                  );
-                }
-                final query = _query.trim().toLowerCase();
-                final cutoff = _createdWithinDays == 0
-                    ? null
-                    : DateTime.now().subtract(
-                        Duration(days: _createdWithinDays),
+                        );
+                      } else if (snapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        status = const Padding(
+                          padding: EdgeInsets.all(40),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      } else if (snapshot.hasError) {
+                        status = _LoadError(
+                          error: snapshot.error!,
+                          onRetry: _refresh,
+                        );
+                      }
+                      final query = _query.trim().toLowerCase();
+                      final cutoff = _createdWithinDays == 0
+                          ? null
+                          : DateTime.now().subtract(
+                              Duration(days: _createdWithinDays),
+                            );
+                      final communities = (snapshot.data ?? <Community>[])
+                          .where(
+                            (community) => _filter == 3
+                                ? !community.isPublicProfile
+                                : _filter == 5
+                                ? community.isPublicProfile &&
+                                      community.profileCategory ==
+                                          ProfileCategory.localBusiness
+                                : _filter == 6
+                                ? community.isPublicProfile &&
+                                      (community.profileCategory ==
+                                              ProfileCategory.person ||
+                                          community.profileCategory ==
+                                              ProfileCategory.creator)
+                                : _filter == 4
+                                ? community.isPublicProfile
+                                : true,
+                          )
+                          .where(
+                            (community) =>
+                                query.isEmpty ||
+                                community.name.toLowerCase().contains(query) ||
+                                community.town.name.toLowerCase().contains(
+                                  query,
+                                ),
+                          )
+                          .where(
+                            (community) =>
+                                (cutoff == null ||
+                                    !community.createdAt.isBefore(cutoff)) &&
+                                switch (_audienceRange) {
+                                  1 => community.memberCount < 50,
+                                  2 =>
+                                    community.memberCount >= 50 &&
+                                        community.memberCount < 500,
+                                  3 => community.memberCount >= 500,
+                                  _ => true,
+                                },
+                          )
+                          .toList();
+                      return ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        children: [
+                          if (status != null)
+                            status
+                          else if (communities.isEmpty &&
+                              (_createdWithinDays != 0 || _audienceRange != 0))
+                            Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    context.tr(
+                                      'No spaces match these filters.',
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  TextButton(
+                                    onPressed: _openDiscoveryFilters,
+                                    child: Text(context.tr('Adjust filters')),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (communities.isEmpty)
+                            _emptyState()
+                          else
+                            ...communities.map(_communityCard),
+                          if (status == null &&
+                              communities.isNotEmpty &&
+                              (_filter != 0 || query.isNotEmpty))
+                            _discoveryPrompt(),
+                        ],
                       );
-                final communities = (snapshot.data ?? <Community>[])
-                    .where(
-                      (community) => _filter == 3
-                          ? !community.isPublicProfile
-                          : _filter == 5
-                          ? community.isPublicProfile &&
-                                community.profileCategory ==
-                                    ProfileCategory.localBusiness
-                          : _filter == 6
-                          ? community.isPublicProfile &&
-                                (community.profileCategory ==
-                                        ProfileCategory.person ||
-                                    community.profileCategory ==
-                                        ProfileCategory.creator)
-                          : _filter == 4
-                          ? community.isPublicProfile
-                          : true,
-                    )
-                    .where(
-                      (community) =>
-                          query.isEmpty ||
-                          community.name.toLowerCase().contains(query) ||
-                          community.town.name.toLowerCase().contains(query),
-                    )
-                    .where(
-                      (community) =>
-                          (cutoff == null ||
-                              !community.createdAt.isBefore(cutoff)) &&
-                          switch (_audienceRange) {
-                            1 => community.memberCount < 50,
-                            2 =>
-                              community.memberCount >= 50 &&
-                                  community.memberCount < 500,
-                            3 => community.memberCount >= 500,
-                            _ => true,
-                          },
-                    )
-                    .toList();
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  children: [
-                    if (status != null)
-                      status
-                    else if (communities.isEmpty &&
-                        (_createdWithinDays != 0 || _audienceRange != 0))
-                      Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          children: [
-                            Text(
-                              context.tr('No spaces match these filters.'),
-                              textAlign: TextAlign.center,
-                            ),
-                            TextButton(
-                              onPressed: _openDiscoveryFilters,
-                              child: Text(context.tr('Adjust filters')),
-                            ),
-                          ],
-                        ),
-                      )
-                    else if (communities.isEmpty)
-                      _emptyState()
-                    else
-                      ...communities.map(_communityCard),
-                    if (status == null &&
-                        communities.isNotEmpty &&
-                        (_filter != 0 || query.isNotEmpty))
-                      _discoveryPrompt(),
-                  ],
-                );
-              },
-            ),
-          ),
+                    },
+                  ),
+                ),
         ),
       ],
     ),

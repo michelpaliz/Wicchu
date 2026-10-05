@@ -164,6 +164,11 @@ abstract interface class CommunityRepository {
   });
   Future<SocialLinks> getMySocialLinks();
   Future<SocialLinks> updateMySocialLinks(SocialLinks links);
+  Future<EditableMemberProfile> getEditableProfile();
+  Future<bool> isUsernameAvailable(String userName);
+  Future<EditableMemberProfile> updateEditableProfile(
+    EditableMemberProfile profile,
+  );
   Future<NotificationFeed> listNotifications();
   Future<void> markNotificationRead(String notificationId);
   Future<void> markAllNotificationsRead();

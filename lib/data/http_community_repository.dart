@@ -345,6 +345,53 @@ class HttpCommunityRepository implements CommunityRepository {
     });
   }
 
+  @override
+  Future<EditableMemberProfile> getEditableProfile() async {
+    final body = await _api.get('/api/community/v1/me/profile');
+    return _editableProfileFromJson(_object(body, 'profile'));
+  }
+
+  @override
+  Future<bool> isUsernameAvailable(String userName) async {
+    final uri = Uri(
+      path: '/api/community/v1/me/profile/username-availability',
+      queryParameters: {'userName': userName.trim()},
+    );
+    final body = await _api.get(uri.toString());
+    return body['available'] == true;
+  }
+
+  @override
+  Future<EditableMemberProfile> updateEditableProfile(
+    EditableMemberProfile profile,
+  ) async {
+    final body = await _api.patch(
+      '/api/community/v1/me/profile',
+      body: {
+        'name': profile.name,
+        'userName': profile.userName,
+        'bio': profile.bio,
+        'location': profile.location,
+        'socialLinks': {
+          'whatsapp': profile.socialLinks.whatsapp,
+          'facebook': profile.socialLinks.facebook,
+          'instagram': profile.socialLinks.instagram,
+        },
+      },
+    );
+    return _editableProfileFromJson(_object(body, 'profile'));
+  }
+
+  static EditableMemberProfile _editableProfileFromJson(
+    Map<String, dynamic> json,
+  ) => EditableMemberProfile(
+    name: json['name']?.toString() ?? '',
+    userName: json['userName']?.toString() ?? '',
+    bio: json['bio']?.toString() ?? '',
+    location: json['location']?.toString() ?? '',
+    socialLinks: _socialLinksFromJson(json['socialLinks']),
+  );
+
   static SocialLinks _socialLinksFromJson(Object? value) {
     final json = value is Map<String, dynamic>
         ? value

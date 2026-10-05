@@ -212,6 +212,22 @@ class SocialLinks {
       email.isEmpty;
 }
 
+class EditableMemberProfile {
+  const EditableMemberProfile({
+    required this.name,
+    required this.userName,
+    this.bio = '',
+    this.location = '',
+    this.socialLinks = const SocialLinks(),
+  });
+
+  final String name;
+  final String userName;
+  final String bio;
+  final String location;
+  final SocialLinks socialLinks;
+}
+
 class CommunityNotification {
   const CommunityNotification({
     required this.id,

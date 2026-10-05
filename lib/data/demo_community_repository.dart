@@ -49,6 +49,10 @@ class DemoCommunityRepository implements CommunityRepository {
   final Set<String> _savedPostIds = {};
   final Map<String, CommunitySurveyResponse> _helpfulnessVotes = {};
   SocialLinks _socialLinks = const SocialLinks();
+  EditableMemberProfile _editableProfile = const EditableMemberProfile(
+    name: 'Michael P.',
+    userName: 'michael',
+  );
   NotificationPreferences _notificationPreferences =
       const NotificationPreferences();
 
@@ -109,6 +113,30 @@ class DemoCommunityRepository implements CommunityRepository {
   @override
   Future<SocialLinks> updateMySocialLinks(SocialLinks links) async =>
       _socialLinks = links;
+
+  @override
+  Future<EditableMemberProfile> getEditableProfile() async =>
+      EditableMemberProfile(
+        name: _editableProfile.name,
+        userName: _editableProfile.userName,
+        bio: _editableProfile.bio,
+        location: _editableProfile.location,
+        socialLinks: _socialLinks,
+      );
+
+  @override
+  Future<bool> isUsernameAvailable(String userName) async =>
+      userName.toLowerCase() == _editableProfile.userName.toLowerCase() ||
+      userName.toLowerCase() != 'taken';
+
+  @override
+  Future<EditableMemberProfile> updateEditableProfile(
+    EditableMemberProfile profile,
+  ) async {
+    _editableProfile = profile;
+    _socialLinks = profile.socialLinks;
+    return profile;
+  }
 
   @override
   Future<List<CommunityPost>> listMemberPosts(

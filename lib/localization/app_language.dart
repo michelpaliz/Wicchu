@@ -324,6 +324,8 @@ const _spanish = <String, String>{
   'Search people': 'Buscar personas',
   'Find people': 'Encontrar personas',
   'No people found.': 'No se encontraron personas.',
+  'Try another name or username.':
+      'Prueba con otro nombre o nombre de usuario.',
   '{count} shared community': '{count} comunidad en común',
   '{count} shared communities': '{count} comunidades en común',
   'Find friends': 'Encontrar amigos',
@@ -1364,6 +1366,16 @@ const _spanish = <String, String>{
   'Existing posts in {category} will remain, but the category will no longer be available.':
       'Las publicaciones existentes en {category} permanecerán, pero la categoría dejará de estar disponible.',
   'Name': 'Nombre',
+  'Biography': 'Biografía',
+  'Tell people about you, your interests, or what makes you special…':
+      'Cuéntanos algo sobre ti, tus intereses o lo que te hace especial…',
+  'Name is required.': 'El nombre es obligatorio.',
+  'Use 80 characters or fewer.': 'Usa 80 caracteres o menos.',
+  'Use 3–30 letters, numbers, periods, or underscores.':
+      'Usa entre 3 y 30 letras, números, puntos o guiones bajos.',
+  'This username is already taken.': 'Este nombre de usuario ya está en uso.',
+  'Use 500 characters or fewer.': 'Usa 500 caracteres o menos.',
+  'Use 120 characters or fewer.': 'Usa 120 caracteres o menos.',
   'Description': 'Descripción',
   'Save': 'Guardar',
   'Community settings': 'Ajustes de la comunidad',
