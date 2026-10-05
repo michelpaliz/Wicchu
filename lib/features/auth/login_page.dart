@@ -1,5 +1,4 @@
 import 'auth_sign_in_button.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/auth_gateway.dart';
@@ -77,18 +76,6 @@ class _LoginPageState extends State<LoginPage> {
                     isLoading: _loadingProvider == 'facebook',
                     disabled: _loadingProvider != null,
                   ),
-                  if (defaultTargetPlatform == TargetPlatform.iOS) ...[
-                    const SizedBox(height: 12),
-                    _signInButton(
-                      provider: 'apple',
-                      label: 'Continue with Apple',
-                      onPressed: _signInApple,
-                      icon: const Icon(Icons.apple, size: 24),
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                      filled: true,
-                    ),
-                  ],
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Row(
