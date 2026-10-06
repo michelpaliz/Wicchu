@@ -34,6 +34,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool _facebookLinked = false;
   MessagingPrivacy _messagingPrivacy = MessagingPrivacy.everyone;
   bool _linkingFacebook = false;
+  bool _deletingAccount = false;
+  bool _accountDeleted = false;
   bool _loaded = false;
 
   @override
@@ -99,7 +101,11 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => _accountDeleted
+      ? _accountDeletedScreen(context)
+      : _settingsScreen(context);
+
+  Widget _settingsScreen(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(context.tr('Settings'))),
     body: !_loaded
         ? const Center(child: CircularProgressIndicator())
@@ -306,11 +312,22 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.delete_outline),
-                  trailing: const Icon(Icons.chevron_right, size: 20),
-                  onTap: widget.authGateway == null
+                  trailing: _deletingAccount
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.chevron_right, size: 20),
+                  onTap: _deletingAccount
+                      ? null
+                      : widget.authGateway == null
                       ? _openDataDeletion
                       : _deleteAccount,
-                  title: Text(context.tr('Delete account')),
+                  title: Text(
+                    context.tr(
+                      _deletingAccount ? 'Deleting account…' : 'Delete account',
+                    ),
+                  ),
                   subtitle: Text(
                     context.tr(
                       'Permanently delete your account and personal content.',
@@ -339,6 +356,59 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               ]),
             ],
           ),
+  );
+
+  Widget _accountDeletedScreen(BuildContext context) => PopScope(
+    canPop: false,
+    child: Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 48,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
+                  child: Icon(
+                    Icons.check_rounded,
+                    size: 54,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  context.tr('Account deleted'),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  context.tr(
+                    'Your Wicchu account and personal content have been permanently deleted. You can create a new account at any time.',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: widget.onAccountDeleted,
+                    icon: const Icon(Icons.login),
+                    label: Text(context.tr('Continue to sign in')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 
   Future<void> _chooseMessagingPrivacy() async {
@@ -560,8 +630,10 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   }
 
   Future<void> _deleteAccount() async {
+    if (_deletingAccount) return;
     final gateway = widget.authGateway;
     if (gateway == null) return _openDataDeletion();
+    setState(() => _deletingAccount = true);
     try {
       final preview = await gateway.getDeletionPreview();
       final conflicts =
@@ -591,56 +663,62 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       var confirmation = '';
       final approved = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text(context.tr('Delete account permanently?')),
-          scrollable: true,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                context.tr(
-                  'This removes your profile, memberships, posts, comments, media, and notifications. This action cannot be undone.',
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(context.tr('Delete account permanently?')),
+            scrollable: true,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  context.tr(
+                    'This removes your profile, memberships, posts, comments, media, and notifications. This action cannot be undone.',
+                  ),
                 ),
+                const SizedBox(height: 16),
+                TextField(
+                  onChanged: (value) => password = value,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: context.tr('Password (email accounts only)'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  onChanged: (value) =>
+                      setDialogState(() => confirmation = value),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Type DELETE to confirm'),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(context.tr('Cancel')),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                onChanged: (value) => password = value,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: context.tr('Password (email accounts only)'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                onChanged: (value) => confirmation = value,
-                decoration: InputDecoration(
-                  labelText: context.tr('Type DELETE to confirm'),
-                ),
+              FilledButton(
+                onPressed: confirmation.trim() == 'DELETE'
+                    ? () => Navigator.pop(dialogContext, true)
+                    : null,
+                child: Text(context.tr('Delete account')),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(context.tr('Cancel')),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.pop(context, confirmation.trim() == 'DELETE'),
-              child: Text(context.tr('Delete account')),
-            ),
-          ],
         ),
       );
       if (approved != true) return;
       await gateway.deleteAccount(password: password);
       if (!mounted) return;
-      widget.onAccountDeleted?.call();
+      setState(() => _accountDeleted = true);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    } finally {
+      if (mounted) setState(() => _deletingAccount = false);
     }
   }
 

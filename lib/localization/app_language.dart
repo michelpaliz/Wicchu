@@ -626,6 +626,11 @@ const _spanish = <String, String>{
   'Email address': 'Correo electrónico',
   'Password': 'Contraseña',
   'Delete account': 'Eliminar cuenta',
+  'Deleting account…': 'Eliminando cuenta…',
+  'Account deleted': 'Cuenta eliminada',
+  'Your Wicchu account and personal content have been permanently deleted. You can create a new account at any time.':
+      'Tu cuenta de Wicchu y tu contenido personal se han eliminado permanentemente. Puedes crear una cuenta nueva en cualquier momento.',
+  'Continue to sign in': 'Continuar para iniciar sesión',
   'Permanently delete your account and personal content.':
       'Elimina permanentemente tu cuenta y tu contenido personal.',
   'Blocked users': 'Usuarios bloqueados',

@@ -555,14 +555,23 @@ void main() {
     await tester.ensureVisible(find.text('Delete account'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete account'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
     final fields = find.descendant(
       of: find.byType(AlertDialog),
       matching: find.byType(TextField),
     );
+    final deleteButton = find.widgetWithText(FilledButton, 'Delete account');
+    expect(tester.widget<FilledButton>(deleteButton).onPressed, isNull);
     await tester.enterText(fields.first, 'review-password');
     await tester.enterText(fields.last, 'DELETE');
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete account'));
+    await tester.pump();
+    expect(tester.widget<FilledButton>(deleteButton).onPressed, isNotNull);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Account deleted'), findsOneWidget);
+    expect(find.text('Continue to sign in'), findsOneWidget);
+    expect(find.text('Continue with email'), findsNothing);
+    await tester.tap(find.text('Continue to sign in'));
     await tester.pumpAndSettle();
     expect(find.text('Continue with email'), findsOneWidget);
     expect(find.text('Continue with Facebook'), findsOneWidget);
