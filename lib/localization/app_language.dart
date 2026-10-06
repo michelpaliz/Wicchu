@@ -368,7 +368,6 @@ const _spanish = <String, String>{
   'Optional': 'Opcional',
   'Discard community draft?': '¿Descartar el borrador de la comunidad?',
   'Your changes will not be saved.': 'Tus cambios no se guardarán.',
-  'Step {current} of {total}': 'Paso {current} de {total}',
   'Creating…': 'Creando…',
   'Rules and review': 'Normas y revisión',
   'Choose the topics for your community. You can change them later.':
@@ -750,6 +749,37 @@ const _spanish = <String, String>{
   'Latest': 'Recientes',
   'Popular': 'Populares',
   'Create post': 'Crear publicación',
+  'Type': 'Tipo',
+  'Options': 'Opciones',
+  'Step {current} of {total}': 'Paso {current} de {total}',
+  'Choose a format. You can adjust it later.':
+      'Elige un formato. Puedes ajustarlo después.',
+  'Standard post': 'Publicación',
+  'Share an update, idea, or local news.':
+      'Comparte una novedad, una idea o noticias locales.',
+  'Photos or video': 'Fotos o vídeo',
+  'Tell your story with up to 10 media files.':
+      'Cuenta tu historia con hasta 10 archivos multimedia.',
+  'Create your content': 'Crea tu contenido',
+  'Write your post and add anything it needs.':
+      'Escribe tu publicación y añade lo que necesite.',
+  'Add photos or video': 'Añadir fotos o vídeo',
+  'Poll options': 'Opciones de la encuesta',
+  'Review how this post will be published.':
+      'Revisa cómo se publicará esta publicación.',
+  'Not selected': 'Sin seleccionar',
+  'Change': 'Cambiar',
+  'Review everything before publishing.': 'Revisa todo antes de publicar.',
+  'Next': 'Siguiente',
+  'Published': 'Publicado',
+  'Your post is live and can now be shared.':
+      'Tu publicación ya está visible y puedes compartirla.',
+  'View post': 'Ver publicación',
+  'Create another post': 'Crear otra publicación',
+  'Share elsewhere': 'Compartir también en',
+  'Copy description': 'Copiar descripción',
+  'Description copied': 'Descripción copiada',
+  'Copy link': 'Copiar enlace',
   'Posting to': 'Publicando en',
   'Post details': 'Detalles de la publicación',
   'What would you like to share?': '¿Qué te gustaría compartir?',

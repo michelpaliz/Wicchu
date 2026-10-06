@@ -642,8 +642,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('¿Qué quieres publicar?'), findsNothing);
     expect(find.text('Crear publicación'), findsOneWidget);
-    final publish = find.widgetWithText(FilledButton, 'Publicar');
-    expect(tester.widget<FilledButton>(publish).onPressed, isNull);
+    expect(find.text('Publicación'), findsOneWidget);
+    final firstNext = find.byKey(const ValueKey('next-post-step'));
+    expect(tester.widget<FilledButton>(firstNext).onPressed, isNotNull);
+    await tester.tap(firstNext);
+    await tester.pumpAndSettle();
+    final next = find.byKey(const ValueKey('next-post-step'));
+    expect(tester.widget<FilledButton>(next).onPressed, isNull);
     final controller = tester
         .widget<PostRichTextEditor>(find.byType(PostRichTextEditor))
         .controller;
@@ -654,7 +659,7 @@ void main() {
       const TextSelection.collapsed(offset: 20),
     );
     await tester.pump();
-    expect(tester.widget<FilledButton>(publish).onPressed, isNotNull);
+    expect(tester.widget<FilledButton>(next).onPressed, isNotNull);
     controller.replaceText(
       0,
       controller.document.length - 1,
@@ -662,7 +667,7 @@ void main() {
       const TextSelection.collapsed(offset: 0),
     );
     await tester.pump();
-    expect(tester.widget<FilledButton>(publish).onPressed, isNull);
+    expect(tester.widget<FilledButton>(next).onPressed, isNull);
   });
 
   testWidgets('personal profile editing is accessed through the account menu', (

@@ -1,11 +1,10 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show PlatformException;
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
+import '../../config/wicchu_urls.dart';
 import '../../localization/app_language.dart';
 import '../../widgets/responsive_side_panel.dart';
 import 'post_rich_text_editor.dart';
@@ -101,6 +100,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
   bool _hasPoll = false;
   late bool _publishAnonymously = widget.existingPost?.isAnonymous ?? false;
   final _pollControllers = [TextEditingController(), TextEditingController()];
+  int _step = 0;
+  _PostKind _kind = _PostKind.text;
+  CommunityPost? _publishedPost;
   bool get _isEditing => widget.existingPost != null;
   bool get _pollLocked => (widget.existingPost?.poll?.totalVotes ?? 0) > 0;
   bool get _canPublishAsAdmin => const {
@@ -205,6 +207,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       );
       if (existingPost.poll != null) {
         _hasPoll = true;
+        _kind = _PostKind.poll;
         for (final controller in _pollControllers) {
           controller.dispose();
         }
@@ -215,6 +218,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
               (option) => TextEditingController(text: option.text),
             ),
           );
+      } else if (existingPost.media.isNotEmpty) {
+        _kind = _PostKind.media;
       }
     }
   }
@@ -253,6 +258,773 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isEditing) return _legacyBuild(context);
+    if (!widget.community.canPublish) return _permissionDenied(context);
+    if (_publishedPost case final post?) return _successScreen(context, post);
+    final categories =
+        widget.categories.isEmpty && widget.initialCategory != null
+        ? [widget.initialCategory!]
+        : widget.categories;
+    return PopScope(
+      canPop: _step == 0 && !_saving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _step > 0 && !_saving) {
+          setState(() => _step--);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: BackButton(
+            onPressed: _saving
+                ? null
+                : _step == 0
+                ? () => Navigator.pop(context)
+                : () => setState(() => _step--),
+          ),
+          title: Text(
+            context.tr('Create post'),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+        ),
+        body: Column(
+          children: [
+            _stepProgress(context),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: ListView(
+                  key: ValueKey(_step),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  children: [
+                    switch (_step) {
+                      0 => _typeStep(context, categories),
+                      1 => _contentStep(context),
+                      2 => _optionsStep(context),
+                      _ => _previewStep(context),
+                    },
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: _stepNavigation(context),
+      ),
+    );
+  }
+
+  Widget _permissionDenied(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(context.tr('Create post'))),
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          context.tr('You do not have permission to publish in this space.'),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    ),
+  );
+
+  Widget _stepProgress(BuildContext context) {
+    final labels = ['Type', 'Content', 'Options', 'Preview'];
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      label: context.tr('Step {current} of {total}', {
+        'current': '${_step + 1}',
+        'total': '4',
+      }),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+        child: Row(
+          children: [
+            for (var index = 0; index < labels.length; index++) ...[
+              Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: index <= _step
+                            ? colors.primary
+                            : colors.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          color: index <= _step
+                              ? colors.onPrimary
+                              : colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      context.tr(labels[index]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: index == _step
+                            ? colors.primary
+                            : colors.onSurfaceVariant,
+                        fontWeight: index == _step
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (index < labels.length - 1)
+                Container(
+                  width: 12,
+                  height: 2,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  color: index < _step ? colors.primary : colors.outlineVariant,
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _typeStep(BuildContext context, List<CommunityCategory> categories) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            context.tr('What would you like to share?'),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(context.tr('Choose a format. You can adjust it later.')),
+          const SizedBox(height: 18),
+          _postingDestination(context),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<CommunityCategory>(
+            initialValue: _category,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: context.tr('Category')),
+            items: [
+              for (final item in categories)
+                DropdownMenuItem(
+                  value: item,
+                  child: Text('${item.icon} ${context.tr(item.name)}'),
+                ),
+            ],
+            onChanged: (value) => setState(() => _category = value),
+          ),
+          const SizedBox(height: 20),
+          _kindCard(
+            context,
+            kind: _PostKind.text,
+            icon: Icons.notes_outlined,
+            title: 'Standard post',
+            subtitle: 'Share an update, idea, or local news.',
+          ),
+          _kindCard(
+            context,
+            kind: _PostKind.media,
+            icon: Icons.photo_library_outlined,
+            title: 'Photos or video',
+            subtitle: 'Tell your story with up to 10 media files.',
+          ),
+          _kindCard(
+            context,
+            kind: _PostKind.poll,
+            icon: Icons.poll_outlined,
+            title: 'Poll',
+            subtitle: 'Ask a question and let members vote.',
+          ),
+        ],
+      );
+
+  Widget _kindCard(
+    BuildContext context, {
+    required _PostKind kind,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    final selected = _kind == kind;
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: selected
+            ? colors.primaryContainer.withValues(alpha: .55)
+            : colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          key: ValueKey('post-kind-${kind.name}'),
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => setState(() {
+            _kind = kind;
+            _hasPoll = kind == _PostKind.poll;
+          }),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                CircleAvatar(child: Icon(icon)),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr(title),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(context.tr(subtitle)),
+                    ],
+                  ),
+                ),
+                Icon(
+                  selected ? Icons.check_circle : Icons.circle_outlined,
+                  color: selected ? colors.primary : colors.outline,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _contentStep(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(
+        context.tr('Create your content'),
+        style: Theme.of(
+          context,
+        ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 6),
+      Text(context.tr('Write your post and add anything it needs.')),
+      const SizedBox(height: 18),
+      PostRichTextEditor(controller: _textController),
+      const SizedBox(height: 10),
+      OutlinedButton.icon(
+        onPressed: _saving ? null : _chooseMentions,
+        icon: const Icon(Icons.alternate_email),
+        label: Text(
+          _mentionedUserIds.isEmpty
+              ? context.tr('Tag members')
+              : context.tr('{count} tagged', {
+                  'count': '${_mentionedUserIds.length}',
+                }),
+        ),
+      ),
+      if (_kind == _PostKind.media || _attachments.isNotEmpty) ...[
+        const SizedBox(height: 22),
+        _mediaEditor(context),
+      ] else ...[
+        const SizedBox(height: 10),
+        TextButton.icon(
+          onPressed: () => setState(() => _kind = _PostKind.media),
+          icon: const Icon(Icons.add_photo_alternate_outlined),
+          label: Text(context.tr('Add photos or video')),
+        ),
+      ],
+      if (_hasPoll) ...[const SizedBox(height: 22), _pollEditor(context)],
+    ],
+  );
+
+  Widget _optionsStep(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(
+        context.tr('Post options'),
+        style: Theme.of(
+          context,
+        ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 6),
+      Text(context.tr('Review how this post will be published.')),
+      const SizedBox(height: 20),
+      _postingDestination(context),
+      if (_canPublishAnonymously) ...[
+        const SizedBox(height: 16),
+        _anonymousOption(context),
+      ],
+      const SizedBox(height: 16),
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.category_outlined),
+          title: Text(context.tr('Category')),
+          subtitle: Text(
+            _category == null
+                ? context.tr('Not selected')
+                : '${_category!.icon} ${context.tr(_category!.name)}',
+          ),
+          trailing: TextButton(
+            onPressed: () => setState(() => _step = 0),
+            child: Text(context.tr('Change')),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  Widget _previewStep(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(
+        context.tr('Preview'),
+        style: Theme.of(
+          context,
+        ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 6),
+      Text(context.tr('Review everything before publishing.')),
+      const SizedBox(height: 18),
+      FutureBuilder<WicchuProfile>(
+        future: _postingAuthor,
+        builder: (context, snapshot) {
+          final author = _publishAnonymously
+              ? context.tr(
+                  _canPublishAsAdmin ? 'Community Admin' : 'Anonymous Member',
+                )
+              : snapshot.data?.name ?? context.tr('You');
+          return Card(
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    author,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    '${widget.community.name} · ${_category == null ? '' : context.tr(_category!.name)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const Divider(height: 28),
+                  Text(_textController.text.trim()),
+                  if (_attachments.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 180,
+                      child: PostMediaGallery(
+                        media: _attachments.map((item) => item.media).toList(),
+                      ),
+                    ),
+                  ],
+                  if (_hasPoll) ...[
+                    const SizedBox(height: 14),
+                    for (final option in _pollControllers)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(option.text.trim()),
+                        ),
+                      ),
+                  ],
+                  if (_textController.text.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () =>
+                            _copyDescription(_textController.text.trim()),
+                        icon: const Icon(Icons.copy_outlined),
+                        label: Text(context.tr('Copy description')),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ],
+  );
+
+  Widget _postingDestination(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Theme.of(
+        context,
+      ).colorScheme.primaryContainer.withValues(alpha: .4),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.groups_2_outlined),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: '${context.tr('Posting to')} '),
+                TextSpan(
+                  text: widget.community.name,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _anonymousOption(BuildContext context) => Card(
+    child: SwitchListTile.adaptive(
+      value: _publishAnonymously,
+      onChanged: _saving
+          ? null
+          : (value) => setState(() => _publishAnonymously = value),
+      secondary: const Icon(Icons.person_off_outlined),
+      title: Text(context.tr('Publish anonymously')),
+      subtitle: Text(
+        context.tr(
+          _canPublishAsAdmin
+              ? '“Community Admin” will appear instead of your name. Your identity remains available for security and auditing.'
+              : 'Anonymous posts are always reviewed by a community administrator before publication. Administrators can still identify you for safety.',
+        ),
+      ),
+    ),
+  );
+
+  Widget _mediaEditor(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.tr('Media'),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          Text('${_attachments.length}/10'),
+        ],
+      ),
+      const SizedBox(height: 10),
+      if (_uploading) const LinearProgressIndicator(),
+      SizedBox(
+        height: 112,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _attachments.length + (_attachments.length < 10 ? 1 : 0),
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            if (index == _attachments.length) {
+              return SizedBox(
+                width: 108,
+                child: OutlinedButton.icon(
+                  onPressed: _saving || _uploading ? null : _chooseMedia,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: Text(context.tr('Add')),
+                ),
+              );
+            }
+            final attachment = _attachments[index];
+            return SizedBox(
+              width: 108,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child:
+                        attachment.bytes != null &&
+                            attachment.media.type == 'image'
+                        ? Image.memory(attachment.bytes!, fit: BoxFit.cover)
+                        : PostMediaGallery(media: [attachment.media]),
+                  ),
+                  Positioned(
+                    right: 2,
+                    top: 2,
+                    child: IconButton.filled(
+                      tooltip: context.tr('Remove'),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: _saving
+                          ? null
+                          : () => setState(() => _attachments.removeAt(index)),
+                      icon: const Icon(Icons.close, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    ],
+  );
+
+  Widget _pollEditor(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(
+        context.tr('Poll options'),
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 10),
+      for (final (index, controller) in _pollControllers.indexed)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: TextField(
+            controller: controller,
+            onChanged: (_) => _refreshValidity(),
+            enabled: !_pollLocked,
+            maxLength: 120,
+            decoration: InputDecoration(
+              labelText: context.tr('Option {number}', {
+                'number': '${index + 1}',
+              }),
+              counterText: '',
+              suffixIcon: !_pollLocked && _pollControllers.length > 2
+                  ? IconButton(
+                      onPressed: () => setState(() {
+                        _pollControllers.removeAt(index).dispose();
+                      }),
+                      icon: const Icon(Icons.close),
+                    )
+                  : null,
+            ),
+          ),
+        ),
+      if (!_pollLocked && _pollControllers.length < 10)
+        TextButton.icon(
+          onPressed: () =>
+              setState(() => _pollControllers.add(TextEditingController())),
+          icon: const Icon(Icons.add),
+          label: Text(context.tr('Add option')),
+        ),
+    ],
+  );
+
+  bool get _canContinue => switch (_step) {
+    0 => _category != null,
+    1 =>
+      _textController.text.trim().isNotEmpty &&
+          !_textController.exceedsCharacterLimit &&
+          !_uploading &&
+          (_kind != _PostKind.media || _attachments.isNotEmpty) &&
+          (!_hasPoll ||
+              (_pollControllers.length >= 2 &&
+                  _pollControllers.every(
+                    (controller) => controller.text.trim().isNotEmpty,
+                  ) &&
+                  _pollControllers
+                          .map((item) => item.text.trim())
+                          .toSet()
+                          .length ==
+                      _pollControllers.length)),
+    2 => true,
+    _ => _canSubmit,
+  };
+
+  Widget _stepNavigation(BuildContext context) => SafeArea(
+    top: false,
+    minimum: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+    child: Row(
+      children: [
+        if (_step > 0) ...[
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _saving ? null : () => setState(() => _step--),
+              child: Text(context.tr('Back')),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+        Expanded(
+          flex: _step == 0 ? 1 : 2,
+          child: FilledButton.icon(
+            key: ValueKey(_step == 3 ? 'publish-post' : 'next-post-step'),
+            onPressed: !_canContinue || _saving
+                ? null
+                : _step == 3
+                ? _publish
+                : () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    setState(() => _step++);
+                  },
+            icon: _saving
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(_step == 3 ? Icons.publish : Icons.arrow_forward),
+            label: Text(context.tr(_step == 3 ? 'Publish' : 'Next')),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _successScreen(BuildContext context, CommunityPost post) {
+    final pending = post.status == PostStatus.pendingApproval;
+    return Scaffold(
+      appBar: AppBar(
+        leading: const SizedBox.shrink(),
+        title: Text(context.tr(pending ? 'Submitted' : 'Published')),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 48,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                child: Icon(
+                  pending ? Icons.hourglass_top : Icons.check,
+                  size: 54,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                context.tr(
+                  pending ? 'Post submitted for approval' : 'Post published',
+                ),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.tr(
+                  pending
+                      ? 'A community moderator will review it before publication.'
+                      : 'Your post is live and can now be shared.',
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context, post),
+                  child: Text(context.tr('View post')),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _resetComposer,
+                  child: Text(context.tr('Create another post')),
+                ),
+              ),
+              if (!pending) ...[
+                const SizedBox(height: 28),
+                Text(
+                  context.tr('Share elsewhere'),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    if (post.text.trim().isNotEmpty)
+                      OutlinedButton.icon(
+                        onPressed: () => _copyDescription(post.text.trim()),
+                        icon: const Icon(Icons.copy_outlined),
+                        label: Text(context.tr('Copy description')),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: () => sharePost(
+                        context,
+                        widget.repository,
+                        post,
+                        communityName: widget.community.name,
+                      ),
+                      icon: const Icon(Icons.ios_share_outlined),
+                      label: Text(context.tr('Share post')),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: WicchuUrls.post(post.id)),
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(context.tr('Link copied'))),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.link),
+                      label: Text(context.tr('Copy link')),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _copyDescription(String description) async {
+    await Clipboard.setData(ClipboardData(text: description));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.tr('Description copied'))));
+  }
+
+  void _resetComposer() {
+    _textController.clear();
+    _attachments.clear();
+    _mentionedUserIds.clear();
+    _publishAnonymously = false;
+    _hasPoll = false;
+    _kind = _PostKind.text;
+    for (final controller in _pollControllers) {
+      controller.dispose();
+    }
+    _pollControllers
+      ..clear()
+      ..addAll([TextEditingController(), TextEditingController()]);
+    setState(() {
+      _publishedPost = null;
+      _step = 0;
+    });
+  }
+
+  Widget _legacyBuild(BuildContext context) {
     if (!widget.community.canPublish) {
       return Scaffold(
         appBar: AppBar(title: Text(context.tr('Create post'))),
@@ -819,59 +1591,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ? await widget.repository.updatePost(widget.existingPost!.id, input)
           : await widget.repository.createPost(widget.community.id, input);
       if (!mounted) return;
-      if (post.status == PostStatus.pendingApproval) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            icon: const Icon(Icons.hourglass_top),
-            title: Text(dialogContext.tr('Post submitted for approval')),
-            content: Text(
-              dialogContext.tr(
-                'A community moderator will review it before publication.',
-              ),
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: Text(dialogContext.tr('Done')),
-              ),
-            ],
-          ),
-        );
-      } else if (!_isEditing) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            icon: const Icon(Icons.check_circle_outline, size: 44),
-            title: Text(dialogContext.tr('Post published')),
-            content: Text(
-              dialogContext.tr(
-                'Your post is live. Share it with your community elsewhere?',
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: Text(dialogContext.tr('Not now')),
-              ),
-              FilledButton.icon(
-                onPressed: () async {
-                  await sharePost(
-                    dialogContext,
-                    widget.repository,
-                    post,
-                    communityName: widget.community.name,
-                  );
-                  if (dialogContext.mounted) Navigator.pop(dialogContext);
-                },
-                icon: const Icon(Icons.ios_share_outlined),
-                label: Text(dialogContext.tr('Share post')),
-              ),
-            ],
-          ),
-        );
+      if (_isEditing) {
+        Navigator.pop(context, post);
+      } else {
+        setState(() {
+          _saving = false;
+          _publishedPost = post;
+        });
       }
-      if (mounted) Navigator.pop(context, post);
     } catch (error) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -966,6 +1693,8 @@ class _PostAttachment {
   final PostMedia media;
   final Uint8List? bytes;
 }
+
+enum _PostKind { text, media, poll }
 
 Future<CommunityPost?> openEditPost(
   BuildContext context,
