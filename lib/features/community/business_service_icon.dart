@@ -15,5 +15,6 @@ IconData businessServiceIcon(BusinessService service) => switch (service) {
   BusinessService.transport => Icons.local_shipping_outlined,
   BusinessService.education => Icons.school_outlined,
   BusinessService.professionalServices => Icons.business_center_outlined,
+  BusinessService.realEstate => Icons.apartment_outlined,
   BusinessService.other => Icons.more_horiz,
 };

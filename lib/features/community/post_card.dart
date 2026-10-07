@@ -182,6 +182,7 @@ class PostCard extends StatefulWidget {
             onAuthorTap: onAuthorTap,
             onCommunityTap: onCommunityTap,
             onMentionTap: onMentionTap,
+            post: post,
             onReaction: onReaction == null
                 ? null
                 : (next) async {
@@ -278,6 +279,7 @@ class _PostCardState extends State<PostCard> {
   bool _savingVote = false;
   bool _hidden = false;
   bool _deleting = false;
+  bool _businessViewSent = false;
 
   Future<void> _deletePost() async {
     if (widget.onDelete == null || _deleting) return;
@@ -322,6 +324,7 @@ class _PostCardState extends State<PostCard> {
   void initState() {
     super.initState();
     _recordImpression();
+    _recordBusinessView();
   }
 
   @override
@@ -336,6 +339,10 @@ class _PostCardState extends State<PostCard> {
       _recordImpression();
     }
     if (oldWidget.poll != widget.poll) _poll = widget.poll;
+    if (oldWidget.post?.id != widget.post?.id) {
+      _businessViewSent = false;
+      _recordBusinessView();
+    }
   }
 
   void _recordImpression() {
@@ -344,6 +351,36 @@ class _PostCardState extends State<PostCard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(widget.onPromotionImpression!());
     });
+  }
+
+  void _recordBusinessView() {
+    final post = widget.post;
+    if (_businessViewSent ||
+        widget.repository == null ||
+        post == null ||
+        (post.todayMenu == null && post.businessFeature == null)) {
+      return;
+    }
+    _businessViewSent = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          widget.repository!
+              .recordBusinessPostEngagement(post.id, action: 'view')
+              .catchError((_) {}),
+        );
+      }
+    });
+  }
+
+  Future<void> _contactBusiness() async {
+    final post = widget.post;
+    if (post != null && widget.repository != null) {
+      await widget.repository!
+          .recordBusinessPostEngagement(post.id, action: 'contact')
+          .catchError((_) {});
+    }
+    widget.onCommunityTap?.call();
   }
 
   @override
@@ -453,13 +490,21 @@ class _PostCardState extends State<PostCard> {
                 PostMediaGallery(media: widget.media, onOpen: _openMedia),
                 const SizedBox(height: 8),
               ],
-              PostMarkdown(
-                data: widget.text,
-                collapsible: widget.collapseText,
-                compact: widget.compact,
-                previewLines: widget.compact ? 3 : 5,
-                onUserTap: widget.onMentionTap,
-              ),
+              if (widget.post?.todayMenu case final menu?)
+                _TodayMenuView(menu: menu)
+              else if (widget.post?.businessFeature case final feature?)
+                _BusinessFeatureView(feature: feature)
+              else
+                PostMarkdown(
+                  data: widget.text,
+                  collapsible: widget.collapseText,
+                  compact: widget.compact,
+                  previewLines: widget.compact ? 3 : 5,
+                  onUserTap: widget.onMentionTap,
+                ),
+              if (widget.post?.todayMenu != null ||
+                  widget.post?.businessFeature != null)
+                _businessFooter(),
               if (widget.price != null) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -540,6 +585,51 @@ class _PostCardState extends State<PostCard> {
     onEdit: widget.onEdit,
     onDelete: widget.onDelete == null ? null : _deletePost,
   );
+
+  Widget _businessFooter() {
+    final post = widget.post!;
+    final menuExpired = post.todayMenu?.isExpired == true;
+    final feature = post.businessFeature;
+    final featureExpired = feature?.isExpired == true;
+    final status = menuExpired
+        ? 'Expired'
+        : featureExpired
+        ? (feature?.type == BusinessPostFeatureType.transportTrip
+              ? 'Departed'
+              : 'Expired')
+        : null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (status != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Chip(
+                avatar: const Icon(Icons.history, size: 16),
+                label: Text(context.tr(status)),
+              ),
+            ),
+          if (widget.onCommunityTap != null)
+            OutlinedButton.icon(
+              onPressed: _contactBusiness,
+              icon: const Icon(Icons.storefront_outlined),
+              label: Text(context.tr('Contact business')),
+            ),
+          if (post.ownedByMe)
+            Text(
+              context.tr('{views} views · {contacts} contact taps', {
+                'views': '${post.businessViewCount}',
+                'contacts': '${post.businessContactCount}',
+              }),
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _openMedia(int index) async {
     final result = await widget.openMedia(
@@ -663,6 +753,245 @@ class _PostCardState extends State<PostCard> {
       }
     }
   }
+}
+
+class _TodayMenuView extends StatelessWidget {
+  const _TodayMenuView({required this.menu});
+
+  final TodayMenu menu;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: .35),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.restaurant_menu, size: 21),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.tr("Today's menu"),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              Text(
+                context.tr('Available today'),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final dish in menu.dishes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Row(
+                children: [
+                  Icon(
+                    dish.available
+                        ? Icons.check_circle_outline
+                        : Icons.remove_circle_outline,
+                    size: 17,
+                    color: dish.available
+                        ? scheme.primary
+                        : scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      dish.name,
+                      style: TextStyle(
+                        decoration: dish.available
+                            ? null
+                            : TextDecoration.lineThrough,
+                        color: dish.available ? null : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  if (dish.price.isNotEmpty)
+                    Text(
+                      dish.price,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                ],
+              ),
+            ),
+          if (menu.fulfillmentOptions.isNotEmpty) ...[
+            const Divider(height: 18),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                for (final option in menu.fulfillmentOptions)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    avatar: Icon(switch (option) {
+                      BusinessFulfillmentOption.delivery =>
+                        Icons.delivery_dining_outlined,
+                      BusinessFulfillmentOption.pickup =>
+                        Icons.shopping_bag_outlined,
+                      BusinessFulfillmentOption.eatIn =>
+                        Icons.restaurant_outlined,
+                    }, size: 16),
+                    label: Text(context.tr(option.label)),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BusinessFeatureView extends StatelessWidget {
+  const _BusinessFeatureView({required this.feature});
+
+  final BusinessPostFeature feature;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final details = <(IconData, String)>[];
+    switch (feature.type) {
+      case BusinessPostFeatureType.retailOffer:
+        details.add((Icons.inventory_2_outlined, feature.title));
+      case BusinessPostFeatureType.transportTrip:
+        details.add((
+          Icons.route_outlined,
+          '${feature.routeFrom} → ${feature.routeTo}',
+        ));
+        if (feature.departureAt != null) {
+          final local = feature.departureAt!.toLocal();
+          details.add((
+            Icons.schedule_outlined,
+            '${MaterialLocalizations.of(context).formatMediumDate(local)} · ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(local))}',
+          ));
+        }
+        details.add((
+          Icons.event_seat_outlined,
+          context.tr('{count} seats available', {
+            'count': '${feature.seatsAvailable ?? 0}',
+          }),
+        ));
+      case BusinessPostFeatureType.realEstateListing:
+        details.add((Icons.apartment_outlined, feature.title));
+        details.add((
+          Icons.key_outlined,
+          context.tr(feature.listingType == 'rent' ? 'For rent' : 'For sale'),
+        ));
+        details.add((
+          Icons.bed_outlined,
+          context.tr('{count} bedrooms', {'count': '${feature.bedrooms ?? 0}'}),
+        ));
+        details.add((Icons.location_on_outlined, feature.location));
+      case BusinessPostFeatureType.professionalService:
+        details.add((Icons.business_center_outlined, feature.title));
+        details.add((Icons.map_outlined, feature.serviceArea));
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer.withValues(alpha: .35),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(_featureIcon, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.tr(_featureTitle),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              if (feature.price.isNotEmpty)
+                Text(
+                  feature.price,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final detail in details)
+            if (detail.$2.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: Row(
+                  children: [
+                    Icon(detail.$1, size: 17, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(detail.$2)),
+                  ],
+                ),
+              ),
+          if (feature.type != BusinessPostFeatureType.transportTrip) ...[
+            const SizedBox(height: 2),
+            Text(
+              context.tr(
+                feature.available ? 'Currently available' : 'Unavailable',
+              ),
+              style: TextStyle(
+                color: feature.available ? scheme.primary : scheme.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (feature.fulfillmentOptions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 7,
+              children: [
+                for (final option in feature.fulfillmentOptions)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(context.tr(option.label)),
+                  ),
+              ],
+            ),
+          ],
+          if (feature.type == BusinessPostFeatureType.professionalService)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                context.tr('Open the business profile to request a quote.'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String get _featureTitle => switch (feature.type) {
+    BusinessPostFeatureType.retailOffer => 'Product or offer',
+    BusinessPostFeatureType.transportTrip => 'Trip availability',
+    BusinessPostFeatureType.realEstateListing => 'Property listing',
+    BusinessPostFeatureType.professionalService => 'Professional service',
+  };
+
+  IconData get _featureIcon => switch (feature.type) {
+    BusinessPostFeatureType.retailOffer => Icons.local_offer_outlined,
+    BusinessPostFeatureType.transportTrip => Icons.directions_bus_outlined,
+    BusinessPostFeatureType.realEstateListing => Icons.apartment_outlined,
+    BusinessPostFeatureType.professionalService =>
+      Icons.business_center_outlined,
+  };
 }
 
 class _PollView extends StatelessWidget {

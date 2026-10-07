@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
-import '../../config/wicchu_urls.dart';
 import '../../localization/app_language.dart';
 import '../../widgets/responsive_side_panel.dart';
 import 'post_rich_text_editor.dart';
@@ -100,6 +99,20 @@ class _CreatePostPageState extends State<CreatePostPage> {
   bool _hasPoll = false;
   late bool _publishAnonymously = widget.existingPost?.isAnonymous ?? false;
   final _pollControllers = [TextEditingController(), TextEditingController()];
+  final _menuDishes = [_MenuDishDraft()];
+  late final Set<BusinessFulfillmentOption> _menuFulfillment = {
+    ...widget.community.businessFulfillmentOptions,
+  };
+  final _featureTitle = TextEditingController();
+  final _featurePrice = TextEditingController();
+  final _featureFrom = TextEditingController();
+  final _featureTo = TextEditingController();
+  final _featureNumber = TextEditingController();
+  final _featureLocation = TextEditingController();
+  final _featureServiceArea = TextEditingController();
+  bool _featureAvailable = true;
+  String _propertyListingType = 'rent';
+  DateTime _featureDepartureAt = DateTime.now().add(const Duration(hours: 1));
   int _step = 0;
   _PostKind _kind = _PostKind.text;
   CommunityPost? _publishedPost;
@@ -111,6 +124,55 @@ class _CreatePostPageState extends State<CreatePostPage> {
     CommunityRole.moderator,
   }.contains(widget.community.myRole);
   bool get _canPublishAnonymously => widget.community.myRole != null;
+  bool get _canPublishTodayMenu =>
+      widget.community.isPublicProfile &&
+      widget.community.profileCategory == ProfileCategory.localBusiness &&
+      widget.community.businessServices.contains(BusinessService.food);
+
+  bool _hasBusinessService(BusinessService service) =>
+      widget.community.isPublicProfile &&
+      widget.community.profileCategory == ProfileCategory.localBusiness &&
+      widget.community.businessServices.contains(service);
+
+  bool get _isStructuredBusinessPost => const {
+    _PostKind.todayMenu,
+    _PostKind.retailOffer,
+    _PostKind.transportTrip,
+    _PostKind.realEstate,
+    _PostKind.professionalService,
+  }.contains(_kind);
+
+  String get _effectiveText => switch (_kind) {
+    _PostKind.todayMenu => _todayMenuPostText(),
+    _PostKind.retailOffer => _retailOfferPostText(),
+    _PostKind.transportTrip => _transportTripPostText(),
+    _PostKind.realEstate => _realEstatePostText(),
+    _PostKind.professionalService => _professionalServicePostText(),
+    _ => _textController.document.toPlainText().trim(),
+  };
+
+  bool get _validTodayMenu =>
+      _kind != _PostKind.todayMenu ||
+      (_menuDishes.isNotEmpty &&
+          _menuDishes.every((dish) => dish.name.text.trim().isNotEmpty));
+
+  bool get _validBusinessFeature => switch (_kind) {
+    _PostKind.retailOffer || _PostKind.professionalService =>
+      _featureTitle.text.trim().isNotEmpty &&
+          (_kind != _PostKind.professionalService ||
+              _featureServiceArea.text.trim().isNotEmpty),
+    _PostKind.transportTrip =>
+      _featureFrom.text.trim().isNotEmpty &&
+          _featureTo.text.trim().isNotEmpty &&
+          (int.tryParse(_featureNumber.text.trim()) ?? -1) >= 0 &&
+          _featureDepartureAt.isAfter(DateTime.now()),
+    _PostKind.realEstate =>
+      _featureTitle.text.trim().isNotEmpty &&
+          _featurePrice.text.trim().isNotEmpty &&
+          _featureLocation.text.trim().isNotEmpty &&
+          (int.tryParse(_featureNumber.text.trim()) ?? -1) >= 0,
+    _ => true,
+  };
 
   Future<void> _chooseMentions() async {
     final members = (await widget.repository.listMembers(widget.community.id))
@@ -205,7 +267,50 @@ class _CreatePostPageState extends State<CreatePostPage> {
       _attachments.addAll(
         existingPost.media.map((media) => _PostAttachment(media, null)),
       );
-      if (existingPost.poll != null) {
+      if (existingPost.todayMenu case final menu?) {
+        _kind = _PostKind.todayMenu;
+        for (final dish in _menuDishes) {
+          dish.dispose();
+        }
+        _menuDishes
+          ..clear()
+          ..addAll(
+            menu.dishes.map(
+              (dish) => _MenuDishDraft(
+                name: dish.name,
+                price: dish.price,
+                available: dish.available,
+              ),
+            ),
+          );
+        _menuFulfillment
+          ..clear()
+          ..addAll(menu.fulfillmentOptions);
+      } else if (existingPost.businessFeature case final feature?) {
+        _kind = switch (feature.type) {
+          BusinessPostFeatureType.retailOffer => _PostKind.retailOffer,
+          BusinessPostFeatureType.transportTrip => _PostKind.transportTrip,
+          BusinessPostFeatureType.realEstateListing => _PostKind.realEstate,
+          BusinessPostFeatureType.professionalService =>
+            _PostKind.professionalService,
+        };
+        _featureTitle.text = feature.title;
+        _featurePrice.text = feature.price;
+        _featureFrom.text = feature.routeFrom;
+        _featureTo.text = feature.routeTo;
+        _featureNumber.text =
+            (feature.seatsAvailable ?? feature.bedrooms)?.toString() ?? '';
+        _featureLocation.text = feature.location;
+        _featureServiceArea.text = feature.serviceArea;
+        _featureAvailable = feature.available;
+        _propertyListingType = feature.listingType.isEmpty
+            ? 'rent'
+            : feature.listingType;
+        _featureDepartureAt = feature.departureAt ?? _featureDepartureAt;
+        _menuFulfillment
+          ..clear()
+          ..addAll(feature.fulfillmentOptions);
+      } else if (existingPost.poll != null) {
         _hasPoll = true;
         _kind = _PostKind.poll;
         for (final controller in _pollControllers) {
@@ -233,10 +338,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
         _saving ||
         _uploading ||
         _category == null ||
-        _textController.document.toPlainText().trim().isEmpty ||
+        _effectiveText.isEmpty ||
         _textController.exceedsCharacterLimit) {
       return false;
     }
+    if (!_validTodayMenu) return false;
+    if (!_validBusinessFeature) return false;
     if (!_hasPoll) return true;
     final options = _pollControllers
         .map((controller) => controller.text.trim())
@@ -253,12 +360,21 @@ class _CreatePostPageState extends State<CreatePostPage> {
     for (final controller in _pollControllers) {
       controller.dispose();
     }
+    for (final dish in _menuDishes) {
+      dish.dispose();
+    }
+    _featureTitle.dispose();
+    _featurePrice.dispose();
+    _featureFrom.dispose();
+    _featureTo.dispose();
+    _featureNumber.dispose();
+    _featureLocation.dispose();
+    _featureServiceArea.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isEditing) return _legacyBuild(context);
     if (!widget.community.canPublish) return _permissionDenied(context);
     if (_publishedPost case final post?) return _successScreen(context, post);
     final categories =
@@ -282,7 +398,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 : () => setState(() => _step--),
           ),
           title: Text(
-            context.tr('Create post'),
+            context.tr(_isEditing ? 'Edit post' : 'Create post'),
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
         ),
@@ -445,6 +561,46 @@ class _CreatePostPageState extends State<CreatePostPage> {
             title: 'Poll',
             subtitle: 'Ask a question and let members vote.',
           ),
+          if (_canPublishTodayMenu)
+            _kindCard(
+              context,
+              kind: _PostKind.todayMenu,
+              icon: Icons.restaurant_menu,
+              title: "Today's menu",
+              subtitle: 'Publish dishes, prices and availability for today.',
+            ),
+          if (_hasBusinessService(BusinessService.retail))
+            _kindCard(
+              context,
+              kind: _PostKind.retailOffer,
+              icon: Icons.local_offer_outlined,
+              title: 'Product or offer',
+              subtitle: 'Share a product, price and availability.',
+            ),
+          if (_hasBusinessService(BusinessService.transport))
+            _kindCard(
+              context,
+              kind: _PostKind.transportTrip,
+              icon: Icons.directions_bus_outlined,
+              title: 'Trip availability',
+              subtitle: 'Share a route, departure time and available seats.',
+            ),
+          if (_hasBusinessService(BusinessService.realEstate))
+            _kindCard(
+              context,
+              kind: _PostKind.realEstate,
+              icon: Icons.apartment_outlined,
+              title: 'Property listing',
+              subtitle: 'Publish a property for rent or sale.',
+            ),
+          if (_hasBusinessService(BusinessService.professionalServices))
+            _kindCard(
+              context,
+              kind: _PostKind.professionalService,
+              icon: Icons.business_center_outlined,
+              title: 'Professional service',
+              subtitle: 'Describe a service, area and starting price.',
+            ),
         ],
       );
 
@@ -514,7 +670,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
       const SizedBox(height: 6),
       Text(context.tr('Write your post and add anything it needs.')),
       const SizedBox(height: 18),
-      PostRichTextEditor(controller: _textController),
+      if (_kind == _PostKind.todayMenu)
+        _todayMenuEditor(context)
+      else if (_isStructuredBusinessPost)
+        _businessFeatureEditor(context)
+      else
+        PostRichTextEditor(controller: _textController),
       const SizedBox(height: 10),
       OutlinedButton.icon(
         onPressed: _saving ? null : _chooseMentions,
@@ -527,7 +688,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 }),
         ),
       ),
-      if (_kind == _PostKind.media || _attachments.isNotEmpty) ...[
+      if (_kind == _PostKind.media ||
+          _isStructuredBusinessPost ||
+          _attachments.isNotEmpty) ...[
         const SizedBox(height: 22),
         _mediaEditor(context),
       ] else ...[
@@ -614,7 +777,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const Divider(height: 28),
-                  Text(_textController.text.trim()),
+                  Text(_effectiveText),
                   if (_attachments.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     SizedBox(
@@ -644,13 +807,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
                         ),
                       ),
                   ],
-                  if (_textController.text.trim().isNotEmpty) ...[
+                  if (_effectiveText.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
-                        onPressed: () =>
-                            _copyDescription(_textController.text.trim()),
+                        onPressed: () => _copyDescription(_effectiveText),
                         icon: const Icon(Icons.copy_outlined),
                         label: Text(context.tr('Copy description')),
                       ),
@@ -711,6 +873,423 @@ class _CreatePostPageState extends State<CreatePostPage> {
       ),
     ),
   );
+
+  Widget _todayMenuEditor(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                context.tr("Today's menu"),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Text(context.tr('This menu automatically expires tonight.')),
+              const SizedBox(height: 16),
+              for (final (index, dish) in _menuDishes.indexed) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        key: ValueKey('menu-dish-$index'),
+                        controller: dish.name,
+                        maxLength: 120,
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          labelText: context.tr('Dish'),
+                          counterText: '',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: dish.price,
+                        maxLength: 30,
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          labelText: context.tr('Price'),
+                          hintText: r'$5.00',
+                          counterText: '',
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: context.tr('Remove'),
+                      onPressed: _menuDishes.length == 1
+                          ? null
+                          : () => setState(() {
+                              final removed = _menuDishes.removeAt(index);
+                              removed.dispose();
+                            }),
+                      icon: const Icon(Icons.remove_circle_outline),
+                    ),
+                  ],
+                ),
+                CheckboxListTile(
+                  value: dish.available,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(context.tr('Available today')),
+                  onChanged: (value) =>
+                      setState(() => dish.available = value ?? true),
+                ),
+                if (index < _menuDishes.length - 1) const Divider(),
+              ],
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _menuDishes.length >= 30
+                    ? null
+                    : () => setState(() => _menuDishes.add(_MenuDishDraft())),
+                icon: const Icon(Icons.add),
+                label: Text(context.tr('Add dish')),
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: 12),
+      Text(
+        context.tr('Available options'),
+        style: Theme.of(
+          context,
+        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final option in BusinessFulfillmentOption.values)
+            FilterChip(
+              label: Text(context.tr(option.label)),
+              avatar: Icon(switch (option) {
+                BusinessFulfillmentOption.delivery =>
+                  Icons.delivery_dining_outlined,
+                BusinessFulfillmentOption.pickup => Icons.shopping_bag_outlined,
+                BusinessFulfillmentOption.eatIn => Icons.restaurant_outlined,
+              }, size: 18),
+              selected: _menuFulfillment.contains(option),
+              onSelected: (selected) => setState(() {
+                if (selected) {
+                  _menuFulfillment.add(option);
+                } else {
+                  _menuFulfillment.remove(option);
+                }
+              }),
+            ),
+        ],
+      ),
+    ],
+  );
+
+  Widget _businessFeatureEditor(BuildContext context) {
+    final title = switch (_kind) {
+      _PostKind.retailOffer => 'Product or offer',
+      _PostKind.transportTrip => 'Trip availability',
+      _PostKind.realEstate => 'Property listing',
+      _ => 'Professional service',
+    };
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              context.tr(title),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 16),
+            if (_kind != _PostKind.transportTrip)
+              TextField(
+                controller: _featureTitle,
+                maxLength: 120,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: context.tr(switch (_kind) {
+                    _PostKind.retailOffer => 'Product or offer name',
+                    _PostKind.realEstate => 'Property title',
+                    _ => 'Service name',
+                  }),
+                ),
+              ),
+            if (_kind == _PostKind.transportTrip) ...[
+              TextField(
+                controller: _featureFrom,
+                maxLength: 120,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: context.tr('Departure location'),
+                  prefixIcon: const Icon(Icons.trip_origin),
+                ),
+              ),
+              TextField(
+                controller: _featureTo,
+                maxLength: 120,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: context.tr('Destination'),
+                  prefixIcon: const Icon(Icons.location_on_outlined),
+                ),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.schedule_outlined),
+                title: Text(context.tr('Departure time')),
+                subtitle: Text(
+                  MaterialLocalizations.of(
+                    context,
+                  ).formatFullDate(_featureDepartureAt),
+                ),
+                trailing: Text(
+                  MaterialLocalizations.of(context).formatTimeOfDay(
+                    TimeOfDay.fromDateTime(_featureDepartureAt),
+                  ),
+                ),
+                onTap: _pickDeparture,
+              ),
+              TextField(
+                controller: _featureNumber,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: context.tr('Available seats'),
+                  prefixIcon: const Icon(Icons.event_seat_outlined),
+                ),
+              ),
+            ],
+            if (_kind == _PostKind.realEstate) ...[
+              DropdownButtonFormField<String>(
+                initialValue: _propertyListingType,
+                decoration: InputDecoration(
+                  labelText: context.tr('Listing type'),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'rent',
+                    child: Text(context.tr('For rent')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'sale',
+                    child: Text(context.tr('For sale')),
+                  ),
+                ],
+                onChanged: (value) =>
+                    setState(() => _propertyListingType = value ?? 'rent'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _featureNumber,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: context.tr('Bedrooms'),
+                  prefixIcon: const Icon(Icons.bed_outlined),
+                ),
+              ),
+              TextField(
+                controller: _featureLocation,
+                maxLength: 200,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: context.tr('Property location'),
+                  prefixIcon: const Icon(Icons.location_on_outlined),
+                ),
+              ),
+            ],
+            if (_kind == _PostKind.professionalService)
+              TextField(
+                controller: _featureServiceArea,
+                maxLength: 200,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: context.tr('Service area'),
+                  prefixIcon: const Icon(Icons.map_outlined),
+                ),
+              ),
+            TextField(
+              controller: _featurePrice,
+              maxLength: 30,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: context.tr(
+                  _kind == _PostKind.professionalService
+                      ? 'Starting price (optional)'
+                      : 'Price',
+                ),
+                prefixIcon: const Icon(Icons.payments_outlined),
+              ),
+            ),
+            if (_kind != _PostKind.transportTrip)
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _featureAvailable,
+                title: Text(context.tr('Currently available')),
+                onChanged: (value) => setState(() => _featureAvailable = value),
+              ),
+            if (_kind == _PostKind.retailOffer) ...[
+              const SizedBox(height: 8),
+              Text(
+                context.tr('Delivery and pickup'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final option in const [
+                    BusinessFulfillmentOption.delivery,
+                    BusinessFulfillmentOption.pickup,
+                  ])
+                    FilterChip(
+                      label: Text(context.tr(option.label)),
+                      selected: _menuFulfillment.contains(option),
+                      onSelected: (selected) => setState(() {
+                        selected
+                            ? _menuFulfillment.add(option)
+                            : _menuFulfillment.remove(option);
+                      }),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickDeparture() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _featureDepartureAt,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_featureDepartureAt),
+    );
+    if (time == null || !mounted) return;
+    setState(() {
+      _featureDepartureAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  DateTime _endOfToday() {
+    final now = DateTime.now();
+    return DateTime(
+      now.year,
+      now.month,
+      now.day + 1,
+    ).subtract(const Duration(milliseconds: 1));
+  }
+
+  String _todayMenuPostText() {
+    final dishes = _menuDishes
+        .where((dish) => dish.name.text.trim().isNotEmpty)
+        .map((dish) {
+          final price = dish.price.text.trim();
+          final unavailable = dish.available ? '' : ' · Unavailable';
+          return '• ${dish.name.text.trim()}${price.isEmpty ? '' : ' — $price'}$unavailable';
+        })
+        .join('\n');
+    if (dishes.isEmpty) return '';
+    final options = _menuFulfillment.map((option) => option.label).join(' · ');
+    return [
+      "🍴 Today's menu · ${widget.community.name}",
+      dishes,
+      if (options.isNotEmpty) options,
+    ].join('\n\n');
+  }
+
+  String _retailOfferPostText() => [
+    '🏷️ ${_featureTitle.text.trim()}',
+    if (_featurePrice.text.trim().isNotEmpty) _featurePrice.text.trim(),
+    _featureAvailable ? 'Available' : 'Unavailable',
+  ].join('\n');
+
+  String _transportTripPostText() => [
+    '🚌 ${_featureFrom.text.trim()} → ${_featureTo.text.trim()}',
+    '${_featureDepartureAt.toLocal()}',
+    '${_featureNumber.text.trim()} seats available',
+    if (_featurePrice.text.trim().isNotEmpty) _featurePrice.text.trim(),
+  ].join('\n');
+
+  String _realEstatePostText() => [
+    '🏠 ${_featureTitle.text.trim()}',
+    _propertyListingType == 'rent' ? 'For rent' : 'For sale',
+    _featurePrice.text.trim(),
+    '${_featureNumber.text.trim()} bedrooms · ${_featureLocation.text.trim()}',
+    _featureAvailable ? 'Available' : 'Unavailable',
+  ].join('\n');
+
+  String _professionalServicePostText() => [
+    '🧰 ${_featureTitle.text.trim()}',
+    'Service area: ${_featureServiceArea.text.trim()}',
+    if (_featurePrice.text.trim().isNotEmpty)
+      'Starting at ${_featurePrice.text.trim()}',
+    _featureAvailable ? 'Available' : 'Unavailable',
+  ].join('\n');
+
+  BusinessPostFeature? _buildBusinessFeature() => switch (_kind) {
+    _PostKind.retailOffer => BusinessPostFeature(
+      type: BusinessPostFeatureType.retailOffer,
+      title: _featureTitle.text.trim(),
+      price: _featurePrice.text.trim(),
+      available: _featureAvailable,
+      fulfillmentOptions: _menuFulfillment
+          .where(
+            (option) =>
+                option == BusinessFulfillmentOption.delivery ||
+                option == BusinessFulfillmentOption.pickup,
+          )
+          .toList(growable: false),
+    ),
+    _PostKind.transportTrip => BusinessPostFeature(
+      type: BusinessPostFeatureType.transportTrip,
+      price: _featurePrice.text.trim(),
+      routeFrom: _featureFrom.text.trim(),
+      routeTo: _featureTo.text.trim(),
+      departureAt: _featureDepartureAt,
+      seatsAvailable: int.tryParse(_featureNumber.text.trim()),
+    ),
+    _PostKind.realEstate => BusinessPostFeature(
+      type: BusinessPostFeatureType.realEstateListing,
+      title: _featureTitle.text.trim(),
+      price: _featurePrice.text.trim(),
+      available: _featureAvailable,
+      listingType: _propertyListingType,
+      bedrooms: int.tryParse(_featureNumber.text.trim()),
+      location: _featureLocation.text.trim(),
+    ),
+    _PostKind.professionalService => BusinessPostFeature(
+      type: BusinessPostFeatureType.professionalService,
+      title: _featureTitle.text.trim(),
+      price: _featurePrice.text.trim(),
+      available: _featureAvailable,
+      serviceArea: _featureServiceArea.text.trim(),
+    ),
+    _ => null,
+  };
 
   Widget _mediaEditor(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -832,9 +1411,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
   bool get _canContinue => switch (_step) {
     0 => _category != null,
     1 =>
-      _textController.text.trim().isNotEmpty &&
+      _effectiveText.isNotEmpty &&
           !_textController.exceedsCharacterLimit &&
           !_uploading &&
+          _validTodayMenu &&
+          _validBusinessFeature &&
           (_kind != _PostKind.media || _attachments.isNotEmpty) &&
           (!_hasPoll ||
               (_pollControllers.length >= 2 &&
@@ -882,7 +1463,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Icon(_step == 3 ? Icons.publish : Icons.arrow_forward),
-            label: Text(context.tr(_step == 3 ? 'Publish' : 'Next')),
+            label: Text(
+              context.tr(
+                _step == 3 ? (_isEditing ? 'Save changes' : 'Publish') : 'Next',
+              ),
+            ),
           ),
         ),
       ],
@@ -948,46 +1533,58 @@ class _CreatePostPageState extends State<CreatePostPage> {
               if (!pending) ...[
                 const SizedBox(height: 28),
                 Text(
-                  context.tr('Share elsewhere'),
-                  style: Theme.of(context).textTheme.titleMedium,
+                  context.tr('Get more reach'),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    if (post.text.trim().isNotEmpty)
-                      OutlinedButton.icon(
+                if (post.text.trim().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
                         onPressed: () => _copyDescription(post.text.trim()),
                         icon: const Icon(Icons.copy_outlined),
                         label: Text(context.tr('Copy description')),
                       ),
-                    OutlinedButton.icon(
-                      onPressed: () => sharePost(
-                        context,
-                        widget.repository,
-                        post,
-                        communityName: widget.community.name,
-                      ),
-                      icon: const Icon(Icons.ios_share_outlined),
-                      label: Text(context.tr('Share post')),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        await Clipboard.setData(
-                          ClipboardData(text: WicchuUrls.post(post.id)),
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(context.tr('Link copied'))),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.link),
-                      label: Text(context.tr('Copy link')),
-                    ),
-                  ],
+                  ),
+                _shareAction(
+                  context,
+                  post,
+                  icon: Icons.auto_awesome_outlined,
+                  label: 'Instagram Story',
+                  destination: PostShareDestination.instagramStory,
+                ),
+                _shareAction(
+                  context,
+                  post,
+                  icon: Icons.photo_outlined,
+                  label: 'Instagram Post',
+                  destination: PostShareDestination.instagramFeed,
+                ),
+                _shareAction(
+                  context,
+                  post,
+                  icon: Icons.chat_outlined,
+                  label: 'WhatsApp',
+                  destination: PostShareDestination.whatsapp,
+                ),
+                _shareAction(
+                  context,
+                  post,
+                  icon: Icons.facebook_outlined,
+                  label: 'Facebook',
+                  destination: PostShareDestination.facebook,
+                ),
+                _shareAction(
+                  context,
+                  post,
+                  icon: Icons.link,
+                  label: 'Copy link',
+                  destination: PostShareDestination.copyLink,
                 ),
               ],
             ],
@@ -996,6 +1593,25 @@ class _CreatePostPageState extends State<CreatePostPage> {
       ),
     );
   }
+
+  Widget _shareAction(
+    BuildContext context,
+    CommunityPost post, {
+    required IconData icon,
+    required String label,
+    required PostShareDestination destination,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () =>
+            sharePostTo(context, widget.repository, post, destination),
+        icon: Icon(icon),
+        label: Text(context.tr(label)),
+      ),
+    ),
+  );
 
   Future<void> _copyDescription(String description) async {
     await Clipboard.setData(ClipboardData(text: description));
@@ -1012,6 +1628,23 @@ class _CreatePostPageState extends State<CreatePostPage> {
     _publishAnonymously = false;
     _hasPoll = false;
     _kind = _PostKind.text;
+    for (final dish in _menuDishes) {
+      dish.dispose();
+    }
+    _menuDishes
+      ..clear()
+      ..add(_MenuDishDraft());
+    _menuFulfillment.clear();
+    _featureTitle.clear();
+    _featurePrice.clear();
+    _featureFrom.clear();
+    _featureTo.clear();
+    _featureNumber.clear();
+    _featureLocation.clear();
+    _featureServiceArea.clear();
+    _featureAvailable = true;
+    _propertyListingType = 'rent';
+    _featureDepartureAt = DateTime.now().add(const Duration(hours: 1));
     for (final controller in _pollControllers) {
       controller.dispose();
     }
@@ -1024,480 +1657,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
     });
   }
 
-  Widget _legacyBuild(BuildContext context) {
-    if (!widget.community.canPublish) {
-      return Scaffold(
-        appBar: AppBar(title: Text(context.tr('Create post'))),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              context.tr(
-                'You do not have permission to publish in this space.',
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      );
-    }
-    final categories =
-        widget.categories.isEmpty && widget.initialCategory != null
-        ? [widget.initialCategory!]
-        : widget.categories;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          context.tr(_isEditing ? 'Edit post' : 'Create post'),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton(
-              onPressed: _canSubmit ? _publish : null,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(72, 36),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: _saving
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(context.tr(_isEditing ? 'Save' : 'Publish')),
-            ),
-          ),
-        ],
-      ),
-      body: ListView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        children: [
-          Semantics(
-            container: true,
-            label: '${context.tr('Posting to')} ${widget.community.name}',
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: .09),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.groups_2_outlined,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '${context.tr('Posting to')} ',
-                            style: const TextStyle(fontWeight: FontWeight.w400),
-                          ),
-                          TextSpan(
-                            text: widget.community.name,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ],
-                      ),
-                      style: const TextStyle(fontSize: 15),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (widget.community.isPublicProfile && !_publishAnonymously)
-            FutureBuilder<WicchuProfile>(
-              future: _postingAuthor,
-              builder: (context, snapshot) => snapshot.hasData
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        context.tr('Posting as {name}', {
-                          'name': snapshot.data!.name,
-                        }),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<CommunityCategory>(
-            initialValue: _category,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: context.tr('Category'),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              filled: false,
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.15),
-                ),
-              ),
-            ),
-            items: [
-              for (final item in categories)
-                DropdownMenuItem(
-                  value: item,
-                  child: Text('${item.icon} ${context.tr(item.name)}'),
-                ),
-            ],
-            onChanged: (value) => setState(() => _category = value),
-          ),
-          const SizedBox(height: 16),
-          if (_canPublishAnonymously) ...[
-            InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: _saving
-                  ? null
-                  : () => setState(
-                      () => _publishAnonymously = !_publishAnonymously,
-                    ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.person_off_outlined,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      context.tr('Publish anonymously'),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: context.tr('About anonymous posting'),
-                    icon: const Icon(Icons.info_outline, size: 20),
-                    onPressed: () => showDialog<void>(
-                      context: context,
-                      builder: (dialogContext) => AlertDialog(
-                        title: Text(context.tr('Publish anonymously')),
-                        content: Text(
-                          context.tr(
-                            _canPublishAsAdmin
-                                ? '“Community Admin” will appear instead of your name. Your identity remains available for security and auditing.'
-                                : 'Anonymous posts are always reviewed by a community administrator before publication. Administrators can still identify you for safety.',
-                          ),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            child: Text(
-                              MaterialLocalizations.of(
-                                context,
-                              ).closeButtonLabel,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Switch.adaptive(
-                    value: _publishAnonymously,
-                    onChanged: _saving
-                        ? null
-                        : (value) =>
-                              setState(() => _publishAnonymously = value),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          PostRichTextEditor(controller: _textController),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.25),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _saving ? null : _chooseMentions,
-                icon: const Icon(Icons.alternate_email),
-                label: Text(
-                  _mentionedUserIds.isEmpty
-                      ? context.tr('Tag')
-                      : context.tr('{count} tagged', {
-                          'count': '${_mentionedUserIds.length}',
-                        }),
-                ),
-              ),
-
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.25),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _pollLocked
-                    ? null
-                    : () => setState(() => _hasPoll = !_hasPoll),
-                icon: Icon(_hasPoll ? Icons.close : Icons.poll_outlined),
-                label: Text(context.tr(_hasPoll ? 'Remove poll' : 'Poll')),
-              ),
-            ],
-          ),
-          if (_hasPoll) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.how_to_vote_outlined,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          context.tr('Poll'),
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                      Text(
-                        '${_pollControllers.length}/10',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    context.tr(
-                      _pollLocked
-                          ? 'Poll options cannot be changed after voting begins.'
-                          : 'Ask your community a question and let members vote.',
-                    ),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  for (final (index, controller) in _pollControllers.indexed)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: TextField(
-                        controller: controller,
-                        onChanged: (_) => _refreshValidity(),
-                        enabled: !_pollLocked,
-                        maxLength: 120,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(
-                          labelText: context.tr('Option {number}', {
-                            'number': '${index + 1}',
-                          }),
-                          counterText: '',
-                          prefixIcon: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: CircleAvatar(
-                              radius: 14,
-                              child: Text('${index + 1}'),
-                            ),
-                          ),
-                          suffixIcon:
-                              !_pollLocked && _pollControllers.length > 2
-                              ? IconButton(
-                                  tooltip: context.tr('Remove option'),
-                                  onPressed: () => setState(() {
-                                    _pollControllers.removeAt(index).dispose();
-                                  }),
-                                  icon: const Icon(Icons.close),
-                                )
-                              : null,
-                        ),
-                      ),
-                    ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          context.tr('At least 2 options'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ),
-                      if (!_pollLocked && _pollControllers.length < 10)
-                        TextButton.icon(
-                          onPressed: () => setState(
-                            () => _pollControllers.add(TextEditingController()),
-                          ),
-                          icon: const Icon(Icons.add),
-                          label: Text(context.tr('Add option')),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  context.tr('Media'),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ),
-              Text(
-                '${_attachments.length}/10',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (_uploading) const LinearProgressIndicator(),
-          SizedBox(
-            height: 100,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount:
-                  _attachments.length + (_attachments.length < 10 ? 1 : 0),
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                if (index == _attachments.length) {
-                  return SizedBox(
-                    width: 100,
-                    child: CustomPaint(
-                      foregroundPainter: _MediaAddBorder(
-                        Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: .3),
-                      ),
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide.none,
-                        ),
-                        onPressed: _saving || _uploading ? null : _chooseMedia,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.add, size: 30),
-                            const SizedBox(height: 8),
-                            Text(context.tr('Add')),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                final attachment = _attachments[index];
-                return SizedBox(
-                  width: 100,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child:
-                            attachment.bytes != null &&
-                                attachment.media.type == 'image'
-                            ? Image.memory(attachment.bytes!, fit: BoxFit.cover)
-                            : PostMediaGallery(media: [attachment.media]),
-                      ),
-                      Positioned(
-                        right: 2,
-                        top: 2,
-                        child: IconButton.filled(
-                          tooltip: context.tr('Remove'),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.black54,
-                            foregroundColor: Colors.white,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          onPressed: _saving
-                              ? null
-                              : () => setState(
-                                  () => _attachments.removeAt(index),
-                                ),
-                          icon: const Icon(Icons.close, size: 18),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            context.tr('Photos and videos · Max. 10 files'),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  // Retained temporarily while the structured editor replaces the old editor.
+  // ignore: unused_element
   Future<void> _chooseMedia() async {
     if (_uploading || _saving) return;
     FocusManager.instance.primaryFocus?.unfocus();
@@ -1539,11 +1700,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
       );
       return;
     }
-    final text = _textController.text.trim();
+    final text = _effectiveText;
     final pollOptions = _hasPoll
         ? _pollControllers.map((controller) => controller.text.trim()).toList()
         : const <String>[];
-    if (_category == null || text.isEmpty || _uploading) {
+    if (_category == null || text.isEmpty || _uploading || !_validTodayMenu) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.tr('Choose a category and add text.'))),
       );
@@ -1586,6 +1747,21 @@ class _CreatePostPageState extends State<CreatePostPage> {
         mentionedUserIds: _mentionedUserIds.toList(growable: false),
         anonymousAsAdmin: _publishAnonymously && _canPublishAsAdmin,
         anonymousAsMember: _publishAnonymously && !_canPublishAsAdmin,
+        todayMenu: _kind == _PostKind.todayMenu
+            ? TodayMenu(
+                dishes: [
+                  for (final dish in _menuDishes)
+                    TodayMenuDish(
+                      name: dish.name.text.trim(),
+                      price: dish.price.text.trim(),
+                      available: dish.available,
+                    ),
+                ],
+                fulfillmentOptions: _menuFulfillment.toList(growable: false),
+                expiresAt: _endOfToday(),
+              )
+            : null,
+        businessFeature: _buildBusinessFeature(),
       );
       final post = _isEditing
           ? await widget.repository.updatePost(widget.existingPost!.id, input)
@@ -1694,7 +1870,31 @@ class _PostAttachment {
   final Uint8List? bytes;
 }
 
-enum _PostKind { text, media, poll }
+class _MenuDishDraft {
+  _MenuDishDraft({String name = '', String price = '', this.available = true})
+    : name = TextEditingController(text: name),
+      price = TextEditingController(text: price);
+
+  final TextEditingController name;
+  final TextEditingController price;
+  bool available;
+
+  void dispose() {
+    name.dispose();
+    price.dispose();
+  }
+}
+
+enum _PostKind {
+  text,
+  media,
+  poll,
+  todayMenu,
+  retailOffer,
+  transportTrip,
+  realEstate,
+  professionalService,
+}
 
 Future<CommunityPost?> openEditPost(
   BuildContext context,
@@ -1724,31 +1924,4 @@ Future<CommunityPost?> openEditPost(
     }
     return null;
   }
-}
-
-class _MediaAddBorder extends CustomPainter {
-  const _MediaAddBorder(this.color);
-  final Color color;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          (Offset.zero & size).deflate(1),
-          const Radius.circular(12),
-        ),
-      );
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    for (final metric in path.computeMetrics()) {
-      for (double offset = 0; offset < metric.length; offset += 10) {
-        canvas.drawPath(metric.extractPath(offset, offset + 6), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_MediaAddBorder oldDelegate) => color != oldDelegate.color;
 }

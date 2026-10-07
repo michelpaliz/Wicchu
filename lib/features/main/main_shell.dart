@@ -829,13 +829,21 @@ class _HomeTabState extends State<_HomeTab>
     }
     final posts = results.first.cast<CommunityPost>().toList();
     final followingPostIds = posts.map((post) => post.id).toSet();
+    final townIds = communities.map((community) => community.town.id).toSet();
+    final businessPostLists = await Future.wait(
+      townIds.map(
+        (townId) => widget.repository
+            .listLocalBusinessPosts(townId, query: _query)
+            .catchError((_) => <CommunityPost>[]),
+      ),
+    );
+    posts.addAll(businessPostLists.expand((items) => items));
     // Discovery stays local and public. A failed optional discovery request
     // must never prevent the followed feed from loading.
     final sources = {
       for (final community in communities) community.id: community,
     };
     try {
-      final townIds = communities.map((c) => c.town.id).toSet();
       final nearby = (await widget.repository.listCommunities())
           .where(
             (c) =>
@@ -1334,6 +1342,32 @@ class _HomeTabState extends State<_HomeTab>
           final normalizedQuery = _query.trim().toLowerCase();
           final categoryNames = [
             'All',
+            if (data.posts.any((post) => post.todayMenu != null))
+              "Today's menus",
+            if (data.posts.any(
+              (post) =>
+                  post.businessFeature?.type ==
+                  BusinessPostFeatureType.retailOffer,
+            ))
+              'Offers',
+            if (data.posts.any(
+              (post) =>
+                  post.businessFeature?.type ==
+                  BusinessPostFeatureType.transportTrip,
+            ))
+              'Trips',
+            if (data.posts.any(
+              (post) =>
+                  post.businessFeature?.type ==
+                  BusinessPostFeatureType.realEstateListing,
+            ))
+              'Properties',
+            if (data.posts.any(
+              (post) =>
+                  post.businessFeature?.type ==
+                  BusinessPostFeatureType.professionalService,
+            ))
+              'Services',
             ...data.categories.values
                 .where(
                   (category) =>
@@ -1359,7 +1393,21 @@ class _HomeTabState extends State<_HomeTab>
             final matchesTown =
                 !_followingOnly || data.followingPostIds.contains(post.id);
             final matchesCategory =
-                _category == 'All' || category?.name == _category;
+                _category == 'All' ||
+                (_category == "Today's menus" && post.todayMenu != null) ||
+                (_category == 'Offers' &&
+                    post.businessFeature?.type ==
+                        BusinessPostFeatureType.retailOffer) ||
+                (_category == 'Trips' &&
+                    post.businessFeature?.type ==
+                        BusinessPostFeatureType.transportTrip) ||
+                (_category == 'Properties' &&
+                    post.businessFeature?.type ==
+                        BusinessPostFeatureType.realEstateListing) ||
+                (_category == 'Services' &&
+                    post.businessFeature?.type ==
+                        BusinessPostFeatureType.professionalService) ||
+                category?.name == _category;
             final matchesQuery =
                 normalizedQuery.isEmpty ||
                 post.text.toLowerCase().contains(normalizedQuery) ||
@@ -3140,6 +3188,7 @@ class _ActivityTabState extends State<_ActivityTab> {
     final icon = switch (notification.type) {
       CommunityNotificationType.postReaction => Icons.favorite_border,
       CommunityNotificationType.postMention => Icons.alternate_email,
+      CommunityNotificationType.todayMenu => Icons.restaurant_menu,
       CommunityNotificationType.commentReaction => Icons.favorite_border,
       CommunityNotificationType.postComment ||
       CommunityNotificationType.commentReply ||
@@ -3171,6 +3220,7 @@ class _ActivityTabState extends State<_ActivityTab> {
     final badgeColor = switch (notification.type) {
       CommunityNotificationType.postReaction ||
       CommunityNotificationType.commentReaction => Colors.pink.shade600,
+      CommunityNotificationType.todayMenu => Colors.orange.shade700,
       CommunityNotificationType.postComment ||
       CommunityNotificationType.commentReply => Colors.blue.shade600,
       _ => colors.primary,
@@ -3347,6 +3397,7 @@ class _ActivityTabState extends State<_ActivityTab> {
     final postCanOpen = {
       CommunityNotificationType.postReaction,
       CommunityNotificationType.postMention,
+      CommunityNotificationType.todayMenu,
       CommunityNotificationType.commentReaction,
       CommunityNotificationType.postComment,
       CommunityNotificationType.commentReply,

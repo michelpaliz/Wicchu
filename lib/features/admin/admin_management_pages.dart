@@ -10,6 +10,7 @@ import '../../localization/app_language.dart';
 import 'rule_management_page.dart';
 import 'official_links_page.dart';
 import 'business_services_page.dart';
+import 'restaurant_settings_page.dart';
 import '../community/community_invitations_page.dart';
 import '../community/user_avatar.dart';
 import '../profile/member_profile_page.dart';
@@ -1291,6 +1292,11 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       widget.community.businessLocation?.longitude;
   late bool _showExactBusinessAddress =
       widget.community.businessLocation?.showExactAddress ?? false;
+  late List<BusinessHour> _businessHours = [...widget.community.businessHours];
+  late Set<BusinessFulfillmentOption> _businessFulfillmentOptions = {
+    ...widget.community.businessFulfillmentOptions,
+  };
+  late BusinessContact _businessContact = widget.community.businessContact;
   bool _locatingBusiness = false;
   late final List<CommunityLink> _links = [...widget.community.links];
   late String? _imageUrl = widget.community.imageUrl;
@@ -1625,7 +1631,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                   subtitle: Text(
                     _businessServices.isEmpty
                         ? context.tr(
-                            'Choose up to 3 services that describe your business.',
+                            'Choose up to 10 services that describe your business.',
                           )
                         : _businessServices
                               .map((service) => context.tr(service.label))
@@ -1635,6 +1641,21 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                   onTap: _saving ? null : _openBusinessServices,
                 ),
               ),
+            if (_profileCategory == ProfileCategory.localBusiness &&
+                _businessServices.contains(BusinessService.food)) ...[
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.restaurant_menu),
+                  title: Text(context.tr('Restaurant settings')),
+                  subtitle: Text(
+                    context.tr('Opening hours, contact and delivery options'),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _saving ? null : _openRestaurantSettings,
+                ),
+              ),
+            ],
           ],
           const SizedBox(height: 16),
           _settingsSection('General', Icons.settings_outlined, [
@@ -2010,6 +2031,16 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                 longitude: _businessLongitude,
                 showExactAddress: _showExactBusinessAddress,
               ),
+        businessHours: _businessServices.contains(BusinessService.food)
+            ? List.unmodifiable(_businessHours)
+            : const [],
+        businessFulfillmentOptions:
+            _businessServices.contains(BusinessService.food)
+            ? List.unmodifiable(_businessFulfillmentOptions)
+            : const [],
+        businessContact: _businessServices.contains(BusinessService.food)
+            ? _businessContact
+            : const BusinessContact(),
         imageUrl: _imageUrl,
         imageBlobName: _imageBlobName,
         coverImageUrl: _coverImageUrl,
@@ -2170,6 +2201,25 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _openRestaurantSettings() async {
+    final result = await Navigator.push<RestaurantSettingsDraft>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RestaurantSettingsPage(
+          hours: _businessHours,
+          fulfillmentOptions: _businessFulfillmentOptions.toList(),
+          contact: _businessContact,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _businessHours = result.hours;
+      _businessFulfillmentOptions = result.fulfillmentOptions.toSet();
+      _businessContact = result.contact;
+    });
   }
 
   Future<void> _openOfficialLinks() async {

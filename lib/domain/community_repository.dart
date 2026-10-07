@@ -102,6 +102,8 @@ class CreatePostInput {
     this.mentionedUserIds = const [],
     this.anonymousAsAdmin = false,
     this.anonymousAsMember = false,
+    this.todayMenu,
+    this.businessFeature,
   });
 
   final String categoryId;
@@ -111,6 +113,8 @@ class CreatePostInput {
   final List<String> mentionedUserIds;
   final bool anonymousAsAdmin;
   final bool anonymousAsMember;
+  final TodayMenu? todayMenu;
+  final BusinessPostFeature? businessFeature;
 }
 
 abstract interface class CommunityRepository {
@@ -294,6 +298,9 @@ abstract interface class CommunityRepository {
     ProfileCategory? profileCategory,
     required List<BusinessService> businessServices,
     required BusinessLocation? businessLocation,
+    List<BusinessHour>? businessHours,
+    List<BusinessFulfillmentOption>? businessFulfillmentOptions,
+    BusinessContact? businessContact,
     String? imageUrl,
     String? imageBlobName,
     String? coverImageUrl,
@@ -307,9 +314,19 @@ abstract interface class CommunityRepository {
     String? sort,
   });
   Future<List<CommunityPost>> listFollowingPosts({String? query});
+  Future<List<CommunityPost>> listTodayMenus(String townId, {String? query});
+  Future<List<CommunityPost>> listLocalBusinessPosts(
+    String townId, {
+    String? query,
+  });
   Future<CommunityPost> getPost(String postId);
   Future<SharedPostPreview> getSharedPost(String postId);
+  Future<PostShareKit> getPostShareKit(String postId);
   Future<void> recordPostShare(String postId);
+  Future<void> recordBusinessPostEngagement(
+    String postId, {
+    required String action,
+  });
   Future<CommunityPost> createPost(String communityId, CreatePostInput input);
   Future<CommunityPost> updatePost(String postId, CreatePostInput input);
   Future<void> deletePost(String postId);

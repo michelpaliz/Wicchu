@@ -402,6 +402,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           slug: _community.slug,
           businessLocation: _community.businessLocation,
           businessServices: _community.businessServices,
+          businessHours: _community.businessHours,
+          businessFulfillmentOptions: _community.businessFulfillmentOptions,
+          businessContact: _community.businessContact,
         );
         _reload();
       });
@@ -2097,9 +2100,159 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               ],
             ),
           ],
+          if (_community.businessServices.contains(BusinessService.food)) ...[
+            const SizedBox(height: 12),
+            _restaurantSummary(),
+          ],
         ],
       ),
     );
+  }
+
+  Widget _restaurantSummary() {
+    final today = _todayBusinessHours();
+    final isOpen = _isOpenNow(today);
+    final contact = _community.businessContact;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.schedule_outlined, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  context.tr(
+                    today == null
+                        ? 'Hours not provided'
+                        : isOpen
+                        ? 'Open now'
+                        : 'Closed now',
+                  ),
+                  style: TextStyle(
+                    color: isOpen
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (today != null) ...[
+                  const Spacer(),
+                  Text(
+                    today.closed
+                        ? context.tr('Closed today')
+                        : '${today.open}–${today.close}',
+                  ),
+                ],
+              ],
+            ),
+            if (_community.businessFulfillmentOptions.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  for (final option in _community.businessFulfillmentOptions)
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(context.tr(option.label)),
+                    ),
+                ],
+              ),
+            ],
+            if (contact.phone.isNotEmpty || contact.whatsapp.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  if (contact.phone.isNotEmpty)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _openBusinessContact(
+                          contact.phone,
+                          whatsapp: false,
+                        ),
+                        icon: const Icon(Icons.call_outlined),
+                        label: Text(context.tr('Call')),
+                      ),
+                    ),
+                  if (contact.phone.isNotEmpty && contact.whatsapp.isNotEmpty)
+                    const SizedBox(width: 8),
+                  if (contact.whatsapp.isNotEmpty)
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _openBusinessContact(
+                          contact.whatsapp,
+                          whatsapp: true,
+                        ),
+                        icon: const Icon(Icons.chat_outlined),
+                        label: const Text('WhatsApp'),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  BusinessHour? _todayBusinessHours() {
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    final day = days[DateTime.now().weekday - 1];
+    return _community.businessHours
+        .where((hours) => hours.day == day)
+        .firstOrNull;
+  }
+
+  bool _isOpenNow(BusinessHour? hours) {
+    if (hours == null || hours.closed) return false;
+    int minutes(String value) {
+      final parts = value.split(':');
+      if (parts.length != 2) return -1;
+      return (int.tryParse(parts[0]) ?? -24) * 60 +
+          (int.tryParse(parts[1]) ?? -1);
+    }
+
+    final now = DateTime.now();
+    final current = now.hour * 60 + now.minute;
+    final open = minutes(hours.open);
+    final close = minutes(hours.close);
+    if (open < 0 || close < 0) return false;
+    return close >= open
+        ? current >= open && current < close
+        : current >= open || current < close;
+  }
+
+  Future<void> _openBusinessContact(
+    String value, {
+    required bool whatsapp,
+  }) async {
+    final digits = value.replaceAll(RegExp(r'[^0-9+]'), '');
+    final uri = whatsapp
+        ? Uri.https('wa.me', '/${digits.replaceFirst('+', '')}')
+        : Uri(scheme: 'tel', path: digits);
+    try {
+      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
+    } catch (_) {}
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('Unable to open link. Please try again.')),
+        ),
+      );
+    }
   }
 
   Widget _communityRoleBadge({bool expanded = false}) {

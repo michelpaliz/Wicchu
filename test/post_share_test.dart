@@ -57,7 +57,7 @@ void main() {
     expect(await directory.exists(), isFalse);
   });
 
-  testWidgets('media posts offer social export and link sharing', (
+  testWidgets('posts offer generated social cards and link sharing', (
     tester,
   ) async {
     final repository = DemoCommunityRepository();
@@ -82,13 +82,11 @@ void main() {
     await tester.tap(find.text('Open share'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Create an Instagram or Facebook post'), findsOneWidget);
-    expect(
-      find.text(
-        'Exports only the original media so the social app can open its post composer.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Share Wicchu link'), findsOneWidget);
+    expect(find.text('Instagram Story'), findsOneWidget);
+    expect(find.text('Share a Wicchu-designed 9:16 image.'), findsOneWidget);
+    expect(find.text('Instagram Post'), findsOneWidget);
+    expect(find.text('WhatsApp'), findsOneWidget);
+    expect(find.text('Facebook'), findsOneWidget);
+    expect(find.text('Copy link'), findsOneWidget);
   });
 }

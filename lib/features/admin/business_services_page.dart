@@ -39,7 +39,7 @@ class _BusinessServicesPageState extends State<BusinessServicesPage> {
                 ),
               ),
               Text(
-                '${_businessServices.length}/3',
+                '${_businessServices.length}/$maxBusinessServices',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Theme.of(context).colorScheme.primary,
                   fontWeight: FontWeight.w600,
@@ -49,7 +49,7 @@ class _BusinessServicesPageState extends State<BusinessServicesPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            context.tr('Choose up to 3 services that describe your business.'),
+            context.tr('Choose up to 10 services that describe your business.'),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -109,12 +109,13 @@ class _BusinessServicesPageState extends State<BusinessServicesPage> {
                   ),
                   selected: _businessServices.contains(service),
                   onSelected: (selected) {
-                    if (selected && _businessServices.length >= 3) {
+                    if (selected &&
+                        _businessServices.length >= maxBusinessServices) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
                             context.tr(
-                              'Choose no more than 3 business services.',
+                              'Choose no more than 10 business services.',
                             ),
                           ),
                         ),

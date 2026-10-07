@@ -970,6 +970,9 @@ class HttpCommunityRepository implements CommunityRepository {
     ProfileCategory? profileCategory,
     required List<BusinessService> businessServices,
     required BusinessLocation? businessLocation,
+    List<BusinessHour>? businessHours,
+    List<BusinessFulfillmentOption>? businessFulfillmentOptions,
+    BusinessContact? businessContact,
     String? imageUrl,
     String? imageBlobName,
     String? coverImageUrl,
@@ -1003,6 +1006,26 @@ class HttpCommunityRepository implements CommunityRepository {
                   'longitude': businessLocation.longitude,
                   'showExactAddress': businessLocation.showExactAddress,
                 },
+        if (businessHours != null)
+          'businessHours': businessHours
+              .map(
+                (hours) => {
+                  'day': hours.day,
+                  'open': hours.open,
+                  'close': hours.close,
+                  'closed': hours.closed,
+                },
+              )
+              .toList(),
+        if (businessFulfillmentOptions != null)
+          'businessFulfillmentOptions': businessFulfillmentOptions
+              .map((option) => option.apiValue)
+              .toList(),
+        if (businessContact != null)
+          'businessContact': {
+            'phone': businessContact.phone,
+            'whatsapp': businessContact.whatsapp,
+          },
         'imageBlobName': ?imageBlobName,
         'coverImageBlobName': ?coverImageBlobName,
       },
@@ -1071,6 +1094,38 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<List<CommunityPost>> listTodayMenus(
+    String townId, {
+    String? query,
+  }) async {
+    final params = <String, String>{};
+    if (query != null && query.trim().isNotEmpty) params['q'] = query.trim();
+    final suffix = params.isEmpty
+        ? ''
+        : '?${Uri(queryParameters: params).query}';
+    final body = await _api.get(
+      '/api/community/v1/towns/$townId/today-menus$suffix',
+    );
+    return _list(body, 'posts').map(_postFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<List<CommunityPost>> listLocalBusinessPosts(
+    String townId, {
+    String? query,
+  }) async {
+    final params = <String, String>{};
+    if (query != null && query.trim().isNotEmpty) params['q'] = query.trim();
+    final suffix = params.isEmpty
+        ? ''
+        : '?${Uri(queryParameters: params).query}';
+    final body = await _api.get(
+      '/api/community/v1/towns/$townId/business-posts$suffix',
+    );
+    return _list(body, 'posts').map(_postFromJson).toList(growable: false);
+  }
+
+  @override
   Future<CommunityPost> getPost(String postId) async {
     final body = await _api.get('/api/community/v1/posts/$postId');
     return _postFromJson(_object(body, 'post'));
@@ -1106,8 +1161,35 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<PostShareKit> getPostShareKit(String postId) async {
+    final body = await _api.get('/api/community/v1/posts/$postId/share-kit');
+    final kit = _object(body, 'shareKit');
+    final targets = _object(kit, 'targets');
+    final images = _object(kit, 'images');
+    return PostShareKit(
+      canonicalUrl: kit['canonicalUrl']?.toString() ?? '',
+      message: kit['message']?.toString() ?? '',
+      whatsappUrl: targets['whatsapp']?.toString() ?? '',
+      facebookUrl: targets['facebook']?.toString() ?? '',
+      instagramFeedImageUrl: images['instagramFeed']?.toString() ?? '',
+      instagramStoryImageUrl: images['instagramStory']?.toString() ?? '',
+    );
+  }
+
+  @override
   Future<void> recordPostShare(String postId) async {
     await _api.post('/api/community/v1/posts/$postId/share');
+  }
+
+  @override
+  Future<void> recordBusinessPostEngagement(
+    String postId, {
+    required String action,
+  }) async {
+    await _api.post(
+      '/api/community/v1/posts/$postId/business-engagement',
+      body: {'action': action},
+    );
   }
 
   @override
@@ -1133,6 +1215,47 @@ class HttpCommunityRepository implements CommunityRepository {
         'mentionedUserIds': input.mentionedUserIds,
         'anonymousAsAdmin': input.anonymousAsAdmin,
         'anonymousAsMember': input.anonymousAsMember,
+        if (input.todayMenu case final menu?)
+          'businessFeature': {
+            'type': 'today_menu',
+            'dishes': menu.dishes
+                .map(
+                  (dish) => {
+                    'name': dish.name,
+                    'price': dish.price,
+                    'available': dish.available,
+                  },
+                )
+                .toList(),
+            'fulfillmentOptions': menu.fulfillmentOptions
+                .map((option) => option.apiValue)
+                .toList(),
+            'expiresAt': menu.expiresAt.toUtc().toIso8601String(),
+          },
+        if (input.businessFeature case final feature?)
+          'businessFeature': {
+            'type': feature.type.apiValue,
+            'title': feature.title,
+            'price': feature.price,
+            'available': feature.available,
+            'fulfillmentOptions': feature.fulfillmentOptions
+                .map((option) => option.apiValue)
+                .toList(),
+            if (feature.expiresAt != null)
+              'expiresAt': feature.expiresAt!.toUtc().toIso8601String(),
+            'routeFrom': feature.routeFrom,
+            'routeTo': feature.routeTo,
+            if (feature.departureAt != null)
+              'departureAt': feature.departureAt!.toUtc().toIso8601String(),
+            if (feature.seatsAvailable != null)
+              'seatsAvailable': feature.seatsAvailable,
+            'listingType': feature.listingType,
+            if (feature.bedrooms != null) 'bedrooms': feature.bedrooms,
+            'location': feature.location,
+            'serviceArea': feature.serviceArea,
+          },
+        if (input.todayMenu == null && input.businessFeature == null)
+          'businessFeature': null,
       },
     );
     return _postFromJson(_object(body, 'post'));
@@ -1158,6 +1281,47 @@ class HttpCommunityRepository implements CommunityRepository {
         'mentionedUserIds': input.mentionedUserIds,
         'anonymousAsAdmin': input.anonymousAsAdmin,
         'anonymousAsMember': input.anonymousAsMember,
+        if (input.todayMenu case final menu?)
+          'businessFeature': {
+            'type': 'today_menu',
+            'dishes': menu.dishes
+                .map(
+                  (dish) => {
+                    'name': dish.name,
+                    'price': dish.price,
+                    'available': dish.available,
+                  },
+                )
+                .toList(),
+            'fulfillmentOptions': menu.fulfillmentOptions
+                .map((option) => option.apiValue)
+                .toList(),
+            'expiresAt': menu.expiresAt.toUtc().toIso8601String(),
+          },
+        if (input.businessFeature case final feature?)
+          'businessFeature': {
+            'type': feature.type.apiValue,
+            'title': feature.title,
+            'price': feature.price,
+            'available': feature.available,
+            'fulfillmentOptions': feature.fulfillmentOptions
+                .map((option) => option.apiValue)
+                .toList(),
+            if (feature.expiresAt != null)
+              'expiresAt': feature.expiresAt!.toUtc().toIso8601String(),
+            'routeFrom': feature.routeFrom,
+            'routeTo': feature.routeTo,
+            if (feature.departureAt != null)
+              'departureAt': feature.departureAt!.toUtc().toIso8601String(),
+            if (feature.seatsAvailable != null)
+              'seatsAvailable': feature.seatsAvailable,
+            'listingType': feature.listingType,
+            if (feature.bedrooms != null) 'bedrooms': feature.bedrooms,
+            'location': feature.location,
+            'serviceArea': feature.serviceArea,
+          },
+        if (input.todayMenu == null && input.businessFeature == null)
+          'businessFeature': null,
       },
     );
     return _postFromJson(_object(body, 'post'));
@@ -1747,7 +1911,7 @@ class HttpCommunityRepository implements CommunityRepository {
       businessServices: (json['businessServices'] as List? ?? const [])
           .map(BusinessService.fromApi)
           .whereType<BusinessService>()
-          .take(3)
+          .take(maxBusinessServices)
           .toList(growable: false),
       slug: json['slug'] as String? ?? '',
       type: json['type'] == 'public_profile'
@@ -1830,6 +1994,35 @@ class HttpCommunityRepository implements CommunityRepository {
                   true,
             )
           : null,
+      businessHours: (json['businessHours'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (hours) => BusinessHour(
+              day: hours['day']?.toString() ?? '',
+              open: hours['open']?.toString() ?? '',
+              close: hours['close']?.toString() ?? '',
+              closed: hours['closed'] == true,
+            ),
+          )
+          .where((hours) => hours.day.isNotEmpty)
+          .toList(growable: false),
+      businessFulfillmentOptions:
+          (json['businessFulfillmentOptions'] as List? ?? const [])
+              .map(BusinessFulfillmentOption.fromApi)
+              .whereType<BusinessFulfillmentOption>()
+              .toList(growable: false),
+      businessContact: json['businessContact'] is Map<String, dynamic>
+          ? BusinessContact(
+              phone:
+                  (json['businessContact'] as Map<String, dynamic>)['phone']
+                      ?.toString() ??
+                  '',
+              whatsapp:
+                  (json['businessContact'] as Map<String, dynamic>)['whatsapp']
+                      ?.toString() ??
+                  '',
+            )
+          : const BusinessContact(),
     );
   }
 
@@ -1889,12 +2082,29 @@ class HttpCommunityRepository implements CommunityRepository {
       reactedByMe: json['reactedByMe'] as bool? ?? false,
       savedByMe: json['savedByMe'] as bool? ?? false,
       ownedByMe: json['ownedByMe'] as bool? ?? false,
+      businessViewCount: (json['businessViewCount'] as num?)?.toInt() ?? 0,
+      businessContactCount:
+          (json['businessContactCount'] as num?)?.toInt() ?? 0,
       editedAt: _optionalDate(json['editedAt']),
       promotion: json['promotion'] is Map<String, dynamic>
           ? _postPromotionFromJson(json['promotion'] as Map<String, dynamic>)
           : null,
       poll: json['poll'] is Map<String, dynamic>
           ? _pollFromJson(json['poll'] as Map<String, dynamic>)
+          : null,
+      todayMenu:
+          json['businessFeature'] is Map<String, dynamic> &&
+              (json['businessFeature'] as Map<String, dynamic>)['type'] ==
+                  'today_menu'
+          ? _todayMenuFromJson(json['businessFeature'] as Map<String, dynamic>)
+          : null,
+      businessFeature:
+          json['businessFeature'] is Map<String, dynamic> &&
+              (json['businessFeature'] as Map<String, dynamic>)['type'] !=
+                  'today_menu'
+          ? _businessFeatureFromJson(
+              json['businessFeature'] as Map<String, dynamic>,
+            )
           : null,
       mentionedUserIds: (json['mentionedUserIds'] as List? ?? const [])
           .map((value) => value.toString())
@@ -1923,6 +2133,52 @@ class HttpCommunityRepository implements CommunityRepository {
         .toList(growable: false),
     selectedOptionId: json['selectedOptionId']?.toString(),
   );
+
+  static TodayMenu _todayMenuFromJson(Map<String, dynamic> json) => TodayMenu(
+    dishes: (json['dishes'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (dish) => TodayMenuDish(
+            name: dish['name']?.toString() ?? '',
+            price: dish['price']?.toString() ?? '',
+            available: dish['available'] != false,
+          ),
+        )
+        .toList(growable: false),
+    fulfillmentOptions: (json['fulfillmentOptions'] as List? ?? const [])
+        .map(BusinessFulfillmentOption.fromApi)
+        .whereType<BusinessFulfillmentOption>()
+        .toList(growable: false),
+    expiresAt:
+        DateTime.tryParse(json['expiresAt']?.toString() ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+  );
+
+  static BusinessPostFeature? _businessFeatureFromJson(
+    Map<String, dynamic> json,
+  ) {
+    final type = BusinessPostFeatureType.fromApi(json['type']);
+    if (type == null) return null;
+    return BusinessPostFeature(
+      type: type,
+      title: json['title']?.toString() ?? '',
+      price: json['price']?.toString() ?? '',
+      available: json['available'] != false,
+      fulfillmentOptions: (json['fulfillmentOptions'] as List? ?? const [])
+          .map(BusinessFulfillmentOption.fromApi)
+          .whereType<BusinessFulfillmentOption>()
+          .toList(growable: false),
+      expiresAt: _optionalDate(json['expiresAt']),
+      routeFrom: json['routeFrom']?.toString() ?? '',
+      routeTo: json['routeTo']?.toString() ?? '',
+      departureAt: _optionalDate(json['departureAt']),
+      seatsAvailable: (json['seatsAvailable'] as num?)?.toInt(),
+      listingType: json['listingType']?.toString() ?? '',
+      bedrooms: (json['bedrooms'] as num?)?.toInt(),
+      location: json['location']?.toString() ?? '',
+      serviceArea: json['serviceArea']?.toString() ?? '',
+    );
+  }
 
   static PostPromotion _postPromotionFromJson(Map<String, dynamic> json) =>
       PostPromotion(
@@ -2025,6 +2281,7 @@ class HttpCommunityRepository implements CommunityRepository {
     'comment_reaction' => CommunityNotificationType.commentReaction,
     'comment_reply' => CommunityNotificationType.commentReply,
     'post_mention' => CommunityNotificationType.postMention,
+    'today_menu' => CommunityNotificationType.todayMenu,
     'post_approved' => CommunityNotificationType.postApproved,
     'post_rejected' => CommunityNotificationType.postRejected,
     'post_removed' => CommunityNotificationType.postRemoved,

@@ -206,6 +206,23 @@ class _RecordingApiClient extends AuthenticatedApiClient {
         ],
       };
     }
+    if (path == '/api/community/v1/posts/post-1/share-kit') {
+      return {
+        'shareKit': {
+          'canonicalUrl': 'https://wicchu.com/posts/post-1',
+          'message': 'Community meeting\n\nhttps://wicchu.com/posts/post-1',
+          'targets': {
+            'whatsapp': 'https://wa.me/?text=Community%20meeting',
+            'facebook': 'https://facebook.com/share/post-1',
+            'copyLink': 'https://wicchu.com/posts/post-1',
+          },
+          'images': {
+            'instagramFeed': 'https://wicchu.com/posts/post-1/card/feed.png',
+            'instagramStory': 'https://wicchu.com/posts/post-1/card/story.png',
+          },
+        },
+      };
+    }
     if (path.contains('/posts/')) {
       return {
         'post': {
@@ -279,6 +296,20 @@ class _RecordingApiClient extends AuthenticatedApiClient {
         },
       };
     }
+    if (path == '/api/community/v1/communities/business-1/posts') {
+      return {
+        'post': {
+          'id': 'menu-post-1',
+          'communityId': 'business-1',
+          'categoryId': body?['categoryId'],
+          'author': {'id': 'current-user', 'name': 'Restaurant owner'},
+          'text': body?['text'],
+          'status': 'published',
+          'createdAt': '2026-10-07T10:00:00.000Z',
+          'businessFeature': body?['businessFeature'],
+        },
+      };
+    }
     return {
       'community': {'id': 'community-1', ...?body},
     };
@@ -297,6 +328,20 @@ class _RecordingApiClient extends AuthenticatedApiClient {
     if (path == '/api/community/v1/me/profile') {
       return {
         'profile': {...?body},
+      };
+    }
+    if (path.startsWith('/api/community/v1/posts/')) {
+      return {
+        'post': {
+          'id': path.split('/').last,
+          'communityId': 'business-1',
+          'categoryId': body?['categoryId'],
+          'author': {'id': 'current-user', 'name': 'Business owner'},
+          'text': body?['text'],
+          'status': 'published',
+          'createdAt': '2026-10-07T10:00:00.000Z',
+          'businessFeature': body?['businessFeature'],
+        },
       };
     }
     return {
@@ -742,6 +787,50 @@ void main() {
     );
     expect(api.lastBody?['businessServices'], ['gardening']);
     expect(api.lastBody?['businessLocation'], isNull);
+
+    await repository.updateCommunity(
+      Community(
+        id: 'business-1',
+        name: 'Restaurant',
+        description: '',
+        town: town,
+        visibility: CommunityVisibility.public,
+        createdBy: 'user-1',
+        createdAt: createdAt,
+        type: CommunityType.publicProfile,
+        profileCategory: ProfileCategory.localBusiness,
+        businessServices: const [BusinessService.food],
+      ),
+      town: town,
+      name: 'Restaurant',
+      description: '',
+      visibility: CommunityVisibility.public,
+      approvalRequired: false,
+      showWeather: false,
+      links: const [],
+      profileCategory: ProfileCategory.localBusiness,
+      businessServices: const [BusinessService.food],
+      businessLocation: null,
+      businessHours: const [
+        BusinessHour(day: 'monday', open: '09:00', close: '18:00'),
+      ],
+      businessFulfillmentOptions: const [
+        BusinessFulfillmentOption.delivery,
+        BusinessFulfillmentOption.eatIn,
+      ],
+      businessContact: const BusinessContact(
+        phone: '+593123456789',
+        whatsapp: '+593987654321',
+      ),
+    );
+    expect(api.lastBody?['businessHours'], [
+      {'day': 'monday', 'open': '09:00', 'close': '18:00', 'closed': false},
+    ]);
+    expect(api.lastBody?['businessFulfillmentOptions'], ['delivery', 'eat_in']);
+    expect(api.lastBody?['businessContact'], {
+      'phone': '+593123456789',
+      'whatsapp': '+593987654321',
+    });
   });
 
   test('nearby discovery sends coordinates to the API', () async {
@@ -835,6 +924,120 @@ void main() {
     expect(campaign.durationDays, 7);
   });
 
+  test('today menu posts send structured restaurant details', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+    final expiresAt = DateTime.utc(2026, 10, 8);
+
+    final post = await repository.createPost(
+      'business-1',
+      CreatePostInput(
+        categoryId: 'posts',
+        text: "🍴 Today's menu",
+        todayMenu: TodayMenu(
+          expiresAt: expiresAt,
+          dishes: const [
+            TodayMenuDish(name: 'Sancocho', price: r'$5', available: true),
+          ],
+          fulfillmentOptions: const [BusinessFulfillmentOption.delivery],
+        ),
+      ),
+    );
+
+    expect(api.lastPath, '/api/community/v1/communities/business-1/posts');
+    expect(api.lastBody?['businessFeature'], {
+      'type': 'today_menu',
+      'dishes': [
+        {'name': 'Sancocho', 'price': r'$5', 'available': true},
+      ],
+      'fulfillmentOptions': ['delivery'],
+      'expiresAt': expiresAt.toIso8601String(),
+    });
+    expect(post.todayMenu?.dishes.single.name, 'Sancocho');
+    expect(post.todayMenu?.fulfillmentOptions, [
+      BusinessFulfillmentOption.delivery,
+    ]);
+  });
+
+  test('specialized business posts preserve their structured type', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+    final features = [
+      const BusinessPostFeature(
+        type: BusinessPostFeatureType.retailOffer,
+        title: 'Weekend offer',
+        price: r'$10',
+        fulfillmentOptions: [BusinessFulfillmentOption.pickup],
+      ),
+      BusinessPostFeature(
+        type: BusinessPostFeatureType.transportTrip,
+        routeFrom: 'Echeandía',
+        routeTo: 'Guaranda',
+        departureAt: DateTime.utc(2026, 10, 9, 14),
+        seatsAvailable: 4,
+      ),
+      const BusinessPostFeature(
+        type: BusinessPostFeatureType.realEstateListing,
+        title: 'Family home',
+        price: r'$400',
+        listingType: 'rent',
+        bedrooms: 3,
+        location: 'Central Echeandía',
+      ),
+      const BusinessPostFeature(
+        type: BusinessPostFeatureType.professionalService,
+        title: 'Accounting support',
+        serviceArea: 'Bolívar',
+      ),
+    ];
+
+    for (final feature in features) {
+      final post = await repository.createPost(
+        'business-1',
+        CreatePostInput(
+          categoryId: 'posts',
+          text: feature.title.isEmpty ? feature.routeFrom : feature.title,
+          businessFeature: feature,
+        ),
+      );
+      expect(
+        (api.lastBody?['businessFeature'] as Map<String, dynamic>)['type'],
+        feature.type.apiValue,
+      );
+      expect(post.businessFeature?.type, feature.type);
+    }
+  });
+
+  test('business posts can be updated and engagement is recorded', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+    const feature = BusinessPostFeature(
+      type: BusinessPostFeatureType.retailOffer,
+      title: 'Weekend offer',
+      price: r'$10',
+      available: false,
+    );
+
+    final post = await repository.updatePost(
+      'offer-1',
+      const CreatePostInput(
+        categoryId: 'posts',
+        text: 'Weekend offer',
+        businessFeature: feature,
+      ),
+    );
+    expect(api.lastPath, '/api/community/v1/posts/offer-1');
+    expect(
+      (api.lastBody?['businessFeature'] as Map<String, dynamic>)['available'],
+      isFalse,
+    );
+    expect(post.businessFeature?.available, isFalse);
+
+    await repository.recordBusinessPostEngagement('offer-1', action: 'contact');
+    expect(api.lastPath, '/api/community/v1/posts/offer-1/business-engagement');
+    expect(api.lastBody, {'action': 'contact'});
+  });
+
   test('post detail accepts the pending approval status', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);
@@ -845,6 +1048,22 @@ void main() {
     expect(post.status, PostStatus.pendingApproval);
     expect(post.authorAvatarUrl, 'https://example.com/michael.jpg');
   });
+
+  test(
+    'post share kit preserves social targets and generated images',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+
+      final kit = await repository.getPostShareKit('post-1');
+
+      expect(api.lastPath, '/api/community/v1/posts/post-1/share-kit');
+      expect(kit.canonicalUrl, 'https://wicchu.com/posts/post-1');
+      expect(kit.whatsappUrl, startsWith('https://wa.me/'));
+      expect(kit.instagramFeedImageUrl, endsWith('/card/feed.png'));
+      expect(kit.instagramStoryImageUrl, endsWith('/card/story.png'));
+    },
+  );
 
   test('comments preserve the author profile image', () async {
     final api = _RecordingApiClient();

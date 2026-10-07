@@ -563,6 +563,9 @@ class DemoCommunityRepository implements CommunityRepository {
     ProfileCategory? profileCategory,
     required List<BusinessService> businessServices,
     required BusinessLocation? businessLocation,
+    List<BusinessHour>? businessHours,
+    List<BusinessFulfillmentOption>? businessFulfillmentOptions,
+    BusinessContact? businessContact,
     String? imageUrl,
     String? imageBlobName,
     String? coverImageUrl,
@@ -591,6 +594,10 @@ class DemoCommunityRepository implements CommunityRepository {
       profileCategory: profileCategory ?? community.profileCategory,
       businessServices: List.unmodifiable(businessServices),
       businessLocation: businessLocation,
+      businessHours: businessHours ?? community.businessHours,
+      businessFulfillmentOptions:
+          businessFulfillmentOptions ?? community.businessFulfillmentOptions,
+      businessContact: businessContact ?? community.businessContact,
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;
@@ -646,6 +653,43 @@ class DemoCommunityRepository implements CommunityRepository {
       );
 
   @override
+  Future<List<CommunityPost>> listTodayMenus(
+    String townId, {
+    String? query,
+  }) async => _posts.values
+      .expand((posts) => posts)
+      .where((post) {
+        final community = _communities.firstWhere(
+          (item) => item.id == post.communityId,
+        );
+        return community.town.id == townId &&
+            post.todayMenu != null &&
+            !post.todayMenu!.isExpired &&
+            (query == null ||
+                post.text.toLowerCase().contains(query.toLowerCase()));
+      })
+      .toList(growable: false);
+
+  @override
+  Future<List<CommunityPost>> listLocalBusinessPosts(
+    String townId, {
+    String? query,
+  }) async => _posts.values
+      .expand((posts) => posts)
+      .where((post) {
+        final community = _communities.firstWhere(
+          (item) => item.id == post.communityId,
+        );
+        final active = post.todayMenu == null || !post.todayMenu!.isExpired;
+        return community.town.id == townId &&
+            (post.todayMenu != null || post.businessFeature != null) &&
+            active &&
+            (query == null ||
+                post.text.toLowerCase().contains(query.toLowerCase()));
+      })
+      .toList(growable: false);
+
+  @override
   Future<CommunityPost> getPost(String postId) async => _posts.values
       .expand((posts) => posts)
       .firstWhere((post) => post.id == postId);
@@ -671,7 +715,30 @@ class DemoCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<PostShareKit> getPostShareKit(String postId) async {
+    final post = await getPost(postId);
+    final canonical = 'https://wicchu.com/posts/$postId';
+    final message = '${post.text}\n\n$canonical';
+    return PostShareKit(
+      canonicalUrl: canonical,
+      message: message,
+      whatsappUrl: 'https://wa.me/?text=${Uri.encodeQueryComponent(message)}',
+      facebookUrl:
+          'https://www.facebook.com/sharer/sharer.php?u='
+          '${Uri.encodeQueryComponent(canonical)}',
+      instagramFeedImageUrl: '$canonical/card/feed.png',
+      instagramStoryImageUrl: '$canonical/card/story.png',
+    );
+  }
+
+  @override
   Future<void> recordPostShare(String postId) async {}
+
+  @override
+  Future<void> recordBusinessPostEngagement(
+    String postId, {
+    required String action,
+  }) async {}
 
   @override
   Future<CommunityPost> createPost(
@@ -707,6 +774,8 @@ class DemoCommunityRepository implements CommunityRepository {
                   ),
               ],
             ),
+      todayMenu: input.todayMenu,
+      businessFeature: input.businessFeature,
     );
     _posts.putIfAbsent(communityId, () => []).insert(0, post);
     return post;
@@ -756,6 +825,10 @@ class DemoCommunityRepository implements CommunityRepository {
                     ),
                 ],
               ),
+        todayMenu: input.todayMenu ?? current.todayMenu,
+        businessFeature: input.businessFeature ?? current.businessFeature,
+        businessViewCount: current.businessViewCount,
+        businessContactCount: current.businessContactCount,
       );
       entry.value[index] = updated;
       return updated;
@@ -979,6 +1052,8 @@ class DemoCommunityRepository implements CommunityRepository {
       editedAt: post.editedAt,
       promotion: post.promotion,
       poll: post.poll,
+      todayMenu: post.todayMenu,
+      businessFeature: post.businessFeature,
       mentionedUserIds: post.mentionedUserIds,
       isAnonymous: post.isAnonymous,
     );

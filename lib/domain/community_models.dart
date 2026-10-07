@@ -24,6 +24,8 @@ enum ProfileCategory {
   }
 }
 
+const maxBusinessServices = 10;
+
 enum BusinessService {
   gardening('gardening', 'Gardening'),
   pools('pools', 'Pools'),
@@ -38,6 +40,7 @@ enum BusinessService {
   transport('transport', 'Transport'),
   education('education', 'Education'),
   professionalServices('professional_services', 'Professional services'),
+  realEstate('real_estate', 'Real estate'),
   other('other', 'Other');
 
   const BusinessService(this.apiValue, this.label);
@@ -64,6 +67,7 @@ enum CommunityNotificationType {
   postComment,
   commentReply,
   postMention,
+  todayMenu,
   postApproved,
   postRejected,
   postRemoved,
@@ -292,6 +296,9 @@ class Community {
     this.profileCategory,
     this.businessServices = const [],
     this.businessLocation,
+    this.businessHours = const [],
+    this.businessFulfillmentOptions = const [],
+    this.businessContact = const BusinessContact(),
     this.membershipStatus,
     this.banPublicReason,
     this.banExpiresAt,
@@ -317,6 +324,9 @@ class Community {
   final CommunityType type;
   final ProfileCategory? profileCategory;
   final List<BusinessService> businessServices;
+  final List<BusinessHour> businessHours;
+  final List<BusinessFulfillmentOption> businessFulfillmentOptions;
+  final BusinessContact businessContact;
 
   String get spaceTypeLabel => isPublicProfile
       ? profileCategory?.label ?? 'Public profile'
@@ -351,6 +361,27 @@ class BusinessLocation {
   final double? longitude;
   final bool showExactAddress;
   bool get hasCoordinates => latitude != null && longitude != null;
+}
+
+class BusinessHour {
+  const BusinessHour({
+    required this.day,
+    this.open = '',
+    this.close = '',
+    this.closed = false,
+  });
+
+  final String day;
+  final String open;
+  final String close;
+  final bool closed;
+}
+
+class BusinessContact {
+  const BusinessContact({this.phone = '', this.whatsapp = ''});
+
+  final String phone;
+  final String whatsapp;
 }
 
 class CommunityLink {
@@ -588,6 +619,106 @@ class PostPoll {
       options.fold(0, (total, option) => total + option.voteCount);
 }
 
+enum BusinessFulfillmentOption {
+  delivery('delivery', 'Delivery'),
+  pickup('pickup', 'Pickup'),
+  eatIn('eat_in', 'Eat in');
+
+  const BusinessFulfillmentOption(this.apiValue, this.label);
+  final String apiValue;
+  final String label;
+
+  static BusinessFulfillmentOption? fromApi(Object? value) {
+    for (final option in values) {
+      if (option.apiValue == value) return option;
+    }
+    return null;
+  }
+}
+
+class TodayMenuDish {
+  const TodayMenuDish({
+    required this.name,
+    this.price = '',
+    this.available = true,
+  });
+
+  final String name;
+  final String price;
+  final bool available;
+}
+
+class TodayMenu {
+  const TodayMenu({
+    required this.dishes,
+    required this.expiresAt,
+    this.fulfillmentOptions = const [],
+  });
+
+  final List<TodayMenuDish> dishes;
+  final List<BusinessFulfillmentOption> fulfillmentOptions;
+  final DateTime expiresAt;
+  bool get isExpired => !expiresAt.isAfter(DateTime.now());
+}
+
+enum BusinessPostFeatureType {
+  retailOffer('retail_offer'),
+  transportTrip('transport_trip'),
+  realEstateListing('real_estate_listing'),
+  professionalService('professional_service');
+
+  const BusinessPostFeatureType(this.apiValue);
+  final String apiValue;
+
+  static BusinessPostFeatureType? fromApi(Object? value) {
+    for (final type in values) {
+      if (type.apiValue == value) return type;
+    }
+    return null;
+  }
+}
+
+class BusinessPostFeature {
+  const BusinessPostFeature({
+    required this.type,
+    this.title = '',
+    this.price = '',
+    this.available = true,
+    this.fulfillmentOptions = const [],
+    this.expiresAt,
+    this.routeFrom = '',
+    this.routeTo = '',
+    this.departureAt,
+    this.seatsAvailable,
+    this.listingType = '',
+    this.bedrooms,
+    this.location = '',
+    this.serviceArea = '',
+  });
+
+  final BusinessPostFeatureType type;
+  final String title;
+  final String price;
+  final bool available;
+  final List<BusinessFulfillmentOption> fulfillmentOptions;
+  final DateTime? expiresAt;
+  final String routeFrom;
+  final String routeTo;
+  final DateTime? departureAt;
+  final int? seatsAvailable;
+  final String listingType;
+  final int? bedrooms;
+  final String location;
+  final String serviceArea;
+
+  bool get isExpired {
+    final deadline = type == BusinessPostFeatureType.transportTrip
+        ? departureAt
+        : expiresAt;
+    return deadline != null && !deadline.isAfter(DateTime.now());
+  }
+}
+
 class CommunityPost {
   const CommunityPost({
     required this.id,
@@ -608,6 +739,10 @@ class CommunityPost {
     this.editedAt,
     this.promotion,
     this.poll,
+    this.todayMenu,
+    this.businessFeature,
+    this.businessViewCount = 0,
+    this.businessContactCount = 0,
     this.mentionedUserIds = const [],
     this.isAnonymous = false,
     this.moderationReason = '',
@@ -632,6 +767,10 @@ class CommunityPost {
   final DateTime? editedAt;
   final PostPromotion? promotion;
   final PostPoll? poll;
+  final TodayMenu? todayMenu;
+  final BusinessPostFeature? businessFeature;
+  final int businessViewCount;
+  final int businessContactCount;
   final List<String> mentionedUserIds;
   final bool isAnonymous;
   final String moderationReason;
@@ -708,6 +847,24 @@ class SharedPostPreview {
   final String? communityImageUrl;
   final String categoryName;
   final String categoryIcon;
+}
+
+class PostShareKit {
+  const PostShareKit({
+    required this.canonicalUrl,
+    required this.message,
+    required this.whatsappUrl,
+    required this.facebookUrl,
+    required this.instagramFeedImageUrl,
+    required this.instagramStoryImageUrl,
+  });
+
+  final String canonicalUrl;
+  final String message;
+  final String whatsappUrl;
+  final String facebookUrl;
+  final String instagramFeedImageUrl;
+  final String instagramStoryImageUrl;
 }
 
 class Comment {
