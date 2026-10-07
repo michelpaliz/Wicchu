@@ -583,6 +583,7 @@ class HttpCommunityRepository implements CommunityRepository {
         if (input.type == CommunityType.publicProfile &&
             input.profileCategory != null)
           'profileCategory': input.profileCategory!.apiValue,
+        'shortDescription': input.shortDescription,
         'description': input.description,
         'townId': input.town.id,
         'visibility': input.visibility.name,
@@ -962,6 +963,7 @@ class HttpCommunityRepository implements CommunityRepository {
     Community community, {
     required Town town,
     required String name,
+    String? shortDescription,
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
@@ -983,6 +985,7 @@ class HttpCommunityRepository implements CommunityRepository {
       body: {
         'townId': town.id,
         'name': name,
+        'shortDescription': shortDescription ?? community.shortDescription,
         'description': description,
         'visibility': visibility.name,
         'approvalRequired': approvalRequired,
@@ -1917,6 +1920,7 @@ class HttpCommunityRepository implements CommunityRepository {
       type: json['type'] == 'public_profile'
           ? CommunityType.publicProfile
           : CommunityType.community,
+      shortDescription: json['shortDescription'] as String? ?? '',
       description: json['description'] as String? ?? '',
       town: _townFromJson(townJson),
       imageUrl: _mediaUrl(json['imageUrl'] as String?, json['imageBlobName']),

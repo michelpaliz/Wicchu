@@ -383,6 +383,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         _community = Community(
           id: _community.id,
           name: _community.name,
+          shortDescription: _community.shortDescription,
           description: _community.description,
           town: _community.town,
           visibility: _community.visibility,
@@ -2990,7 +2991,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           ],
         ),
         const SizedBox(height: 8),
-        if (_community.description.trim().isNotEmpty)
+        if (_community.profileSummary.isNotEmpty)
           card(
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
@@ -3001,7 +3002,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     height: 1.4,
                   );
                   final painter = TextPainter(
-                    text: TextSpan(text: _community.description, style: style),
+                    text: TextSpan(
+                      text: _community.profileSummary,
+                      style: style,
+                    ),
                     maxLines: 2,
                     textDirection: Directionality.of(context),
                     textScaler: MediaQuery.textScalerOf(context),
@@ -3012,7 +3016,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _community.description,
+                        _community.profileSummary,
                         maxLines: _descriptionExpanded ? null : 2,
                         overflow: _descriptionExpanded
                             ? TextOverflow.visible
@@ -3043,6 +3047,26 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               ),
             ),
             tinted: true,
+          ),
+
+        if (_community.description.trim().isNotEmpty)
+          card(
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.tr('About {name}', {'name': _community.name}),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(_community.description),
+                ],
+              ),
+            ),
           ),
 
         Padding(

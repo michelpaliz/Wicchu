@@ -926,6 +926,14 @@ const _spanish = <String, String>{
   'Basics': 'Datos básicos',
   'Community name': 'Nombre de la comunidad',
   'Short description': 'Descripción breve',
+  'A quick summary shown on your profile.':
+      'Un resumen breve que se muestra en tu perfil.',
+  'Tell people more about your community or page…':
+      'Cuéntales más sobre tu comunidad o página…',
+  'Shown near the top of the profile.':
+      'Se muestra en la parte superior del perfil.',
+  'The full description shown in About.':
+      'La descripción completa que se muestra en Información.',
   'Location': 'Ubicación',
   'Town': 'Ciudad',
   'Rules': 'Normas',

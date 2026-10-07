@@ -40,6 +40,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   ];
 
   final _nameController = TextEditingController();
+  final _shortDescriptionController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _selectedCategories = <String>{..._defaults};
   final _draftRules = <CommunityRule>[];
@@ -64,6 +65,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   void dispose() {
     _scroll.dispose();
     _nameController.dispose();
+    _shortDescriptionController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -77,6 +79,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     }
     if (_dirty ||
         _nameController.text.isNotEmpty ||
+        _shortDescriptionController.text.isNotEmpty ||
         _descriptionController.text.isNotEmpty) {
       final discard = await showDialog<bool>(
         context: context,
@@ -404,13 +407,30 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _descriptionController,
-              maxLength: CommunityInputLimits.description,
+              controller: _shortDescriptionController,
+              onChanged: (_) => setState(() => _dirty = true),
+              maxLength: CommunityInputLimits.shortDescription,
               maxLengthEnforcement: MaxLengthEnforcement.enforced,
               maxLines: 2,
               decoration: InputDecoration(
-                hintText: context.tr('Tell people what your space is about…'),
+                hintText: context.tr('A quick summary shown on your profile.'),
                 labelText: context.tr('Short description'),
+                helperText: context.tr('Optional'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _descriptionController,
+              onChanged: (_) => setState(() => _dirty = true),
+              maxLength: CommunityInputLimits.description,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              minLines: 3,
+              maxLines: 7,
+              decoration: InputDecoration(
+                hintText: context.tr(
+                  'Tell people more about your community or page…',
+                ),
+                labelText: context.tr('About'),
                 helperText: context.tr('Optional'),
               ),
             ),
@@ -658,9 +678,22 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                     _nameController.text.trim(),
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  if (_descriptionController.text.trim().isNotEmpty) ...[
+                  if (_shortDescriptionController.text.trim().isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text(_descriptionController.text.trim()),
+                    Text(_shortDescriptionController.text.trim()),
+                  ],
+                  if (_descriptionController.text.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      context.tr('About'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _descriptionController.text.trim(),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                   const SizedBox(height: 12),
                   Text(_town?.name ?? ''),
@@ -718,6 +751,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       community = await widget.repository.createCommunity(
         CreateCommunityInput(
           name: _nameController.text.trim(),
+          shortDescription: _shortDescriptionController.text.trim(),
           description: _descriptionController.text.trim(),
           town: _town!,
           visibility: CommunityVisibility.public,

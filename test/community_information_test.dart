@@ -16,6 +16,10 @@ void main() {
     final community = Community(
       id: original.id,
       name: original.name,
+      shortDescription: List.filled(
+        3,
+        'News, events and stories from our local community.',
+      ).join(' '),
       description: List.filled(
         10,
         'News, events and stories from our local community.',
@@ -37,13 +41,17 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(tester.widget<Text>(find.text(community.description)).maxLines, 2);
+    expect(find.text(community.description), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text(community.shortDescription)).maxLines,
+      2,
+    );
     await tester.tap(
       find.byKey(const ValueKey('community-description-toggle')),
     );
     await tester.pumpAndSettle();
     expect(
-      tester.widget<Text>(find.text(community.description)).maxLines,
+      tester.widget<Text>(find.text(community.shortDescription)).maxLines,
       isNull,
     );
     await tester.ensureVisible(
@@ -53,16 +61,16 @@ void main() {
       find.byKey(const ValueKey('community-description-toggle')),
     );
     await tester.pumpAndSettle();
-    await tester.drag(
-      find.byKey(const ValueKey('community-information-content')),
-      const Offset(0, 900),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.widget<Text>(find.text(community.description)).maxLines, 2);
     final admins = find.byKey(
       const ValueKey('information-administration-entry'),
     );
-    await tester.ensureVisible(admins);
+    await tester.scrollUntilVisible(
+      admins,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -120));
+    await tester.pumpAndSettle();
     await tester.tap(admins);
     await tester.pumpAndSettle();
     expect(

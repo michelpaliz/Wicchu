@@ -244,6 +244,7 @@ class DemoCommunityRepository implements CommunityRepository {
     final community = Community(
       id: id,
       name: input.name,
+      shortDescription: input.shortDescription,
       description: input.description,
       town: input.town,
       visibility: input.visibility,
@@ -555,6 +556,7 @@ class DemoCommunityRepository implements CommunityRepository {
     Community community, {
     required Town town,
     required String name,
+    String? shortDescription,
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
@@ -574,6 +576,7 @@ class DemoCommunityRepository implements CommunityRepository {
     final updated = Community(
       id: community.id,
       name: name,
+      shortDescription: shortDescription ?? community.shortDescription,
       description: description,
       town: town,
       visibility: visibility,

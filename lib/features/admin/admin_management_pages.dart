@@ -1272,6 +1272,9 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   late final TextEditingController _description = TextEditingController(
     text: widget.community.description,
   );
+  late final TextEditingController _shortDescription = TextEditingController(
+    text: widget.community.shortDescription,
+  );
   late CommunityVisibility _visibility = widget.community.visibility;
   late Town _town = widget.community.town;
   late Future<List<Town>> _towns;
@@ -1321,6 +1324,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   @override
   void dispose() {
     _name.dispose();
+    _shortDescription.dispose();
     _description.dispose();
     _businessAddress.dispose();
     super.dispose();
@@ -1582,6 +1586,26 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             ),
           const SizedBox(height: 16),
           TextFormField(
+            controller: _shortDescription,
+            maxLength: CommunityInputLimits.shortDescription,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            validator: (value) =>
+                (value ?? '').characters.length >
+                    CommunityInputLimits.shortDescription
+                ? context.tr('Use at most {count} characters.', {
+                    'count': '${CommunityInputLimits.shortDescription}',
+                  })
+                : null,
+            minLines: 1,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: context.tr('Short description'),
+              helperText: context.tr('Shown near the top of the profile.'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
             controller: _description,
             maxLength: CommunityInputLimits.description,
             maxLengthEnforcement: MaxLengthEnforcement.enforced,
@@ -1593,9 +1617,12 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                     'count': '${CommunityInputLimits.description}',
                   })
                 : null,
-            minLines: 1,
-            maxLines: 4,
-            decoration: InputDecoration(labelText: context.tr('Description')),
+            minLines: 3,
+            maxLines: 8,
+            decoration: InputDecoration(
+              labelText: context.tr('About'),
+              helperText: context.tr('The full description shown in About.'),
+            ),
           ),
           const SizedBox(height: 16),
           if (widget.community.isPublicProfile) ...[
@@ -2017,6 +2044,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             ? List.unmodifiable(_businessServices)
             : const [],
         name: _name.text.trim(),
+        shortDescription: _shortDescription.text.trim(),
         description: _description.text.trim(),
         visibility: _visibility,
         approvalRequired: _approvalRequired,

@@ -278,6 +278,7 @@ class Community {
     required this.id,
     required this.name,
     this.slug = '',
+    this.shortDescription = '',
     required this.description,
     required this.town,
     required this.visibility,
@@ -307,6 +308,7 @@ class Community {
   final String id;
   final String name;
   final String slug;
+  final String shortDescription;
   final String description;
   final Town town;
   final String? imageUrl;
@@ -338,6 +340,14 @@ class Community {
 
   bool get isJoined => myRole != null;
   bool get isBanned => membershipStatus == MembershipStatus.banned;
+
+  String get profileSummary {
+    final summary = shortDescription.trim();
+    if (summary.isNotEmpty) return summary;
+    final about = description.trim();
+    if (about.length <= 160) return about;
+    return '${about.substring(0, 157).trimRight()}…';
+  }
 
   bool get canPublish =>
       isJoined &&

@@ -729,6 +729,7 @@ void main() {
       community,
       town: town,
       name: 'Updated title',
+      shortDescription: 'A short profile summary',
       description: '',
       visibility: CommunityVisibility.public,
       approvalRequired: false,
@@ -752,6 +753,7 @@ void main() {
     );
     expect(api.lastBody, isNot(contains('businessServices')));
     expect(api.lastBody, isNot(contains('businessLocation')));
+    expect(api.lastBody?['shortDescription'], 'A short profile summary');
 
     await update(
       Community(
@@ -891,6 +893,7 @@ void main() {
     final community = await repository.createCommunity(
       const CreateCommunityInput(
         name: 'Riverside',
+        shortDescription: 'Neighbors connected',
         description: 'Local updates',
         town: town,
         visibility: CommunityVisibility.public,
@@ -901,8 +904,10 @@ void main() {
 
     expect(api.lastPath, '/api/community/v1/communities');
     expect(api.lastBody?['townId'], 'town-1');
+    expect(api.lastBody?['shortDescription'], 'Neighbors connected');
     expect(api.lastBody?['categoryNames'], ['News', 'Events']);
     expect(api.lastBody?['approvalRequired'], isTrue);
+    expect(community.shortDescription, 'Neighbors connected');
     expect(community.myRole, CommunityRole.owner);
   });
 

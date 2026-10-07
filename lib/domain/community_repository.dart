@@ -3,6 +3,7 @@ import 'community_models.dart';
 class CreateCommunityInput {
   const CreateCommunityInput({
     required this.name,
+    this.shortDescription = '',
     required this.description,
     required this.town,
     required this.visibility,
@@ -14,6 +15,7 @@ class CreateCommunityInput {
   });
 
   final String name;
+  final String shortDescription;
   final String description;
   final Town town;
   final CommunityVisibility visibility;
@@ -290,6 +292,7 @@ abstract interface class CommunityRepository {
     Community community, {
     required Town town,
     required String name,
+    String? shortDescription,
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
