@@ -104,3 +104,4 @@ Push notifications remain disabled when Firebase configuration is absent. The ba
 - [Facebook login requirements](FACEBOOK_LOGIN_REQUIREMENTS.md)
 - [Backend requirements](BACKEND_REQUIREMENTS.md)
 - [Moderation actions guide](MODERATION_ACTIONS_GUIDE.md)
+- [App update configuration](APP_UPDATE_CONFIGURATION.md)

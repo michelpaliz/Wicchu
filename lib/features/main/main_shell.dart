@@ -18,6 +18,7 @@ import '../../domain/community_repository.dart';
 import '../../domain/auth_gateway.dart';
 import '../../localization/app_language.dart';
 import '../../services/push_notification_service.dart';
+import '../../services/presence_service.dart';
 import '../../theme/theme_menu.dart';
 import '../admin/create_community_page.dart';
 import '../admin/managed_communities_page.dart';
@@ -34,6 +35,7 @@ import '../community/post_collection_page.dart';
 import '../community/post_detail_page.dart';
 import '../community/post_share.dart';
 import '../community/user_avatar.dart';
+import '../chat/direct_chat_pages.dart';
 import '../settings/account_settings_page.dart';
 import '../promotions/promotions_page.dart';
 import '../profile/member_profile_page.dart';
@@ -711,10 +713,17 @@ class _HomeTabState extends State<_HomeTab>
   bool _followingOnly = false;
   late Future<_HomeFeedData> _data;
   late Future<NotificationFeed> _notifications;
+  late Future<List<DirectConversation>> _messageRequests;
   StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
+  StreamSubscription<Map<String, dynamic>>? _chatMessageSubscription;
+  StreamSubscription<Map<String, dynamic>>? _chatRequestSubscription;
 
   void _reloadNotifications() {
     _notifications = widget.repository.listNotifications();
+  }
+
+  void _reloadMessageRequests() {
+    _messageRequests = widget.repository.listMessageRequests();
   }
 
   Timer? _searchDelay;
@@ -731,9 +740,19 @@ class _HomeTabState extends State<_HomeTab>
   void initState() {
     super.initState();
     _reloadNotifications();
+    _reloadMessageRequests();
     _notificationSubscription = PushNotificationService.instance.received
         .listen((_) {
           if (mounted) setState(_reloadNotifications);
+        });
+    _chatMessageSubscription = PresenceService.instance.chatMessages.listen((
+      _,
+    ) {
+      if (mounted) setState(_reloadMessageRequests);
+    });
+    _chatRequestSubscription = PresenceService.instance.chatRequestUpdates
+        .listen((_) {
+          if (mounted) setState(_reloadMessageRequests);
         });
     _reload();
   }
@@ -746,6 +765,8 @@ class _HomeTabState extends State<_HomeTab>
   void dispose() {
     _searchDelay?.cancel();
     _notificationSubscription?.cancel();
+    _chatMessageSubscription?.cancel();
+    _chatRequestSubscription?.cancel();
     _feedScroll.dispose();
     super.dispose();
   }
@@ -882,6 +903,7 @@ class _HomeTabState extends State<_HomeTab>
         _selectedCommunityId = null;
         _reload();
         _reloadNotifications();
+        _reloadMessageRequests();
       });
     }
   }
@@ -1211,6 +1233,29 @@ class _HomeTabState extends State<_HomeTab>
         toolbarHeight: 48,
         title: const WicchuTitle(),
         actions: [
+          FutureBuilder<List<DirectConversation>>(
+            future: _messageRequests,
+            builder: (context, snapshot) {
+              final requests = snapshot.data?.length ?? 0;
+              return IconButton(
+                tooltip: context.tr('Messages'),
+                icon: Badge.count(
+                  count: requests,
+                  isLabelVisible: requests > 0,
+                  child: const Icon(Icons.chat_bubble_outline),
+                ),
+                onPressed: () async {
+                  await openResponsiveSidePanel<void>(
+                    context,
+                    width: 620,
+                    builder: (_) =>
+                        ConversationListPage(repository: widget.repository),
+                  );
+                  if (mounted) setState(_reloadMessageRequests);
+                },
+              );
+            },
+          ),
           IconButton(
             tooltip: context.tr('My spaces'),
             icon: const Icon(Icons.groups_outlined),
@@ -3815,6 +3860,18 @@ class _ProfileTabState extends State<_ProfileTab> {
             ]),
             _accountSection('Account and app'),
             _accountCard([
+              _ProfileRow(
+                icon: Icons.chat_bubble_outline,
+                label: 'Messages',
+                subtitle: 'Private conversations',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ConversationListPage(repository: widget.repository),
+                  ),
+                ),
+              ),
               _ProfileRow(
                 icon: Icons.settings_outlined,
                 label: 'Settings',

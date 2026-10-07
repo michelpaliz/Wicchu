@@ -11,6 +11,14 @@ class _ChatRepository extends DemoCommunityRepository {
   String? deletedMessageId;
   bool? deletedForEveryone;
   bool? acceptedRequest;
+  List<DirectConversation> chats = const [];
+  List<DirectConversation> requests = const [];
+
+  @override
+  Future<List<DirectConversation>> listDirectConversations() async => chats;
+
+  @override
+  Future<List<DirectConversation>> listMessageRequests() async => requests;
 
   @override
   Future<DirectMessagePage> listDirectMessages(
@@ -88,6 +96,41 @@ class _ChatRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets('incoming message requests open first and show their count', (
+    tester,
+  ) async {
+    final repository = _ChatRepository()
+      ..requests = const [
+        DirectConversation(
+          id: 'conversation-request',
+          otherUser: WicchuUser(id: 'user-2', name: 'Ana'),
+          unreadCount: 1,
+          lastMessagePreview: 'Hello from Ana',
+          requestStatus: MessageRequestStatus.pending,
+          requestedByMe: false,
+          canSendMessage: false,
+        ),
+      ];
+    await tester.pumpWidget(
+      MaterialApp(home: ConversationListPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    final selector = tester.widget<SegmentedButton<bool>>(
+      find.byType(SegmentedButton<bool>),
+    );
+    expect(selector.selected, {true});
+    expect(find.text('Ana'), findsOneWidget);
+    expect(find.text('Hello from Ana'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(SegmentedButton<bool>),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('direct chat sends and reports a received message', (
     tester,
   ) async {

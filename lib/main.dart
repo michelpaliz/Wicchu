@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'data/facebook_auth_gateway.dart';
 import 'data/http_community_repository.dart';
@@ -22,6 +23,7 @@ import 'theme/theme_menu.dart';
 import 'theme/wicchu_theme.dart';
 import 'services/push_notification_service.dart';
 import 'services/presence_service.dart';
+import 'services/app_update_service.dart';
 
 void main() {
   runApp(
@@ -46,7 +48,7 @@ class WicchuApp extends StatefulWidget {
   State<WicchuApp> createState() => _WicchuAppState();
 }
 
-class _WicchuAppState extends State<WicchuApp> {
+class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
   final _navigatorKey = GlobalKey<NavigatorState>();
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<Uri>? _linkSubscription;
@@ -62,10 +64,14 @@ class _WicchuAppState extends State<WicchuApp> {
   ThemeMode _themeMode = ThemeMode.system;
   bool _themeChangedByUser = false;
   bool _pushActivationStarted = false;
+  final _appUpdateService = AppUpdateService();
+  bool _checkingForUpdate = false;
+  bool _updateDialogVisible = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _hasSession = widget.authGateway.hasSession();
     _loadPreferences();
     _listenForLinks();
@@ -73,10 +79,100 @@ class _WicchuAppState extends State<WicchuApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _linkSubscription?.cancel();
     PushNotificationService.instance.dispose();
     PresenceService.instance.stop();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkForAppUpdate();
+  }
+
+  Future<void> _checkForAppUpdate() async {
+    if (_checkingForUpdate || _updateDialogVisible || !mounted) return;
+    _checkingForUpdate = true;
+    try {
+      final update = await _appUpdateService.check(languageCode: _languageCode);
+      if (update == null || !mounted) return;
+      final dialogContext = _navigatorKey.currentContext;
+      if (dialogContext == null || !dialogContext.mounted) return;
+      _updateDialogVisible = true;
+      await showDialog<void>(
+        context: dialogContext,
+        barrierDismissible: !update.required,
+        builder: (context) => PopScope(
+          canPop: !update.required,
+          child: AlertDialog(
+            icon: const Icon(Icons.system_update_rounded, size: 40),
+            title: Text(
+              context.tr(
+                update.required
+                    ? 'Update Wicchu to continue'
+                    : 'A new Wicchu update is available',
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.tr('Version {version} is ready to install.', {
+                    'version': update.latestVersion,
+                  }),
+                ),
+                if (update.releaseNotes.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    context.tr("What's new"),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(update.releaseNotes),
+                ],
+              ],
+            ),
+            actions: [
+              if (!update.required)
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(context.tr('Later')),
+                ),
+              FilledButton.icon(
+                onPressed: () async {
+                  final opened = await launchUrl(
+                    Uri.parse(update.updateUrl),
+                    mode: LaunchMode.externalApplication,
+                  );
+                  if (!opened && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          context.tr(
+                            'Could not open the store. Please try again.',
+                          ),
+                        ),
+                      ),
+                    );
+                  } else if (!update.required && context.mounted) {
+                    Navigator.pop(context);
+                  }
+                },
+                icon: const Icon(Icons.open_in_new),
+                label: Text(context.tr('Update now')),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (error) {
+      debugPrint('Wicchu update check unavailable: $error');
+    } finally {
+      _checkingForUpdate = false;
+      _updateDialogVisible = false;
+    }
   }
 
   void _activatePush() {
@@ -383,6 +479,8 @@ class _WicchuAppState extends State<WicchuApp> {
       });
     } catch (_) {
       // Keep the current choices when local preferences are unavailable.
+    } finally {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkForAppUpdate());
     }
   }
 

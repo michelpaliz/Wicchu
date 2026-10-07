@@ -20,15 +20,62 @@ class ConversationListPage extends StatefulWidget {
 }
 
 class _ConversationListPageState extends State<ConversationListPage> {
-  late Future<List<DirectConversation>> _conversations = _load();
+  late Future<List<DirectConversation>> _conversations = _loadInitial();
   StreamSubscription<Map<String, dynamic>>? _subscription;
   StreamSubscription<Map<String, dynamic>>? _updateSubscription;
   StreamSubscription<Map<String, dynamic>>? _requestSubscription;
   bool _showRequests = false;
+  int _requestCount = 0;
 
-  Future<List<DirectConversation>> _load() => _showRequests
-      ? widget.repository.listMessageRequests()
-      : widget.repository.listDirectConversations();
+  Future<List<DirectConversation>> _loadInitial() async {
+    final results = await Future.wait([
+      widget.repository.listDirectConversations(),
+      widget.repository.listMessageRequests(),
+    ]);
+    final chats = results[0];
+    final requests = results[1];
+    if (requests.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _requestCount = requests.length;
+          _showRequests = true;
+        });
+      } else {
+        _requestCount = requests.length;
+        _showRequests = true;
+      }
+      return requests;
+    }
+    _updateRequestCount(0);
+    return chats;
+  }
+
+  Future<List<DirectConversation>> _load() async {
+    if (_showRequests) {
+      final requests = await widget.repository.listMessageRequests();
+      _updateRequestCount(requests.length);
+      return requests;
+    }
+    final results = await Future.wait([
+      widget.repository.listDirectConversations(),
+      widget.repository.listMessageRequests(),
+    ]);
+    _updateRequestCount(results[1].length);
+    return results[0];
+  }
+
+  void _updateRequestCount(int count) {
+    if (_requestCount == count) return;
+    if (mounted) {
+      setState(() => _requestCount = count);
+    } else {
+      _requestCount = count;
+    }
+  }
+
+  void _reload() {
+    if (mounted) setState(() => _conversations = _load());
+  }
 
   void _selectList(bool requests) {
     if (_showRequests == requests) return;
@@ -76,19 +123,15 @@ class _ConversationListPageState extends State<ConversationListPage> {
   @override
   void initState() {
     super.initState();
-    _subscription = PresenceService.instance.chatMessages.listen((_) {
-      if (mounted) setState(() => _conversations = _load());
-    });
-    _updateSubscription = PresenceService.instance.chatMessageUpdates.listen((
-      _,
-    ) {
-      if (mounted) setState(() => _conversations = _load());
-    });
-    _requestSubscription = PresenceService.instance.chatRequestUpdates.listen((
-      _,
-    ) {
-      if (mounted) setState(() => _conversations = _load());
-    });
+    _subscription = PresenceService.instance.chatMessages.listen(
+      (_) => _reload(),
+    );
+    _updateSubscription = PresenceService.instance.chatMessageUpdates.listen(
+      (_) => _reload(),
+    );
+    _requestSubscription = PresenceService.instance.chatRequestUpdates.listen(
+      (_) => _reload(),
+    );
   }
 
   @override
@@ -117,7 +160,14 @@ class _ConversationListPageState extends State<ConversationListPage> {
               ButtonSegment(
                 value: true,
                 icon: const Icon(Icons.mark_unread_chat_alt_outlined),
-                label: Text(context.tr('Requests')),
+                label: Badge(
+                  isLabelVisible: _requestCount > 0,
+                  label: Text('$_requestCount'),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Text(context.tr('Requests')),
+                  ),
+                ),
               ),
             ],
             selected: {_showRequests},
@@ -245,7 +295,7 @@ class _ConversationListPageState extends State<ConversationListPage> {
                       ),
                     ),
                   );
-                  if (mounted) setState(() => _conversations = _load());
+                  _reload();
                 },
               );
             },

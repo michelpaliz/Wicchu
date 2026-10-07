@@ -628,6 +628,16 @@ const _spanish = <String, String>{
   'Delete account': 'Eliminar cuenta',
   'Deleting account…': 'Eliminando cuenta…',
   'Account deleted': 'Cuenta eliminada',
+  'Update Wicchu to continue': 'Actualiza Wicchu para continuar',
+  'A new Wicchu update is available':
+      'Hay una nueva actualización de Wicchu disponible',
+  'Version {version} is ready to install.':
+      'La versión {version} está lista para instalarse.',
+  "What's new": 'Novedades',
+  'Later': 'Más tarde',
+  'Update now': 'Actualizar ahora',
+  'Could not open the store. Please try again.':
+      'No se pudo abrir la tienda. Inténtalo de nuevo.',
   'Your Wicchu account and personal content have been permanently deleted. You can create a new account at any time.':
       'Tu cuenta de Wicchu y tu contenido personal se han eliminado permanentemente. Puedes crear una cuenta nueva en cualquier momento.',
   'Continue to sign in': 'Continuar para iniciar sesión',
