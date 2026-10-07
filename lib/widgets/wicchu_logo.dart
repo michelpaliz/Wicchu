@@ -19,12 +19,16 @@ class WicchuTitle extends StatelessWidget {
   const WicchuTitle({super.key});
 
   @override
-  Widget build(BuildContext context) => const Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      WicchuLogo(size: 30),
-      SizedBox(width: 10),
-      Text('Wicchu', style: TextStyle(fontWeight: FontWeight.w800)),
-    ],
+  Widget build(BuildContext context) => const FittedBox(
+    fit: BoxFit.scaleDown,
+    alignment: Alignment.centerLeft,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        WicchuLogo(size: 30),
+        SizedBox(width: 10),
+        Text('Wicchu', style: TextStyle(fontWeight: FontWeight.w800)),
+      ],
+    ),
   );
 }

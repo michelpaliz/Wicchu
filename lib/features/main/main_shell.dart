@@ -268,67 +268,215 @@ class _DesktopNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: SizedBox(
-        width: 248,
-        child: NavigationRail(
-          extended: true,
-          selectedIndex: selectedIndex,
-          onDestinationSelected: onSelected,
-          minExtendedWidth: 248,
-          backgroundColor: scheme.surface,
-          leading: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+    return Material(
+      color: scheme.surface,
+      child: SafeArea(
+        child: SizedBox(
+          width: 272,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Align(
-                  alignment: Alignment.centerLeft,
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
                   child: WicchuTitle(),
                 ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: onCreatePost,
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(context.tr('Post')),
+                const SizedBox(height: 28),
+                SizedBox(
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: onCreatePost,
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(
+                      context.tr('Post'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 26),
+                _DesktopNavigationItem(
+                  selected: selectedIndex == 0,
+                  icon: Icons.home_outlined,
+                  selectedIcon: Icons.home_rounded,
+                  label: context.tr('Home'),
+                  onTap: () => onSelected(0),
+                ),
+                _DesktopNavigationItem(
+                  selected: selectedIndex == 1,
+                  icon: CupertinoIcons.compass,
+                  selectedIcon: CupertinoIcons.compass_fill,
+                  label: context.tr('Explore'),
+                  onTap: () => onSelected(1),
+                ),
+                _DesktopNavigationItem(
+                  selected: selectedIndex == 2,
+                  icon: CupertinoIcons.person_2,
+                  selectedIcon: CupertinoIcons.person_2_fill,
+                  label: context.tr('Community'),
+                  onTap: () => onSelected(2),
+                ),
+                const Spacer(),
+                Divider(color: scheme.outlineVariant),
+                const SizedBox(height: 8),
+                _DesktopAccountItem(
+                  selected: selectedIndex == 3,
+                  profile: profile,
+                  space: space,
+                  label: context.tr('You'),
+                  onTap: () => onSelected(3),
                 ),
               ],
             ),
           ),
-          destinations: [
-            NavigationRailDestination(
-              icon: const Icon(Icons.home_outlined),
-              selectedIcon: const Icon(Icons.home_rounded),
-              label: Text(context.tr('Home')),
-            ),
-            NavigationRailDestination(
-              icon: const Icon(CupertinoIcons.compass),
-              selectedIcon: const Icon(CupertinoIcons.compass_fill),
-              label: Text(context.tr('Explore')),
-            ),
-            NavigationRailDestination(
-              icon: const Icon(CupertinoIcons.person_2),
-              selectedIcon: const Icon(CupertinoIcons.person_2_fill),
-              label: Text(context.tr('Community')),
-            ),
-            NavigationRailDestination(
-              icon: profile == null
-                  ? const Icon(CupertinoIcons.person)
-                  : UserAvatar(
-                      name: space?.name ?? profile!.name,
-                      imageUrl: space?.imageUrl ?? profile!.avatarUrl,
-                      radius: 13,
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopNavigationItem extends StatelessWidget {
+  const _DesktopNavigationItem({
+    required this.selected,
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final foreground = selected ? scheme.primary : scheme.onSurfaceVariant;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Semantics(
+        selected: selected,
+        button: true,
+        child: Material(
+          color: selected ? scheme.primaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              height: 52,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Icon(selected ? selectedIcon : icon, color: foreground),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: foreground,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
                     ),
-              selectedIcon: profile == null
-                  ? const Icon(CupertinoIcons.person_fill)
-                  : UserAvatar(
-                      name: space?.name ?? profile!.name,
-                      imageUrl: space?.imageUrl ?? profile!.avatarUrl,
-                      radius: 13,
-                    ),
-              label: Text(context.tr('You')),
+                    if (selected)
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: scheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopAccountItem extends StatelessWidget {
+  const _DesktopAccountItem({
+    required this.selected,
+    required this.profile,
+    required this.space,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final WicchuProfile? profile;
+  final Community? space;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final name = space?.name ?? profile?.name ?? label;
+
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: label,
+      child: Material(
+        color: selected ? scheme.primaryContainer : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                UserAvatar(
+                  name: name,
+                  imageUrl: space?.imageUrl ?? profile?.avatarUrl,
+                  radius: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

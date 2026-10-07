@@ -69,179 +69,197 @@ class _PostCollectionPageState extends State<PostCollectionPage>
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
     ),
-    body: FutureBuilder<List<CommunityPost>>(
-      future: _posts,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text(context.trError(snapshot.error!)));
-        }
-        final posts = snapshot.data ?? const [];
-        if (posts.isEmpty) {
-          if (widget.title == 'Saved posts') {
-            return _SavedPostsEmptyState(onBrowsePosts: widget.onBrowsePosts);
-          }
-          return Center(child: Text(context.tr('No posts found')));
-        }
-        Widget buildPost(BuildContext context, int index) {
-          final post = posts[index];
-          return PostCard(
-            repository: widget.repository,
-            post: post,
-            key: ValueKey(post.id),
-            collapseText: true,
-            mediaFirst: widget.profilePresentation,
-            compact: widget.profilePresentation,
-            showCommunity:
-                widget.communityNames[post.communityId] != widget.title,
-            onTap: widget.initialPostId != null
-                ? null
-                : () =>
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PostCollectionPage(
-                            title: widget.title,
-                            initialPostId: post.id,
-                            initialPosts: posts,
-                            repository: widget.repository,
-                            loadPosts: widget.loadPosts,
-                            profilePresentation: widget.profilePresentation,
-                            categories: widget.categories,
-                            communityNames: widget.communityNames,
-                          ),
-                        ),
-                      ).then((_) {
-                        if (mounted) {
-                          setState(() => _posts = widget.loadPosts());
-                        }
-                      }),
-            category: widget.categories[post.categoryId]?.name ?? 'Post',
-            icon: widget.categories[post.categoryId]?.icon ?? '💬',
-            community: widget.communityNames[post.communityId] ?? 'Wicchu',
-            author: post.authorName,
-            authorAvatarUrl: post.authorAvatarUrl,
-            isAnonymousAuthor: post.isAnonymous,
-            onAuthorTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => MemberProfilePage(
-                  userId: post.authorId,
-                  repository: widget.repository,
-                ),
-              ),
-            ),
-            onMentionTap: (userId) => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => MemberProfilePage(
-                  userId: userId,
-                  repository: widget.repository,
-                ),
-              ),
-            ),
-            time: formatPostTime(context, post.createdAt),
-            edited: post.editedAt != null,
-            onEdit: post.ownedByMe
-                ? () async {
-                    await openEditPost(context, widget.repository, post);
-                    if (mounted) await _refresh();
-                  }
-                : null,
-            onDelete: post.ownedByMe
-                ? () async {
-                    await widget.repository.deletePost(post.id);
-                    if (mounted) await _refresh();
-                  }
-                : null,
-            text: post.text,
-            likes: post.reactionCount,
-            comments: post.commentCount,
-            media: post.media,
-            poll: post.poll,
-            onPollVote: (optionId) =>
-                widget.repository.voteOnPost(post.id, optionId),
-            promotion: post.promotion,
-            onPromotionImpression: post.promotion == null
-                ? null
-                : () => widget.repository.recordPromotionImpression(
-                    post.promotion!.id,
-                  ),
-            onPromotionClick: post.promotion == null
-                ? null
-                : () => widget.repository.recordPromotionClick(
-                    post.promotion!.id,
-                  ),
-            reacted: post.reactedByMe,
-            saved: post.savedByMe,
-            onReaction: (reacted) =>
-                widget.repository.setPostReaction(post.id, reacted: reacted),
-            onComments: () =>
-                showPostComments(context, widget.repository, post),
-            onSaved: (saved) async {
-              await widget.repository.setPostSaved(post.id, saved: saved);
-              if (!saved && widget.title == 'Saved posts' && mounted) {
-                setState(() => _posts = widget.loadPosts());
+    body: LayoutBuilder(
+      builder: (context, constraints) => Align(
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          width: constraints.maxWidth > 840 ? 760 : constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: FutureBuilder<List<CommunityPost>>(
+            future: _posts,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
               }
-            },
-            onReport: (reason, category, {hidePost}) =>
-                widget.repository.reportPost(
-                  post.id,
-                  reason,
-                  category: category,
-                  hidePost: hidePost == true,
-                ),
-            onShare: () => sharePost(context, widget.repository, post),
-          );
-        }
+              if (snapshot.hasError) {
+                return Center(child: Text(context.trError(snapshot.error!)));
+              }
+              final posts = snapshot.data ?? const [];
+              if (posts.isEmpty) {
+                if (widget.title == 'Saved posts') {
+                  return _SavedPostsEmptyState(
+                    onBrowsePosts: widget.onBrowsePosts,
+                  );
+                }
+                return Center(child: Text(context.tr('No posts found')));
+              }
+              Widget buildPost(BuildContext context, int index) {
+                final post = posts[index];
+                return PostCard(
+                  repository: widget.repository,
+                  post: post,
+                  key: ValueKey(post.id),
+                  collapseText: true,
+                  mediaFirst: widget.profilePresentation,
+                  compact: widget.profilePresentation,
+                  showCommunity:
+                      widget.communityNames[post.communityId] != widget.title,
+                  onTap: widget.initialPostId != null
+                      ? null
+                      : () =>
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PostCollectionPage(
+                                  title: widget.title,
+                                  initialPostId: post.id,
+                                  initialPosts: posts,
+                                  repository: widget.repository,
+                                  loadPosts: widget.loadPosts,
+                                  profilePresentation:
+                                      widget.profilePresentation,
+                                  categories: widget.categories,
+                                  communityNames: widget.communityNames,
+                                ),
+                              ),
+                            ).then((_) {
+                              if (mounted) {
+                                setState(() => _posts = widget.loadPosts());
+                              }
+                            }),
+                  category: widget.categories[post.categoryId]?.name ?? 'Post',
+                  icon: widget.categories[post.categoryId]?.icon ?? '💬',
+                  community:
+                      widget.communityNames[post.communityId] ?? 'Wicchu',
+                  author: post.authorName,
+                  authorAvatarUrl: post.authorAvatarUrl,
+                  isAnonymousAuthor: post.isAnonymous,
+                  onAuthorTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MemberProfilePage(
+                        userId: post.authorId,
+                        repository: widget.repository,
+                      ),
+                    ),
+                  ),
+                  onMentionTap: (userId) => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MemberProfilePage(
+                        userId: userId,
+                        repository: widget.repository,
+                      ),
+                    ),
+                  ),
+                  time: formatPostTime(context, post.createdAt),
+                  edited: post.editedAt != null,
+                  onEdit: post.ownedByMe
+                      ? () async {
+                          await openEditPost(context, widget.repository, post);
+                          if (mounted) await _refresh();
+                        }
+                      : null,
+                  onDelete: post.ownedByMe
+                      ? () async {
+                          await widget.repository.deletePost(post.id);
+                          if (mounted) await _refresh();
+                        }
+                      : null,
+                  text: post.text,
+                  likes: post.reactionCount,
+                  comments: post.commentCount,
+                  media: post.media,
+                  poll: post.poll,
+                  onPollVote: (optionId) =>
+                      widget.repository.voteOnPost(post.id, optionId),
+                  promotion: post.promotion,
+                  onPromotionImpression: post.promotion == null
+                      ? null
+                      : () => widget.repository.recordPromotionImpression(
+                          post.promotion!.id,
+                        ),
+                  onPromotionClick: post.promotion == null
+                      ? null
+                      : () => widget.repository.recordPromotionClick(
+                          post.promotion!.id,
+                        ),
+                  reacted: post.reactedByMe,
+                  saved: post.savedByMe,
+                  onReaction: (reacted) => widget.repository.setPostReaction(
+                    post.id,
+                    reacted: reacted,
+                  ),
+                  onComments: () =>
+                      showPostComments(context, widget.repository, post),
+                  onSaved: (saved) async {
+                    await widget.repository.setPostSaved(post.id, saved: saved);
+                    if (!saved && widget.title == 'Saved posts' && mounted) {
+                      setState(() => _posts = widget.loadPosts());
+                    }
+                  },
+                  onReport: (reason, category, {hidePost}) =>
+                      widget.repository.reportPost(
+                        post.id,
+                        reason,
+                        category: category,
+                        hidePost: hidePost == true,
+                      ),
+                  onShare: () => sharePost(context, widget.repository, post),
+                );
+              }
 
-        final selectedIndex = posts.indexWhere(
-          (post) => post.id == widget.initialPostId,
-        );
-        final anchorIndex = selectedIndex < 0 ? 0 : selectedIndex;
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: widget.initialPostId == null
-              ? ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: posts.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: buildPost,
-                )
-              : CustomScrollView(
-                  // The selected card starts at offset zero. Earlier cards
-                  // grow upward, so no estimated heights or jump are needed.
-                  center: _selectedSliverKey,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      sliver: SliverList.builder(
-                        itemCount: anchorIndex,
-                        itemBuilder: (context, index) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: buildPost(context, anchorIndex - index - 1),
-                        ),
+              final selectedIndex = posts.indexWhere(
+                (post) => post.id == widget.initialPostId,
+              );
+              final anchorIndex = selectedIndex < 0 ? 0 : selectedIndex;
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: widget.initialPostId == null
+                    ? ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: posts.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: buildPost,
+                      )
+                    : CustomScrollView(
+                        // The selected card starts at offset zero. Earlier cards
+                        // grow upward, so no estimated heights or jump are needed.
+                        center: _selectedSliverKey,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            sliver: SliverList.builder(
+                              itemCount: anchorIndex,
+                              itemBuilder: (context, index) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: buildPost(
+                                  context,
+                                  anchorIndex - index - 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SliverPadding(
+                            key: _selectedSliverKey,
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                            sliver: SliverList.builder(
+                              itemCount: posts.length - anchorIndex,
+                              itemBuilder: (context, index) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: buildPost(context, anchorIndex + index),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    SliverPadding(
-                      key: _selectedSliverKey,
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      sliver: SliverList.builder(
-                        itemCount: posts.length - anchorIndex,
-                        itemBuilder: (context, index) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: buildPost(context, anchorIndex + index),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-        );
-      },
+              );
+            },
+          ),
+        ),
+      ),
     ),
   );
 }
