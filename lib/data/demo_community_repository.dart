@@ -1237,6 +1237,7 @@ class DemoCommunityRepository implements CommunityRepository {
       pageId: pageId,
       pageName: page?.name ?? 'Wicchu page',
       otherIsPage: true,
+      communityInbox: page != null && !page.isPublicProfile,
     );
   }
 

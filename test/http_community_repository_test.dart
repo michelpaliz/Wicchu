@@ -288,6 +288,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
             'pageName': 'Como en Casa',
             'viewingAsPage': false,
             'otherIsPage': true,
+            'communityInbox': body?['pageId'] == 'community-1',
             'unreadCount': 0,
             'requestStatus': 'pending',
             'requestedByMe': true,
@@ -567,6 +568,11 @@ void main() {
       expect(api.lastBody, {'pageId': 'page-1'});
       expect(started.otherIsPage, isTrue);
       expect(started.pageName, 'Como en Casa');
+
+      final communityChat = await repository.startPageConversation(
+        'community-1',
+      );
+      expect(communityChat.communityInbox, isTrue);
 
       final conversations = await repository.listDirectConversations(
         pageId: 'page-1',

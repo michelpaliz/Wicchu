@@ -568,8 +568,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                       onTap: () =>
                           Navigator.pop(sheetContext, 'role:${role.name}'),
                     ),
-                if (widget.community.isPublicProfile &&
-                    widget.community.myRole == CommunityRole.owner &&
+                if (widget.community.myRole == CommunityRole.owner &&
                     member.status == MembershipStatus.active &&
                     member.role == CommunityRole.admin)
                   ListTile(
@@ -581,12 +580,14 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                     title: Text(
                       context.tr(
                         member.pageInboxAccess
-                            ? 'Remove page inbox access'
-                            : 'Allow page inbox access',
+                            ? 'Remove shared inbox access'
+                            : 'Allow shared inbox access',
                       ),
                     ),
                     subtitle: Text(
-                      context.tr('Reply to customers as this page.'),
+                      context.tr(
+                        'Reply to members using this shared identity.',
+                      ),
                     ),
                     onTap: () => Navigator.pop(sheetContext, 'page-inbox'),
                   ),
@@ -657,8 +658,8 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
           content: Text(
             context.tr(
               member.pageInboxAccess
-                  ? 'Page inbox access removed.'
-                  : 'Page inbox access granted.',
+                  ? 'Shared inbox access removed.'
+                  : 'Shared inbox access granted.',
             ),
           ),
         ),

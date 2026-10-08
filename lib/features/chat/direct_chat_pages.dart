@@ -35,10 +35,8 @@ class _ConversationListPageState extends State<ConversationListPage> {
       (await widget.repository.listManagedCommunities())
           .where(
             (page) =>
-                page.isPublicProfile &&
-                (page.myRole == CommunityRole.owner ||
-                    (page.myRole == CommunityRole.admin &&
-                        page.canManagePageInbox)),
+                page.myRole == CommunityRole.owner ||
+                (page.myRole == CommunityRole.admin && page.canManagePageInbox),
           )
           .toList(growable: false);
 
@@ -1027,7 +1025,9 @@ class _DirectChatPageState extends State<DirectChatPage> {
                           : widget.conversation.viewingAsPage
                           ? 'Replying as {page}'
                           : widget.conversation.otherIsPage
-                          ? 'Page conversation'
+                          ? widget.conversation.communityInbox
+                                ? 'Community admin conversation'
+                                : 'Page conversation'
                           : 'Private conversation',
                       widget.conversation.viewingAsPage
                           ? {'page': widget.conversation.pageName ?? 'Wicchu'}

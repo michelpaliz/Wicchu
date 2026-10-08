@@ -1072,6 +1072,7 @@ class DirectConversation {
     this.pageName,
     this.viewingAsPage = false,
     this.otherIsPage = false,
+    this.communityInbox = false,
     this.label = ConversationLabel.newConversation,
   });
 
@@ -1089,6 +1090,7 @@ class DirectConversation {
   final String? pageName;
   final bool viewingAsPage;
   final bool otherIsPage;
+  final bool communityInbox;
   final ConversationLabel label;
 }
 

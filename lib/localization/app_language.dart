@@ -136,6 +136,14 @@ const _spanish = <String, String>{
       'Responder a clientes usando la identidad de esta página.',
   'Page inbox access granted.': 'Acceso a la bandeja de la página concedido.',
   'Page inbox access removed.': 'Acceso a la bandeja de la página eliminado.',
+  'Community admin conversation': 'Conversación con administradores',
+  'Message community admins': 'Enviar mensaje a los administradores',
+  'Allow shared inbox access': 'Permitir acceso a la bandeja compartida',
+  'Remove shared inbox access': 'Quitar acceso a la bandeja compartida',
+  'Reply to members using this shared identity.':
+      'Responder a miembros usando esta identidad compartida.',
+  'Shared inbox access granted.': 'Acceso a la bandeja compartida concedido.',
+  'Shared inbox access removed.': 'Acceso a la bandeja compartida eliminado.',
   'Your profile, your community': 'Tu perfil, tu comunidad',
   'This information will be visible to other Wicchu users.':
       'Esta información será visible para otros usuarios de Wicchu.',

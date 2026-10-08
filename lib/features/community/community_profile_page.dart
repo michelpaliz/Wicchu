@@ -1401,11 +1401,17 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                     size: 20,
                                   ),
                                 ),
-                              if (_community.isPublicProfile && !_canManage)
+                              if (!_canManage &&
+                                  (_community.isPublicProfile || _joined) &&
+                                  !_community.isBanned)
                                 IconButton.filledTonal(
                                   key: const ValueKey('public-profile-message'),
-                                  tooltip: context.tr('Message on Wicchu'),
-                                  onPressed: _openPageChat,
+                                  tooltip: context.tr(
+                                    _community.isPublicProfile
+                                        ? 'Message on Wicchu'
+                                        : 'Message community admins',
+                                  ),
+                                  onPressed: _openSpaceChat,
                                   style: IconButton.styleFrom(
                                     fixedSize: const Size(44, 44),
                                     minimumSize: const Size(44, 44),
@@ -2128,7 +2134,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _openPageChat,
+                onPressed: _openSpaceChat,
                 icon: const Icon(Icons.chat_bubble_outline),
                 label: Text(context.tr('Message on Wicchu')),
               ),
@@ -2139,7 +2145,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
-  Future<void> _openPageChat() async {
+  Future<void> _openSpaceChat() async {
     try {
       final conversation = await widget.repository.startPageConversation(
         _community.id,

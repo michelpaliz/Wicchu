@@ -335,6 +335,7 @@ class HttpCommunityRepository implements CommunityRepository {
       pageName: json['pageName']?.toString(),
       viewingAsPage: json['viewingAsPage'] == true,
       otherIsPage: json['otherIsPage'] == true,
+      communityInbox: json['communityInbox'] == true,
       label: _conversationLabel(json['label']),
     );
   }
