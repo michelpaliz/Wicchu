@@ -469,7 +469,8 @@ void main() {
         find.text('Posting to Second neighborhood', findRichText: true),
         findsOneWidget,
       );
-      expect(find.text('Category'), findsWidgets);
+      expect(find.text('Category'), findsNothing);
+      expect(find.byKey(const ValueKey('post-kind-text')), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
       await tester.tap(find.text('Home'));
@@ -733,11 +734,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('You'));
+      await tester.longPress(
+        find.byKey(const ValueKey('bottom-profile-navigation')),
+      );
       await tester.pumpAndSettle();
-      expect(find.byType(MemberProfilePage), findsOneWidget);
-      await tester.tap(find.byTooltip('Switch profile'));
-      await tester.pumpAndSettle();
+      expect(find.text('Personal profile'), findsOneWidget);
       expect(find.text('Town X Community'), findsNothing);
       await tester.tap(find.text('My business'));
       await tester.pumpAndSettle();
@@ -810,7 +811,7 @@ void main() {
     expect(find.text('💬 General'), findsNothing);
     await tester.tap(find.byTooltip('Más opciones'));
     await tester.pumpAndSettle();
-    expect(find.text('General'), findsOneWidget);
+    expect(find.text('Opciones de la publicación'), findsOneWidget);
     expect(find.byType(BottomSheet), findsOneWidget);
   });
 
@@ -847,8 +848,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('community-information-entry')));
     await tester.pumpAndSettle();
-    expect(find.text('Community type'), findsOneWidget);
-    expect(find.text('Creation date'), findsOneWidget);
+    expect(find.text('Public community'), findsOneWidget);
+    expect(find.textContaining('Created '), findsOneWidget);
     expect(find.text('Categories'), findsNothing);
     for (final destination in [
       'Community rules',
@@ -888,6 +889,11 @@ void main() {
       -180,
       scrollable: find.byType(Scrollable).first,
     );
+    await Scrollable.ensureVisible(
+      tester.element(find.byKey(const ValueKey('information-members-entry'))),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('information-members-entry')));
     await tester.pumpAndSettle();
     expect(find.text('Members'), findsOneWidget);
@@ -899,7 +905,7 @@ void main() {
     );
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('community-members-entry')));
+    await tester.tap(find.byKey(const ValueKey('community-header-members')));
     await tester.pumpAndSettle();
     expect(find.text('Members'), findsOneWidget);
     await tester.pageBack();
@@ -933,10 +939,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.textContaining('Local business'), findsOneWidget);
+      expect(find.text('Town X, Ecuador'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('local-business-contact')),
+        findsOneWidget,
+      );
       expect(find.text('About'), findsNothing);
       expect(find.text('Followers'), findsNothing);
       expect(find.text('All'), findsNothing);
+      expect(find.text('Posts'), findsOneWidget);
       expect(find.byType(FloatingActionButton), findsNothing);
       await tester.tap(
         find.byKey(const ValueKey('community-information-entry')),
@@ -952,7 +963,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pageBack();
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('community-members-entry')));
+      await tester.tap(find.byKey(const ValueKey('page-header-followers')));
       await tester.pumpAndSettle();
       expect(find.text('Followers'), findsOneWidget);
       await tester.pageBack();
@@ -1126,10 +1137,7 @@ void main() {
         expect(locationRequests, 0);
         await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
         await tester.pumpAndSettle();
-        expect(
-          find.text('Confirm your current location to continue.'),
-          findsOneWidget,
-        );
+        expect(find.text('Choose a location to continue.'), findsOneWidget);
         await tester.tap(find.text('Use my current location'));
         await tester.pumpAndSettle();
       }
@@ -1137,6 +1145,8 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(locationRequests, 1);
+    await tester.ensureVisible(find.text('Add rule'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Add rule'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
@@ -1156,9 +1166,7 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(find.text('Be kind'), findsOneWidget);
-    await tester.tap(
-      find.widgetWithText(FilledButton, 'Create community').last,
-    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Create space').last);
     await tester.pumpAndSettle();
     expect(find.text('Your community is ready!'), findsOneWidget);
     await tester.tap(find.text('Enter community'));
@@ -1272,7 +1280,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sanyi Ramos'), findsOneWidget);
-    expect(find.text('@sanyi_ramos · 0 shared communities'), findsOneWidget);
+    expect(find.text('@sanyi_ramos'), findsOneWidget);
+    expect(find.text('0 shared communities'), findsNothing);
+    expect(find.text('1 result'), findsOneWidget);
     expect(find.text('Create community'), findsNothing);
 
     await tester.enterText(
@@ -1563,6 +1573,11 @@ void main() {
       250,
       scrollable: find.byType(Scrollable).last,
     );
+    await Scrollable.ensureVisible(
+      tester.element(find.text('EN').first),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('EN').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Español'));
@@ -1617,6 +1632,11 @@ void main() {
       250,
       scrollable: find.byType(Scrollable).last,
     );
+    await Scrollable.ensureVisible(
+      tester.element(find.text('ES').first),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('ES').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('English'));

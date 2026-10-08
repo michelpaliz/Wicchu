@@ -12,7 +12,7 @@ This document began as an inventory of unfinished UI flows. Some flows have sinc
 
 ## Current integration
 
-- `lib/main.dart` injects `HttpCommunityRepository`. Community creation resolves or registers the device's town through `POST /api/community/v1/towns/resolve`, then submits `POST /api/community/v1/communities` with the returned stable town ID. The form no longer depends on `GET /api/community/v1/towns` being populated. Authenticated creation still needs an end-to-end emulator verification.
+- `lib/main.dart` injects `HttpCommunityRepository`. Community creation offers global city/place search (Open-Meteo geocoding) and optional device GPS. Both resolve or register the chosen coordinates through `POST /api/community/v1/towns/resolve`, then submits `POST /api/community/v1/communities` with the returned stable town ID. The form no longer depends on `GET /api/community/v1/towns` being populated. Authenticated creation still needs an end-to-end emulator verification.
 - `FacebookAuthGateway` calls `POST /api/auth/facebook` at `API_BASE_URL` (default `https://hexora.dev`). The backend implementation is not in this repository. Android signing requirements are in `FACEBOOK_LOGIN_REQUIREMENTS.md`; end-to-end login has not been verified here.
 - The README identifies `/api/community/v1` as the community API prefix. The app now calls routes for discovery, membership, feed, post detail, categories, reactions, comments, saves, reports, notifications, profile, and creation under that prefix. Authenticated server responses have not been verified in this workspace.
 - Language and Light/Dark/System appearance choices already work locally and persist in device preferences. They do not need backend endpoints.
@@ -128,3 +128,5 @@ validation/conflict failures; never acknowledge an ignored update. Preserve all
 unrelated account fields. Social links still use their existing separate endpoint.
 The Flutter editor retains input on error and only retries changes not yet saved.
 This PATCH contract has client test coverage; deployed server support is unverified.
+
+Location search uses `https://geocoding-api.open-meteo.com/v1/search` (GeoNames data), then `/towns/resolve` for a stable backend town ID. GPS permission is requested only after the current-location button is tapped. The geocoding provider endpoint/account should be configured for production commercial usage; no API key is embedded in the app.

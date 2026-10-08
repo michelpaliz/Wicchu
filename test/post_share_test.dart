@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -9,18 +10,40 @@ import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/community/post_share.dart';
 import 'package:wicchu/features/community/post_media_export.dart';
 
-CommunityPost _post({List<PostMedia> media = const []}) => CommunityPost(
+CommunityPost _post({
+  List<PostMedia> media = const [],
+  String text = 'Original caption',
+}) => CommunityPost(
   id: 'post-1',
   communityId: 'community-1',
   categoryId: 'general',
   authorId: 'user-1',
-  text: 'Original caption',
+  text: text,
   status: PostStatus.published,
   createdAt: DateTime.utc(2026, 10, 5),
   media: media,
 );
 
 void main() {
+  test(
+    'copied captions remove markdown escapes and formatting but preserve URLs',
+    () {
+      final caption = socialPostCaption(
+        _post(
+          text:
+              r'**Hola** \! _Vecinos_'
+              '\n\nhttps://example.com/a/b 🌿',
+        ),
+      );
+      expect(
+        caption,
+        startsWith('Hola ! Vecinos\n\nhttps://example.com/a/b 🌿'),
+      );
+      expect(caption, isNot(contains('**')));
+      expect(caption, contains('/posts/post-1'));
+    },
+  );
+
   test('social export keeps the caption and Wicchu attribution link', () {
     final caption = socialPostCaption(_post());
 
@@ -88,5 +111,33 @@ void main() {
     expect(find.text('WhatsApp'), findsOneWidget);
     expect(find.text('Facebook'), findsOneWidget);
     expect(find.text('Copy link'), findsOneWidget);
+    expect(find.text('Create an Instagram or Facebook post'), findsOneWidget);
+    expect(
+      find.text(
+        'Copies the description and Wicchu link automatically. Choose your social app, then paste them into your post.',
+      ),
+      findsOneWidget,
+    );
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await tester.ensureVisible(find.text('Copy description and link'));
+    await tester.tap(find.text('Copy description and link'));
+    await tester.pumpAndSettle();
+    expect(copied, socialPostCaption(post));
+    expect(find.text('Description and Wicchu link copied.'), findsOneWidget);
   });
 }

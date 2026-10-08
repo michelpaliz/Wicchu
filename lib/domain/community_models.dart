@@ -343,13 +343,7 @@ class Community {
   bool get isJoined => myRole != null;
   bool get isBanned => membershipStatus == MembershipStatus.banned;
 
-  String get profileSummary {
-    final summary = shortDescription.trim();
-    if (summary.isNotEmpty) return summary;
-    final about = description.trim();
-    if (about.length <= 160) return about;
-    return '${about.substring(0, 157).trimRight()}…';
-  }
+  String get profileSummary => shortDescription.trim();
 
   bool get canPublish =>
       isJoined &&

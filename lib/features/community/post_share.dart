@@ -8,6 +8,7 @@ import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import 'post_media_export.dart';
+import 'post_markdown.dart';
 
 enum PostShareDestination {
   instagramStory,
@@ -16,10 +17,12 @@ enum PostShareDestination {
   facebook,
   system,
   copyLink,
+  copyCaption,
+  originalMedia,
 }
 
 String socialPostCaption(CommunityPost post) {
-  final caption = post.text.trim();
+  final caption = postPlainText(post.text, preserveParagraphs: true);
   final link = WicchuUrls.post(post.id);
   return caption.isEmpty ? link : '$caption\n\n$link';
 }
@@ -38,7 +41,7 @@ Future<void> _shareGeneratedImage(
 }) async {
   final shareOrigin = _shareOrigin(context);
   final copiedMessage = context.tr(
-    'Caption copied. Paste it in Instagram if needed.',
+    'Description and Wicchu link copied. Paste them into your social post.',
   );
   await Clipboard.setData(ClipboardData(text: kit.message));
   final prepared = await preparePostMedia([
@@ -46,6 +49,9 @@ Future<void> _shareGeneratedImage(
   ]);
   try {
     if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(copiedMessage)));
     await SharePlus.instance.share(
       ShareParams(
         title: title,
@@ -58,10 +64,61 @@ Future<void> _shareGeneratedImage(
   } finally {
     await prepared.cleanup();
   }
-  if (context.mounted) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(copiedMessage)));
+}
+
+Future<void> _shareMedia(BuildContext context, CommunityPost post) async {
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      content: Row(
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(width: 16),
+          Expanded(child: Text(context.tr('Preparing media…'))),
+        ],
+      ),
+    ),
+  );
+  PreparedShareMedia? prepared;
+  var progressOpen = true;
+  try {
+    prepared = await preparePostMedia([
+      for (final media in post.media)
+        MediaExportItem(url: media.url, type: media.type),
+    ]);
+    await Clipboard.setData(ClipboardData(text: socialPostCaption(post)));
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      progressOpen = false;
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          context.tr(
+            'Description and Wicchu link copied. Paste them into your social post.',
+          ),
+        ),
+      ),
+    );
+    await SharePlus.instance.share(
+      ShareParams(
+        title: context.tr('Create an Instagram or Facebook post'),
+        files: prepared.files,
+        fileNameOverrides: prepared.fileNames,
+        sharePositionOrigin: _shareOrigin(context),
+      ),
+    );
+  } catch (error) {
+    if (context.mounted) {
+      if (progressOpen) Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  } finally {
+    await prepared?.cleanup();
   }
 }
 
@@ -89,6 +146,22 @@ Future<void> sharePostTo(
 ) async {
   var progressOpen = false;
   try {
+    if (destination == PostShareDestination.copyCaption) {
+      await Clipboard.setData(ClipboardData(text: socialPostCaption(post)));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('Description and Wicchu link copied.')),
+          ),
+        );
+      }
+      return;
+    }
+    if (destination == PostShareDestination.originalMedia) {
+      await repository.recordPostShare(post.id).catchError((_) {});
+      if (context.mounted) await _shareMedia(context, post);
+      return;
+    }
     if (destination != PostShareDestination.copyLink) {
       showDialog<void>(
         context: context,
@@ -113,6 +186,9 @@ Future<void> sharePostTo(
       progressOpen = false;
     }
     switch (destination) {
+      case PostShareDestination.copyCaption:
+      case PostShareDestination.originalMedia:
+        return;
       case PostShareDestination.instagramStory:
         await _shareGeneratedImage(
           context,
@@ -210,6 +286,28 @@ Future<void> sharePost(
               title: Text(sheetContext.tr('More sharing options')),
               onTap: () =>
                   Navigator.pop(sheetContext, PostShareDestination.system),
+            ),
+            if (post.media.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: Text(
+                  sheetContext.tr('Create an Instagram or Facebook post'),
+                ),
+                subtitle: Text(
+                  sheetContext.tr(
+                    'Copies the description and Wicchu link automatically. Choose your social app, then paste them into your post.',
+                  ),
+                ),
+                onTap: () => Navigator.pop(
+                  sheetContext,
+                  PostShareDestination.originalMedia,
+                ),
+              ),
+            ListTile(
+              leading: const Icon(Icons.copy_outlined),
+              title: Text(sheetContext.tr('Copy description and link')),
+              onTap: () =>
+                  Navigator.pop(sheetContext, PostShareDestination.copyCaption),
             ),
             ListTile(
               leading: const Icon(Icons.link_outlined),

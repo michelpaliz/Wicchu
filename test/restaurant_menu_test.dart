@@ -66,6 +66,27 @@ void main() {
 
     expect(find.byKey(const ValueKey('menu-dish-0')), findsOneWidget);
     expect(find.text('Delivery'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('menu-dish-0')),
+      'Sancocho',
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('next-post-step')));
+    await tester.pumpAndSettle();
+    expect(find.text('Category'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('next-post-step')));
+    await tester.pumpAndSettle();
+    final preview = tester.widget<PostCard>(find.byType(PostCard));
+    expect(preview.text, contains('Sancocho'));
+    expect(preview.post?.todayMenu?.dishes.single.name, 'Sancocho');
+    expect(
+      preview.post?.todayMenu?.fulfillmentOptions,
+      contains(BusinessFulfillmentOption.delivery),
+    );
+    expect(preview.repository, isNull);
+    expect(find.text('Copy description'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('today menu post renders dishes and fulfillment options', (

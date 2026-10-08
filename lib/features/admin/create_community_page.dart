@@ -8,18 +8,24 @@ import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import '../community/community_share.dart';
 import 'rule_management_page.dart';
+import '../../widgets/creation_step_progress.dart';
+import 'place_search_page.dart';
+import '../../services/place_search_service.dart';
 
 class CreateCommunityPage extends StatefulWidget {
   const CreateCommunityPage({
     super.key,
     required this.repository,
     this.locateCurrentTown,
+    this.searchPlaces,
     this.initialType = CommunityType.community,
   });
 
   final CommunityRepository repository;
   final CommunityType initialType;
   final Future<Town> Function()? locateCurrentTown;
+  final Future<List<PlaceResult>> Function(String query, String language)?
+  searchPlaces;
 
   @override
   State<CreateCommunityPage> createState() => _CreateCommunityPageState();
@@ -42,6 +48,29 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   final _nameController = TextEditingController();
   final _shortDescriptionController = TextEditingController();
   final _descriptionController = TextEditingController();
+  static const _businessSuggestions = [
+    'Products',
+    'Offers',
+    'News',
+    'Events',
+    'Tips',
+    'Questions',
+    'Tutorials',
+    'Testimonials',
+  ];
+  final _businessCategories = <String>{};
+  final _customBusinessCategories = <String>{};
+  final _businessCategoryController = TextEditingController();
+  String? _businessCategoryError;
+  bool get _isLocalBusiness =>
+      _type == CommunityType.publicProfile &&
+      _profileCategory == ProfileCategory.localBusiness;
+  List<String> get _creationCategories => _type == CommunityType.community
+      ? _selectedCategories.toList()
+      : _isLocalBusiness && _businessCategories.isNotEmpty
+      ? _businessCategories.toList()
+      : ['Posts'];
+
   final _selectedCategories = <String>{..._defaults};
   final _draftRules = <CommunityRule>[];
   final _basicsForm = GlobalKey<FormState>();
@@ -58,11 +87,12 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   late CommunityType _type = widget.initialType;
   ProfileCategory? _profileCategory;
   bool _detectingLocation = false;
-  bool _locationVerified = false;
+  String? _selectedLocationLabel;
   String? _locationError;
 
   @override
   void dispose() {
+    _businessCategoryController.dispose();
     _scroll.dispose();
     _nameController.dispose();
     _shortDescriptionController.dispose();
@@ -109,7 +139,6 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   @override
   Widget build(BuildContext context) {
     final steps = _steps(context);
-    final scheme = Theme.of(context).colorScheme;
     return PopScope(
       canPop: _allowExit,
       onPopInvokedWithResult: (didPop, result) {
@@ -127,28 +156,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         body: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.tr('Step {current} of {total}', {
-                        'current': '${_step + 1}',
-                        'total': '4',
-                      }),
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: (_step + 1) / 4,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ],
-                ),
-              ),
+              CreationStepProgress(step: _step),
               Expanded(
                 child: SingleChildScrollView(
                   controller: _scroll,
@@ -198,13 +206,18 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                               Text(context.tr('Creating…')),
                             ],
                           )
+                        : _isLocalBusiness && _step == 2
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(context.tr('Continue')),
+                              const SizedBox(width: 12),
+                              const Icon(Icons.arrow_forward, size: 20),
+                            ],
+                          )
                         : Text(
                             context.tr(
-                              _step == 3
-                                  ? (_type == CommunityType.publicProfile
-                                        ? 'Create business or public page'
-                                        : 'Create community')
-                                  : 'Continue',
+                              _step == 3 ? 'Create space' : 'Continue',
                             ),
                           ),
                   ),
@@ -483,50 +496,42 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_detectingLocation)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(context.tr('Finding your current town…')),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else if (_locationVerified && _town != null)
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.location_on),
-                title: Text(_town!.name),
-                subtitle: Text(_town!.countryCode),
-                trailing: const Icon(Icons.check_circle, color: Colors.green),
-              ),
-            )
-          else
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    const Icon(Icons.location_off_outlined, size: 38),
-                    const SizedBox(height: 8),
-                    Text(
-                      _locationError == null
-                          ? context.tr(
-                              'Wicchu needs your location to find your town and nearby communities.',
-                            )
-                          : context.tr(_locationError!),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
+          Text(
+            context.tr('Where is this space?'),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.tr('Search for a location or use your current position.'),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: _detectingLocation ? null : _searchLocation,
+            icon: const Icon(Icons.search),
+            label: Text(context.tr('Search city or place')),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.tr('Search by city, town or area'),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _detectingLocation ? null : _detectLocation,
+            icon: const Icon(Icons.my_location),
+            label: Text(context.tr('Use my current location')),
+          ),
+          if (_detectingLocation) ...[
+            const SizedBox(height: 12),
+            const LinearProgressIndicator(),
+          ],
+          if (_locationError != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              context.tr(_locationError!),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
+          ],
           if (_locationSettings)
             TextButton(
               onPressed: () => _serviceSettings
@@ -534,25 +539,36 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                   : Geolocator.openAppSettings(),
               child: Text(context.tr('Open settings')),
             ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _detectingLocation ? null : _detectLocation,
-            icon: const Icon(Icons.my_location),
-            label: Text(
-              context.tr(
-                _locationVerified
-                    ? 'Update my location'
-                    : 'Use my current location',
+          if (_town != null) ...[
+            const SizedBox(height: 18),
+            Text(
+              context.tr('Selected location'),
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.location_on_outlined),
+                title: Text(
+                  _selectedLocationLabel ??
+                      '${_town!.name}, ${_town!.countryCode}',
+                ),
+                trailing: Icon(
+                  Icons.check_circle,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     ),
     Step(
       title: Text(
         context.tr(
-          _type == CommunityType.publicProfile ? 'Publishing' : 'Categories',
+          _type == CommunityType.publicProfile && !_isLocalBusiness
+              ? 'Publishing'
+              : 'Categories',
         ),
       ),
       isActive: _step >= 2,
@@ -561,17 +577,21 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         children: [
           Text(
             context.tr(
-              _type == CommunityType.publicProfile
+              _isLocalBusiness
+                  ? 'Choose optional categories for your business posts, or add your own. You can change them later.'
+                  : _type == CommunityType.publicProfile
                   ? 'Your updates will appear in one clear profile feed.'
                   : 'Choose the topics for your community. You can change them later.',
             ),
           ),
           const SizedBox(height: 16),
-          if (_type == CommunityType.publicProfile)
-            const Card(
+          if (_isLocalBusiness)
+            _businessCategoryPicker()
+          else if (_type == CommunityType.publicProfile)
+            Card(
               child: ListTile(
-                leading: Icon(Icons.dynamic_feed_outlined),
-                title: Text('Posts'),
+                leading: const Icon(Icons.dynamic_feed_outlined),
+                title: Text(context.tr('Posts')),
               ),
             )
           else
@@ -602,19 +622,30 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       ),
     ),
     Step(
-      title: Text(context.tr('Rules and review')),
+      title: Text(context.tr('Review and create')),
       isActive: _step >= 3,
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             context.tr(
-              _type == CommunityType.publicProfile
-                  ? 'Review your business or public page before creating it.'
-                  : 'Rules are optional. You can add or edit them later.',
+              'Check that everything is correct before creating your space.',
             ),
           ),
+          const SizedBox(height: 20),
+          _reviewSummary(),
           const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _saving ? null : () => _editStep(0),
+            icon: const Icon(Icons.edit_outlined),
+            label: Text(context.tr('Edit information')),
+          ),
+          if (_type == CommunityType.community) ...[
+            const SizedBox(height: 20),
+            Text(
+              context.tr('Rules are optional. You can add or edit them later.'),
+            ),
+          ],
           if (_type == CommunityType.community)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -657,78 +688,434 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 label: Text(context.tr('Add rule')),
               ),
             ),
-          const SizedBox(height: 24),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.tr(
-                      _type == CommunityType.publicProfile
-                          ? 'Review your business or public page'
-                          : 'Review your community',
-                    ),
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _nameController.text.trim(),
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  if (_shortDescriptionController.text.trim().isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(_shortDescriptionController.text.trim()),
-                  ],
-                  if (_descriptionController.text.trim().isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      context.tr('About'),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _descriptionController.text.trim(),
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(_town?.name ?? ''),
-                  Text(
-                    context.tr(
-                      _type == CommunityType.publicProfile
-                          ? 'Public page · You will be the owner'
-                          : 'Public community · You will be the owner',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _type == CommunityType.publicProfile
-                        ? context.tr(
-                            'Followers can see and interact with your posts.',
-                          )
-                        : _selectedCategories.map(context.tr).join(' · '),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          const SizedBox(height: 20),
+          _creationConfirmation(),
         ],
       ),
     ),
   ];
 
+  void _editStep(int step) {
+    FocusScope.of(context).unfocus();
+    setState(() => _step = step);
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  Widget _reviewSummary() {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    Widget icon(IconData value) => Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(value, color: colors.primary, size: 24),
+    );
+    Widget row(
+      IconData symbol,
+      String title,
+      Widget value, {
+      VoidCallback? onTap,
+    }) => ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: icon(symbol),
+      title: Text(
+        context.tr(title),
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      subtitle: Padding(padding: const EdgeInsets.only(top: 5), child: value),
+      trailing: onTap == null
+          ? null
+          : const Icon(Icons.chevron_right, size: 20),
+      onTap: _saving ? null : onTap,
+    );
+    final divider = Divider(
+      height: 1,
+      indent: 74,
+      endIndent: 16,
+      color: colors.onSurface.withValues(alpha: .08),
+    );
+    return Card(
+      key: const ValueKey('space-review-summary'),
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: colors.onSurface.withValues(alpha: .10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                icon(
+                  _isLocalBusiness
+                      ? Icons.storefront_outlined
+                      : _type == CommunityType.community
+                      ? Icons.groups_outlined
+                      : Icons.account_circle_outlined,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _nameController.text.trim(),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.primary.withValues(alpha: .08),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          context.tr(
+                            _type == CommunityType.publicProfile
+                                ? 'Public page'
+                                : 'Public community',
+                          ),
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colors.primary,
+                          ),
+                        ),
+                      ),
+                      if (_shortDescriptionController.text
+                          .trim()
+                          .isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          _shortDescriptionController.text.trim(),
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                      if (_descriptionController.text.trim().isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          context.tr('About'),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _descriptionController.text.trim(),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          divider,
+          row(
+            Icons.location_on_outlined,
+            'Location',
+            Text(
+              _selectedLocationLabel ??
+                  '${_town?.name ?? ''}, ${_town?.countryCode ?? ''}',
+            ),
+            onTap: () => _editStep(1),
+          ),
+          divider,
+          row(
+            Icons.sell_outlined,
+            'Categories',
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final category in _creationCategories)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: .08),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      context.tr(category),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+              ],
+            ),
+            onTap: _type == CommunityType.community || _isLocalBusiness
+                ? () => _editStep(2)
+                : null,
+          ),
+          divider,
+          row(Icons.person_outline, 'Owner', Text(context.tr('You'))),
+        ],
+      ),
+    );
+  }
+
+  Widget _creationConfirmation() {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: .06),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.check_circle, color: colors.primary, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              context.tr(
+                'By creating this space, you confirm that the information provided is correct.',
+              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _businessCategoryPicker() {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final subtleBorder = colors.onSurface.withValues(alpha: .14);
+    Widget chip(String name) {
+      final selected = _businessCategories.contains(name);
+      final icon = switch (name) {
+        'Products' => Icons.sell_outlined,
+        'Offers' => Icons.percent,
+        'News' => Icons.newspaper_outlined,
+        'Events' => Icons.calendar_today_outlined,
+        'Tips' => Icons.lightbulb_outline,
+        'Questions' => Icons.help_outline,
+        'Tutorials' => Icons.play_circle_outline,
+        'Testimonials' => Icons.chat_bubble_outline,
+        _ => Icons.label_outline,
+      };
+      return FilterChip(
+        avatar: Icon(
+          icon,
+          size: 21,
+          color: selected ? colors.primary : colors.onSurface,
+        ),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              context.tr(name),
+              style: TextStyle(
+                color: selected ? colors.primary : colors.onSurface,
+              ),
+            ),
+            if (selected) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.check_circle, color: colors.primary, size: 20),
+            ],
+          ],
+        ),
+        showCheckmark: false,
+        selected: selected,
+        selectedColor: colors.primary.withValues(alpha: .09),
+        backgroundColor: colors.surface,
+        side: BorderSide(color: selected ? colors.primary : subtleBorder),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        onSelected: (value) => setState(() {
+          _dirty = true;
+          value
+              ? _businessCategories.add(name)
+              : _businessCategories.remove(name);
+        }),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 8),
+        Text(
+          context.tr('Suggested for your type of space'),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          context.tr('Select one or more.'),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _businessSuggestions.map(chip).toList(),
+        ),
+        const SizedBox(height: 16),
+        Divider(color: subtleBorder),
+        const SizedBox(height: 16),
+        Text(
+          context.tr('Add your own category'),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          context.tr('Enter a custom category.'),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const ValueKey('business-category-name'),
+          controller: _businessCategoryController,
+          maxLength: CommunityInputLimits.name,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _addBusinessCategory(),
+          onChanged: (_) {
+            if (_businessCategoryError != null) {
+              setState(() => _businessCategoryError = null);
+            }
+          },
+          decoration: InputDecoration(
+            hintText: context.tr('e.g. Food, Pets, Technology'),
+            hintStyle: TextStyle(
+              color: colors.onSurface.withValues(alpha: .45),
+            ),
+            prefixIconColor: colors.onSurfaceVariant,
+            prefixIcon: IconButton(
+              tooltip: context.tr('Add category'),
+              onPressed: _addBusinessCategory,
+              icon: const Icon(Icons.add),
+            ),
+            filled: true,
+            fillColor: colors.surface,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: subtleBorder),
+            ),
+            errorText: _businessCategoryError,
+          ),
+        ),
+        if (_customBusinessCategories.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _customBusinessCategories.map(chip).toList(),
+          ),
+        ],
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colors.primary.withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: colors.onSurfaceVariant,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  context.tr(
+                    'Without categories, your posts will appear under Posts.',
+                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _addBusinessCategory() {
+    final name = _businessCategoryController.text.trim().replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    );
+    final existing = [
+      'Posts',
+      ..._businessSuggestions,
+      ..._customBusinessCategories,
+    ];
+    if (name.isEmpty) {
+      setState(
+        () => _businessCategoryError = context.tr('Enter a category name.'),
+      );
+      return;
+    }
+    final duplicate = existing
+        .where(
+          (item) =>
+              item.toLowerCase() == name.toLowerCase() ||
+              context.tr(item).toLowerCase() == name.toLowerCase(),
+        )
+        .firstOrNull;
+    if (duplicate != null) {
+      setState(
+        () => _businessCategoryError = context.tr(
+          'This category already exists.',
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _customBusinessCategories.add(name);
+      _businessCategories.add(name);
+      _businessCategoryController.clear();
+      _businessCategoryError = null;
+      _dirty = true;
+    });
+  }
+
   Future<void> _continue() async {
     if (_saving || _detectingLocation) return;
     if (_step == 0 && !(_basicsForm.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
-    if (_step == 1 && (!_locationVerified || _town == null)) {
-      setState(
-        () => _locationError = 'Confirm your current location to continue.',
-      );
+    if (_step == 1 && _town == null) {
+      setState(() => _locationError = 'Choose a location to continue.');
       return;
     }
     if (_step == 2 &&
@@ -755,7 +1142,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           description: _descriptionController.text.trim(),
           town: _town!,
           visibility: CommunityVisibility.public,
-          categoryNames: _selectedCategories.toList(),
+          categoryNames: _creationCategories,
           approvalRequired: _approvalRequired,
           rules: _draftRules,
           type: _type,
@@ -861,14 +1248,53 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     });
   }
 
+  Future<void> _searchLocation() async {
+    final place = await Navigator.push<PlaceResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PlaceSearchPage(
+          search: widget.searchPlaces ?? PlaceSearchService().search,
+        ),
+      ),
+    );
+    if (!mounted || place == null) return;
+    setState(() {
+      _detectingLocation = true;
+      _locationError = null;
+      _locationSettings = false;
+    });
+    try {
+      final town = await widget.repository.locateTown(
+        latitude: place.latitude,
+        longitude: place.longitude,
+      );
+      if (!mounted) return;
+      setState(() {
+        _town = town;
+        _selectedLocationLabel =
+            town.name.toLowerCase() == place.name.toLowerCase()
+            ? place.label
+            : '${town.name}, ${town.countryCode}';
+        _dirty = true;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _locationError =
+              'Unable to select this location. Please try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _detectingLocation = false);
+    }
+  }
+
   Future<void> _detectLocation() async {
     setState(() {
       _detectingLocation = true;
       _locationError = null;
       _locationSettings = false;
       _serviceSettings = false;
-      _locationVerified = false;
-      _town = null;
     });
     try {
       if (widget.locateCurrentTown != null) {
@@ -876,7 +1302,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         if (!mounted) return;
         setState(() {
           _town = town;
-          _locationVerified = true;
+          _selectedLocationLabel = null;
+          _dirty = true;
         });
         return;
       }
@@ -897,7 +1324,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       }
       if (permission == LocationPermission.denied) {
         throw Exception(
-          'Location permission is required to create a community.',
+          'Location permission was denied. You can search for a location instead.',
         );
       }
       final position = await Geolocator.getCurrentPosition();
@@ -908,7 +1335,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       if (!mounted) return;
       setState(() {
         _town = town;
-        _locationVerified = true;
+        _selectedLocationLabel = null;
+        _dirty = true;
       });
     } catch (error) {
       if (!mounted) return;

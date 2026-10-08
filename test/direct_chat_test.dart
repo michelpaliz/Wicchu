@@ -194,11 +194,26 @@ void main() {
     expect(find.text('Ana'), findsOneWidget);
     expect(find.text('Hello from Ana'), findsOneWidget);
     expect(
+      find.text(
+        'Message requests are messages from people who are not in your contacts.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Nothing else for now'), findsOneWidget);
+    expect(
       find.descendant(
         of: find.byType(SegmentedButton<bool>),
         matching: find.text('1'),
       ),
       findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('dismiss-message-request-information')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('message-request-information')),
+      findsNothing,
     );
   });
 

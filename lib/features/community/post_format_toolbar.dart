@@ -17,20 +17,50 @@ class PostFormatToolbar extends StatelessWidget {
         ),
         quill.QuillToolbarToggleStyleButton(
           controller: controller,
-          attribute: quill.Attribute.italic,
-        ),
-        quill.QuillToolbarToggleStyleButton(
-          controller: controller,
           attribute: quill.Attribute.ul,
         ),
-        quill.QuillToolbarToggleStyleButton(
-          controller: controller,
-          attribute: quill.Attribute.ol,
-        ),
         quill.QuillToolbarLinkStyleButton(controller: controller),
-        quill.QuillToolbarHistoryButton(controller: controller, isUndo: true),
-        quill.QuillToolbarHistoryButton(controller: controller, isUndo: false),
+        PopupMenuButton<_SecondaryAction>(
+          tooltip: 'More formatting',
+          icon: const Icon(Icons.more_horiz),
+          onSelected: (action) => switch (action) {
+            _SecondaryAction.italic => controller.formatSelection(
+              quill.Attribute.italic,
+            ),
+            _SecondaryAction.numberedList => controller.formatSelection(
+              quill.Attribute.ol,
+            ),
+            _SecondaryAction.undo => controller.undo(),
+            _SecondaryAction.redo => controller.redo(),
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: _SecondaryAction.italic,
+              child: ListTile(
+                leading: Icon(Icons.format_italic),
+                title: Text('Italic'),
+              ),
+            ),
+            PopupMenuItem(
+              value: _SecondaryAction.numberedList,
+              child: ListTile(
+                leading: Icon(Icons.format_list_numbered),
+                title: Text('Numbered list'),
+              ),
+            ),
+            PopupMenuItem(
+              value: _SecondaryAction.undo,
+              child: ListTile(leading: Icon(Icons.undo), title: Text('Undo')),
+            ),
+            PopupMenuItem(
+              value: _SecondaryAction.redo,
+              child: ListTile(leading: Icon(Icons.redo), title: Text('Redo')),
+            ),
+          ],
+        ),
       ],
     ),
   );
 }
+
+enum _SecondaryAction { italic, numberedList, undo, redo }

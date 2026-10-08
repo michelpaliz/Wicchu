@@ -17,6 +17,51 @@ class FailingProfileRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets(
+    'back protects edits and explicit discard leaves without saving',
+    (tester) async {
+      final repository = DemoCommunityRepository();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => editProfileLinks(context, repository),
+                child: const Text('Open editor'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open editor'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('profile-detail-0')),
+        'Unsaved name',
+      );
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved changes'), findsOneWidget);
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved name'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved changes'), findsOneWidget);
+      await tester.tap(find.text('Leave without saving'));
+      await tester.pumpAndSettle();
+      expect(find.byType(EditProfilePage), findsNothing);
+      expect((await repository.getEditableProfile()).name, 'Michael P.');
+      await tester.tap(find.text('Open editor'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(EditProfilePage), findsNothing);
+    },
+  );
+
   testWidgets('profile details load, validate and persist', (tester) async {
     final repository = DemoCommunityRepository();
     await tester.pumpWidget(

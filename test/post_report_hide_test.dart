@@ -3,6 +3,40 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/features/community/post_card.dart';
 
 void main() {
+  testWidgets('owner menu offers share and edit without self reporting', (
+    tester,
+  ) async {
+    var shares = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PostCard(
+            category: 'General',
+            icon: '💬',
+            community: 'Test',
+            author: 'Me',
+            time: 'Now',
+            text: 'My post',
+            onEdit: () {},
+            onShare: () async {
+              shares++;
+            },
+            onReport: (reason, category, {hidePost}) async {},
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Post options'), findsOneWidget);
+    expect(find.text('Edit post'), findsOneWidget);
+    expect(find.text('Report post'), findsNothing);
+    await tester.tap(find.text('Share post'));
+    await tester.pumpAndSettle();
+    expect(shares, 1);
+    expect(find.text('Post options'), findsNothing);
+  });
+
   testWidgets('reporter can hide a reported post from the snackbar', (
     tester,
   ) async {

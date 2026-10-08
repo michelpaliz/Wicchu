@@ -578,6 +578,11 @@ class _PostCardState extends State<PostCard> {
   _PostMenu _menu() => _PostMenu(
     category: widget.category,
     categoryIcon: widget.icon,
+    media: widget.media,
+    ownedByMe:
+        widget.post?.ownedByMe ??
+        (widget.onEdit != null || widget.onDelete != null),
+    onShare: widget.onShare,
     saved: _saved,
     saving: _savingPost || _deleting,
     onSave: widget.onSaved == null ? null : _toggleSaved,
@@ -1121,12 +1126,18 @@ class _PostMenu extends StatelessWidget {
     required this.categoryIcon,
     required this.saved,
     required this.saving,
+    this.media = const [],
+    required this.ownedByMe,
+    this.onShare,
     this.onSave,
     this.onReport,
     this.onEdit,
     this.onDelete,
   });
 
+  final List<PostMedia> media;
+  final bool ownedByMe;
+  final Future<void> Function()? onShare;
   final String category;
   final String categoryIcon;
   final bool saved;
@@ -1147,80 +1158,193 @@ class _PostMenu extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       builder: (sheetContext) {
-        final accent = categoryColor(category, sheetContext);
+        final colors = Theme.of(sheetContext).colorScheme;
+        final preview = media
+            .where(
+              (item) =>
+                  item.type != 'video' ||
+                  (item.thumbnailUrl?.isNotEmpty ?? false),
+            )
+            .firstOrNull;
+        Widget fallback() => Container(
+          color: colors.primary.withValues(alpha: .08),
+          alignment: Alignment.center,
+          child: Text(categoryIcon, style: const TextStyle(fontSize: 24)),
+        );
         Widget option(
           _PostMenuAction action,
           IconData icon,
-          String label, {
+          String label,
+          String subtitle, {
+          Color? tint,
           bool destructive = false,
-        }) => ListTile(
-          leading: Icon(
-            icon,
-            color: destructive
-                ? Theme.of(sheetContext).colorScheme.error
-                : null,
-          ),
-          title: Text(
-            sheetContext.tr(label),
-            style: destructive
-                ? TextStyle(color: Theme.of(sheetContext).colorScheme.error)
-                : null,
-          ),
-          onTap: () => Navigator.pop(sheetContext, action),
-        );
-        return SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: accent.withValues(alpha: .11),
-                    child: Text(
-                      categoryIcon,
-                      style: const TextStyle(fontSize: 20),
-                    ),
+        }) {
+          final color = tint ?? colors.primary;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Material(
+              color: destructive
+                  ? colors.error.withValues(alpha: .045)
+                  : colors.onSurface.withValues(alpha: .025),
+              borderRadius: BorderRadius.circular(18),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                leading: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: .11),
+                    shape: BoxShape.circle,
                   ),
-                  title: Text(
-                    sheetContext.tr(category),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                title: Text(
+                  sheetContext.tr(label),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: destructive ? colors.error : colors.onSurface,
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    sheetContext.tr(subtitle),
                     style: TextStyle(
-                      color: accent,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: colors.onSurfaceVariant,
                     ),
                   ),
                 ),
-                if (onSave != null ||
-                    onEdit != null ||
-                    onDelete != null ||
-                    onReport != null)
-                  const Divider(indent: 16, endIndent: 16),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: destructive ? colors.error : colors.onSurfaceVariant,
+                ),
+                onTap: () => Navigator.pop(sheetContext, action),
+              ),
+            ),
+          );
+        }
+
+        return SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: SizedBox(
+                          width: 50,
+                          height: 50,
+                          child: preview == null
+                              ? fallback()
+                              : Image.network(
+                                  preview.previewUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => fallback(),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              sheetContext.tr('Post options'),
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              sheetContext.tr('Manage this post'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '$categoryIcon ${sheetContext.tr(category)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: MaterialLocalizations.of(
+                          sheetContext,
+                        ).closeButtonTooltip,
+                        style: IconButton.styleFrom(
+                          backgroundColor: colors.onSurface.withValues(
+                            alpha: .04,
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(sheetContext),
+                        icon: const Icon(Icons.close, size: 22),
+                      ),
+                    ],
+                  ),
+                ),
                 if (onSave != null)
                   option(
                     _PostMenuAction.save,
                     saved ? Icons.bookmark : Icons.bookmark_border,
                     saved ? 'Unsave post' : 'Save post',
+                    saved
+                        ? 'Remove it from your saved posts'
+                        : 'Save it to view later',
                   ),
-                if (onEdit != null)
+                if (onShare != null)
+                  option(
+                    _PostMenuAction.share,
+                    Icons.ios_share_outlined,
+                    'Share post',
+                    'Share it in other apps',
+                  ),
+                if (ownedByMe && onEdit != null)
                   option(
                     _PostMenuAction.edit,
                     Icons.edit_outlined,
                     'Edit post',
+                    'Update your post',
+                    tint: const Color(0xff1769aa),
                   ),
-                if (onDelete != null)
+                if ((ownedByMe && onDelete != null) ||
+                    (!ownedByMe && onReport != null))
+                  const Divider(height: 24),
+                if (ownedByMe && onDelete != null)
                   option(
                     _PostMenuAction.delete,
                     Icons.delete_outline,
                     'Delete publication',
+                    'It will be permanently deleted',
+                    tint: colors.error,
                     destructive: true,
                   ),
-                if (onReport != null)
+                if (!ownedByMe && onReport != null)
                   option(
                     _PostMenuAction.report,
                     Icons.flag_outlined,
                     'Report post',
+                    'Report inappropriate content',
+                    tint: const Color(0xffbf510d),
                   ),
               ],
             ),
@@ -1230,6 +1354,8 @@ class _PostMenu extends StatelessWidget {
     );
     if (!context.mounted) return;
     switch (action) {
+      case _PostMenuAction.share:
+        await onShare?.call();
       case _PostMenuAction.save:
         onSave?.call();
       case _PostMenuAction.report:
@@ -1256,4 +1382,4 @@ class _PostMenu extends StatelessWidget {
   );
 }
 
-enum _PostMenuAction { save, edit, delete, report }
+enum _PostMenuAction { save, share, edit, delete, report }

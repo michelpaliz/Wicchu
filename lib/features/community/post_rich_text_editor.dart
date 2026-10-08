@@ -106,22 +106,12 @@ class _PostRichTextEditorState extends State<PostRichTextEditor> {
         ),
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-              child: PostFormatToolbar(controller: controller),
-            ),
-            Divider(
-              height: 1,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.12),
-            ),
             quill.QuillEditor.basic(
               controller: controller,
               focusNode: _focusNode,
               scrollController: _scrollController,
               config: quill.QuillEditorConfig(
-                minHeight: 150,
+                minHeight: 190,
                 maxHeight: 320,
                 padding: const EdgeInsets.all(18),
                 placeholder: context.tr('What would you like to share?'),
@@ -141,6 +131,16 @@ class _PostRichTextEditorState extends State<PostRichTextEditor> {
                 textCapitalization: TextCapitalization.sentences,
                 embedBuilders: const [_PostImageEmbed()],
               ),
+            ),
+            Divider(
+              height: 1,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.12),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 2, 8, 0),
+              child: PostFormatToolbar(controller: controller),
             ),
             ListenableBuilder(
               listenable: controller,

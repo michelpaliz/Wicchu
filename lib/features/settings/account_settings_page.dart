@@ -106,7 +106,12 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       : _settingsScreen(context);
 
   Widget _settingsScreen(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Settings'))),
+    appBar: AppBar(
+      title: Text(
+        context.tr('Settings'),
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+      ),
+    ),
     body: !_loaded
         ? const Center(child: CircularProgressIndicator())
         : ListView(
@@ -343,6 +348,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   title: Text(
                     context.tr('About the app'),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: 17,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -485,6 +491,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   Text(
                     context.tr(title),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontSize: 17,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -492,6 +499,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   Text(
                     context.tr(subtitle),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontSize: 13,
+                      height: 1.35,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -513,7 +522,19 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     clipBehavior: Clip.antiAlias,
     child: Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(children: children),
+      child: ListTileTheme(
+        data: ListTileTheme.of(context).copyWith(
+          titleTextStyle: Theme.of(
+            context,
+          ).textTheme.bodyLarge?.copyWith(fontSize: 14, height: 1.3),
+          subtitleTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontSize: 12,
+            height: 1.35,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        child: Column(children: children),
+      ),
     ),
   );
 

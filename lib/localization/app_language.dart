@@ -114,36 +114,36 @@ class LanguageMenu extends StatelessWidget {
 }
 
 const _spanish = <String, String>{
-  'Personal': 'Personal',
-  'Replying as {page}': 'Respondiendo como {page}',
-  'Page conversation': 'Conversación con la página',
-  'Message on Wicchu': 'Enviar mensaje en Wicchu',
-  'No page messages yet': 'Aún no hay mensajes para esta página',
-  'Messages sent to this page will appear here.':
-      'Los mensajes enviados a esta página aparecerán aquí.',
-  'Conversation label': 'Etiqueta de conversación',
-  'Change label': 'Cambiar etiqueta',
-  'New': 'Nuevo',
-  'In progress': 'En curso',
-  'Customer': 'Cliente',
-  'Order': 'Pedido',
-  'Quote': 'Presupuesto',
-  'Completed': 'Completado',
-  'You are replying as {page}': 'Estás respondiendo como {page}',
-  'Allow page inbox access': 'Permitir acceso a la bandeja de la página',
-  'Remove page inbox access': 'Quitar acceso a la bandeja de la página',
-  'Reply to customers as this page.':
-      'Responder a clientes usando la identidad de esta página.',
-  'Page inbox access granted.': 'Acceso a la bandeja de la página concedido.',
-  'Page inbox access removed.': 'Acceso a la bandeja de la página eliminado.',
-  'Community admin conversation': 'Conversación con administradores',
-  'Message community admins': 'Enviar mensaje a los administradores',
-  'Allow shared inbox access': 'Permitir acceso a la bandeja compartida',
-  'Remove shared inbox access': 'Quitar acceso a la bandeja compartida',
-  'Reply to members using this shared identity.':
-      'Responder a miembros usando esta identidad compartida.',
-  'Shared inbox access granted.': 'Acceso a la bandeja compartida concedido.',
-  'Shared inbox access removed.': 'Acceso a la bandeja compartida eliminado.',
+  'Page preview. Follow to stay connected.':
+      'Vista previa de la página. Síguela para estar al día.',
+  'Community preview. Join to take part.':
+      'Vista previa de la comunidad. Únete para participar.',
+
+  'Your profile changes have not been saved. If you leave now, they will be lost.':
+      'Los cambios de tu perfil no se han guardado. Si sales ahora, se perderán.',
+  'Leave without saving': 'Salir sin guardar',
+  'Unsaved changes': 'Cambios sin guardar',
+  '{count} result': '{count} resultado',
+  '{count} results': '{count} resultados',
+  'Find and connect with people on Wicchu.':
+      'Encuentra y conecta con personas en Wicchu.',
+
+  'Manage this post': 'Gestiona esta publicación',
+  'Remove it from your saved posts': 'Quítala de tus publicaciones guardadas',
+  'Save it to view later': 'Guárdala para verla más tarde',
+  'Share it in other apps': 'Compártela en otras aplicaciones',
+  'Update your post': 'Modifica tu publicación',
+  'It will be permanently deleted': 'Se eliminará de forma permanente',
+  'Report inappropriate content': 'Informa sobre contenido inapropiado',
+
+  'Copy description and link': 'Copiar descripción y enlace',
+  'Description and Wicchu link copied.':
+      'Descripción y enlace de Wicchu copiados.',
+  'Description and Wicchu link copied. Paste them into your social post.':
+      'Descripción y enlace de Wicchu copiados. Pégalos en tu publicación.',
+  'Copies the description and Wicchu link automatically. Choose your social app, then paste them into your post.':
+      'Copia automáticamente la descripción y el enlace de Wicchu. Elige tu aplicación y pégalos en tu publicación.',
+
   'Your profile, your community': 'Tu perfil, tu comunidad',
   'This information will be visible to other Wicchu users.':
       'Esta información será visible para otros usuarios de Wicchu.',
@@ -279,6 +279,11 @@ const _spanish = <String, String>{
   'Administration': 'Administración',
   'No members found': 'No se encontraron miembros',
 
+  'Leave': 'Salir',
+  '{count} administrator': '{count} administrador',
+  '{count} administrators': '{count} administradores',
+  '{count} rule': '{count} regla',
+  '{count} rules': '{count} reglas',
   'Leave community': 'Salir de la comunidad',
   'You own this community': 'Eres propietario de esta comunidad',
   'You administer this community': 'Eres administrador de esta comunidad',
@@ -330,6 +335,7 @@ const _spanish = <String, String>{
   'Maintenance': 'Mantenimiento',
   'Construction': 'Construcción',
   'Food': 'Alimentación',
+  'Restaurant': 'Restaurante',
   'Retail': 'Comercio',
   'Real estate': 'Bienes raíces',
   'Health': 'Salud',
@@ -366,50 +372,6 @@ const _spanish = <String, String>{
   'Posting as {name}': 'Publicando como {name}',
   'For you': 'Para ti',
   'Explore': 'Explorar',
-  'Local': 'Local',
-  'Search food, services, transport…': 'Buscar comida, servicios, transporte…',
-  'Discover local businesses': 'Descubre negocios locales',
-  'Near me': 'Cerca de mí',
-  'Choose town': 'Elegir localidad',
-  'Anywhere': 'Cualquier lugar',
-  'Search radius': 'Radio de búsqueda',
-  'Nearest first': 'Más cercanos primero',
-  '{distance} km away': 'A {distance} km',
-  'Businesses within {radius} km of your current location':
-      'Negocios a menos de {radius} km de tu ubicación actual',
-  'Explore local businesses from every available town':
-      'Explora negocios locales de todas las localidades disponibles',
-  'Enable location services to find businesses nearby.':
-      'Activa los servicios de ubicación para encontrar negocios cercanos.',
-  'Location permission is required for Near me.':
-      'El permiso de ubicación es necesario para Cerca de mí.',
-  'Profiles and useful updates from {town}':
-      'Perfiles y novedades útiles de {town}',
-  'Restaurants': 'Restaurantes',
-  'Businesses near you': 'Negocios cerca de ti',
-  'No menus are available today.': 'No hay menús disponibles hoy.',
-  'No businesses match this category.':
-      'No hay negocios que coincidan con esta categoría.',
-  'Explore {town}': 'Explora {town}',
-  "Find what's happening around you": 'Encuentra lo que ocurre cerca de ti',
-  'Shops': 'Tiendas',
-  'All businesses': 'Todos los negocios',
-  'Upcoming': 'Próximos',
-  'Tomorrow': 'Mañana',
-  'Maximum price': 'Precio máximo',
-  'Any price': 'Cualquier precio',
-  'Up to {price}': 'Hasta {price}',
-  'Upcoming transport': 'Próximos transportes',
-  'Shop local': 'Compra local',
-  'Local services': 'Servicios locales',
-  'Service providers': 'Profesionales y proveedores',
-  'No local results match these filters.':
-      'No hay resultados locales que coincidan con estos filtros.',
-  'Could not load local discovery.':
-      'No se pudo cargar el descubrimiento local.',
-  'No towns are available yet.': 'Todavía no hay localidades disponibles.',
-  'seats': 'asientos',
-  'bedrooms': 'dormitorios',
   'Activity': 'Actividad',
   'Communities': 'Comunidades',
   'You': 'Tú',
@@ -444,6 +406,14 @@ const _spanish = <String, String>{
   'Discard community draft?': '¿Descartar el borrador de la comunidad?',
   'Your changes will not be saved.': 'Tus cambios no se guardarán.',
   'Creating…': 'Creando…',
+  'Review and create': 'Revisar y crear',
+  'Check that everything is correct before creating your space.':
+      'Comprueba que todo esté correcto antes de crear tu espacio.',
+  'Edit information': 'Editar información',
+  'Create space': 'Crear espacio',
+  'Public page': 'Página pública',
+  'By creating this space, you confirm that the information provided is correct.':
+      'Al crear este espacio, confirmas que la información proporcionada es correcta.',
   'Rules and review': 'Normas y revisión',
   'Choose the topics for your community. You can change them later.':
       'Elige los temas de tu comunidad. Puedes cambiarlos más adelante.',
@@ -544,6 +514,10 @@ const _spanish = <String, String>{
   'Edit business': 'Editar negocio',
   'About {name}': 'Acerca de {name}',
   'Community rating': 'Valoración de la comunidad',
+  'Official links and community resources.':
+      'Enlaces oficiales y recursos de la comunidad.',
+  'Official links and resources for this profile.':
+      'Enlaces oficiales y recursos de este perfil.',
   'Useful links': 'Enlaces útiles',
   'Directions': 'Cómo llegar',
   'Helps nearby people find your profile.':
@@ -836,12 +810,13 @@ const _spanish = <String, String>{
   'See more': 'Ver más',
   'See less': 'Ver menos',
   'What do you want to publish?': '¿Qué quieres publicar?',
-  'What would you like to publish?': '¿Qué te gustaría publicar?',
   'Latest': 'Recientes',
   'Popular': 'Populares',
   'Create post': 'Crear publicación',
   'Type': 'Tipo',
   'Options': 'Opciones',
+  'Ask a question and let members vote.':
+      'Haz una pregunta y deja que los miembros voten.',
   'Step {current} of {total}': 'Paso {current} de {total}',
   'Choose a format. You can adjust it later.':
       'Elige un formato. Puedes ajustarlo después.',
@@ -852,9 +827,17 @@ const _spanish = <String, String>{
   'Tell your story with up to 10 media files.':
       'Cuenta tu historia con hasta 10 archivos multimedia.',
   'Create your content': 'Crea tu contenido',
+  'What do you want to share?': '¿Qué quieres compartir?',
+  'Write something for your community...': 'Escribe algo para tu comunidad...',
+  'Add photos or video': 'Añadir fotos o vídeo',
+  'Share images or videos with your community.':
+      'Comparte imágenes o vídeos con tu comunidad.',
+  'Tag people': 'Etiquetar personas',
+  'Search Wicchu…': 'Buscar en Wicchu…',
+  'Choose a category and add content.':
+      'Elige una categoría y añade contenido.',
   'Write your post and add anything it needs.':
       'Escribe tu publicación y añade lo que necesite.',
-  'Add photos or video': 'Añadir fotos o vídeo',
   'Poll options': 'Opciones de la encuesta',
   'Review how this post will be published.':
       'Revisa cómo se publicará esta publicación.',
@@ -869,7 +852,6 @@ const _spanish = <String, String>{
   'Create another post': 'Crear otra publicación',
   'Share elsewhere': 'Compartir también en',
   'Get more reach': 'Consigue más alcance',
-  'Share with your customers': 'Comparte con tus clientes',
   'Instagram Story': 'Historia de Instagram',
   'Instagram Post': 'Publicación de Instagram',
   'Share a Wicchu-designed 9:16 image.':
@@ -884,11 +866,6 @@ const _spanish = <String, String>{
   'Description copied': 'Descripción copiada',
   'Copy link': 'Copiar enlace',
   'Posting to': 'Publicando en',
-  'Publishing as your business': 'Publicando como tu negocio',
-  'Contact and location details are added from your business profile.':
-      'Los datos de contacto y ubicación se añaden desde el perfil de tu negocio.',
-  'Visible in {town} and on your business profile.':
-      'Visible en {town} y en el perfil de tu negocio.',
   'Post details': 'Detalles de la publicación',
   'What would you like to share?': '¿Qué te gustaría compartir?',
   'Preview': 'Vista previa',
@@ -1014,7 +991,24 @@ const _spanish = <String, String>{
   'Shown near the top of the profile.':
       'Se muestra en la parte superior del perfil.',
   'The full description shown in About.':
-      'La descripción completa que se muestra en Información.',
+      'La descripción completa que se muestra en Acerca de.',
+  'Where is this space?': '¿Dónde está este espacio?',
+  'Search for a location or use your current position.':
+      'Busca una ubicación o usa tu posición actual.',
+  'Search city or place': 'Buscar ciudad o lugar',
+  'Search by city, town or area': 'Busca por ciudad, pueblo o zona',
+  'Selected location': 'Ubicación seleccionada',
+  'Choose a location to continue.': 'Selecciona una ubicación para continuar.',
+  'Location permission was denied. You can search for a location instead.':
+      'Se denegó el permiso de ubicación. Puedes buscar una ubicación en su lugar.',
+  'Unable to select this location. Please try again.':
+      'No se pudo seleccionar esta ubicación. Inténtalo de nuevo.',
+  'Unable to search locations. Please try again.':
+      'No se pudieron buscar ubicaciones. Inténtalo de nuevo.',
+  'Enter at least 2 characters to search.':
+      'Escribe al menos 2 caracteres para buscar.',
+  'No locations found. Try another city or area.':
+      'No se encontraron ubicaciones. Prueba con otra ciudad o zona.',
   'Location': 'Ubicación',
   'Town': 'Ciudad',
   'Rules': 'Normas',
@@ -1177,6 +1171,9 @@ const _spanish = <String, String>{
   'restored your community membership': 'restauró tu membresía en la comunidad',
   'Member actions': 'Acciones del miembro',
   'Publish as Community Admin': 'Publicar como administrador de la comunidad',
+  'Your identity will be hidden from members.':
+      'Tu identidad se ocultará a los miembros.',
+  'About anonymous posts': 'Acerca de las publicaciones anónimas',
   'Publish anonymously': 'Publicar de forma anónima',
   'Anonymous posts are always reviewed by a community administrator before publication. Administrators can still identify you for safety.':
       'Las publicaciones anónimas siempre son revisadas por un administrador de la comunidad antes de publicarse. Los administradores aún pueden identificarte por seguridad.',
@@ -1269,7 +1266,7 @@ const _spanish = <String, String>{
       'Esta publicación desaparecerá de Wicchu. Esta acción no se puede deshacer.',
   'Community profile': 'Perfil de la comunidad',
   'View community profile': 'Ver perfil de la comunidad',
-  'About': 'Información',
+  'About': 'Acerca de',
   'About this community': 'Acerca de esta comunidad',
   'Details': 'Detalles',
   'No description provided': 'No se proporcionó una descripción',
@@ -1463,6 +1460,11 @@ const _spanish = <String, String>{
   'Messages': 'Mensajes',
   'Chats': 'Chats',
   'Requests': 'Solicitudes',
+  'Message requests are messages from people who are not in your contacts.':
+      'Las solicitudes son mensajes de personas que no están en tus contactos.',
+  'Nothing else for now': 'Nada más por ahora',
+  'When you receive new message requests, they will appear here.':
+      'Cuando recibas nuevas solicitudes de mensaje, aparecerán aquí.',
   'No message requests': 'No hay solicitudes de mensajes',
   'New conversations from other people will appear here.':
       'Las conversaciones nuevas de otras personas aparecerán aquí.',
@@ -1528,6 +1530,29 @@ const _spanish = <String, String>{
   'Support': 'Soporte',
   'Contact the Wicchu support team through wicchu.com.':
       'Contacta con el equipo de soporte de Wicchu a través de wicchu.com.',
+  'Products': 'Productos',
+  'Tips': 'Consejos',
+  'Questions': 'Preguntas',
+  'Tutorials': 'Tutoriales',
+  'Testimonials': 'Testimonios',
+  'Suggested for your type of space': 'Sugeridas para tu tipo de espacio',
+  'Select one or more.': 'Selecciona una o varias.',
+  'Add your own category': 'Añade tu propia categoría',
+  'Enter a custom category.': 'Escribe una categoría personalizada.',
+  'e.g. Food, Pets, Technology': 'Ej. Gastronomía, Mascotas, Tecnología',
+  'Custom category': 'Categoría personalizada',
+  'Choose optional categories for your business posts, or add your own. You can change them later.':
+      'Elige categorías opcionales para las publicaciones de tu negocio o añade las tuyas. Puedes cambiarlas más adelante.',
+  'Without categories, your posts will appear under Posts.':
+      'Si no eliges categorías, tus publicaciones aparecerán en Publicaciones.',
+  'Select a category again to remove it from this page.':
+      'Vuelve a seleccionar una categoría para quitarla de esta página.',
+  'This category already exists.': 'Esta categoría ya existe.',
+  'Edit categories': 'Editar categorías',
+  'Add, rename or remove page categories.':
+      'Añade, cambia el nombre o elimina categorías de la página.',
+  'Organize posts on your page. Tap a category to edit it.':
+      'Organiza las publicaciones de tu página. Toca una categoría para editarla.',
   'Add category': 'Añadir categoría',
   'Edit category': 'Editar categoría',
   'No categories': 'No hay categorías',
@@ -1804,6 +1829,7 @@ const _spanish = <String, String>{
   'Phone number': 'Número de teléfono',
   'WhatsApp number': 'Número de WhatsApp',
   'Contact business': 'Contactar al negocio',
+  'Contact': 'Contactar',
   'Departed': 'Salió',
   '{views} views · {contacts} contact taps':
       '{views} vistas · {contacts} contactos',

@@ -64,6 +64,11 @@ void main() {
           180,
           scrollable: find.byType(Scrollable).first,
         );
+        await Scrollable.ensureVisible(
+          tester.element(find.text('Mayormente despejado')),
+          alignment: 0.5,
+        );
+        await tester.pumpAndSettle();
         expect(find.text('Mayormente despejado'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.tap(find.text('Mayormente despejado'));

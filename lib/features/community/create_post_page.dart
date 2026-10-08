@@ -6,7 +6,9 @@ import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import '../../widgets/responsive_side_panel.dart';
+import '../../widgets/creation_step_progress.dart';
 import 'post_rich_text_editor.dart';
+import 'post_card.dart';
 import 'post_share.dart';
 import 'post_media_gallery.dart';
 
@@ -128,9 +130,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
       widget.community.isPublicProfile &&
       widget.community.profileCategory == ProfileCategory.localBusiness &&
       widget.community.businessServices.contains(BusinessService.food);
-  bool get _isLocalBusiness =>
-      widget.community.isPublicProfile &&
-      widget.community.profileCategory == ProfileCategory.localBusiness;
 
   bool _hasBusinessService(BusinessService service) =>
       widget.community.isPublicProfile &&
@@ -151,7 +150,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     _PostKind.transportTrip => _transportTripPostText(),
     _PostKind.realEstate => _realEstatePostText(),
     _PostKind.professionalService => _professionalServicePostText(),
-    _ => _textController.document.toPlainText().trim(),
+    _ => _textController.text.trim(),
   };
 
   bool get _validTodayMenu =>
@@ -341,13 +340,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
         _saving ||
         _uploading ||
         _category == null ||
-        _effectiveText.isEmpty ||
+        (_effectiveText.isEmpty && _attachments.isEmpty) ||
         _textController.exceedsCharacterLimit) {
       return false;
     }
     if (!_validTodayMenu) return false;
     if (!_validBusinessFeature) return false;
-    if (_kind == _PostKind.media && _attachments.isEmpty) return false;
     if (!_hasPoll) return true;
     final options = _pollControllers
         .map((controller) => controller.text.trim())
@@ -381,10 +379,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
   Widget build(BuildContext context) {
     if (!widget.community.canPublish) return _permissionDenied(context);
     if (_publishedPost case final post?) return _successScreen(context, post);
-    final categories =
-        widget.categories.isEmpty && widget.initialCategory != null
-        ? [widget.initialCategory!]
-        : widget.categories;
     return PopScope(
       canPop: _step == 0 && !_saving,
       onPopInvokedWithResult: (didPop, _) {
@@ -408,7 +402,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         ),
         body: Column(
           children: [
-            _stepProgress(context),
+            CreationStepProgress(step: _step),
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 220),
@@ -419,7 +413,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                   children: [
                     switch (_step) {
-                      0 => _typeStep(context, categories),
+                      0 => _typeStep(context),
                       1 => _contentStep(context),
                       2 => _optionsStep(context),
                       _ => _previewStep(context),
@@ -448,165 +442,83 @@ class _CreatePostPageState extends State<CreatePostPage> {
     ),
   );
 
-  Widget _stepProgress(BuildContext context) {
-    final labels = ['Type', 'Content', 'Options', 'Preview'];
-    final colors = Theme.of(context).colorScheme;
-    return Semantics(
-      label: context.tr('Step {current} of {total}', {
-        'current': '${_step + 1}',
-        'total': '4',
-      }),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-        child: Row(
-          children: [
-            for (var index = 0; index < labels.length; index++) ...[
-              Expanded(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 30,
-                      height: 30,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: index <= _step
-                            ? colors.primary
-                            : colors.surfaceContainerHighest,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '${index + 1}',
-                        style: TextStyle(
-                          color: index <= _step
-                              ? colors.onPrimary
-                              : colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      context.tr(labels[index]),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: index == _step
-                            ? colors.primary
-                            : colors.onSurfaceVariant,
-                        fontWeight: index == _step
-                            ? FontWeight.w700
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (index < labels.length - 1)
-                Container(
-                  width: 12,
-                  height: 2,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  color: index < _step ? colors.primary : colors.outlineVariant,
-                ),
-            ],
-          ],
-        ),
+  Widget _typeStep(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(
+        context.tr('What would you like to share?'),
+        style: Theme.of(
+          context,
+        ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
-    );
-  }
-
-  Widget _typeStep(BuildContext context, List<CommunityCategory> categories) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            context.tr('What would you like to publish?'),
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          Text(context.tr('Choose a format. You can adjust it later.')),
-          const SizedBox(height: 18),
-          _postingDestination(context),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<CommunityCategory>(
-            initialValue: _category,
-            isExpanded: true,
-            decoration: InputDecoration(labelText: context.tr('Category')),
-            items: [
-              for (final item in categories)
-                DropdownMenuItem(
-                  value: item,
-                  child: Text('${item.icon} ${context.tr(item.name)}'),
-                ),
-            ],
-            onChanged: (value) => setState(() => _category = value),
-          ),
-          const SizedBox(height: 20),
-          _kindCard(
-            context,
-            kind: _PostKind.text,
-            icon: Icons.notes_outlined,
-            title: 'Standard post',
-            subtitle: 'Share an update, idea, or local news.',
-          ),
-          _kindCard(
-            context,
-            kind: _PostKind.media,
-            icon: Icons.photo_library_outlined,
-            title: 'Photos or video',
-            subtitle: 'Tell your story with up to 10 media files.',
-          ),
-          _kindCard(
-            context,
-            kind: _PostKind.poll,
-            icon: Icons.poll_outlined,
-            title: 'Poll',
-            subtitle: 'Ask a question and let members vote.',
-          ),
-          if (_canPublishTodayMenu)
-            _kindCard(
-              context,
-              kind: _PostKind.todayMenu,
-              icon: Icons.restaurant_menu,
-              title: "Today's menu",
-              subtitle: 'Publish dishes, prices and availability for today.',
-            ),
-          if (_hasBusinessService(BusinessService.retail))
-            _kindCard(
-              context,
-              kind: _PostKind.retailOffer,
-              icon: Icons.local_offer_outlined,
-              title: 'Product or offer',
-              subtitle: 'Share a product, price and availability.',
-            ),
-          if (_hasBusinessService(BusinessService.transport))
-            _kindCard(
-              context,
-              kind: _PostKind.transportTrip,
-              icon: Icons.directions_bus_outlined,
-              title: 'Trip availability',
-              subtitle: 'Share a route, departure time and available seats.',
-            ),
-          if (_hasBusinessService(BusinessService.realEstate))
-            _kindCard(
-              context,
-              kind: _PostKind.realEstate,
-              icon: Icons.apartment_outlined,
-              title: 'Property listing',
-              subtitle: 'Publish a property for rent or sale.',
-            ),
-          if (_hasBusinessService(BusinessService.professionalServices))
-            _kindCard(
-              context,
-              kind: _PostKind.professionalService,
-              icon: Icons.business_center_outlined,
-              title: 'Professional service',
-              subtitle: 'Describe a service, area and starting price.',
-            ),
-        ],
-      );
+      const SizedBox(height: 6),
+      Text(context.tr('Choose a format. You can adjust it later.')),
+      const SizedBox(height: 18),
+      _postingDestination(context),
+      const SizedBox(height: 16),
+      _kindCard(
+        context,
+        kind: _PostKind.text,
+        icon: Icons.notes_outlined,
+        title: 'Standard post',
+        subtitle: 'Share an update, idea, or local news.',
+      ),
+      _kindCard(
+        context,
+        kind: _PostKind.media,
+        icon: Icons.photo_library_outlined,
+        title: 'Photos or video',
+        subtitle: 'Tell your story with up to 10 media files.',
+      ),
+      _kindCard(
+        context,
+        kind: _PostKind.poll,
+        icon: Icons.poll_outlined,
+        title: 'Poll',
+        subtitle: 'Ask a question and let members vote.',
+      ),
+      if (_canPublishTodayMenu)
+        _kindCard(
+          context,
+          kind: _PostKind.todayMenu,
+          icon: Icons.restaurant_menu,
+          title: "Today's menu",
+          subtitle: 'Publish dishes, prices and availability for today.',
+        ),
+      if (_hasBusinessService(BusinessService.retail))
+        _kindCard(
+          context,
+          kind: _PostKind.retailOffer,
+          icon: Icons.local_offer_outlined,
+          title: 'Product or offer',
+          subtitle: 'Share a product, price and availability.',
+        ),
+      if (_hasBusinessService(BusinessService.transport))
+        _kindCard(
+          context,
+          kind: _PostKind.transportTrip,
+          icon: Icons.directions_bus_outlined,
+          title: 'Trip availability',
+          subtitle: 'Share a route, departure time and available seats.',
+        ),
+      if (_hasBusinessService(BusinessService.realEstate))
+        _kindCard(
+          context,
+          kind: _PostKind.realEstate,
+          icon: Icons.apartment_outlined,
+          title: 'Property listing',
+          subtitle: 'Publish a property for rent or sale.',
+        ),
+      if (_hasBusinessService(BusinessService.professionalServices))
+        _kindCard(
+          context,
+          kind: _PostKind.professionalService,
+          icon: Icons.business_center_outlined,
+          title: 'Professional service',
+          subtitle: 'Describe a service, area and starting price.',
+        ),
+    ],
+  );
 
   Widget _kindCard(
     BuildContext context, {
@@ -666,45 +578,40 @@ class _CreatePostPageState extends State<CreatePostPage> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       Text(
-        context.tr('Create your content'),
+        context.tr('What do you want to share?'),
         style: Theme.of(
           context,
         ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
       const SizedBox(height: 6),
-      Text(context.tr('Write your post and add anything it needs.')),
-      const SizedBox(height: 18),
+      Text(context.tr('Write something for your community...')),
+      const SizedBox(height: 12),
       if (_kind == _PostKind.todayMenu)
         _todayMenuEditor(context)
       else if (_isStructuredBusinessPost)
         _businessFeatureEditor(context)
       else
         PostRichTextEditor(controller: _textController),
+      if (!_isStructuredBusinessPost) ...[
+        const SizedBox(height: 12),
+        _mediaEditor(context),
+      ],
       const SizedBox(height: 10),
       OutlinedButton.icon(
         onPressed: _saving ? null : _chooseMentions,
+        style: OutlinedButton.styleFrom(
+          alignment: Alignment.centerLeft,
+          minimumSize: const Size.fromHeight(48),
+        ),
         icon: const Icon(Icons.alternate_email),
         label: Text(
           _mentionedUserIds.isEmpty
-              ? context.tr('Tag members')
+              ? context.tr('Tag people')
               : context.tr('{count} tagged', {
                   'count': '${_mentionedUserIds.length}',
                 }),
         ),
       ),
-      if (_kind == _PostKind.media ||
-          _isStructuredBusinessPost ||
-          _attachments.isNotEmpty) ...[
-        const SizedBox(height: 22),
-        _mediaEditor(context),
-      ] else ...[
-        const SizedBox(height: 10),
-        TextButton.icon(
-          onPressed: () => setState(() => _kind = _PostKind.media),
-          icon: const Icon(Icons.add_photo_alternate_outlined),
-          label: Text(context.tr('Add photos or video')),
-        ),
-      ],
       if (_hasPoll) ...[const SizedBox(height: 22), _pollEditor(context)],
     ],
   );
@@ -736,10 +643,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 ? context.tr('Not selected')
                 : '${_category!.icon} ${context.tr(_category!.name)}',
           ),
-          trailing: TextButton(
-            onPressed: () => setState(() => _step = 0),
-            child: Text(context.tr('Change')),
-          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _saving ? null : _chooseCategory,
         ),
       ),
     ],
@@ -765,66 +670,43 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   _canPublishAsAdmin ? 'Community Admin' : 'Anonymous Member',
                 )
               : snapshot.data?.name ?? context.tr('You');
-          return Card(
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    author,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  Text(
-                    '${widget.community.name} · ${_category == null ? '' : context.tr(_category!.name)}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const Divider(height: 28),
-                  Text(_effectiveText),
-                  if (_attachments.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      height: 180,
-                      child: PostMediaGallery(
-                        media: _attachments.map((item) => item.media).toList(),
-                      ),
-                    ),
-                  ],
-                  if (_hasPoll) ...[
-                    const SizedBox(height: 14),
-                    for (final option in _pollControllers)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(option.text.trim()),
-                        ),
-                      ),
-                  ],
-                  if (_effectiveText.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: () => _copyDescription(_effectiveText),
-                        icon: const Icon(Icons.copy_outlined),
-                        label: Text(context.tr('Copy description')),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+          return PostCard(
+            key: const ValueKey('post-draft-preview'),
+            category: _category?.name ?? 'General',
+            icon: _category?.icon ?? '💬',
+            community: widget.community.name,
+            author: author,
+            authorAvatarUrl: _publishAnonymously
+                ? null
+                : snapshot.data?.avatarUrl,
+            isAnonymousAuthor: _publishAnonymously,
+            time: context.tr('Now'),
+            text: _effectiveText,
+            post: CommunityPost(
+              id: 'draft',
+              communityId: widget.community.id,
+              categoryId: _category?.id ?? '',
+              authorId: '',
+              text: _effectiveText,
+              status: PostStatus.published,
+              createdAt: DateTime.now(),
+              todayMenu: _buildTodayMenu(),
+              businessFeature: _buildBusinessFeature(),
             ),
+            collapseText: true,
+            media: _attachments.map((item) => item.media).toList(),
+            poll: _hasPoll
+                ? PostPoll(
+                    options: [
+                      for (final (index, option) in _pollControllers.indexed)
+                        PollOption(
+                          id: 'draft-$index',
+                          text: option.text.trim(),
+                          voteCount: 0,
+                        ),
+                    ],
+                  )
+                : null,
           );
         },
       ),
@@ -841,61 +723,102 @@ class _CreatePostPageState extends State<CreatePostPage> {
     ),
     child: Row(
       children: [
-        Icon(
-          _isLocalBusiness
-              ? Icons.storefront_outlined
-              : Icons.groups_2_outlined,
-        ),
+        const Icon(Icons.groups_2_outlined),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _isLocalBusiness
-                    ? context.tr('Publishing as your business')
-                    : context.tr('Posting to'),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              Text(
-                _isLocalBusiness
-                    ? '${widget.community.name} · ${widget.community.town.name}'
-                    : widget.community.name,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              if (_isLocalBusiness &&
-                  (widget.community.businessLocation?.address.isNotEmpty ==
-                          true ||
-                      widget.community.businessContact.phone.isNotEmpty ||
-                      widget.community.businessContact.whatsapp.isNotEmpty))
-                Text(
-                  context.tr(
-                    'Contact and location details are added from your business profile.',
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: '${context.tr('Posting to')} '),
+                TextSpan(
+                  text: widget.community.name,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
     ),
   );
 
-  Widget _anonymousOption(BuildContext context) => Card(
-    child: SwitchListTile.adaptive(
-      value: _publishAnonymously,
-      onChanged: _saving
-          ? null
-          : (value) => setState(() => _publishAnonymously = value),
-      secondary: const Icon(Icons.person_off_outlined),
-      title: Text(context.tr('Publish anonymously')),
-      subtitle: Text(
-        context.tr(
-          _canPublishAsAdmin
-              ? '“Community Admin” will appear instead of your name. Your identity remains available for security and auditing.'
-              : 'Anonymous posts are always reviewed by a community administrator before publication. Administrators can still identify you for safety.',
+  Future<void> _chooseCategory() async {
+    final categories =
+        widget.categories.isEmpty && widget.initialCategory != null
+        ? [widget.initialCategory!]
+        : widget.categories;
+    final selected = await showModalBottomSheet<CommunityCategory>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(title: Text(sheetContext.tr('Category'))),
+            for (final category in categories)
+              ListTile(
+                leading: Text(category.icon),
+                title: Text(sheetContext.tr(category.name)),
+                trailing: _category?.id == category.id
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(sheetContext, category),
+              ),
+          ],
         ),
       ),
+    );
+    if (mounted && selected != null) setState(() => _category = selected);
+  }
+
+  Widget _anonymousOption(BuildContext context) => Card(
+    child: Column(
+      children: [
+        SwitchListTile.adaptive(
+          value: _publishAnonymously,
+          onChanged: _saving
+              ? null
+              : (value) => setState(() => _publishAnonymously = value),
+          secondary: const Icon(Icons.person_off_outlined),
+          title: Text(context.tr('Publish anonymously')),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 16, right: 4, bottom: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.tr('Your identity will be hidden from members.'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              IconButton(
+                tooltip: context.tr('About anonymous posts'),
+                icon: const Icon(Icons.info_outline, size: 20),
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: Text(context.tr('Publish anonymously')),
+                    content: Text(
+                      context.tr(
+                        _canPublishAsAdmin
+                            ? '“Community Admin” will appear instead of your name. Your identity remains available for security and auditing.'
+                            : 'Anonymous posts are always reviewed by a community administrator before publication. Administrators can still identify you for safety.',
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: Text(context.tr('Close')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 
@@ -1219,6 +1142,21 @@ class _CreatePostPageState extends State<CreatePostPage> {
     });
   }
 
+  TodayMenu? _buildTodayMenu() => _kind == _PostKind.todayMenu
+      ? TodayMenu(
+          dishes: [
+            for (final dish in _menuDishes)
+              TodayMenuDish(
+                name: dish.name.text.trim(),
+                price: dish.price.text.trim(),
+                available: dish.available,
+              ),
+          ],
+          fulfillmentOptions: _menuFulfillment.toList(growable: false),
+          expiresAt: _endOfToday(),
+        )
+      : null;
+
   DateTime _endOfToday() {
     final now = DateTime.now();
     return DateTime(
@@ -1316,78 +1254,131 @@ class _CreatePostPageState extends State<CreatePostPage> {
     _ => null,
   };
 
-  Widget _mediaEditor(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Row(
+  Widget _mediaEditor(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.primaryContainer.withValues(alpha: .24),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.primary.withValues(alpha: .22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Text(
-              context.tr('Media'),
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const ValueKey('post-add-media-area'),
+              borderRadius: BorderRadius.circular(16),
+              onTap: _saving || _uploading || _attachments.length >= 10
+                  ? null
+                  : _chooseMedia,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.add_photo_alternate_outlined,
+                      color: colors.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.tr('Add photos or video'),
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: colors.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            context.tr(
+                              'Share images or videos with your community.',
+                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colors.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text('${_attachments.length}/10'),
+                  ],
+                ),
+              ),
             ),
           ),
-          Text('${_attachments.length}/10'),
+          if (_uploading) const LinearProgressIndicator(),
+          if (_attachments.isNotEmpty) ...[
+            const Divider(height: 1),
+            SizedBox(
+              height: 112,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(12),
+                scrollDirection: Axis.horizontal,
+                itemCount:
+                    _attachments.length + (_attachments.length < 10 ? 1 : 0),
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  if (index == _attachments.length) {
+                    return SizedBox(
+                      width: 88,
+                      child: OutlinedButton.icon(
+                        onPressed: _saving || _uploading ? null : _chooseMedia,
+                        icon: const Icon(Icons.add),
+                        label: Text(context.tr('Add')),
+                      ),
+                    );
+                  }
+                  final attachment = _attachments[index];
+                  return SizedBox(
+                    width: 88,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child:
+                              attachment.bytes != null &&
+                                  attachment.media.type == 'image'
+                              ? Image.memory(
+                                  attachment.bytes!,
+                                  fit: BoxFit.cover,
+                                )
+                              : PostMediaGallery(media: [attachment.media]),
+                        ),
+                        Positioned(
+                          right: 2,
+                          top: 2,
+                          child: IconButton.filled(
+                            tooltip: context.tr('Remove'),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black54,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size.square(32),
+                            ),
+                            onPressed: _saving
+                                ? null
+                                : () => setState(
+                                    () => _attachments.removeAt(index),
+                                  ),
+                            icon: const Icon(Icons.close, size: 16),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ],
       ),
-      const SizedBox(height: 10),
-      if (_uploading) const LinearProgressIndicator(),
-      SizedBox(
-        height: 112,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: _attachments.length + (_attachments.length < 10 ? 1 : 0),
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (context, index) {
-            if (index == _attachments.length) {
-              return SizedBox(
-                width: 108,
-                child: OutlinedButton.icon(
-                  onPressed: _saving || _uploading ? null : _chooseMedia,
-                  icon: const Icon(Icons.add_photo_alternate_outlined),
-                  label: Text(context.tr('Add')),
-                ),
-              );
-            }
-            final attachment = _attachments[index];
-            return SizedBox(
-              width: 108,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child:
-                        attachment.bytes != null &&
-                            attachment.media.type == 'image'
-                        ? Image.memory(attachment.bytes!, fit: BoxFit.cover)
-                        : PostMediaGallery(media: [attachment.media]),
-                  ),
-                  Positioned(
-                    right: 2,
-                    top: 2,
-                    child: IconButton.filled(
-                      tooltip: context.tr('Remove'),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black54,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: _saving
-                          ? null
-                          : () => setState(() => _attachments.removeAt(index)),
-                      icon: const Icon(Icons.close, size: 18),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    ],
-  );
+    );
+  }
 
   Widget _pollEditor(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1434,9 +1425,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
   );
 
   bool get _canContinue => switch (_step) {
-    0 => _category != null,
+    0 => true,
     1 =>
-      _effectiveText.isNotEmpty &&
+      (_effectiveText.isNotEmpty || _attachments.isNotEmpty) &&
           !_textController.exceedsCharacterLimit &&
           !_uploading &&
           _validTodayMenu &&
@@ -1452,7 +1443,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                           .toSet()
                           .length ==
                       _pollControllers.length)),
-    2 => true,
+    2 => _category != null,
     _ => _canSubmit,
   };
 
@@ -1535,43 +1526,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 context.tr(
                   pending
                       ? 'A community moderator will review it before publication.'
-                      : (_isLocalBusiness
-                            ? 'Visible in {town} and on your business profile.'
-                            : 'Your post is live and can now be shared.'),
-                  {'town': widget.community.town.name},
+                      : 'Your post is live and can now be shared.',
                 ),
                 textAlign: TextAlign.center,
               ),
-              if (!pending) ...[
-                const SizedBox(height: 20),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          widget.community.name,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          post.text,
-                          maxLines: 5,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (post.media.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 160,
-                            child: PostMediaGallery(media: post.media),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
               const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
@@ -1591,7 +1549,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               if (!pending) ...[
                 const SizedBox(height: 28),
                 Text(
-                  context.tr('Share with your customers'),
+                  context.tr('Get more reach'),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -1762,9 +1720,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
     final pollOptions = _hasPoll
         ? _pollControllers.map((controller) => controller.text.trim()).toList()
         : const <String>[];
-    if (_category == null || text.isEmpty || _uploading || !_validTodayMenu) {
+    if (_category == null ||
+        (text.isEmpty && _attachments.isEmpty) ||
+        _uploading ||
+        !_validTodayMenu) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('Choose a category and add text.'))),
+        SnackBar(
+          content: Text(context.tr('Choose a category and add content.')),
+        ),
       );
       return;
     }
@@ -1805,20 +1768,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         mentionedUserIds: _mentionedUserIds.toList(growable: false),
         anonymousAsAdmin: _publishAnonymously && _canPublishAsAdmin,
         anonymousAsMember: _publishAnonymously && !_canPublishAsAdmin,
-        todayMenu: _kind == _PostKind.todayMenu
-            ? TodayMenu(
-                dishes: [
-                  for (final dish in _menuDishes)
-                    TodayMenuDish(
-                      name: dish.name.text.trim(),
-                      price: dish.price.text.trim(),
-                      available: dish.available,
-                    ),
-                ],
-                fulfillmentOptions: _menuFulfillment.toList(growable: false),
-                expiresAt: _endOfToday(),
-              )
-            : null,
+        todayMenu: _buildTodayMenu(),
         businessFeature: _buildBusinessFeature(),
       );
       final post = _isEditing

@@ -77,7 +77,9 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                     const SizedBox(height: 4),
                     Text(
                       context.tr(
-                        'Organize conversations in your community. Tap a category to edit it.',
+                        widget.community.isPublicProfile
+                            ? 'Organize posts on your page. Tap a category to edit it.'
+                            : 'Organize conversations in your community. Tap a category to edit it.',
                       ),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,

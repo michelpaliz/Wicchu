@@ -4,7 +4,7 @@ import '../../localization/app_language.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-String _plainTextPreview(String source) {
+String postPlainText(String source, {bool preserveParagraphs = false}) {
   final document = md.Document(
     encodeHtml: false,
     extensionSet: md.ExtensionSet.gitHubFlavored,
@@ -29,6 +29,20 @@ String _plainTextPreview(String source) {
       'ul',
       'ol',
     };
+    if (preserveParagraphs &&
+        {
+          'p',
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          'h5',
+          'h6',
+          'blockquote',
+          'pre',
+        }.contains(node.tag)) {
+      return '$text\n\n';
+    }
     return blocks.contains(node.tag) ? '$text\n' : text;
   }
 
@@ -36,7 +50,7 @@ String _plainTextPreview(String source) {
       .parseLines(source.split('\n'))
       .map(render)
       .join()
-      .replaceAll(RegExp(r'\n[ \t]*\n+'), '\n')
+      .replaceAll(RegExp(r'\n[ \t]*\n+'), preserveParagraphs ? '\n\n' : '\n')
       .trim();
 }
 
@@ -77,7 +91,7 @@ class _PostMarkdownState extends State<PostMarkdown> {
       fontWeight: FontWeight.w400,
       height: 1.3,
     );
-    final preview = _plainTextPreview(widget.data);
+    final preview = postPlainText(widget.data);
     final firstParagraph = widget.data.trim().split(RegExp(r'\n\s*\n')).first;
     final hasHeadline =
         widget.data.trim().contains(RegExp(r'\n\s*\n')) &&

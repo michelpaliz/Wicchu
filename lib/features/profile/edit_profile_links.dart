@@ -40,6 +40,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _loading = true;
   bool _saving = false;
   bool _allowPop = false;
+  bool _confirmingLeave = false;
 
   @override
   void initState() {
@@ -176,30 +177,49 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _leave() async {
-    if (_saving) return;
-    final discard =
-        !_dirty ||
-        await showDialog<bool>(
-              context: context,
-              builder: (dialogContext) => AlertDialog(
-                title: Text(context.tr('Discard changes?')),
-                content: Text(
-                  context.tr('Your profile changes have not been saved.'),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, false),
-                    child: Text(context.tr('Keep editing')),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, true),
-                    child: Text(context.tr('Discard')),
-                  ),
-                ],
+    if (_saving || _confirmingLeave || _allowPop) return;
+    if (_dirty) {
+      _confirmingLeave = true;
+      FocusScope.of(context).unfocus();
+      bool? discard;
+      try {
+        discard = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            icon: Icon(
+              Icons.edit_note_outlined,
+              color: Theme.of(dialogContext).colorScheme.primary,
+            ),
+            title: Text(context.tr('Unsaved changes')),
+            content: Text(
+              context.tr(
+                'Your profile changes have not been saved. If you leave now, they will be lost.',
               ),
-            ) ==
-            true;
-    if (!discard || !mounted) return;
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(dialogContext).colorScheme.error,
+                ),
+                child: Text(context.tr('Leave without saving')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(context.tr('Keep editing')),
+              ),
+            ],
+          ),
+        );
+      } finally {
+        _confirmingLeave = false;
+      }
+      if (discard != true) return;
+    }
+    if (!mounted) return;
     setState(() => _allowPop = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.pop(context);

@@ -53,12 +53,8 @@ class ProfilePostTile extends StatelessWidget {
     final video = post.media.any((m) => m.type == 'video');
     final marker = video
         ? Icons.play_circle_outline
-        : post.poll != null
-        ? Icons.poll_outlined
         : post.media.length > 1
         ? Icons.collections_outlined
-        : photo != null
-        ? Icons.image_outlined
         : null;
     final fallback = Padding(
       padding: const EdgeInsets.all(10),
@@ -100,40 +96,41 @@ class ProfilePostTile extends StatelessWidget {
                 )
               else
                 fallback,
-              Positioned(
-                left: 5,
-                bottom: 5,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 3,
+              if (post.reactionCount > 0)
+                Positioned(
+                  left: 5,
+                  bottom: 5,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.favorite,
-                          size: 13,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${post.reactionCount}',
-                          style: const TextStyle(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 3,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.favorite,
+                            size: 13,
                             color: Colors.white,
-                            fontSize: 11,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 3),
+                          Text(
+                            '${post.reactionCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
               if (marker != null)
                 Positioned(
                   right: 5,

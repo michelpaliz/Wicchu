@@ -34,7 +34,6 @@ import '../community/post_card.dart';
 import '../community/post_collection_page.dart';
 import '../community/post_detail_page.dart';
 import '../community/post_share.dart';
-import '../community/local_discovery_view.dart';
 import '../community/user_avatar.dart';
 import '../chat/direct_chat_pages.dart';
 import '../settings/account_settings_page.dart';
@@ -63,6 +62,7 @@ class _MainShellState extends State<MainShell> {
   Community? _navigationSpace;
   final _profilePostRequest = ValueNotifier<int>(0);
   final _homeKey = GlobalKey<_HomeTabState>();
+  final _profileKey = GlobalKey<_ProfileTabState>();
   final _communityPostRequest = ValueNotifier<int>(0);
   int _exploreRevision = 0;
   int _profileRevision = 0;
@@ -111,6 +111,7 @@ class _MainShellState extends State<MainShell> {
       else
         const SizedBox.shrink(),
       _ProfileTab(
+        key: _profileKey,
         postRequest: _profilePostRequest,
         onSpaceSelected: (space) => setState(() => _navigationSpace = space),
         repository: widget.repository,
@@ -176,6 +177,7 @@ class _MainShellState extends State<MainShell> {
             profile: _navigationProfile,
             space: _navigationSpace,
             onSelected: _selectDestination,
+            onProfileLongPress: _openProfileSwitcher,
             onCreatePost: createPost,
           ),
         );
@@ -248,6 +250,11 @@ class _MainShellState extends State<MainShell> {
       if (value == 2) _communitiesRevision++;
       if (value == 3) _profileRevision++;
     });
+  }
+
+  Future<void> _openProfileSwitcher() async {
+    _selectDestination(3);
+    await _profileKey.currentState?.showProfileSwitcher();
   }
 }
 
@@ -636,6 +643,7 @@ class _CompactBottomNavigation extends StatelessWidget {
     this.profile,
     this.space,
     required this.onSelected,
+    required this.onProfileLongPress,
     required this.onCreatePost,
   });
 
@@ -643,6 +651,7 @@ class _CompactBottomNavigation extends StatelessWidget {
   final WicchuProfile? profile;
   final Community? space;
   final ValueChanged<int> onSelected;
+  final VoidCallback onProfileLongPress;
   final VoidCallback onCreatePost;
 
   @override
@@ -688,6 +697,7 @@ class _CompactBottomNavigation extends StatelessWidget {
                       onTap: () => onSelected(2),
                     ),
                     _CompactNavigationItem(
+                      key: const ValueKey('bottom-profile-navigation'),
                       icon: CupertinoIcons.person,
                       selectedIcon: CupertinoIcons.person_fill,
                       customIcon: profile == null
@@ -716,6 +726,7 @@ class _CompactBottomNavigation extends StatelessWidget {
                       label: context.tr('You'),
                       selected: selectedIndex == 3,
                       onTap: () => onSelected(3),
+                      onLongPress: onProfileLongPress,
                     ),
                   ],
                 ),
@@ -737,12 +748,14 @@ class _CompactBottomNavigation extends StatelessWidget {
 
 class _CompactNavigationItem extends StatelessWidget {
   const _CompactNavigationItem({
+    super.key,
     required this.icon,
     required this.selectedIcon,
     this.customIcon,
     required this.label,
     required this.selected,
     required this.onTap,
+    this.onLongPress,
   });
 
   final IconData icon;
@@ -751,6 +764,7 @@ class _CompactNavigationItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -763,6 +777,7 @@ class _CompactNavigationItem extends StatelessWidget {
         label: label,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1385,18 +1400,38 @@ class _HomeTabState extends State<_HomeTab>
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    Widget headerAction({
+      required String tooltip,
+      required Widget icon,
+      required VoidCallback onPressed,
+    }) => IconButton(
+      tooltip: tooltip,
+      icon: icon,
+      onPressed: onPressed,
+      iconSize: 22,
+      padding: const EdgeInsets.all(11),
+      constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+      style: IconButton.styleFrom(
+        fixedSize: const Size(44, 44),
+        minimumSize: const Size(44, 44),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
+      ),
+    );
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 48,
-        title: const WicchuTitle(),
+        toolbarHeight: 44,
+        title: const WicchuTitle(scale: .87),
         actions: [
           FutureBuilder<List<DirectConversation>>(
             future: _messageRequests,
             builder: (context, snapshot) {
               final requests = snapshot.data?.length ?? 0;
-              return IconButton(
+              return headerAction(
                 tooltip: context.tr('Messages'),
                 icon: Badge.count(
+                  backgroundColor: const Color(0xFFC62828),
+                  textColor: Colors.white,
                   count: requests,
                   isLabelVisible: requests > 0,
                   child: const Icon(Icons.chat_bubble_outline),
@@ -1413,9 +1448,9 @@ class _HomeTabState extends State<_HomeTab>
               );
             },
           ),
-          IconButton(
+          headerAction(
             tooltip: context.tr('My spaces'),
-            icon: const Icon(Icons.groups_outlined),
+            icon: const Icon(Icons.grid_view_outlined),
             onPressed: () async {
               final data = await _data;
               if (mounted) {
@@ -1425,7 +1460,7 @@ class _HomeTabState extends State<_HomeTab>
               }
             },
           ),
-          IconButton(
+          headerAction(
             tooltip: context.tr(_showSearch ? 'Close search' : 'Search posts'),
             onPressed: () => setState(() {
               _showSearch = !_showSearch;
@@ -1441,12 +1476,14 @@ class _HomeTabState extends State<_HomeTab>
             future: _notifications,
             builder: (context, snapshot) {
               final unread = snapshot.data?.unreadCount ?? 0;
-              return IconButton(
+              return headerAction(
                 tooltip: context.tr('Notifications'),
                 icon: Badge.count(
+                  backgroundColor: const Color(0xFFC62828),
+                  textColor: Colors.white,
                   count: unread,
                   isLabelVisible: unread > 0,
-                  child: const Icon(CupertinoIcons.bell),
+                  child: const Icon(Icons.notifications_none_outlined),
                 ),
                 onPressed: () async {
                   await openResponsiveSidePanel<void>(
@@ -1731,11 +1768,11 @@ class _HomeTabState extends State<_HomeTab>
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _FeedFiltersHeader(
-                      height: 44,
+                      height: 40,
                       child: ColoredBox(
                         color: Theme.of(context).scaffoldBackgroundColor,
                         child: FeedFilterBar(
-                          height: 44,
+                          height: 40,
                           labels: [
                             context.tr('For you'),
                             context.tr('Following'),
@@ -1985,7 +2022,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   Timer? _searchDelay;
   final _searchController = TextEditingController();
   String _query = '';
-  int _filter = 3;
+  int _filter = 0;
   int _createdWithinDays = 0;
   int _audienceRange = 0;
   Position? _position;
@@ -1999,9 +2036,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   void _reload() {
-    if (_filter == 5) {
-      return;
-    } else if (_filter == 6) {
+    if (_filter == 6) {
       _people = widget.repository.searchPeople(query: _query, limit: 50);
     } else if (_filter == 2) {
       _communities = widget.repository.listJoinedCommunities();
@@ -2112,7 +2147,6 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   Future<void> _refresh() async {
-    if (_filter == 5) return;
     if (_filter == 6) {
       setState(_reload);
       try {
@@ -2214,7 +2248,12 @@ class _ExploreTabState extends State<_ExploreTab> {
             children: [_LoadError(error: snapshot.error!, onRetry: _refresh)],
           );
         }
-        final people = snapshot.data?.people ?? const <PeopleSearchResult>[];
+        final people = [...?snapshot.data?.people]
+          ..sort(
+            (first, second) => second.sharedCommunityCount.compareTo(
+              first.sharedCommunityCount,
+            ),
+          );
         if (people.isEmpty) {
           return ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -2242,33 +2281,126 @@ class _ExploreTabState extends State<_ExploreTab> {
             ],
           );
         }
+        final colors = Theme.of(context).colorScheme;
         return ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: people.length,
-          separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          itemCount: people.length + 1,
+          separatorBuilder: (_, index) => index == 0
+              ? const SizedBox(height: 12)
+              : Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: colors.onSurface.withValues(alpha: .06),
+                ),
           itemBuilder: (context, index) {
-            final person = people[index];
-            final username = person.userName.isEmpty
-                ? ''
-                : '@${person.userName}';
-            final shared = context.trCount(
-              person.sharedCommunityCount,
-              singular: '{count} shared community',
-              plural: '{count} shared communities',
-            );
-            return ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              leading: UserAvatar(
-                name: person.name,
-                imageUrl: person.avatarUrl,
-                radius: 24,
-              ),
-              title: Text(person.name),
-              subtitle: Text(username.isEmpty ? shared : '$username · $shared'),
-              trailing: const Icon(Icons.chevron_right),
+            if (index == 0) {
+              final count =
+                  '${people.length}${snapshot.data?.nextCursor == null ? '' : '+'}';
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.people_outline,
+                        color: colors.primary,
+                        size: 25,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          context.tr('People'),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        context.tr(
+                          people.length == 1 &&
+                                  snapshot.data?.nextCursor == null
+                              ? '{count} result'
+                              : '{count} results',
+                          {'count': count},
+                        ),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            }
+            final person = people[index - 1];
+            return InkWell(
+              borderRadius: BorderRadius.circular(12),
               onTap: () => _openPerson(person),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    UserAvatar(
+                      name: person.name,
+                      imageUrl: person.avatarUrl,
+                      radius: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            person.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (person.userName.isNotEmpty) ...[
+                            const SizedBox(height: 1),
+                            Text(
+                              '@${person.userName.replaceFirst(RegExp(r'^@'), '')}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                          if (person.sharedCommunityCount > 0) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              context.trCount(
+                                person.sharedCommunityCount,
+                                singular: '{count} shared community',
+                                plural: '{count} shared communities',
+                              ),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.chevron_right,
+                      color: colors.onSurface,
+                      size: 24,
+                    ),
+                  ],
+                ),
+              ),
             );
           },
         );
@@ -2351,7 +2483,7 @@ class _ExploreTabState extends State<_ExploreTab> {
           if (!searching)
             FilledButton.icon(
               onPressed: _filter == 2
-                  ? () => _selectFilter(3)
+                  ? () => _selectFilter(0)
                   : _createCommunity,
               icon: Icon(_filter == 2 ? Icons.explore_outlined : Icons.add),
               label: Text(
@@ -2595,7 +2727,7 @@ class _ExploreTabState extends State<_ExploreTab> {
             setState(() {
               _searchController.clear();
               _query = '';
-              _filter = 3;
+              _filter = 0;
               _reload();
             });
           },
@@ -2671,11 +2803,13 @@ class _ExploreTabState extends State<_ExploreTab> {
                   decoration: InputDecoration(labelText: context.tr('Show')),
                   items: [
                     for (final entry in const {
+                      0: 'All',
                       3: 'Communities',
                       5: 'Businesses',
                       6: 'People',
                       1: 'Near you',
                       2: 'My communities',
+                      4: 'Public profiles',
                     }.entries)
                       DropdownMenuItem(
                         value: entry.key,
@@ -2730,7 +2864,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                 ),
                 TextButton(
                   onPressed: () {
-                    scope = 3;
+                    scope = 0;
                     days = 0;
                     audience = 0;
                     Navigator.pop(sheetContext, true);
@@ -2763,11 +2897,7 @@ class _ExploreTabState extends State<_ExploreTab> {
         onChanged: _search,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          hintText: context.tr(
-            _filter == 5
-                ? 'Search food, services, transport…'
-                : 'Search communities, businesses or people…',
-          ),
+          hintText: context.tr('Search Wicchu…'),
           prefixIcon: const Icon(Icons.search),
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
             valueListenable: _searchController,
@@ -2800,7 +2930,7 @@ class _ExploreTabState extends State<_ExploreTab> {
         ),
       ),
       actions: [
-        if (_filter != 6 && _filter != 5)
+        if (_filter != 6)
           IconButton(
             tooltip: context.tr('Discovery filters'),
             onPressed: _openDiscoveryFilters,
@@ -2820,25 +2950,33 @@ class _ExploreTabState extends State<_ExploreTab> {
         FeedFilterBar(
           height: 48,
           labels: [
+            context.tr('All'),
             context.tr('Communities'),
             context.tr('Businesses'),
             context.tr('People'),
+            if (_filter == 1) context.tr('Near you'),
+            if (_filter == 2) context.tr('My communities'),
+            if (_filter == 4) context.tr('Public profiles'),
           ],
-          selectedIndex: _filter == 5
-              ? 1
-              : _filter == 6
-              ? 2
-              : 0,
-          onSelected: (index) => _selectFilter(const [3, 5, 6][index]),
+          selectedIndex: [
+            0,
+            3,
+            5,
+            6,
+            if ([1, 2, 4].contains(_filter)) _filter,
+          ].indexOf(_filter),
+          onSelected: (index) => _selectFilter(
+            [
+              0,
+              3,
+              5,
+              6,
+              if ([1, 2, 4].contains(_filter)) _filter,
+            ][index],
+          ),
         ),
         Expanded(
-          child: _filter == 5
-              ? LocalDiscoveryView(
-                  key: ValueKey('local-discovery-$_query'),
-                  repository: widget.repository,
-                  initialQuery: _query,
-                )
-              : _filter == 6
+          child: _filter == 6
               ? _peopleResults()
               : RefreshIndicator(
                   onRefresh: _refresh,
@@ -3589,6 +3727,7 @@ class _ActivityTabState extends State<_ActivityTab> {
 
 class _ProfileTab extends StatefulWidget {
   const _ProfileTab({
+    super.key,
     this.accountHub = false,
     this.onSpaceSelected,
     this.postRequest,
@@ -3633,6 +3772,15 @@ class _ProfileTabState extends State<_ProfileTab> {
     try {
       await _profile;
     } catch (_) {}
+  }
+
+  Future<void> showProfileSwitcher() async {
+    try {
+      final profile = await _profile;
+      if (mounted) await _switchProfile(profile);
+    } catch (_) {
+      // The profile screen already renders its loading error and retry action.
+    }
   }
 
   @override
