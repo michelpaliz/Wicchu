@@ -98,6 +98,7 @@ class DemoCommunityRepository implements CommunityRepository {
         postCount: (await listMemberPosts(userId)).length,
         communityCount: 1,
         socialLinks: _socialLinks,
+        accentColor: _editableProfile.accentColor,
       );
 
   @override
@@ -122,6 +123,7 @@ class DemoCommunityRepository implements CommunityRepository {
         bio: _editableProfile.bio,
         location: _editableProfile.location,
         socialLinks: _socialLinks,
+        accentColor: _editableProfile.accentColor,
       );
 
   @override
@@ -602,6 +604,8 @@ class DemoCommunityRepository implements CommunityRepository {
     String? imageBlobName,
     String? coverImageUrl,
     String? coverImageBlobName,
+    bool? published,
+    String? accentColor,
   }) async {
     final updated = Community(
       id: community.id,
@@ -631,6 +635,8 @@ class DemoCommunityRepository implements CommunityRepository {
       businessFulfillmentOptions:
           businessFulfillmentOptions ?? community.businessFulfillmentOptions,
       businessContact: businessContact ?? community.businessContact,
+      published: published ?? community.published,
+      accentColor: accentColor ?? community.accentColor,
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;

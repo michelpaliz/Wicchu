@@ -156,6 +156,7 @@ class PublicMemberProfile {
     this.socialLinks = const SocialLinks(),
     this.isOnline = false,
     this.lastActiveAt,
+    this.accentColor = 'teal',
   });
   final String id;
   final String name;
@@ -171,6 +172,7 @@ class PublicMemberProfile {
   final SocialLinks socialLinks;
   final bool isOnline;
   final DateTime? lastActiveAt;
+  final String accentColor;
 }
 
 class PeopleSearchResult {
@@ -223,6 +225,7 @@ class EditableMemberProfile {
     this.bio = '',
     this.location = '',
     this.socialLinks = const SocialLinks(),
+    this.accentColor = 'teal',
   });
 
   final String name;
@@ -230,6 +233,7 @@ class EditableMemberProfile {
   final String bio;
   final String location;
   final SocialLinks socialLinks;
+  final String accentColor;
 }
 
 class CommunityNotification {
@@ -304,6 +308,8 @@ class Community {
     this.banPublicReason,
     this.banExpiresAt,
     this.canManagePageInbox = false,
+    this.published = true,
+    this.accentColor = 'teal',
   });
 
   final String id;
@@ -339,6 +345,8 @@ class Community {
   final String? banPublicReason;
   final DateTime? banExpiresAt;
   final bool canManagePageInbox;
+  final bool published;
+  final String accentColor;
 
   bool get isJoined => myRole != null;
   bool get isBanned => membershipStatus == MembershipStatus.banned;

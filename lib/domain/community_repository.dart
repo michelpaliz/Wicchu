@@ -329,6 +329,8 @@ abstract interface class CommunityRepository {
     String? imageBlobName,
     String? coverImageUrl,
     String? coverImageBlobName,
+    bool? published,
+    String? accentColor,
   });
   Future<CommunityWeather?> getCommunityWeather(String communityId);
   Future<List<CommunityPost>> listPosts(

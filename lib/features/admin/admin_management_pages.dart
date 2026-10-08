@@ -14,6 +14,7 @@ import 'restaurant_settings_page.dart';
 import '../community/community_invitations_page.dart';
 import '../community/user_avatar.dart';
 import '../profile/member_profile_page.dart';
+import '../../widgets/profile_accent_picker.dart';
 
 class CategoryManagementPage extends StatefulWidget {
   const CategoryManagementPage({
@@ -1331,6 +1332,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     text: widget.community.shortDescription,
   );
   late CommunityVisibility _visibility = widget.community.visibility;
+  late bool _published = widget.community.published;
+  late String _accentColor = widget.community.accentColor;
   late Town _town = widget.community.town;
   late Future<List<Town>> _towns;
   bool _locatingTown = false;
@@ -1740,39 +1743,80 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
             ],
           ],
           const SizedBox(height: 16),
+          _settingsSection('Profile color', Icons.palette_outlined, [
+            Text(
+              context.tr(
+                widget.community.isPublicProfile
+                    ? 'Choose an accent color for this page.'
+                    : 'Choose an accent color for this community.',
+              ),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 14),
+            ProfileAccentPicker(
+              value: _accentColor,
+              labelBuilder: (value) =>
+                  context.tr(profileAccentLabel(value)),
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(() => _accentColor = value),
+            ),
+          ]),
+          const SizedBox(height: 12),
           _settingsSection('General', Icons.settings_outlined, [
-            Row(
-              children: [
-                Icon(
-                  _visibility == CommunityVisibility.public
-                      ? Icons.public
-                      : Icons.lock_outline,
-                  size: 20,
+            if (widget.community.isPublicProfile)
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                secondary: Icon(
+                  _published ? Icons.public : Icons.visibility_off_outlined,
                   color: Theme.of(context).colorScheme.primary,
                 ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(context.tr('Visibility'))),
-                DropdownButtonHideUnderline(
-                  child: DropdownButton<CommunityVisibility>(
-                    value: _visibility,
-                    borderRadius: BorderRadius.circular(12),
-                    icon: const Icon(Icons.keyboard_arrow_down),
-                    items: [
-                      for (final value in CommunityVisibility.values)
-                        DropdownMenuItem(
-                          value: value,
-                          child: Text(context.tr(value.name)),
-                        ),
-                    ],
-                    onChanged: _saving
-                        ? null
-                        : (value) => setState(
-                            () => _visibility = value ?? _visibility,
-                          ),
+                title: Text(context.tr('Page is published')),
+                subtitle: Text(
+                  context.tr(
+                    _published
+                        ? 'This page is visible in search, Explore and public feeds.'
+                        : 'Only owners and administrators can find and edit this page.',
                   ),
                 ),
-              ],
-            ),
+                value: _published,
+                onChanged: _saving
+                    ? null
+                    : (value) => setState(() => _published = value),
+              )
+            else
+              Row(
+                children: [
+                  Icon(
+                    _visibility == CommunityVisibility.public
+                        ? Icons.public
+                        : Icons.lock_outline,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(context.tr('Visibility'))),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<CommunityVisibility>(
+                      value: _visibility,
+                      borderRadius: BorderRadius.circular(12),
+                      icon: const Icon(Icons.keyboard_arrow_down),
+                      items: [
+                        for (final value in CommunityVisibility.values)
+                          DropdownMenuItem(
+                            value: value,
+                            child: Text(context.tr(value.name)),
+                          ),
+                      ],
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(
+                              () => _visibility = value ?? _visibility,
+                            ),
+                    ),
+                  ),
+                ],
+              ),
           ]),
           const SizedBox(height: 12),
           _settingsSection('Location', Icons.location_on_outlined, [
@@ -2128,6 +2172,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         imageBlobName: _imageBlobName,
         coverImageUrl: _coverImageUrl,
         coverImageBlobName: _coverImageBlobName,
+        published: widget.community.isPublicProfile ? _published : null,
+        accentColor: _accentColor,
       );
       if (!mounted) return;
       if (widget.community.isPublicProfile &&

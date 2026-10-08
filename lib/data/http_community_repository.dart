@@ -76,6 +76,7 @@ class HttpCommunityRepository implements CommunityRepository {
       socialLinks: _socialLinksFromJson(json['socialLinks']),
       isOnline: json['isOnline'] == true,
       lastActiveAt: _optionalDate(json['lastActiveAt']),
+      accentColor: json['accentColor']?.toString() ?? 'teal',
     );
   }
 
@@ -428,6 +429,7 @@ class HttpCommunityRepository implements CommunityRepository {
         'userName': profile.userName,
         'bio': profile.bio,
         'location': profile.location,
+        'accentColor': profile.accentColor,
         'socialLinks': {
           'whatsapp': profile.socialLinks.whatsapp,
           'facebook': profile.socialLinks.facebook,
@@ -445,6 +447,7 @@ class HttpCommunityRepository implements CommunityRepository {
     userName: json['userName']?.toString() ?? '',
     bio: json['bio']?.toString() ?? '',
     location: json['location']?.toString() ?? '',
+    accentColor: json['accentColor']?.toString() ?? 'teal',
     socialLinks: _socialLinksFromJson(json['socialLinks']),
   );
 
@@ -1093,6 +1096,8 @@ class HttpCommunityRepository implements CommunityRepository {
     String? imageBlobName,
     String? coverImageUrl,
     String? coverImageBlobName,
+    bool? published,
+    String? accentColor,
   }) async {
     final body = await _api.patch(
       '/api/community/v1/communities/${community.id}',
@@ -1102,6 +1107,9 @@ class HttpCommunityRepository implements CommunityRepository {
         'shortDescription': shortDescription ?? community.shortDescription,
         'description': description,
         'visibility': visibility.name,
+        if (community.isPublicProfile)
+          'published': published ?? community.published,
+        'accentColor': accentColor ?? community.accentColor,
         'approvalRequired': approvalRequired,
         'showWeather': showWeather,
         if (community.isPublicProfile && profileCategory != null)
@@ -2083,6 +2091,8 @@ class HttpCommunityRepository implements CommunityRepository {
       banPublicReason: json['banPublicReason']?.toString(),
       banExpiresAt: _optionalDate(json['banExpiresAt']),
       canManagePageInbox: json['canManagePageInbox'] == true,
+      published: json['published'] != false,
+      accentColor: json['accentColor']?.toString() ?? 'teal',
       approvalRequired: json['approvalRequired'] as bool? ?? false,
       showWeather: json['showWeather'] as bool? ?? false,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),

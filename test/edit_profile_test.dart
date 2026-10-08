@@ -129,4 +129,21 @@ void main() {
       isNull,
     );
   });
+
+  testWidgets('profile accent color can be selected and saved', (tester) async {
+    final repository = DemoCommunityRepository();
+    await tester.pumpWidget(
+      MaterialApp(home: EditProfilePage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    final purple = find.byKey(const ValueKey('profile-accent-purple'));
+    await tester.ensureVisible(purple);
+    await tester.tap(purple);
+    await tester.pump();
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+
+    expect((await repository.getEditableProfile()).accentColor, 'purple');
+  });
 }

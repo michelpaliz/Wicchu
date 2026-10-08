@@ -5,6 +5,7 @@ import '../community/post_collection_page.dart';
 import '../../widgets/profile_post_grid.dart';
 import '../../widgets/profile_link_button.dart';
 import '../../widgets/block_visibility_listener.dart';
+import '../../widgets/profile_accent_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../widgets/feed_filter_bar.dart';
@@ -406,6 +407,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   Widget _profileHeader(PublicMemberProfile profile) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final accent = profileAccentColor(profile.accentColor);
     Widget stat(int count, String label) => Text.rich(
       TextSpan(
         children: [
@@ -432,6 +434,14 @@ class _MemberProfilePageState extends State<MemberProfilePage>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Container(
+              height: 10,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
             InkWell(
               onTap: profile.socialLinks.isEmpty
                   ? null
@@ -450,7 +460,8 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: colors.primary.withValues(alpha: .16),
+                              color: accent,
+                              width: 2,
                             ),
                           ),
                           child: UserAvatar(
@@ -514,7 +525,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontSize: 12,
                               color: profile.isOnline
-                                  ? colors.primary
+                                  ? accent
                                   : colors.onSurfaceVariant,
                             ),
                           ),
@@ -589,8 +600,8 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                       tooltip: context.tr('Social links'),
                       onPressed: () => _openSocialLinks(profile),
                       style: IconButton.styleFrom(
-                        foregroundColor: colors.primary,
-                        backgroundColor: colors.primary.withValues(alpha: .08),
+                        foregroundColor: accent,
+                        backgroundColor: accent.withValues(alpha: .08),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

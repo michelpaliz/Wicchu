@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../../widgets/profile_accent_picker.dart';
 
 Future<void> editProfileLinks(
   BuildContext context,
@@ -41,6 +42,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _saving = false;
   bool _allowPop = false;
   bool _confirmingLeave = false;
+  String _accentColor = 'teal';
 
   @override
   void initState() {
@@ -127,7 +129,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _details[3].text.trim(),
       ..._controllers.map((controller) => controller.text.trim()),
     ];
-    return List.generate(
+    return _accentColor != initial.accentColor || List.generate(
       values.length,
       (i) => current[i] != values[i],
     ).contains(true);
@@ -142,6 +144,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final profile = await widget.repository.getEditableProfile();
       if (!mounted) return;
       _initial = profile;
+      _accentColor = profile.accentColor;
       final details = [
         profile.name,
         profile.userName,
@@ -271,6 +274,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             email: initial.socialLinks.email,
             showOnlineStatus: initial.socialLinks.showOnlineStatus,
           ),
+          accentColor: _accentColor,
         ),
       );
       if (!mounted) return;
@@ -638,6 +642,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       const SizedBox(height: 12),
                     ],
+                    const Divider(height: 32),
+                    Text(
+                      context.tr('Profile color'),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      context.tr(
+                        'Choose an accent color for your public profile.',
+                      ),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    ProfileAccentPicker(
+                      value: _accentColor,
+                      labelBuilder: (value) =>
+                          context.tr(profileAccentLabel(value)),
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() => _accentColor = value),
+                    ),
                     const Divider(height: 32),
                     Text(
                       context.tr('Social and contact links'),

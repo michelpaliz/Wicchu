@@ -4,6 +4,7 @@ import 'post_collection_page.dart';
 import '../../widgets/profile_post_grid.dart';
 import '../../widgets/wicchu_network_image.dart';
 import '../../widgets/block_visibility_listener.dart';
+import '../../widgets/profile_accent_picker.dart';
 import 'business_service_icon.dart';
 import 'post_rules_review_page.dart';
 import 'user_avatar.dart';
@@ -425,6 +426,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           businessHours: _community.businessHours,
           businessFulfillmentOptions: _community.businessFulfillmentOptions,
           businessContact: _community.businessContact,
+          published: _community.published,
+          accentColor: _community.accentColor,
         );
         _reload();
       });
@@ -692,8 +695,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       child: Text(
         _community.isPublicProfile
             ? typeFirst
-                  ? '${context.tr(_community.spaceTypeLabel)} · ${context.trCount(_community.memberCount, singular: '{count} follower', plural: '{count} followers')}'
-                  : '${context.trCount(_community.memberCount, singular: '{count} follower', plural: '{count} followers')} · ${context.tr(_community.spaceTypeLabel)}'
+                  ? '${context.tr(_community.spaceTypeLabel)} · ${context.trCount(_community.memberCount, singular: '{count} follower', plural: '{count} followers')}${_community.published ? '' : ' · ${context.tr('Unpublished')}'}'
+                  : '${context.trCount(_community.memberCount, singular: '{count} follower', plural: '{count} followers')} · ${context.tr(_community.spaceTypeLabel)}${_community.published ? '' : ' · ${context.tr('Unpublished')}'}'
             : '${context.trCount(_community.memberCount, singular: '{count} member', plural: '{count} members')} · ${context.tr(_community.visibility == CommunityVisibility.public ? 'Public community' : 'Private community')}',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1820,6 +1823,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   Widget _buildHeader(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final accent = profileAccentColor(_community.accentColor);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _openInformation,
@@ -1832,7 +1836,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               children: [
                 _expandableCommunityImage(
                   ColoredBox(
-                    color: scheme.primaryContainer,
+                    color: accent.withValues(alpha: .14),
                     child: _community.coverImageUrl == null
                         ? null
                         : WicchuNetworkImage(
@@ -1850,7 +1854,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   child: Container(
                     padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(
-                      color: scheme.surface,
+                      color: accent,
                       shape: BoxShape.circle,
                     ),
                     child: Semantics(

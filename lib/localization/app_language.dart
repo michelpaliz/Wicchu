@@ -144,6 +144,57 @@ const _spanish = <String, String>{
   'Copies the description and Wicchu link automatically. Choose your social app, then paste them into your post.':
       'Copia automáticamente la descripción y el enlace de Wicchu. Elige tu aplicación y pégalos en tu publicación.',
 
+  'Personal': 'Personal',
+  'Replying as {page}': 'Respondiendo como {page}',
+  'Page conversation': 'Conversación con la página',
+  'Message on Wicchu': 'Enviar mensaje en Wicchu',
+  'No page messages yet': 'Aún no hay mensajes para esta página',
+  'Messages sent to this page will appear here.':
+      'Los mensajes enviados a esta página aparecerán aquí.',
+  'Conversation label': 'Etiqueta de conversación',
+  'Change label': 'Cambiar etiqueta',
+  'New': 'Nuevo',
+  'In progress': 'En curso',
+  'Customer': 'Cliente',
+  'Order': 'Pedido',
+  'Quote': 'Presupuesto',
+  'Completed': 'Completado',
+  'You are replying as {page}': 'Estás respondiendo como {page}',
+  'Allow page inbox access': 'Permitir acceso a la bandeja de la página',
+  'Remove page inbox access': 'Quitar acceso a la bandeja de la página',
+  'Reply to customers as this page.':
+      'Responder a clientes usando la identidad de esta página.',
+  'Page inbox access granted.': 'Acceso a la bandeja de la página concedido.',
+  'Page inbox access removed.': 'Acceso a la bandeja de la página eliminado.',
+  'Community admin conversation': 'Conversación con administradores',
+  'Message community admins': 'Enviar mensaje a los administradores',
+  'Allow shared inbox access': 'Permitir acceso a la bandeja compartida',
+  'Remove shared inbox access': 'Quitar acceso a la bandeja compartida',
+  'Reply to members using this shared identity.':
+      'Responder a miembros usando esta identidad compartida.',
+  'Shared inbox access granted.': 'Acceso a la bandeja compartida concedido.',
+  'Shared inbox access removed.': 'Acceso a la bandeja compartida eliminado.',
+  'Page is published': 'La página está publicada',
+  'This page is visible in search, Explore and public feeds.':
+      'Esta página aparece en búsquedas, Explorar y contenidos públicos.',
+  'Only owners and administrators can find and edit this page.':
+      'Solo propietarios y administradores pueden encontrar y editar esta página.',
+  'Unpublished': 'No publicada',
+  'Profile color': 'Color del perfil',
+  'Choose an accent color for your public profile.':
+      'Elige un color de acento para tu perfil público.',
+  'Choose an accent color for this page.':
+      'Elige un color de acento para esta página.',
+  'Choose an accent color for this community.':
+      'Elige un color de acento para esta comunidad.',
+  'Teal': 'Verde azulado',
+  'Blue': 'Azul',
+  'Indigo': 'Índigo',
+  'Purple': 'Morado',
+  'Rose': 'Rosa',
+  'Orange': 'Naranja',
+  'Green': 'Verde',
+  'Slate': 'Gris pizarra',
   'Your profile, your community': 'Tu perfil, tu comunidad',
   'This information will be visible to other Wicchu users.':
       'Esta información será visible para otros usuarios de Wicchu.',
