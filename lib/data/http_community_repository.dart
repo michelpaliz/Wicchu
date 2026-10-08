@@ -139,8 +139,15 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<List<DirectConversation>> listDirectConversations() async {
-    final body = await _api.get('/api/community/v1/messages/conversations');
+  Future<List<DirectConversation>> listDirectConversations({
+    String? pageId,
+  }) async {
+    final suffix = pageId == null
+        ? ''
+        : '?pageId=${Uri.encodeQueryComponent(pageId)}';
+    final body = await _api.get(
+      '/api/community/v1/messages/conversations$suffix',
+    );
     return _list(
       body,
       'conversations',
@@ -148,9 +155,12 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<List<DirectConversation>> listMessageRequests() async {
+  Future<List<DirectConversation>> listMessageRequests({String? pageId}) async {
+    final suffix = pageId == null
+        ? '?requests=true'
+        : '?requests=true&pageId=${Uri.encodeQueryComponent(pageId)}';
     final body = await _api.get(
-      '/api/community/v1/messages/conversations?requests=true',
+      '/api/community/v1/messages/conversations$suffix',
     );
     return _list(
       body,
@@ -165,6 +175,26 @@ class HttpCommunityRepository implements CommunityRepository {
       body: {'userId': userId},
     );
     return _directConversationFromJson(_object(body, 'conversation'));
+  }
+
+  @override
+  Future<DirectConversation> startPageConversation(String pageId) async {
+    final body = await _api.post(
+      '/api/community/v1/messages/conversations',
+      body: {'pageId': pageId},
+    );
+    return _directConversationFromJson(_object(body, 'conversation'));
+  }
+
+  @override
+  Future<void> updateDirectConversationLabel(
+    String conversationId,
+    ConversationLabel label,
+  ) async {
+    await _api.patch(
+      '/api/community/v1/messages/conversations/$conversationId/label',
+      body: {'label': _conversationLabelValue(label)},
+    );
   }
 
   @override
@@ -301,8 +331,32 @@ class HttpCommunityRepository implements CommunityRepository {
       },
       requestedByMe: json['requestedByMe'] == true,
       canSendMessage: json['canSendMessage'] != false,
+      pageId: json['pageId']?.toString(),
+      pageName: json['pageName']?.toString(),
+      viewingAsPage: json['viewingAsPage'] == true,
+      otherIsPage: json['otherIsPage'] == true,
+      label: _conversationLabel(json['label']),
     );
   }
+
+  static ConversationLabel _conversationLabel(Object? value) => switch (value) {
+    'in_progress' => ConversationLabel.inProgress,
+    'customer' => ConversationLabel.customer,
+    'order' => ConversationLabel.order,
+    'quote' => ConversationLabel.quote,
+    'completed' => ConversationLabel.completed,
+    _ => ConversationLabel.newConversation,
+  };
+
+  static String _conversationLabelValue(ConversationLabel value) =>
+      switch (value) {
+        ConversationLabel.newConversation => 'new',
+        ConversationLabel.inProgress => 'in_progress',
+        ConversationLabel.customer => 'customer',
+        ConversationLabel.order => 'order',
+        ConversationLabel.quote => 'quote',
+        ConversationLabel.completed => 'completed',
+      };
 
   static DirectMessage _directMessageFromJson(Map<String, dynamic> json) =>
       DirectMessage(
@@ -316,6 +370,7 @@ class HttpCommunityRepository implements CommunityRepository {
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
         readAt: _optionalDate(json['readAt']),
         removedAt: _optionalDate(json['removedAt']),
+        sentByMe: json['sentByMe'] == true,
       );
 
   @override
@@ -554,6 +609,51 @@ class HttpCommunityRepository implements CommunityRepository {
         'latitude': '$latitude',
         'longitude': '$longitude',
         'radiusKm': '$radiusKm',
+      },
+    );
+    final body = await _api.get(uri.toString());
+    return _list(
+      body,
+      'communities',
+    ).map(_communityFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<List<Community>> listLocalBusinesses({
+    String? townId,
+    String? query,
+  }) async {
+    final uri = Uri(
+      path: '/api/community/v1/communities',
+      queryParameters: {
+        'type': 'public_profile',
+        'profileCategory': 'local_business',
+        'limit': '100',
+        if (townId != null && townId.isNotEmpty) 'townId': townId,
+        if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+      },
+    );
+    final body = await _api.get(uri.toString());
+    return _list(
+      body,
+      'communities',
+    ).map(_communityFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<List<Community>> listNearbyBusinesses({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 10,
+    String? query,
+  }) async {
+    final uri = Uri(
+      path: '/api/community/v1/businesses/nearby',
+      queryParameters: {
+        'latitude': '$latitude',
+        'longitude': '$longitude',
+        'radiusKm': '$radiusKm',
+        if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
       },
     );
     final body = await _api.get(uri.toString());
@@ -921,6 +1021,7 @@ class HttpCommunityRepository implements CommunityRepository {
             banInternalNote: json['banInternalNote']?.toString(),
             bannedAt: _optionalDate(json['bannedAt']),
             banExpiresAt: _optionalDate(json['banExpiresAt']),
+            pageInboxAccess: json['pageInboxAccess'] == true,
           );
         })
         .toList(growable: false);
@@ -935,6 +1036,18 @@ class HttpCommunityRepository implements CommunityRepository {
     await _api.patch(
       '/api/community/v1/communities/$communityId/members/$userId/role',
       body: {'role': role.name},
+    );
+  }
+
+  @override
+  Future<void> setPageInboxAccess(
+    String communityId,
+    String userId, {
+    required bool enabled,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/communities/$communityId/members/$userId/page-inbox',
+      body: {'pageInboxAccess': enabled},
     );
   }
 
@@ -1125,6 +1238,23 @@ class HttpCommunityRepository implements CommunityRepository {
     final body = await _api.get(
       '/api/community/v1/towns/$townId/business-posts$suffix',
     );
+    return _list(body, 'posts').map(_postFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<List<CommunityPost>> listBusinessPosts(
+    List<String> businessIds, {
+    String? query,
+  }) async {
+    if (businessIds.isEmpty) return const [];
+    final uri = Uri(
+      path: '/api/community/v1/businesses/posts',
+      queryParameters: {
+        'businessIds': businessIds.take(100).join(','),
+        if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+      },
+    );
+    final body = await _api.get(uri.toString());
     return _list(body, 'posts').map(_postFromJson).toList(growable: false);
   }
 
@@ -1951,6 +2081,7 @@ class HttpCommunityRepository implements CommunityRepository {
       },
       banPublicReason: json['banPublicReason']?.toString(),
       banExpiresAt: _optionalDate(json['banExpiresAt']),
+      canManagePageInbox: json['canManagePageInbox'] == true,
       approvalRequired: json['approvalRequired'] as bool? ?? false,
       showWeather: json['showWeather'] as bool? ?? false,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),

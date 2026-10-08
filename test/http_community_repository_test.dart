@@ -52,6 +52,29 @@ class _RecordingApiClient extends AuthenticatedApiClient {
         ],
       };
     }
+    if (path.contains('/api/community/v1/messages/conversations') &&
+        path.contains('pageId=page-1')) {
+      return {
+        'conversations': [
+          {
+            'id': 'page-conversation-1',
+            'otherUser': {'id': 'user-3', 'name': 'Customer'},
+            'pageId': 'page-1',
+            'pageName': 'Como en Casa',
+            'viewingAsPage': true,
+            'otherIsPage': false,
+            'label': 'order',
+            'lastMessagePreview': 'Is delivery available?',
+            'unreadCount': 1,
+            'requestStatus': path.contains('requests=true')
+                ? 'pending'
+                : 'accepted',
+            'requestedByMe': false,
+            'canSendMessage': !path.contains('requests=true'),
+          },
+        ],
+      };
+    }
     if (path == '/api/community/v1/messages/conversations' ||
         path == '/api/community/v1/messages/conversations?requests=true') {
       return {
@@ -152,6 +175,12 @@ class _RecordingApiClient extends AuthenticatedApiClient {
     if (path.startsWith('/api/community/v1/communities/nearby?')) {
       return {'communities': <Map<String, dynamic>>[]};
     }
+    if (path.startsWith('/api/community/v1/businesses/nearby?')) {
+      return {'communities': <Map<String, dynamic>>[]};
+    }
+    if (path.startsWith('/api/community/v1/businesses/posts?')) {
+      return {'posts': <Map<String, dynamic>>[]};
+    }
     if (path.startsWith('/api/community/v1/communities?')) {
       return {
         'communities': [
@@ -250,6 +279,22 @@ class _RecordingApiClient extends AuthenticatedApiClient {
     lastPath = path;
     lastBody = body;
     if (path == '/api/community/v1/messages/conversations') {
+      if (body?['pageId'] != null) {
+        return {
+          'conversation': {
+            'id': 'page-conversation-1',
+            'otherUser': {'id': body?['pageId'], 'name': 'Como en Casa'},
+            'pageId': body?['pageId'],
+            'pageName': 'Como en Casa',
+            'viewingAsPage': false,
+            'otherIsPage': true,
+            'unreadCount': 0,
+            'requestStatus': 'pending',
+            'requestedByMe': true,
+            'canSendMessage': true,
+          },
+        };
+      }
       return {
         'conversation': {
           'id': 'conversation-1',
@@ -510,6 +555,60 @@ void main() {
       MessagingPrivacy.nobody,
     );
     expect(api.lastBody, {'messagingPrivacy': 'nobody'});
+  });
+
+  test(
+    'page messaging addresses and filters the selected page inbox',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+
+      final started = await repository.startPageConversation('page-1');
+      expect(api.lastBody, {'pageId': 'page-1'});
+      expect(started.otherIsPage, isTrue);
+      expect(started.pageName, 'Como en Casa');
+
+      final conversations = await repository.listDirectConversations(
+        pageId: 'page-1',
+      );
+      expect(
+        api.lastPath,
+        '/api/community/v1/messages/conversations?pageId=page-1',
+      );
+      expect(conversations.single.viewingAsPage, isTrue);
+      expect(conversations.single.otherUser.name, 'Customer');
+      expect(conversations.single.label, ConversationLabel.order);
+
+      await repository.updateDirectConversationLabel(
+        'page-conversation-1',
+        ConversationLabel.completed,
+      );
+      expect(
+        api.lastPath,
+        '/api/community/v1/messages/conversations/page-conversation-1/label',
+      );
+      expect(api.lastBody, {'label': 'completed'});
+
+      final requests = await repository.listMessageRequests(pageId: 'page-1');
+      expect(
+        api.lastPath,
+        '/api/community/v1/messages/conversations?requests=true&pageId=page-1',
+      );
+      expect(requests.single.requestStatus, MessageRequestStatus.pending);
+    },
+  );
+
+  test('page owner can grant an administrator shared inbox access', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.setPageInboxAccess('page-1', 'admin-1', enabled: true);
+
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/page-1/members/admin-1/page-inbox',
+    );
+    expect(api.lastBody, {'pageInboxAccess': true});
   });
 
   test('comment and member reports use their moderation endpoints', () async {
@@ -846,6 +945,31 @@ void main() {
     expect(uri.queryParameters['latitude'], '40.5');
     expect(uri.queryParameters['longitude'], '-3.7');
     expect(uri.queryParameters['radiusKm'], '25.0');
+  });
+
+  test('business discovery sends location mode parameters', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.listLocalBusinesses(townId: 'town-1');
+    var uri = Uri.parse(api.lastPath!);
+    expect(uri.path, '/api/community/v1/communities');
+    expect(uri.queryParameters['profileCategory'], 'local_business');
+    expect(uri.queryParameters['townId'], 'town-1');
+
+    await repository.listNearbyBusinesses(
+      latitude: -1.43,
+      longitude: -79.28,
+      radiusKm: 10,
+    );
+    uri = Uri.parse(api.lastPath!);
+    expect(uri.path, '/api/community/v1/businesses/nearby');
+    expect(uri.queryParameters['radiusKm'], '10.0');
+
+    await repository.listBusinessPosts(['business-1', 'business-2']);
+    uri = Uri.parse(api.lastPath!);
+    expect(uri.path, '/api/community/v1/businesses/posts');
+    expect(uri.queryParameters['businessIds'], 'business-1,business-2');
   });
 
   test(

@@ -114,6 +114,28 @@ class LanguageMenu extends StatelessWidget {
 }
 
 const _spanish = <String, String>{
+  'Personal': 'Personal',
+  'Replying as {page}': 'Respondiendo como {page}',
+  'Page conversation': 'Conversación con la página',
+  'Message on Wicchu': 'Enviar mensaje en Wicchu',
+  'No page messages yet': 'Aún no hay mensajes para esta página',
+  'Messages sent to this page will appear here.':
+      'Los mensajes enviados a esta página aparecerán aquí.',
+  'Conversation label': 'Etiqueta de conversación',
+  'Change label': 'Cambiar etiqueta',
+  'New': 'Nuevo',
+  'In progress': 'En curso',
+  'Customer': 'Cliente',
+  'Order': 'Pedido',
+  'Quote': 'Presupuesto',
+  'Completed': 'Completado',
+  'You are replying as {page}': 'Estás respondiendo como {page}',
+  'Allow page inbox access': 'Permitir acceso a la bandeja de la página',
+  'Remove page inbox access': 'Quitar acceso a la bandeja de la página',
+  'Reply to customers as this page.':
+      'Responder a clientes usando la identidad de esta página.',
+  'Page inbox access granted.': 'Acceso a la bandeja de la página concedido.',
+  'Page inbox access removed.': 'Acceso a la bandeja de la página eliminado.',
   'Your profile, your community': 'Tu perfil, tu comunidad',
   'This information will be visible to other Wicchu users.':
       'Esta información será visible para otros usuarios de Wicchu.',
@@ -336,6 +358,50 @@ const _spanish = <String, String>{
   'Posting as {name}': 'Publicando como {name}',
   'For you': 'Para ti',
   'Explore': 'Explorar',
+  'Local': 'Local',
+  'Search food, services, transport…': 'Buscar comida, servicios, transporte…',
+  'Discover local businesses': 'Descubre negocios locales',
+  'Near me': 'Cerca de mí',
+  'Choose town': 'Elegir localidad',
+  'Anywhere': 'Cualquier lugar',
+  'Search radius': 'Radio de búsqueda',
+  'Nearest first': 'Más cercanos primero',
+  '{distance} km away': 'A {distance} km',
+  'Businesses within {radius} km of your current location':
+      'Negocios a menos de {radius} km de tu ubicación actual',
+  'Explore local businesses from every available town':
+      'Explora negocios locales de todas las localidades disponibles',
+  'Enable location services to find businesses nearby.':
+      'Activa los servicios de ubicación para encontrar negocios cercanos.',
+  'Location permission is required for Near me.':
+      'El permiso de ubicación es necesario para Cerca de mí.',
+  'Profiles and useful updates from {town}':
+      'Perfiles y novedades útiles de {town}',
+  'Restaurants': 'Restaurantes',
+  'Businesses near you': 'Negocios cerca de ti',
+  'No menus are available today.': 'No hay menús disponibles hoy.',
+  'No businesses match this category.':
+      'No hay negocios que coincidan con esta categoría.',
+  'Explore {town}': 'Explora {town}',
+  "Find what's happening around you": 'Encuentra lo que ocurre cerca de ti',
+  'Shops': 'Tiendas',
+  'All businesses': 'Todos los negocios',
+  'Upcoming': 'Próximos',
+  'Tomorrow': 'Mañana',
+  'Maximum price': 'Precio máximo',
+  'Any price': 'Cualquier precio',
+  'Up to {price}': 'Hasta {price}',
+  'Upcoming transport': 'Próximos transportes',
+  'Shop local': 'Compra local',
+  'Local services': 'Servicios locales',
+  'Service providers': 'Profesionales y proveedores',
+  'No local results match these filters.':
+      'No hay resultados locales que coincidan con estos filtros.',
+  'Could not load local discovery.':
+      'No se pudo cargar el descubrimiento local.',
+  'No towns are available yet.': 'Todavía no hay localidades disponibles.',
+  'seats': 'asientos',
+  'bedrooms': 'dormitorios',
   'Activity': 'Actividad',
   'Communities': 'Comunidades',
   'You': 'Tú',
@@ -762,6 +828,7 @@ const _spanish = <String, String>{
   'See more': 'Ver más',
   'See less': 'Ver menos',
   'What do you want to publish?': '¿Qué quieres publicar?',
+  'What would you like to publish?': '¿Qué te gustaría publicar?',
   'Latest': 'Recientes',
   'Popular': 'Populares',
   'Create post': 'Crear publicación',
@@ -794,6 +861,7 @@ const _spanish = <String, String>{
   'Create another post': 'Crear otra publicación',
   'Share elsewhere': 'Compartir también en',
   'Get more reach': 'Consigue más alcance',
+  'Share with your customers': 'Comparte con tus clientes',
   'Instagram Story': 'Historia de Instagram',
   'Instagram Post': 'Publicación de Instagram',
   'Share a Wicchu-designed 9:16 image.':
@@ -808,6 +876,11 @@ const _spanish = <String, String>{
   'Description copied': 'Descripción copiada',
   'Copy link': 'Copiar enlace',
   'Posting to': 'Publicando en',
+  'Publishing as your business': 'Publicando como tu negocio',
+  'Contact and location details are added from your business profile.':
+      'Los datos de contacto y ubicación se añaden desde el perfil de tu negocio.',
+  'Visible in {town} and on your business profile.':
+      'Visible en {town} y en el perfil de tu negocio.',
   'Post details': 'Detalles de la publicación',
   'What would you like to share?': '¿Qué te gustaría compartir?',
   'Preview': 'Vista previa',

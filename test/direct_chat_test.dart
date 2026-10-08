@@ -11,14 +11,40 @@ class _ChatRepository extends DemoCommunityRepository {
   String? deletedMessageId;
   bool? deletedForEveryone;
   bool? acceptedRequest;
+  String? lastConversationPageId;
+  String? lastRequestPageId;
   List<DirectConversation> chats = const [];
   List<DirectConversation> requests = const [];
 
   @override
-  Future<List<DirectConversation>> listDirectConversations() async => chats;
+  Future<List<Community>> listManagedCommunities() async => [
+    Community(
+      id: 'page-1',
+      name: 'Como en Casa',
+      description: 'Local restaurant',
+      town: const Town(id: 'town-1', name: 'Echeandía', countryCode: 'EC'),
+      visibility: CommunityVisibility.public,
+      createdBy: 'current-user',
+      createdAt: DateTime.utc(2026, 10, 1),
+      type: CommunityType.publicProfile,
+      profileCategory: ProfileCategory.localBusiness,
+      myRole: CommunityRole.owner,
+    ),
+  ];
 
   @override
-  Future<List<DirectConversation>> listMessageRequests() async => requests;
+  Future<List<DirectConversation>> listDirectConversations({
+    String? pageId,
+  }) async {
+    lastConversationPageId = pageId;
+    return chats;
+  }
+
+  @override
+  Future<List<DirectConversation>> listMessageRequests({String? pageId}) async {
+    lastRequestPageId = pageId;
+    return requests;
+  }
 
   @override
   Future<DirectMessagePage> listDirectMessages(
@@ -35,6 +61,7 @@ class _ChatRepository extends DemoCommunityRepository {
               recipientId: 'current-user',
               body: 'Hello from Ana',
               createdAt: DateTime.utc(2026, 10, 5, 10),
+              sentByMe: false,
             ),
           ],
         )
@@ -47,6 +74,7 @@ class _ChatRepository extends DemoCommunityRepository {
               recipientId: 'current-user',
               body: 'Older hello',
               createdAt: DateTime.utc(2026, 10, 4, 10),
+              sentByMe: false,
             ),
           ],
         );
@@ -64,6 +92,7 @@ class _ChatRepository extends DemoCommunityRepository {
       recipientId: 'user-2',
       body: body,
       createdAt: DateTime.utc(2026, 10, 5, 10, 1),
+      sentByMe: true,
     );
   }
 
@@ -96,6 +125,48 @@ class _ChatRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets('page inbox clearly shows the active reply identity', (
+    tester,
+  ) async {
+    const conversation = DirectConversation(
+      id: 'page-conversation-1',
+      otherUser: WicchuUser(id: 'customer-1', name: 'Customer'),
+      unreadCount: 0,
+      pageId: 'page-1',
+      pageName: 'Como en Casa',
+      viewingAsPage: true,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DirectChatPage(
+          repository: _ChatRepository(),
+          conversation: conversation,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('You are replying as Como en Casa'), findsOneWidget);
+  });
+
+  testWidgets('inbox can switch from personal identity to an owned page', (
+    tester,
+  ) async {
+    final repository = _ChatRepository();
+    await tester.pumpWidget(
+      MaterialApp(home: ConversationListPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Personal'), findsOneWidget);
+    expect(find.text('Como en Casa'), findsOneWidget);
+    await tester.tap(find.text('Como en Casa'));
+    await tester.pumpAndSettle();
+
+    expect(repository.lastConversationPageId, 'page-1');
+    expect(repository.lastRequestPageId, 'page-1');
+  });
+
   testWidgets('incoming message requests open first and show their count', (
     tester,
   ) async {

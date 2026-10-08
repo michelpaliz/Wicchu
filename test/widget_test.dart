@@ -1193,9 +1193,9 @@ void main() {
       await tester.tap(find.text('Apply filters'));
       await tester.pumpAndSettle();
       expect(find.text('Find your community'), findsOneWidget);
-      await tester.ensureVisible(find.text('All'));
+      await tester.ensureVisible(find.text('Communities'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('All'));
+      await tester.tap(find.text('Communities'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Create community'));
       await tester.pumpAndSettle();
@@ -1283,6 +1283,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No people found.'), findsOneWidget);
     expect(find.text('Create community'), findsNothing);
+  });
+
+  testWidgets('Businesses tab opens local business discovery', (tester) async {
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Explore'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Businesses'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discover local businesses'), findsOneWidget);
+    expect(find.text('Food'), findsOneWidget);
+    expect(find.text('People'), findsOneWidget);
   });
 
   testWidgets('requests popular category posts', (tester) async {

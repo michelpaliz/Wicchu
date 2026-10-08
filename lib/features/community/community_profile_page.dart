@@ -22,6 +22,7 @@ import '../../localization/app_language.dart';
 import '../admin/admin_dashboard_page.dart';
 import '../admin/admin_management_pages.dart';
 import '../admin/official_links_page.dart';
+import '../chat/direct_chat_pages.dart';
 import '../profile/member_profile_page.dart';
 import 'community_avatar.dart';
 import 'community_share.dart';
@@ -1400,6 +1401,23 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                     size: 20,
                                   ),
                                 ),
+                              if (_community.isPublicProfile && !_canManage)
+                                IconButton.filledTonal(
+                                  key: const ValueKey('public-profile-message'),
+                                  tooltip: context.tr('Message on Wicchu'),
+                                  onPressed: _openPageChat,
+                                  style: IconButton.styleFrom(
+                                    fixedSize: const Size(44, 44),
+                                    minimumSize: const Size(44, 44),
+                                    maximumSize: const Size(44, 44),
+                                    padding: EdgeInsets.zero,
+                                    shape: const CircleBorder(),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.chat_bubble_outline,
+                                    size: 20,
+                                  ),
+                                ),
                             ],
                           ),
                         ],
@@ -2105,9 +2123,43 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             const SizedBox(height: 12),
             _restaurantSummary(),
           ],
+          if (_community.isPublicProfile && !_canManage) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openPageChat,
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: Text(context.tr('Message on Wicchu')),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _openPageChat() async {
+    try {
+      final conversation = await widget.repository.startPageConversation(
+        _community.id,
+      );
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DirectChatPage(
+            repository: widget.repository,
+            conversation: conversation,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
   }
 
   Widget _restaurantSummary() {

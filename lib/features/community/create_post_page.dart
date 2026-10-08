@@ -128,6 +128,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
       widget.community.isPublicProfile &&
       widget.community.profileCategory == ProfileCategory.localBusiness &&
       widget.community.businessServices.contains(BusinessService.food);
+  bool get _isLocalBusiness =>
+      widget.community.isPublicProfile &&
+      widget.community.profileCategory == ProfileCategory.localBusiness;
 
   bool _hasBusinessService(BusinessService service) =>
       widget.community.isPublicProfile &&
@@ -344,6 +347,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
     if (!_validTodayMenu) return false;
     if (!_validBusinessFeature) return false;
+    if (_kind == _PostKind.media && _attachments.isEmpty) return false;
     if (!_hasPoll) return true;
     final options = _pollControllers
         .map((controller) => controller.text.trim())
@@ -516,7 +520,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            context.tr('What would you like to share?'),
+            context.tr('What would you like to publish?'),
             style: Theme.of(
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -837,19 +841,40 @@ class _CreatePostPageState extends State<CreatePostPage> {
     ),
     child: Row(
       children: [
-        const Icon(Icons.groups_2_outlined),
+        Icon(
+          _isLocalBusiness
+              ? Icons.storefront_outlined
+              : Icons.groups_2_outlined,
+        ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: '${context.tr('Posting to')} '),
-                TextSpan(
-                  text: widget.community.name,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _isLocalBusiness
+                    ? context.tr('Publishing as your business')
+                    : context.tr('Posting to'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              Text(
+                _isLocalBusiness
+                    ? '${widget.community.name} · ${widget.community.town.name}'
+                    : widget.community.name,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              if (_isLocalBusiness &&
+                  (widget.community.businessLocation?.address.isNotEmpty ==
+                          true ||
+                      widget.community.businessContact.phone.isNotEmpty ||
+                      widget.community.businessContact.whatsapp.isNotEmpty))
+                Text(
+                  context.tr(
+                    'Contact and location details are added from your business profile.',
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
-              ],
-            ),
+            ],
           ),
         ),
       ],
@@ -1510,10 +1535,43 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 context.tr(
                   pending
                       ? 'A community moderator will review it before publication.'
-                      : 'Your post is live and can now be shared.',
+                      : (_isLocalBusiness
+                            ? 'Visible in {town} and on your business profile.'
+                            : 'Your post is live and can now be shared.'),
+                  {'town': widget.community.town.name},
                 ),
                 textAlign: TextAlign.center,
               ),
+              if (!pending) ...[
+                const SizedBox(height: 20),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          widget.community.name,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          post.text,
+                          maxLines: 5,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (post.media.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 160,
+                            child: PostMediaGallery(media: post.media),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
@@ -1533,7 +1591,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               if (!pending) ...[
                 const SizedBox(height: 28),
                 Text(
-                  context.tr('Get more reach'),
+                  context.tr('Share with your customers'),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),

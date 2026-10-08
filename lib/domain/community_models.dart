@@ -303,6 +303,7 @@ class Community {
     this.membershipStatus,
     this.banPublicReason,
     this.banExpiresAt,
+    this.canManagePageInbox = false,
   });
 
   final String id;
@@ -337,6 +338,7 @@ class Community {
   final MembershipStatus? membershipStatus;
   final String? banPublicReason;
   final DateTime? banExpiresAt;
+  final bool canManagePageInbox;
 
   bool get isJoined => myRole != null;
   bool get isBanned => membershipStatus == MembershipStatus.banned;
@@ -542,6 +544,7 @@ class CommunityMember {
     this.banInternalNote,
     this.bannedAt,
     this.banExpiresAt,
+    this.pageInboxAccess = false,
   });
 
   final String userId;
@@ -558,6 +561,7 @@ class CommunityMember {
   final String? banInternalNote;
   final DateTime? bannedAt;
   final DateTime? banExpiresAt;
+  final bool pageInboxAccess;
 }
 
 class CommunityCategory {
@@ -1064,6 +1068,11 @@ class DirectConversation {
     this.requestStatus = MessageRequestStatus.accepted,
     this.requestedByMe = false,
     this.canSendMessage = true,
+    this.pageId,
+    this.pageName,
+    this.viewingAsPage = false,
+    this.otherIsPage = false,
+    this.label = ConversationLabel.newConversation,
   });
 
   final String id;
@@ -1076,9 +1085,23 @@ class DirectConversation {
   final MessageRequestStatus requestStatus;
   final bool requestedByMe;
   final bool canSendMessage;
+  final String? pageId;
+  final String? pageName;
+  final bool viewingAsPage;
+  final bool otherIsPage;
+  final ConversationLabel label;
 }
 
 enum MessageRequestStatus { pending, accepted, declined }
+
+enum ConversationLabel {
+  newConversation,
+  inProgress,
+  customer,
+  order,
+  quote,
+  completed,
+}
 
 class DirectMessage {
   const DirectMessage({
@@ -1090,6 +1113,7 @@ class DirectMessage {
     required this.createdAt,
     this.readAt,
     this.removedAt,
+    this.sentByMe = false,
   });
 
   final String id;
@@ -1100,11 +1124,13 @@ class DirectMessage {
   final DateTime createdAt;
   final DateTime? readAt;
   final DateTime? removedAt;
+  final bool sentByMe;
 
   DirectMessage copyWith({
     DateTime? readAt,
     DateTime? removedAt,
     String? body,
+    bool? sentByMe,
   }) => DirectMessage(
     id: id,
     conversationId: conversationId,
@@ -1114,6 +1140,7 @@ class DirectMessage {
     createdAt: createdAt,
     readAt: readAt ?? this.readAt,
     removedAt: removedAt ?? this.removedAt,
+    sentByMe: sentByMe ?? this.sentByMe,
   );
 }
 

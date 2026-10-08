@@ -568,6 +568,28 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                       onTap: () =>
                           Navigator.pop(sheetContext, 'role:${role.name}'),
                     ),
+                if (widget.community.isPublicProfile &&
+                    widget.community.myRole == CommunityRole.owner &&
+                    member.status == MembershipStatus.active &&
+                    member.role == CommunityRole.admin)
+                  ListTile(
+                    leading: Icon(
+                      member.pageInboxAccess
+                          ? Icons.mark_email_read_outlined
+                          : Icons.mark_email_unread_outlined,
+                    ),
+                    title: Text(
+                      context.tr(
+                        member.pageInboxAccess
+                            ? 'Remove page inbox access'
+                            : 'Allow page inbox access',
+                      ),
+                    ),
+                    subtitle: Text(
+                      context.tr('Reply to customers as this page.'),
+                    ),
+                    onTap: () => Navigator.pop(sheetContext, 'page-inbox'),
+                  ),
                 if (widget.community.myRole == CommunityRole.owner &&
                     member.status == MembershipStatus.active &&
                     member.role == CommunityRole.admin)
@@ -615,8 +637,38 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
       await _setRole(member, CommunityRole.values.byName(action.substring(5)));
     } else if (action == 'transfer') {
       await _transferOwnership(member);
+    } else if (action == 'page-inbox') {
+      await _setPageInboxAccess(member);
     } else {
       await _changeAccess(member, action);
+    }
+  }
+
+  Future<void> _setPageInboxAccess(CommunityMember member) async {
+    try {
+      await widget.repository.setPageInboxAccess(
+        widget.community.id,
+        member.userId,
+        enabled: !member.pageInboxAccess,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.tr(
+              member.pageInboxAccess
+                  ? 'Page inbox access removed.'
+                  : 'Page inbox access granted.',
+            ),
+          ),
+        ),
+      );
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
     }
   }
 
@@ -2061,14 +2113,14 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               ),
         businessHours: _businessServices.contains(BusinessService.food)
             ? List.unmodifiable(_businessHours)
-            : const [],
+            : null,
         businessFulfillmentOptions:
             _businessServices.contains(BusinessService.food)
             ? List.unmodifiable(_businessFulfillmentOptions)
-            : const [],
+            : null,
         businessContact: _businessServices.contains(BusinessService.food)
             ? _businessContact
-            : const BusinessContact(),
+            : null,
         imageUrl: _imageUrl,
         imageBlobName: _imageBlobName,
         coverImageUrl: _coverImageUrl,

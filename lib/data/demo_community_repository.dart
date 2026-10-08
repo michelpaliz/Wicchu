@@ -239,6 +239,29 @@ class DemoCommunityRepository implements CommunityRepository {
   }) async => List.unmodifiable(_communities);
 
   @override
+  Future<List<Community>> listLocalBusinesses({
+    String? townId,
+    String? query,
+  }) async => List.unmodifiable(
+    _communities.where(
+      (community) =>
+          community.profileCategory == ProfileCategory.localBusiness &&
+          (townId == null || community.town.id == townId) &&
+          (query == null ||
+              query.trim().isEmpty ||
+              community.name.toLowerCase().contains(query.toLowerCase())),
+    ),
+  );
+
+  @override
+  Future<List<Community>> listNearbyBusinesses({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 10,
+    String? query,
+  }) => listLocalBusinesses(query: query);
+
+  @override
   Future<Community> createCommunity(CreateCommunityInput input) async {
     final id = 'community-${_communities.length + 1}';
     final community = Community(
@@ -542,6 +565,13 @@ class DemoCommunityRepository implements CommunityRepository {
   ) async {}
 
   @override
+  Future<void> setPageInboxAccess(
+    String communityId,
+    String userId, {
+    required bool enabled,
+  }) async {}
+
+  @override
   Future<void> setMemberAccess(
     String communityId,
     String userId, {
@@ -690,6 +720,22 @@ class DemoCommunityRepository implements CommunityRepository {
             (query == null ||
                 post.text.toLowerCase().contains(query.toLowerCase()));
       })
+      .toList(growable: false);
+
+  @override
+  Future<List<CommunityPost>> listBusinessPosts(
+    List<String> businessIds, {
+    String? query,
+  }) async => _posts.values
+      .expand((posts) => posts)
+      .where(
+        (post) =>
+            businessIds.contains(post.communityId) &&
+            (post.todayMenu != null || post.businessFeature != null) &&
+            (query == null ||
+                query.trim().isEmpty ||
+                post.text.toLowerCase().contains(query.toLowerCase())),
+      )
       .toList(growable: false);
 
   @override
@@ -1156,10 +1202,14 @@ class DemoCommunityRepository implements CommunityRepository {
   final List<DirectMessage> _directMessages = [];
 
   @override
-  Future<List<DirectConversation>> listDirectConversations() async => const [];
+  Future<List<DirectConversation>> listDirectConversations({
+    String? pageId,
+  }) async => const [];
 
   @override
-  Future<List<DirectConversation>> listMessageRequests() async => const [];
+  Future<List<DirectConversation>> listMessageRequests({
+    String? pageId,
+  }) async => const [];
 
   @override
   Future<DirectConversation> startDirectConversation(String userId) async =>
@@ -1170,6 +1220,31 @@ class DemoCommunityRepository implements CommunityRepository {
         requestStatus: MessageRequestStatus.pending,
         requestedByMe: true,
       );
+
+  @override
+  Future<DirectConversation> startPageConversation(String pageId) async {
+    final page = _communities.where((item) => item.id == pageId).firstOrNull;
+    return DirectConversation(
+      id: 'demo-page-$pageId',
+      otherUser: WicchuUser(
+        id: pageId,
+        name: page?.name ?? 'Wicchu page',
+        avatarUrl: page?.imageUrl,
+      ),
+      unreadCount: 0,
+      requestStatus: MessageRequestStatus.pending,
+      requestedByMe: true,
+      pageId: pageId,
+      pageName: page?.name ?? 'Wicchu page',
+      otherIsPage: true,
+    );
+  }
+
+  @override
+  Future<void> updateDirectConversationLabel(
+    String conversationId,
+    ConversationLabel label,
+  ) async {}
 
   @override
   Future<void> respondToMessageRequest(
@@ -1202,6 +1277,7 @@ class DemoCommunityRepository implements CommunityRepository {
       recipientId: 'demo-recipient',
       body: body,
       createdAt: DateTime.now(),
+      sentByMe: true,
     );
     _directMessages.add(message);
     return message;

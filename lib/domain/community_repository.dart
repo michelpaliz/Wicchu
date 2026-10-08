@@ -141,9 +141,14 @@ abstract interface class CommunityRepository {
   Future<List<BlockedUser>> listBlockedUsers();
   Future<void> blockUser(String userId);
   Future<void> unblockUser(String userId);
-  Future<List<DirectConversation>> listDirectConversations();
-  Future<List<DirectConversation>> listMessageRequests();
+  Future<List<DirectConversation>> listDirectConversations({String? pageId});
+  Future<List<DirectConversation>> listMessageRequests({String? pageId});
   Future<DirectConversation> startDirectConversation(String userId);
+  Future<DirectConversation> startPageConversation(String pageId);
+  Future<void> updateDirectConversationLabel(
+    String conversationId,
+    ConversationLabel label,
+  );
   Future<void> respondToMessageRequest(
     String conversationId, {
     required bool accept,
@@ -198,6 +203,17 @@ abstract interface class CommunityRepository {
     required double latitude,
     required double longitude,
     double radiusKm = 25,
+  });
+  Future<List<Community>> listLocalBusinesses({String? townId, String? query});
+  Future<List<Community>> listNearbyBusinesses({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 10,
+    String? query,
+  });
+  Future<List<CommunityPost>> listBusinessPosts(
+    List<String> businessIds, {
+    String? query,
   });
   Future<Community> createCommunity(CreateCommunityInput input);
   Future<void> joinCommunity(String communityId);
@@ -280,6 +296,11 @@ abstract interface class CommunityRepository {
     String userId,
     CommunityRole role,
   );
+  Future<void> setPageInboxAccess(
+    String communityId,
+    String userId, {
+    required bool enabled,
+  });
   Future<void> setMemberAccess(
     String communityId,
     String userId, {

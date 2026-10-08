@@ -34,6 +34,7 @@ import '../community/post_card.dart';
 import '../community/post_collection_page.dart';
 import '../community/post_detail_page.dart';
 import '../community/post_share.dart';
+import '../community/local_discovery_view.dart';
 import '../community/user_avatar.dart';
 import '../chat/direct_chat_pages.dart';
 import '../settings/account_settings_page.dart';
@@ -1984,7 +1985,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   Timer? _searchDelay;
   final _searchController = TextEditingController();
   String _query = '';
-  int _filter = 0;
+  int _filter = 3;
   int _createdWithinDays = 0;
   int _audienceRange = 0;
   Position? _position;
@@ -1998,7 +1999,9 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   void _reload() {
-    if (_filter == 6) {
+    if (_filter == 5) {
+      return;
+    } else if (_filter == 6) {
       _people = widget.repository.searchPeople(query: _query, limit: 50);
     } else if (_filter == 2) {
       _communities = widget.repository.listJoinedCommunities();
@@ -2109,6 +2112,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   Future<void> _refresh() async {
+    if (_filter == 5) return;
     if (_filter == 6) {
       setState(_reload);
       try {
@@ -2347,7 +2351,7 @@ class _ExploreTabState extends State<_ExploreTab> {
           if (!searching)
             FilledButton.icon(
               onPressed: _filter == 2
-                  ? () => _selectFilter(0)
+                  ? () => _selectFilter(3)
                   : _createCommunity,
               icon: Icon(_filter == 2 ? Icons.explore_outlined : Icons.add),
               label: Text(
@@ -2591,7 +2595,7 @@ class _ExploreTabState extends State<_ExploreTab> {
             setState(() {
               _searchController.clear();
               _query = '';
-              _filter = 0;
+              _filter = 3;
               _reload();
             });
           },
@@ -2667,13 +2671,11 @@ class _ExploreTabState extends State<_ExploreTab> {
                   decoration: InputDecoration(labelText: context.tr('Show')),
                   items: [
                     for (final entry in const {
-                      0: 'All',
                       3: 'Communities',
                       5: 'Businesses',
                       6: 'People',
                       1: 'Near you',
                       2: 'My communities',
-                      4: 'Public profiles',
                     }.entries)
                       DropdownMenuItem(
                         value: entry.key,
@@ -2728,7 +2730,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                 ),
                 TextButton(
                   onPressed: () {
-                    scope = 0;
+                    scope = 3;
                     days = 0;
                     audience = 0;
                     Navigator.pop(sheetContext, true);
@@ -2761,7 +2763,11 @@ class _ExploreTabState extends State<_ExploreTab> {
         onChanged: _search,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          hintText: context.tr('Search communities, businesses or people…'),
+          hintText: context.tr(
+            _filter == 5
+                ? 'Search food, services, transport…'
+                : 'Search communities, businesses or people…',
+          ),
           prefixIcon: const Icon(Icons.search),
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
             valueListenable: _searchController,
@@ -2794,7 +2800,7 @@ class _ExploreTabState extends State<_ExploreTab> {
         ),
       ),
       actions: [
-        if (_filter != 6)
+        if (_filter != 6 && _filter != 5)
           IconButton(
             tooltip: context.tr('Discovery filters'),
             onPressed: _openDiscoveryFilters,
@@ -2814,33 +2820,25 @@ class _ExploreTabState extends State<_ExploreTab> {
         FeedFilterBar(
           height: 48,
           labels: [
-            context.tr('All'),
             context.tr('Communities'),
             context.tr('Businesses'),
             context.tr('People'),
-            if (_filter == 1) context.tr('Near you'),
-            if (_filter == 2) context.tr('My communities'),
-            if (_filter == 4) context.tr('Public profiles'),
           ],
-          selectedIndex: [
-            0,
-            3,
-            5,
-            6,
-            if ([1, 2, 4].contains(_filter)) _filter,
-          ].indexOf(_filter),
-          onSelected: (index) => _selectFilter(
-            [
-              0,
-              3,
-              5,
-              6,
-              if ([1, 2, 4].contains(_filter)) _filter,
-            ][index],
-          ),
+          selectedIndex: _filter == 5
+              ? 1
+              : _filter == 6
+              ? 2
+              : 0,
+          onSelected: (index) => _selectFilter(const [3, 5, 6][index]),
         ),
         Expanded(
-          child: _filter == 6
+          child: _filter == 5
+              ? LocalDiscoveryView(
+                  key: ValueKey('local-discovery-$_query'),
+                  repository: widget.repository,
+                  initialQuery: _query,
+                )
+              : _filter == 6
               ? _peopleResults()
               : RefreshIndicator(
                   onRefresh: _refresh,
