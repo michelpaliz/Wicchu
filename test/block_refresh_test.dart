@@ -54,7 +54,13 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Block user'));
+        expect(find.byTooltip('Message'), findsOneWidget);
+        expect(find.byTooltip('Share profile'), findsOneWidget);
+        expect(find.text('Block user'), findsNothing);
+        await tester.tap(find.byTooltip('More options'));
+        await tester.pumpAndSettle();
+        expect(find.text('Report profile'), findsOneWidget);
+        await tester.tap(find.text('Block user'));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, 'Block'));
         await tester.pumpAndSettle();

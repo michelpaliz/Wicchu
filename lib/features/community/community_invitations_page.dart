@@ -521,10 +521,10 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                 item.isOwnershipTransfer
                     ? WicchuIcons.arrowsLeftRight
                     : item.isAdminInvitation
-                        ? WicchuIcons.shieldPlus
-                        : item.isLink
-                            ? WicchuIcons.linkSimple
-                            : WicchuIcons.envelope,
+                    ? WicchuIcons.shieldPlus
+                    : item.isLink
+                    ? WicchuIcons.linkSimple
+                    : WicchuIcons.envelope,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -535,10 +535,10 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                       item.isOwnershipTransfer
                           ? context.tr('Ownership transfer')
                           : item.isAdminInvitation
-                              ? context.tr('Administrator invitation')
-                              : item.isLink
-                                  ? context.tr('Invitation link')
-                                  : item.email ?? context.tr('Invitation'),
+                          ? context.tr('Administrator invitation')
+                          : item.isLink
+                          ? context.tr('Invitation link')
+                          : item.email ?? context.tr('Invitation'),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
@@ -764,7 +764,9 @@ class _MyCommunityInvitationsPageState
         accept: accept,
       );
       if (mounted) {
-        setState(() => _items = widget.repository.listMyCommunityInvitations());
+        setState(() {
+          _items = widget.repository.listMyCommunityInvitations();
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.tr(_responseMessage(invitation, accept))),
@@ -821,8 +823,8 @@ class _MyCommunityInvitationsPageState
                   ownershipTransfer
                       ? WicchuIcons.arrowsLeftRight
                       : adminInvitation
-                          ? WicchuIcons.shieldPlus
-                          : WicchuIcons.usersThree,
+                      ? WicchuIcons.shieldPlus
+                      : WicchuIcons.usersThree,
                 ),
               ),
               title: Text(item.communityName ?? context.tr('Community')),
@@ -831,8 +833,8 @@ class _MyCommunityInvitationsPageState
                   ownershipTransfer
                       ? 'The owner invited you to take ownership of this space.'
                       : adminInvitation
-                          ? 'The owner invited you to become an administrator of this space.'
-                          : 'You were invited to join this community.',
+                      ? 'The owner invited you to become an administrator of this space.'
+                      : 'You were invited to join this community.',
                 ),
               ),
               trailing: responding

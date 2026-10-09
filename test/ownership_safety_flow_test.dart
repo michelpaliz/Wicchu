@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
@@ -103,18 +104,18 @@ class _AdminInvitationRepository extends DemoCommunityRepository {
   @override
   Future<List<CommunityInvitation>> listMyCommunityInvitations() async =>
       invitationResponded
-          ? []
-          : [
-              CommunityInvitation(
-                id: 'admin-invite-1',
-                communityId: 'community-1',
-                type: 'admin_invitation',
-                status: 'pending',
-                expiresAt: DateTime.now().add(const Duration(days: 7)),
-                createdAt: DateTime.now(),
-                communityName: 'Test community',
-              ),
-            ];
+      ? []
+      : [
+          CommunityInvitation(
+            id: 'admin-invite-1',
+            communityId: 'community-1',
+            type: 'admin_invitation',
+            status: 'pending',
+            expiresAt: DateTime.now().add(const Duration(days: 7)),
+            createdAt: DateTime.now(),
+            communityName: 'Test community',
+          ),
+        ];
 
   @override
   Future<void> respondToCommunityInvitation(
@@ -126,7 +127,47 @@ class _AdminInvitationRepository extends DemoCommunityRepository {
   }
 }
 
+class _DelayedInvitationRepository extends _AdminInvitationRepository {
+  final response = Completer<void>();
+  int calls = 0;
+  @override
+  Future<void> respondToCommunityInvitation(
+    String id, {
+    required bool accept,
+  }) async {
+    calls++;
+    await response.future;
+    await super.respondToCommunityInvitation(id, accept: accept);
+  }
+}
+
 void main() {
+  testWidgets(
+    'invitation response prevents duplicate submissions and confirms success',
+    (tester) async {
+      final repository = _DelayedInvitationRepository();
+      await tester.pumpWidget(
+        MaterialApp(home: MyCommunityInvitationsPage(repository: repository)),
+      );
+      await tester.pumpAndSettle();
+      final accept = tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Accept'))
+          .onPressed!;
+      accept();
+      accept();
+      await tester.pump();
+      expect(repository.calls, 1);
+      expect(find.text('Accept'), findsNothing);
+      expect(find.text('Decline'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      repository.response.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('Administrator invitation accepted.'), findsOneWidget);
+      expect(repository.acceptedInvitationId, 'admin-invite-1');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('owner sends an acceptance-based administrator invitation', (
     tester,
   ) async {
@@ -246,6 +287,7 @@ void main() {
         home: CommunityProfilePage(
           community: community,
           repository: repository,
+          screen: CommunityScreen.information,
         ),
       ),
     );

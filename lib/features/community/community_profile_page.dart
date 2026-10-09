@@ -94,6 +94,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   bool _headerDescriptionExpanded = false;
   String _memberQuery = '';
   bool _searchMembers = false;
+  bool _savingMemberRole = false;
+  bool _checkingOwnerLeave = false;
   bool _savingHelpfulness = false;
   bool _submittingBanAppeal = false;
   final TextEditingController _searchController = TextEditingController();
@@ -340,7 +342,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         recommend: recommend,
       );
       if (!mounted) return;
-      setState(() => _helpfulness = Future.value(result));
+      setState(() {
+        _helpfulness = Future.value(result);
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.tr('Thanks for your feedback.'))),
       );
@@ -386,7 +390,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   Future<void> _toggleMembership() async {
-    if (_savingMembership || _community.myRole == CommunityRole.owner) return;
+    if (_savingMembership || _checkingOwnerLeave) return;
+    if (_community.myRole == CommunityRole.owner) {
+      await _guideOwnerLeave();
+      return;
+    }
     setState(() => _savingMembership = true);
     try {
       if (_joined) {
@@ -799,12 +807,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           ),
     actions: [
-      if (widget.onAccountMenu != null)
-        IconButton(
-          tooltip: context.tr('Account menu'),
-          onPressed: widget.onAccountMenu,
-          icon: const Icon(WicchuIcons.gearSix),
-        ),
       if (_joined &&
           widget.screen == CommunityScreen.feed &&
           (!_isLocalBusiness || _searchingPosts))
@@ -839,6 +841,28 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         const SizedBox(width: 8),
       ],
       if (!_searchingPosts && widget.screen == CommunityScreen.information) ...[
+        if (!_community.isPublicProfile) ...[
+          if (_canInviteToCommunity)
+            IconButton(
+              key: const ValueKey('information-invite'),
+              tooltip: context.tr('Invite people'),
+              onPressed: _inviteToCommunity,
+              icon: const Icon(WicchuIcons.userPlus, size: 20),
+            ),
+          IconButton(
+            key: const ValueKey('information-message'),
+            tooltip: context.tr('Messages'),
+            onPressed:
+                _community.isBanned ||
+                    !_joined ||
+                    (_canManage &&
+                        _community.myRole != CommunityRole.owner &&
+                        !_community.canManagePageInbox)
+                ? null
+                : _openInformationMessages,
+            icon: const Icon(WicchuIcons.chatCircle, size: 20),
+          ),
+        ],
         IconButton(
           key: const ValueKey('community-profile-menu'),
           tooltip: context.tr('More options'),
@@ -977,9 +1001,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                           : 'Edit community',
                       WicchuIcons.pencilSimple,
                     ),
-                  if (!_community.isPublicProfile &&
-                      _joined &&
-                      _community.myRole != CommunityRole.owner)
+                  if (!_community.isPublicProfile && _joined)
                     option(
                       'leave',
                       'Leave community',
@@ -1523,6 +1545,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       required IconData icon,
       required String text,
       Key? textKey,
+      bool compact = false,
       VoidCallback? onTap,
     }) {
       final content = Row(
@@ -1530,7 +1553,13 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         children: [
           Icon(icon, size: 17, color: color),
           const SizedBox(width: 4),
-          Text(text, key: textKey, style: textStyle),
+          Text(
+            text,
+            key: textKey,
+            style: compact
+                ? textStyle?.copyWith(fontSize: (textStyle.fontSize ?? 14) - 2)
+                : textStyle,
+          ),
         ],
       );
       if (onTap == null) return content;
@@ -1568,6 +1597,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             separator(),
             const SizedBox(width: 7),
             item(
+              compact: true,
               icon: _community.visibility == CommunityVisibility.public
                   ? WicchuIcons.globe
                   : WicchuIcons.lockKey,
@@ -1585,6 +1615,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             separator(),
             const SizedBox(width: 7),
             item(
+              compact: true,
               icon: WicchuIcons.mapPin,
               text: location,
               textKey: const ValueKey('page-header-location'),
@@ -1729,7 +1760,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 Text(
                   location,
                   key: const ValueKey('page-header-location'),
-                  style: metadataStyle,
+                  style: metadataStyle?.copyWith(
+                    fontSize: (metadataStyle.fontSize ?? 14) - 2,
+                  ),
                 ),
               ],
             ),
@@ -2750,6 +2783,23 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
+  Future<void> _openInformationMessages() async {
+    if (_community.myRole == CommunityRole.owner ||
+        (_canManage && _community.canManagePageInbox)) {
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ConversationListPage(
+            repository: widget.repository,
+            initialPageId: _community.id,
+          ),
+        ),
+      );
+    } else {
+      await _openSpaceChat();
+    }
+  }
+
   Future<void> _openSpaceChat() async {
     try {
       final conversation = await widget.repository.startPageConversation(
@@ -3018,13 +3068,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         ? 'Manage profile'
                         : 'Manage community',
                   ),
-                if (_community.myRole != CommunityRole.owner)
-                  option(
-                    'leave',
-                    WicchuIcons.signOut,
-                    _community.isPublicProfile ? 'Unfollow' : 'Leave community',
-                    destructive: true,
-                  ),
+                option(
+                  'leave',
+                  WicchuIcons.signOut,
+                  _community.isPublicProfile ? 'Unfollow' : 'Leave community',
+                  destructive: true,
+                ),
               ],
             ),
           ),
@@ -3376,7 +3425,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
             if (_community.isPublicProfile &&
                 (_community.myRole == CommunityRole.owner ||
-                    _community.myRole == CommunityRole.admin))
+                    _community.myRole == CommunityRole.admin)) ...[
+              _informationRow(
+                _isLocalBusiness ? 'Edit business' : 'Edit profile',
+                WicchuIcons.pencilSimple,
+                context.tr('Edit page information and appearance.'),
+                _editCommunity,
+                rowKey: const ValueKey('information-edit-page'),
+              ),
               _informationRow(
                 'Edit categories',
                 WicchuIcons.shapes,
@@ -3384,6 +3440,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 _editPageCategories,
                 rowKey: const ValueKey('information-edit-categories'),
               ),
+            ],
             FutureBuilder<CommunityHelpfulness>(
               future: _helpfulness,
               builder: (context, snapshot) {
@@ -3456,8 +3513,81 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           ],
         );
 
+  Future<void> _guideOwnerLeave() async {
+    setState(() => _checkingOwnerLeave = true);
+    try {
+      final members = await widget.repository.listMembers(_community.id);
+      if (!mounted) return;
+      final hasAdministrator = members.any(
+        (member) =>
+            member.role == CommunityRole.admin &&
+            member.status == MembershipStatus.active,
+      );
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            context.tr(
+              hasAdministrator
+                  ? 'Transfer ownership before leaving.'
+                  : 'Invite a member as administrator first.',
+            ),
+          ),
+          content: Text(
+            context.tr(
+              hasAdministrator
+                  ? 'Choose an administrator and transfer ownership. You can leave after they accept the transfer.'
+                  : 'Invite a member as administrator. Once they accept, transfer ownership to them before leaving.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(context.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(
+                context.tr(
+                  hasAdministrator
+                      ? 'Choose an administrator'
+                      : 'Choose a member',
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || proceed != true) return;
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MemberManagementPage(
+            community: _community,
+            repository: widget.repository,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      await _refreshCommunity();
+      if (mounted) setState(_reload);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _checkingOwnerLeave = false);
+    }
+  }
+
   Future<void> _confirmLeave() async {
-    if (_savingMembership || _community.myRole == CommunityRole.owner) return;
+    if (_savingMembership || _checkingOwnerLeave) return;
+    if (_community.myRole == CommunityRole.owner) {
+      await _guideOwnerLeave();
+      return;
+    }
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
@@ -3590,22 +3720,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           ),
         );
-    Widget action(IconData icon, String label, VoidCallback? onTap) => Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          tooltip: context.tr(label),
-          onPressed: onTap,
-          style: IconButton.styleFrom(
-            foregroundColor: colors.onSurface,
-            fixedSize: const Size(46, 46),
-          ),
-          icon: Icon(icon, size: 23),
-        ),
-        const SizedBox(height: 4),
-        Text(context.tr(label), style: theme.textTheme.labelMedium),
-      ],
-    );
     Widget detail(
       IconData icon,
       String title,
@@ -3874,29 +3988,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           ),
 
-        Padding(
-          padding: const EdgeInsets.only(bottom: 18, top: 2),
-          child: Wrap(
-            alignment: WrapAlignment.spaceEvenly,
-            spacing: 24,
-            runSpacing: 12,
-            children: [
-              if (canInvite)
-                action(WicchuIcons.userPlus, 'Invite', _inviteToCommunity),
-              action(
-                WicchuIcons.shareNetwork,
-                'Share',
-                () => shareCommunity(context, _community),
-              ),
-              if (_joined && _community.myRole != CommunityRole.owner)
-                action(
-                  WicchuIcons.signOut,
-                  'Leave',
-                  _savingMembership ? null : _confirmLeave,
-                ),
-            ],
-          ),
-        ),
         card(
           Column(
             children: [
@@ -4285,8 +4376,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                           _community.myRole == CommunityRole.admin
                       ? 'Owners and administrators cannot rate their own page.'
                       : _community.isPublicProfile
-                          ? 'Follow this page to leave a rating.'
-                          : 'Join this community to leave a rating.',
+                      ? 'Follow this page to leave a rating.'
+                      : 'Join this community to leave a rating.',
                 ),
               ),
             ],
@@ -4697,6 +4788,149 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     return WicchuIcons.cloud;
   }
 
+  bool _canChangeMemberRole(CommunityMember member) =>
+      (_community.myRole == CommunityRole.owner ||
+          _community.myRole == CommunityRole.admin) &&
+      member.role != CommunityRole.owner &&
+      member.status == MembershipStatus.active &&
+      !member.isAnonymous &&
+      member.userId.isNotEmpty;
+
+  String _memberRoleLabel(CommunityRole role) => switch (role) {
+    CommunityRole.owner => 'Owner',
+    CommunityRole.admin => 'Administrator',
+    CommunityRole.moderator => 'Moderator',
+    CommunityRole.member => _community.isPublicProfile ? 'Follower' : 'Member',
+  };
+
+  Future<void> _changeMemberRole(CommunityMember member) async {
+    if (!_canChangeMemberRole(member) || _savingMemberRole) return;
+    final role = await showModalBottomSheet<CommunityRole>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(member.name),
+              subtitle: Text(context.tr('Change role')),
+            ),
+            for (final role in [
+              if (_community.myRole == CommunityRole.owner) CommunityRole.admin,
+              CommunityRole.moderator,
+              CommunityRole.member,
+            ])
+              ListTile(
+                title: Text(
+                  context.tr(
+                    role == CommunityRole.admin
+                        ? 'Invite as administrator'
+                        : _memberRoleLabel(role),
+                  ),
+                ),
+                trailing: role == member.role
+                    ? const Icon(WicchuIcons.check)
+                    : null,
+                enabled: role != member.role,
+                onTap: () => Navigator.pop(sheetContext, role),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || role == null) return;
+    final inviteAdmin = role == CommunityRole.admin;
+    if (inviteAdmin && _community.myRole != CommunityRole.owner) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          context.tr(inviteAdmin ? 'Invite as administrator' : 'Change role'),
+        ),
+        content: Text(
+          context.tr(
+            inviteAdmin
+                ? '{name} will become an administrator only after accepting the invitation.'
+                : 'Change {name} to {role}?',
+            {'name': member.name, 'role': context.tr(_memberRoleLabel(role))},
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              context.tr(inviteAdmin ? 'Send invitation' : 'Save changes'),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    setState(() => _savingMemberRole = true);
+    try {
+      if (inviteAdmin) {
+        await widget.repository.createAdminInvitation(
+          _community.id,
+          member.userId,
+        );
+      } else {
+        await widget.repository.setMemberRole(
+          _community.id,
+          member.userId,
+          role,
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _members = widget.repository.listMembers(_community.id);
+      });
+      await _refreshCommunity();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.tr(
+              inviteAdmin
+                  ? 'Administrator invitation sent. The member must accept it.'
+                  : 'Role updated',
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _savingMemberRole = false);
+    }
+  }
+
+  Widget _memberRoleControl(CommunityMember member) {
+    if (!_canChangeMemberRole(member)) {
+      return _profileBadge(_memberRoleLabel(member.role));
+    }
+    return TextButton(
+      key: ValueKey('member-role-${member.userId}'),
+      onPressed: _savingMemberRole ? null : () => _changeMemberRole(member),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(context.tr(_memberRoleLabel(member.role))),
+          const SizedBox(width: 4),
+          const Icon(WicchuIcons.caretDown, size: 16),
+        ],
+      ),
+    );
+  }
+
   Widget _membersTab() {
     if (!_joined) {
       return Center(
@@ -4802,12 +5036,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                     ),
                                   )
                                 : null,
-                            trailing: _profileBadge(switch (member.role) {
-                              CommunityRole.owner => 'Owner',
-                              CommunityRole.admin => 'Administrator',
-                              CommunityRole.moderator => 'Moderator',
-                              _ => 'Member',
-                            }),
+                            trailing: _memberRoleControl(member),
                             onTap: member.isAnonymous || member.userId.isEmpty
                                 ? null
                                 : () => Navigator.push(

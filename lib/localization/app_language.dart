@@ -39,9 +39,15 @@ extension AppTranslation on BuildContext {
     if (!isSpanish) return english;
     final exact = _spanish[english];
     if (exact != null) return exact;
-    const invitationPrefix = 'invited you to join ';
-    if (english.startsWith(invitationPrefix)) {
-      return 'te invitó a unirte a ${english.substring(invitationPrefix.length)}';
+    const invitationPrefixes = {
+      'invited you to join ': 'te invitó a unirte a ',
+      'invited you to become an administrator of ':
+          'te invitó a ser administrador de ',
+    };
+    for (final prefix in invitationPrefixes.entries) {
+      if (english.startsWith(prefix.key)) {
+        return '${prefix.value}${english.substring(prefix.key.length)}';
+      }
     }
     final roleChange = RegExp(
       r'^changed your role to (.+) in (.+)$',
@@ -281,6 +287,16 @@ const _spanish = <String, String>{
   'Only community and Wicchu moderators can see this.':
       'Solo los moderadores de la comunidad y de Wicchu pueden verla.',
   'Ban duration': 'Duración de la expulsión',
+  'Transfer ownership before leaving.':
+      'Transfiere la propiedad antes de salir.',
+  'Invite a member as administrator first.':
+      'Primero invita a un miembro como administrador.',
+  'Choose an administrator and transfer ownership. You can leave after they accept the transfer.':
+      'Elige un administrador y transfiérele la propiedad. Podrás salir cuando acepte la transferencia.',
+  'Invite a member as administrator. Once they accept, transfer ownership to them before leaving.':
+      'Invita a un miembro como administrador. Cuando acepte, transfiérele la propiedad antes de salir.',
+  'Choose an administrator': 'Elegir administrador',
+  'Choose a member': 'Elegir miembro',
   'Transfer ownership': 'Transferir propiedad',
   'Invite as administrator': 'Invitar como administrador',
   '{name} will become an administrator only after accepting the invitation.':
@@ -634,7 +650,10 @@ const _spanish = <String, String>{
   'Unsave post': 'Quitar de guardados',
   'Edit': 'Editar',
   'Edit community': 'Editar comunidad',
+  'Profile type and services': 'Tipo de perfil y servicios',
   'Edit business': 'Editar negocio',
+  'Edit page information and appearance.':
+      'Edita la información y la apariencia de la página.',
   'About {name}': 'Acerca de {name}',
   'Community rating': 'Valoración de la comunidad',
   'Official links and community resources.':
@@ -1502,6 +1521,9 @@ const _spanish = <String, String>{
   '{count} media attachments': '{count} archivos multimedia',
   'Wicchu member': 'Miembro de Wicchu',
   'View profile': 'Ver perfil',
+  'Change role': 'Cambiar rol',
+  'Change {name} to {role}?': '¿Cambiar el rol de {name} a {role}?',
+  'Role updated': 'Rol actualizado',
   'Set role: {role}': 'Asignar rol: {role}',
   'Search members': 'Buscar miembros',
   'Filter members': 'Filtrar miembros',

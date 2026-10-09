@@ -2114,53 +2114,50 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               ),
             ),
             const SizedBox(height: 16),
-            if (widget.community.isPublicProfile) ...[
-              DropdownButtonFormField<ProfileCategory>(
-                initialValue: _profileCategory,
-                decoration: InputDecoration(
-                  labelText: context.tr('Profile category'),
-                  prefixIcon: Icon(
-                    _profileCategory == ProfileCategory.localBusiness
-                        ? WicchuIcons.storefront
-                        : WicchuIcons.user,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+            _settingsSection('Profile color', WicchuIcons.palette, [
+              Text(
+                context.tr(
+                  widget.community.isPublicProfile
+                      ? 'Choose an accent color for this page.'
+                      : 'Choose an accent color for this community.',
                 ),
-                icon: const Icon(WicchuIcons.caretDown),
-                items: [
-                  for (final category in ProfileCategory.values)
-                    DropdownMenuItem(
-                      value: category,
-                      child: Text(context.tr(category.label)),
-                    ),
-                ],
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 14),
+              ProfileAccentPicker(
+                value: _accentColor,
+                labelBuilder: (value) => context.tr(profileAccentLabel(value)),
                 onChanged: _saving
                     ? null
-                    : (value) => setState(() => _profileCategory = value),
+                    : (value) => setState(() => _accentColor = value),
               ),
-              const SizedBox(height: 16),
-            ],
-            const SizedBox(height: 16),
+            ]),
+            const SizedBox(height: 12),
             _settingsSection('Information', WicchuIcons.info, [
-              if (widget.community.isPublicProfile &&
-                  _profileCategory == ProfileCategory.localBusiness) ...[
+              if (widget.community.isPublicProfile) ...[
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(WicchuIcons.briefcase),
-                  title: Text(context.tr('Business type and services')),
+                  leading: const Icon(WicchuIcons.storefront),
+                  title: Text(context.tr('Profile type and services')),
                   subtitle: Text(
-                    _businessServices.isEmpty
-                        ? context.tr(
-                            'Choose up to 10 business types and services. These appear on your page and help people find you in Explore.',
-                          )
-                        : _businessServices
-                              .map((service) => context.tr(service.label))
-                              .join(' · '),
+                    [
+                      context.tr(
+                        (_profileCategory ?? ProfileCategory.localBusiness)
+                            .label,
+                      ),
+                      if (_profileCategory == ProfileCategory.localBusiness)
+                        ..._businessServices.map(
+                          (service) => context.tr(service.label),
+                        ),
+                    ].join(' · '),
                   ),
                   trailing: const Icon(WicchuIcons.caretRight),
                   onTap: _saving ? null : _openBusinessServices,
                 ),
                 _settingsDivider(),
+              ],
+              if (widget.community.isPublicProfile &&
+                  _profileCategory == ProfileCategory.localBusiness) ...[
                 if (_businessServices.contains(BusinessService.food)) ...[
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -2183,24 +2180,6 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                 subtitle: Text('${_town.name} · ${_town.countryCode}'),
                 trailing: const Icon(WicchuIcons.caretRight),
                 onTap: _saving ? null : _openLocationSettings,
-              ),
-            ]),
-            _settingsSection('Profile color', WicchuIcons.palette, [
-              Text(
-                context.tr(
-                  widget.community.isPublicProfile
-                      ? 'Choose an accent color for this page.'
-                      : 'Choose an accent color for this community.',
-                ),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 14),
-              ProfileAccentPicker(
-                value: _accentColor,
-                labelBuilder: (value) => context.tr(profileAccentLabel(value)),
-                onChanged: _saving
-                    ? null
-                    : (value) => setState(() => _accentColor = value),
               ),
             ]),
             const SizedBox(height: 12),
@@ -2615,6 +2594,10 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       context,
       MaterialPageRoute(
         builder: (_) => BusinessServicesPage(
+          profileCategory: _profileCategory ?? ProfileCategory.localBusiness,
+          onProfileCategoryChanged: (category) {
+            if (mounted) setState(() => _profileCategory = category);
+          },
           services: _businessServices,
           onChanged: (services) {
             if (!mounted) return;

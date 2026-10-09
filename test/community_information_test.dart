@@ -103,6 +103,22 @@ void main() {
       find.text('Your feedback is saved. You can update it at any time.'),
       findsOneWidget,
     );
+
+    await tester.tap(find.text('Not really').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(repository.submissions, 1);
+    expect(repository.response?.helpful, isTrue);
+
+    await tester.tap(find.text('Not really').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Submit'));
+    await tester.pumpAndSettle();
+    expect(repository.submissions, 2);
+    expect(repository.response?.helpful, isFalse);
+    expect(find.text('Update your rating'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   for (final visibility in CommunityVisibility.values) {

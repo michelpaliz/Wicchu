@@ -134,3 +134,31 @@ Location search uses `https://geocoding-api.open-meteo.com/v1/search` (GeoNames 
 ### People discovery location filtering (pending backend support)
 
 The current users search client contract accepts only query, cursor, and limit; its results contain no public town or coordinates. The Personas filter sheet therefore keeps location selection disabled with an availability explanation. To enable it, extend users search with a town ID or latitude/longitude/radius filter, applied before pagination. Match only location information users have made available for discovery; do not expose private coordinates. Define and verify this server contract before enabling the Flutter controls. Community and business nearby searches already use their respective location endpoints.
+
+
+## Push invitation sender identity (pending backend fix)
+
+Phone notification banners must include the inviter's display name in the
+notification body. The Flutter app does not create local phone notifications:
+`PushNotificationService` receives Firebase messages and forwards their body for
+in-app foreground display. Updating `trNotification` fixes the in-app list only;
+it does not rewrite an already delivered phone banner.
+
+When creating an administrator-invitation push, use the authenticated inviter's
+stored display name, the destination page name, and the device's registered
+`languageCode`. For example, title `Wicchu` with these complete bodies:
+
+- Spanish: `Michel te invitó a ser administrador de Mantenimiento Michel S.L`
+- English: `Michel invited you to become an administrator of Mantenimiento Michel S.L`
+
+Keep names unchanged, and retain the existing invitation identifiers and routing
+data for notification taps. Do not use `Wicchu` as the actor's name. If an actor
+cannot be resolved, use neutral wording such as `Tienes una invitación para ser
+administrador de {pageName}` rather than attributing the invitation to the app.
+Apply the same sender-identity rule to membership and ownership invitations.
+Keep the in-app notification's separate actor and message fields as they are,
+so the list does not duplicate the actor's name.
+
+Verify Spanish and English payloads, and phone banners while the app is in the
+background or closed. The backend sender is not available in this workspace;
+this requirement documents the pending fix, not a completed server change.

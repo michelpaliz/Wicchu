@@ -124,53 +124,82 @@ class _MemberProfilePageState extends State<MemberProfilePage>
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
       actions: [
-        if (widget.onAccountMenu != null) ...[
-          FutureBuilder<PublicMemberProfile>(
-            future: _profile,
-            builder: (context, snapshot) => IconButton(
-              tooltip: context.tr('Share profile'),
-              onPressed: snapshot.hasData
-                  ? () => _shareProfile(snapshot.data!)
-                  : null,
-              icon: const Icon(WicchuIcons.export, size: 22),
-            ),
-          ),
-          IconButton(
-            tooltip: context.tr('Find people'),
-            onPressed: _findPeople,
-            icon: const Icon(WicchuIcons.userPlus, size: 22),
-          ),
-          const SizedBox(width: 8),
-        ],
-        FutureBuilder<WicchuProfile?>(
-          future: _viewer,
-          builder: (context, viewer) => viewer.data?.id == widget.userId
-              ? const SizedBox.shrink()
-              : IconButton(
-                  tooltip: context.tr('Block user'),
-                  onPressed: _blocking ? null : _blockUser,
-                  icon: _blocking
-                      ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(WicchuIcons.prohibit),
-                ),
-        ),
-        FutureBuilder<WicchuProfile?>(
-          future: _viewer,
-          builder: (context, viewer) => viewer.data?.id == widget.userId
-              ? const SizedBox.shrink()
-              : IconButton(
-                  tooltip: context.tr('Report profile'),
-                  onPressed: _reporting ? null : _reportMember,
-                  icon: _reporting
-                      ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(WicchuIcons.flag),
-                ),
+        FutureBuilder<PublicMemberProfile>(
+          future: _profile,
+          builder: (context, snapshot) {
+            final profile = snapshot.data;
+            if (profile == null) return const SizedBox.shrink();
+            return FutureBuilder<WicchuProfile?>(
+              future: _viewer,
+              builder: (context, viewer) {
+                final own = viewer.data?.id == widget.userId;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (viewer.hasData && !own)
+                      IconButton(
+                        tooltip: context.tr('Message'),
+                        onPressed: _openChat,
+                        icon: const Icon(WicchuIcons.chatCircle, size: 22),
+                      ),
+                    if (!profile.socialLinks.isEmpty)
+                      IconButton(
+                        tooltip: context.tr('Social links'),
+                        onPressed: () => _openSocialLinks(profile),
+                        icon: const Icon(WicchuIcons.linkSimple, size: 22),
+                      ),
+                    IconButton(
+                      tooltip: context.tr('Share profile'),
+                      onPressed: () => _shareProfile(profile),
+                      icon: const Icon(WicchuIcons.export, size: 22),
+                    ),
+                    if (own)
+                      IconButton(
+                        tooltip: context.tr('Find people'),
+                        onPressed: _findPeople,
+                        icon: const Icon(WicchuIcons.userPlus, size: 22),
+                      ),
+                    if (viewer.hasData && !own)
+                      PopupMenuButton<String>(
+                        tooltip: context.tr('More options'),
+                        enabled: !_blocking && !_reporting,
+                        icon: const Icon(WicchuIcons.dotsThree, size: 22),
+                        onSelected: (value) {
+                          if (value == 'block') {
+                            _blockUser();
+                          } else {
+                            _reportMember();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'block',
+                            child: Row(
+                              children: [
+                                const Icon(WicchuIcons.prohibit, size: 20),
+                                const SizedBox(width: 12),
+                                Text(context.tr('Block user')),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'report',
+                            child: Row(
+                              children: [
+                                const Icon(WicchuIcons.flag, size: 20),
+                                const SizedBox(width: 12),
+                                Text(context.tr('Report profile')),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(width: 4),
+                  ],
+                );
+              },
+            );
+          },
         ),
       ],
     ),
@@ -613,46 +642,6 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                 ),
               ),
             ),
-            Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 10,
-                runSpacing: 4,
-                children: [
-                  if (widget.onAccountMenu == null)
-                    _profileAction(
-                      icon: WicchuIcons.export,
-                      tooltip: context.tr('Share profile'),
-                      onPressed: () => _shareProfile(profile),
-                    ),
-                  if (own && widget.onAccountMenu == null)
-                    _profileAction(
-                      icon: WicchuIcons.userPlus,
-                      tooltip: context.tr('Find people'),
-                      onPressed: _findPeople,
-                    ),
-                  if (!own)
-                    _profileAction(
-                      icon: WicchuIcons.chatCircle,
-                      tooltip: context.tr('Message'),
-                      onPressed: _openChat,
-                    ),
-                  if (!profile.socialLinks.isEmpty)
-                    IconButton(
-                      tooltip: context.tr('Social links'),
-                      onPressed: () => _openSocialLinks(profile),
-                      style: IconButton.styleFrom(
-                        foregroundColor: accent,
-                        backgroundColor: accent.withValues(alpha: .08),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: const Icon(WicchuIcons.linkSimple, size: 20),
-                    ),
-                ],
-              ),
-            ),
           ],
         );
       },
@@ -696,24 +685,6 @@ class _MemberProfilePageState extends State<MemberProfilePage>
           ),
         ),
       ),
-    );
-  }
-
-  Widget _profileAction({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    final colors = Theme.of(context).colorScheme;
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      style: IconButton.styleFrom(
-        backgroundColor: colors.primary.withValues(alpha: .08),
-        foregroundColor: colors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      icon: Icon(icon, size: 20),
     );
   }
 

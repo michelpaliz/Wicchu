@@ -13,7 +13,13 @@ import '../community/user_avatar.dart';
 import '../profile/member_profile_page.dart';
 
 class ConversationListPage extends StatefulWidget {
-  const ConversationListPage({super.key, required this.repository});
+  const ConversationListPage({
+    super.key,
+    required this.repository,
+    this.initialPageId,
+  });
+
+  final String? initialPageId;
 
   final CommunityRepository repository;
 
@@ -29,7 +35,7 @@ class _ConversationListPageState extends State<ConversationListPage> {
   StreamSubscription<Map<String, dynamic>>? _requestSubscription;
   bool _showRequests = false;
   int _requestCount = 0;
-  String? _selectedPageId;
+  late String? _selectedPageId = widget.initialPageId;
   ConversationLabel? _selectedLabel;
 
   Future<List<Community>> _loadPageIdentities() async =>
