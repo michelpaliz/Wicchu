@@ -72,7 +72,113 @@ class _OwnershipSafetyRepository extends DemoCommunityRepository {
   }
 }
 
+class _AdminInvitationRepository extends DemoCommunityRepository {
+  String? invitedUserId;
+  String? acceptedInvitationId;
+  bool invitationResponded = false;
+
+  @override
+  Future<List<CommunityMember>> listMembers(
+    String communityId, {
+    bool includeInactive = false,
+  }) async => [
+    CommunityMember(
+      userId: 'member-2',
+      communityId: communityId,
+      role: CommunityRole.member,
+      status: MembershipStatus.active,
+      joinedAt: DateTime.utc(2026),
+      name: 'Future administrator',
+    ),
+  ];
+
+  @override
+  Future<void> createAdminInvitation(
+    String communityId,
+    String targetUserId,
+  ) async {
+    invitedUserId = targetUserId;
+  }
+
+  @override
+  Future<List<CommunityInvitation>> listMyCommunityInvitations() async =>
+      invitationResponded
+          ? []
+          : [
+              CommunityInvitation(
+                id: 'admin-invite-1',
+                communityId: 'community-1',
+                type: 'admin_invitation',
+                status: 'pending',
+                expiresAt: DateTime.now().add(const Duration(days: 7)),
+                createdAt: DateTime.now(),
+                communityName: 'Test community',
+              ),
+            ];
+
+  @override
+  Future<void> respondToCommunityInvitation(
+    String invitationId, {
+    required bool accept,
+  }) async {
+    acceptedInvitationId = accept ? invitationId : null;
+    invitationResponded = true;
+  }
+}
+
 void main() {
+  testWidgets('owner sends an acceptance-based administrator invitation', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _AdminInvitationRepository();
+    final community = (await repository.listJoinedCommunities()).first;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemberManagementPage(
+          community: community,
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Future administrator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Invite as administrator'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('only after accepting'), findsOneWidget);
+    await tester.tap(find.text('Send invitation'));
+    await tester.pumpAndSettle();
+
+    expect(repository.invitedUserId, 'member-2');
+    expect(
+      find.text('Administrator invitation sent. The member must accept it.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('member accepts administrator invitation from Invitations', (
+    tester,
+  ) async {
+    final repository = _AdminInvitationRepository();
+    await tester.pumpWidget(
+      MaterialApp(home: MyCommunityInvitationsPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'The owner invited you to become an administrator of this space.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Accept'));
+    await tester.pumpAndSettle();
+    expect(repository.acceptedInvitationId, 'admin-invite-1');
+  });
+
   testWidgets('owner sends an acceptance-based ownership transfer', (
     tester,
   ) async {

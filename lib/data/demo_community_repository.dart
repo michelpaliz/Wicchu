@@ -424,6 +424,12 @@ class DemoCommunityRepository implements CommunityRepository {
   ) async {}
 
   @override
+  Future<void> createAdminInvitation(
+    String communityId,
+    String targetUserId,
+  ) async {}
+
+  @override
   Future<void> stepDownCommunityRole(String communityId) async {}
 
   @override

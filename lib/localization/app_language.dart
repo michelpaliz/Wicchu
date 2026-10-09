@@ -282,8 +282,16 @@ const _spanish = <String, String>{
       'Solo los moderadores de la comunidad y de Wicchu pueden verla.',
   'Ban duration': 'Duración de la expulsión',
   'Transfer ownership': 'Transferir propiedad',
+  'Invite as administrator': 'Invitar como administrador',
+  '{name} will become an administrator only after accepting the invitation.':
+      '{name} será administrador solo después de aceptar la invitación.',
+  'Administrator invitation sent. The member must accept it.':
+      'Invitación de administrador enviada. El miembro debe aceptarla.',
+  'The owner invited you to become an administrator of this space.':
+      'El propietario te invitó a ser administrador de este espacio.',
   'Send transfer': 'Enviar transferencia',
   'Ownership transfer': 'Transferencia de propiedad',
+  'Administrator invitation': 'Invitación de administrador',
   'Ownership transfer sent. The administrator must accept it.':
       'Transferencia enviada. El administrador debe aceptarla.',
   'The owner invited you to take ownership of this space.':

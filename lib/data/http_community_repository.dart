@@ -846,6 +846,17 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<void> createAdminInvitation(
+    String communityId,
+    String targetUserId,
+  ) async {
+    await _api.post(
+      '/api/community/v1/communities/$communityId/admin-invitations',
+      body: {'targetUserId': targetUserId},
+    );
+  }
+
+  @override
   Future<void> stepDownCommunityRole(String communityId) async {
     await _api.patch(
       '/api/community/v1/communities/$communityId/membership/step-down',

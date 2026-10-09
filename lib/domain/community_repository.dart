@@ -255,6 +255,7 @@ abstract interface class CommunityRepository {
     String invitationId,
   );
   Future<void> createOwnershipTransfer(String communityId, String targetUserId);
+  Future<void> createAdminInvitation(String communityId, String targetUserId);
   Future<void> stepDownCommunityRole(String communityId);
   Future<CommunityRules> listRules(String communityId);
   Future<CommunityRule> createRule(

@@ -822,21 +822,27 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                     CommunityRole.moderator,
                     CommunityRole.member,
                   ])
-                    ListTile(
-                      leading: Icon(
-                        role == member.role
-                            ? WicchuIcons.checkCircleFill
-                            : WicchuIcons.circle,
+                    if (role != CommunityRole.admin ||
+                        widget.community.myRole == CommunityRole.owner)
+                      ListTile(
+                        leading: Icon(
+                          role == member.role
+                              ? WicchuIcons.checkCircleFill
+                              : WicchuIcons.circle,
+                        ),
+                        title: Text(
+                          role == CommunityRole.admin
+                              ? context.tr('Invite as administrator')
+                              : context.tr('Set role: {role}', {
+                                  'role': context.tr(role.name),
+                                }),
+                        ),
+                        enabled: role != member.role,
+                        onTap: () => Navigator.pop(
+                          sheetContext,
+                          'role:${role.name}',
+                        ),
                       ),
-                      title: Text(
-                        context.tr('Set role: {role}', {
-                          'role': context.tr(role.name),
-                        }),
-                      ),
-                      enabled: role != member.role,
-                      onTap: () =>
-                          Navigator.pop(sheetContext, 'role:${role.name}'),
-                    ),
                 if (widget.community.myRole == CommunityRole.owner &&
                     member.status == MembershipStatus.active &&
                     member.role == CommunityRole.admin)
@@ -904,7 +910,12 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         ),
       );
     } else if (action.startsWith('role:')) {
-      await _setRole(member, CommunityRole.values.byName(action.substring(5)));
+      final role = CommunityRole.values.byName(action.substring(5));
+      if (role == CommunityRole.admin) {
+        await _inviteAdministrator(member);
+      } else {
+        await _setRole(member, role);
+      }
     } else if (action == 'transfer') {
       await _transferOwnership(member);
     } else if (action == 'page-inbox') {
@@ -934,6 +945,53 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         ),
       );
       _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
+
+  Future<void> _inviteAdministrator(CommunityMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.tr('Invite as administrator')),
+        content: Text(
+          dialogContext.tr(
+            '{name} will become an administrator only after accepting the invitation.',
+            {'name': member.name},
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(dialogContext.tr('Send invitation')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await widget.repository.createAdminInvitation(
+        widget.community.id,
+        member.userId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.tr(
+              'Administrator invitation sent. The member must accept it.',
+            ),
+          ),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(

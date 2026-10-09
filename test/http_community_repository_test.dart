@@ -749,6 +749,13 @@ void main() {
       );
       expect(api.lastBody, {'targetUserId': 'admin-2'});
 
+      await repository.createAdminInvitation('community-1', 'member-3');
+      expect(
+        api.lastPath,
+        '/api/community/v1/communities/community-1/admin-invitations',
+      );
+      expect(api.lastBody, {'targetUserId': 'member-3'});
+
       await repository.stepDownCommunityRole('community-1');
       expect(
         api.lastPath,

@@ -456,6 +456,7 @@ class CommunityInvitation {
   final String? invitationUrl;
 
   bool get isLink => type == 'link';
+  bool get isAdminInvitation => type == 'admin_invitation';
   bool get isOwnershipTransfer => type == 'ownership_transfer';
 }
 
