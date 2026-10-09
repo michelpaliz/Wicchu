@@ -19,7 +19,92 @@ class _PreviewRepository extends DemoCommunityRepository {
   }
 }
 
+class _RatingRepository extends DemoCommunityRepository {
+  CommunitySurveyResponse? response;
+  int submissions = 0;
+
+  @override
+  Future<CommunityHelpfulness> getCommunityHelpfulness(
+    String communityId,
+  ) async => CommunityHelpfulness(
+    responseCount: response == null ? 0 : 1,
+    minimumResponses: 10,
+    isPublic: false,
+    eligible: true,
+    myVote: response,
+  );
+
+  @override
+  Future<CommunityHelpfulness> setCommunityHelpfulness(
+    String communityId, {
+    required bool helpful,
+    String? locallyRelevant,
+    String? safeParticipation,
+    String? wellOrganized,
+    bool? recommend,
+  }) async {
+    submissions++;
+    response = CommunitySurveyResponse(
+      helpful: helpful,
+      locallyRelevant: locallyRelevant,
+      safeParticipation: safeParticipation,
+      wellOrganized: wellOrganized,
+      recommend: recommend,
+    );
+    return getCommunityHelpfulness(communityId);
+  }
+}
+
 void main() {
+  testWidgets('rating choice opens and submits one complete survey', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _RatingRepository();
+    final original = (await repository.listJoinedCommunities()).first;
+    final community = Community(
+      id: original.id,
+      name: original.name,
+      description: original.description,
+      town: original.town,
+      visibility: original.visibility,
+      createdBy: original.createdBy,
+      createdAt: original.createdAt,
+      myRole: CommunityRole.member,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityProfilePage(
+          community: community,
+          repository: repository,
+          screen: CommunityScreen.rating,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Complete your rating'), findsOneWidget);
+    await tester.tap(find.text('Yes').first);
+    await tester.pumpAndSettle();
+    expect(repository.submissions, 0);
+    expect(find.text('Community feedback'), findsOneWidget);
+
+    await tester.tap(find.text('Submit'));
+    await tester.pumpAndSettle();
+    expect(repository.submissions, 1);
+    expect(repository.response?.helpful, isTrue);
+    expect(repository.response?.locallyRelevant, 'yes');
+    expect(repository.response?.safeParticipation, 'yes');
+    expect(repository.response?.wellOrganized, 'yes');
+    expect(repository.response?.recommend, isTrue);
+    expect(
+      find.text('Your feedback is saved. You can update it at any time.'),
+      findsOneWidget,
+    );
+  });
+
   for (final visibility in CommunityVisibility.values) {
     testWidgets('non-member preview respects $visibility', (tester) async {
       final repository = _PreviewRepository();

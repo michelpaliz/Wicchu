@@ -1201,6 +1201,16 @@ const _spanish = <String, String>{
   'Do you find this community helpful?': '¿Consideras útil esta comunidad?',
   'Not really': 'No mucho',
   'Thanks for your feedback.': 'Gracias por tu opinión.',
+  'Your feedback is saved. You can update it at any time.':
+      'Tu valoración está guardada. Puedes actualizarla cuando quieras.',
+  'Complete your rating': 'Completar tu valoración',
+  'Update your rating': 'Actualizar tu valoración',
+  'Owners and administrators cannot rate their own page.':
+      'Los propietarios y administradores no pueden valorar su propia página.',
+  'Follow this page to leave a rating.':
+      'Sigue esta página para dejar una valoración.',
+  'Join this community to leave a rating.':
+      'Únete a esta comunidad para dejar una valoración.',
   'Community feedback': 'Opinión sobre la comunidad',
   'Is the information relevant to your local area?':
       '¿La información es relevante para tu zona?',

@@ -246,33 +246,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         : Future.value(const <CommunityMember>[]);
   }
 
-  Future<void> _rateHelpfulness(bool helpful) async {
-    if (_savingHelpfulness) return;
-    setState(() => _savingHelpfulness = true);
-    try {
-      final result = await widget.repository.setCommunityHelpfulness(
-        _community.id,
-        helpful: helpful,
-      );
-      if (!mounted) return;
-      setState(() => _helpfulness = Future.value(result));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('Thanks for your feedback.'))),
-      );
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
-      }
-    } finally {
-      if (mounted) setState(() => _savingHelpfulness = false);
-    }
-  }
-
-  Future<void> _openCommunitySurvey(CommunityHelpfulness feedback) async {
+  Future<void> _openCommunitySurvey(
+    CommunityHelpfulness feedback, {
+    bool? initialHelpful,
+  }) async {
     final current = feedback.myVote;
-    var helpful = current?.helpful ?? true;
+    var helpful = initialHelpful ?? current?.helpful ?? true;
     var locallyRelevant = current?.locallyRelevant ?? 'yes';
     var safeParticipation = current?.safeParticipation ?? 'yes';
     var wellOrganized = current?.wellOrganized ?? 'yes';
@@ -4233,6 +4212,25 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           children: [
             if (feedback.eligible) ...[
               const SizedBox(height: 14),
+              if (feedback.myVote != null) ...[
+                Row(
+                  children: [
+                    Icon(
+                      WicchuIcons.checkCircleFill,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        context.tr(
+                          'Your feedback is saved. You can update it at any time.',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+              ],
               Text(
                 context.tr(_spaceText('Do you find this community helpful?')),
               ),
@@ -4258,7 +4256,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     ? null
                     : (selection) {
                         if (selection.isNotEmpty) {
-                          _rateHelpfulness(selection.first);
+                          _openCommunitySurvey(
+                            feedback,
+                            initialHelpful: selection.first,
+                          );
                         }
                       },
               ),
@@ -4268,7 +4269,25 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     ? null
                     : () => _openCommunitySurvey(feedback),
                 icon: const Icon(WicchuIcons.notePencil),
-                label: Text(context.tr('Answer the short survey')),
+                label: Text(
+                  context.tr(
+                    feedback.myVote == null
+                        ? 'Complete your rating'
+                        : 'Update your rating',
+                  ),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 14),
+              Text(
+                context.tr(
+                  _community.myRole == CommunityRole.owner ||
+                          _community.myRole == CommunityRole.admin
+                      ? 'Owners and administrators cannot rate their own page.'
+                      : _community.isPublicProfile
+                          ? 'Follow this page to leave a rating.'
+                          : 'Join this community to leave a rating.',
+                ),
               ),
             ],
             if (feedback.insights.isNotEmpty) ...[
