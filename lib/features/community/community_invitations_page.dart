@@ -744,8 +744,20 @@ class _MyCommunityInvitationsPageState
     extends State<MyCommunityInvitationsPage> {
   late Future<List<CommunityInvitation>> _items = widget.repository
       .listMyCommunityInvitations();
+  final Set<String> _respondingInvitationIds = {};
+
+  String _responseMessage(CommunityInvitation invitation, bool accept) {
+    if (!accept) return 'Invitation declined.';
+    if (invitation.isOwnershipTransfer) return 'Ownership transfer accepted.';
+    if (invitation.isAdminInvitation) {
+      return 'Administrator invitation accepted.';
+    }
+    return 'You joined the community.';
+  }
 
   Future<void> _respond(CommunityInvitation invitation, bool accept) async {
+    if (_respondingInvitationIds.contains(invitation.id)) return;
+    setState(() => _respondingInvitationIds.add(invitation.id));
     try {
       await widget.repository.respondToCommunityInvitation(
         invitation.id,
@@ -753,12 +765,21 @@ class _MyCommunityInvitationsPageState
       );
       if (mounted) {
         setState(() => _items = widget.repository.listMyCommunityInvitations());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr(_responseMessage(invitation, accept))),
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _respondingInvitationIds.remove(invitation.id));
       }
     }
   }
@@ -792,6 +813,7 @@ class _MyCommunityInvitationsPageState
             final item = items[index];
             final ownershipTransfer = item.isOwnershipTransfer;
             final adminInvitation = item.isAdminInvitation;
+            final responding = _respondingInvitationIds.contains(item.id);
             return ListTile(
               contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(
@@ -813,19 +835,24 @@ class _MyCommunityInvitationsPageState
                           : 'You were invited to join this community.',
                 ),
               ),
-              trailing: Wrap(
-                spacing: 4,
-                children: [
-                  TextButton(
-                    onPressed: () => _respond(item, false),
-                    child: Text(context.tr('Decline')),
-                  ),
-                  FilledButton(
-                    onPressed: () => _respond(item, true),
-                    child: Text(context.tr('Accept')),
-                  ),
-                ],
-              ),
+              trailing: responding
+                  ? const SizedBox.square(
+                      dimension: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Wrap(
+                      spacing: 4,
+                      children: [
+                        TextButton(
+                          onPressed: () => _respond(item, false),
+                          child: Text(context.tr('Decline')),
+                        ),
+                        FilledButton(
+                          onPressed: () => _respond(item, true),
+                          child: Text(context.tr('Accept')),
+                        ),
+                      ],
+                    ),
             );
           },
         );

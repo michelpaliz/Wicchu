@@ -1231,6 +1231,9 @@ const _spanish = <String, String>{
   'Community invitation': 'Invitación a la comunidad',
   'You joined the community.': 'Te uniste a la comunidad.',
   'Invitation declined.': 'Invitación rechazada.',
+  'Administrator invitation accepted.':
+      'Invitación de administrador aceptada.',
+  'Ownership transfer accepted.': 'Transferencia de propiedad aceptada.',
   'Show local weather': 'Mostrar clima local',
   'Display current conditions for the community town.':
       'Muestra las condiciones actuales de la localidad de la comunidad.',
