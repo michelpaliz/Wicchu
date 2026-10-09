@@ -1,3 +1,5 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
+import '../../widgets/explore_result_card.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -31,20 +33,77 @@ class LocalDiscoveryView extends StatefulWidget {
     super.key,
     required this.repository,
     this.initialQuery = '',
+    this.onLocationChanged,
+    this.externalFilters = false,
+    this.externalCategories = false,
+    this.onCategoriesChanged,
   });
 
   final CommunityRepository repository;
   final String initialQuery;
+  final bool externalFilters;
+  final bool externalCategories;
+  final VoidCallback? onCategoriesChanged;
+  final void Function(String? townId, Position? position, double radiusKm)?
+  onLocationChanged;
 
   @override
-  State<LocalDiscoveryView> createState() => _LocalDiscoveryViewState();
+  State<LocalDiscoveryView> createState() => LocalDiscoveryViewState();
 }
 
-class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
+class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
   late Future<_DiscoveryData> _data = _initialize();
-  _DiscoveryCategory _category = _DiscoveryCategory.all;
-  _DiscoveryLocationMode _locationMode = _DiscoveryLocationMode.town;
+  final _categories = <_DiscoveryCategory>{};
+  _DiscoveryCategory get _category =>
+      _categories.length == 1 ? _categories.first : _DiscoveryCategory.all;
+  set _category(_DiscoveryCategory value) {
+    _categories.clear();
+    if (value != _DiscoveryCategory.all) _categories.add(value);
+  }
+
+  bool _selected(_DiscoveryCategory value) => value == _DiscoveryCategory.all
+      ? _categories.isEmpty
+      : _categories.contains(value);
+  bool _includes(_DiscoveryCategory value) =>
+      _categories.isEmpty || _categories.contains(value);
+  void _toggleCategory(_DiscoveryCategory value) {
+    if (value == _DiscoveryCategory.all) {
+      _categories.clear();
+    } else if (!_categories.remove(value)) {
+      _categories.add(value);
+    }
+    _showFoodBusinesses = false;
+    if (!_includes(_DiscoveryCategory.food) &&
+        !_includes(_DiscoveryCategory.retail)) {
+      _delivery = false;
+      _pickup = false;
+    }
+    if (!_includes(_DiscoveryCategory.food)) _openNow = false;
+    if (!_includes(_DiscoveryCategory.transport)) _departureDay = 0;
+    if (!_includes(_DiscoveryCategory.properties)) _listingType = '';
+  }
+
+  Future<void> _saveBusinessFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'business_filter_categories',
+      _categories.map((item) => item.name).toList(),
+    );
+    await prefs.setBool('business_filter_delivery', _delivery);
+    await prefs.setBool('business_filter_pickup', _pickup);
+    await prefs.setBool('business_filter_open', _openNow);
+    await prefs.setInt('business_filter_departure', _departureDay);
+    await prefs.setString('business_filter_listing', _listingType);
+    if (_maxPrice == null) {
+      await prefs.remove('business_filter_price');
+    } else {
+      await prefs.setDouble('business_filter_price', _maxPrice!);
+    }
+  }
+
+  _DiscoveryLocationMode _locationMode = _DiscoveryLocationMode.anywhere;
   String? _townId;
+  String? _townName;
   Position? _position;
   double _radiusKm = 10;
   bool _locating = false;
@@ -58,16 +117,106 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
   double? _maxPrice;
   bool _showFoodBusinesses = false;
 
+  @override
+  void didUpdateWidget(covariant LocalDiscoveryView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialQuery != widget.initialQuery) _data = _load();
+  }
+
+  Widget buildCategoryBar() {
+    final colors = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final item in _DiscoveryCategory.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                selected: _selected(item),
+                side: BorderSide(
+                  color: _selected(item)
+                      ? colors.primary
+                      : colors.outlineVariant.withValues(alpha: .3),
+                ),
+                shape: const StadiumBorder(),
+                backgroundColor: colors.surface,
+                selectedColor: colors.primary,
+                showCheckmark: false,
+                avatar: item == _DiscoveryCategory.all
+                    ? Icon(
+                        WicchuIcons.squaresFour,
+                        size: 18,
+                        color: _selected(item)
+                            ? colors.onPrimary
+                            : colors.primary,
+                      )
+                    : Icon(
+                        _categoryIcon(item),
+                        size: 18,
+                        color: _selected(item)
+                            ? colors.onPrimary
+                            : colors.primary,
+                      ),
+                labelStyle: TextStyle(
+                  color: _selected(item) ? colors.onPrimary : colors.onSurface,
+                ),
+                label: Text(context.tr(_categoryLabel(item))),
+                onSelected: (_) => setState(() {
+                  _toggleCategory(item);
+                  _saveBusinessFilters();
+                  widget.onCategoriesChanged?.call();
+                }),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> openFilters({bool locationOnly = false}) async {
+    try {
+      final data = await _data;
+      if (mounted) {
+        await _showFilters(data.towns, locationOnly: locationOnly);
+        if (mounted) widget.onCategoriesChanged?.call();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('Could not load local discovery.')),
+          ),
+        );
+      }
+    }
+  }
+
   Future<_DiscoveryData> _initialize() async {
     final preferences = await SharedPreferences.getInstance();
+    final savedCategories =
+        preferences.getStringList('business_filter_categories') ?? [];
+    _categories.addAll(
+      _DiscoveryCategory.values.where(
+        (item) =>
+            item != _DiscoveryCategory.all &&
+            savedCategories.contains(item.name),
+      ),
+    );
+    _delivery = preferences.getBool('business_filter_delivery') ?? false;
+    _pickup = preferences.getBool('business_filter_pickup') ?? false;
+    _openNow = preferences.getBool('business_filter_open') ?? false;
+    _departureDay = preferences.getInt('business_filter_departure') ?? 0;
+    _listingType = preferences.getString('business_filter_listing') ?? '';
+    _maxPrice = preferences.getDouble('business_filter_price');
     _townId = preferences.getString('business_discovery_town_id');
     _radiusKm = preferences.getDouble('business_discovery_radius_km') ?? 10;
     _locationMode = switch (preferences.getString(
       'business_discovery_location_mode',
     )) {
       'nearby' => _DiscoveryLocationMode.nearby,
-      'anywhere' => _DiscoveryLocationMode.anywhere,
-      _ => _DiscoveryLocationMode.town,
+      'town' => _DiscoveryLocationMode.town,
+      _ => _DiscoveryLocationMode.anywhere,
     };
     if (_locationMode == _DiscoveryLocationMode.nearby) {
       _position = await _currentPosition(requestPermission: false);
@@ -90,6 +239,15 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
         towns.where((item) => item.id == preferredTownId).firstOrNull ??
         towns.first;
     _townId = town.id;
+    _townName = town.name;
+    if (mounted &&
+        (_locationMode != _DiscoveryLocationMode.nearby || _position != null)) {
+      widget.onLocationChanged?.call(
+        _locationMode == _DiscoveryLocationMode.town ? town.id : null,
+        _locationMode == _DiscoveryLocationMode.nearby ? _position : null,
+        _radiusKm,
+      );
+    }
     final communities = switch (_locationMode) {
       _DiscoveryLocationMode.town =>
         await widget.repository.listLocalBusinesses(townId: town.id),
@@ -162,12 +320,16 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
   }
 
   Future<void> _selectTown(String? value) async {
-    if (value == null || value == _townId) return;
+    if (value == null) return;
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString('business_discovery_town_id', value);
+    await preferences.setString('business_discovery_location_mode', 'town');
     if (!mounted) return;
     setState(() {
       _townId = value;
+      _locationMode = _DiscoveryLocationMode.town;
+      _locationError = null;
+      widget.onLocationChanged?.call(value, null, _radiusKm);
       _data = _load();
     });
   }
@@ -184,6 +346,9 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
         _locationMode = mode;
         _position = position;
         _locating = false;
+        if (position != null) {
+          widget.onLocationChanged?.call(null, position, _radiusKm);
+        }
         _data = _load();
       });
       return;
@@ -192,6 +357,11 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
     setState(() {
       _locationMode = mode;
       _locationError = null;
+      widget.onLocationChanged?.call(
+        mode == _DiscoveryLocationMode.town ? _townId : null,
+        null,
+        _radiusKm,
+      );
       _data = _load();
     });
   }
@@ -202,23 +372,14 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
     if (!mounted) return;
     setState(() {
       _radiusKm = radiusKm;
+      widget.onLocationChanged?.call(null, _position, radiusKm);
       _data = _load();
     });
   }
 
-  bool _matchesCategory(CommunityPost post) => switch (_category) {
-    _DiscoveryCategory.all => true,
-    _DiscoveryCategory.food => post.todayMenu != null,
-    _DiscoveryCategory.transport =>
-      post.businessFeature?.type == BusinessPostFeatureType.transportTrip,
-    _DiscoveryCategory.retail =>
-      post.businessFeature?.type == BusinessPostFeatureType.retailOffer,
-    _DiscoveryCategory.properties =>
-      post.businessFeature?.type == BusinessPostFeatureType.realEstateListing,
-    _DiscoveryCategory.services =>
-      post.businessFeature?.type == BusinessPostFeatureType.professionalService,
-    _DiscoveryCategory.beauty || _DiscoveryCategory.health => false,
-  };
+  bool _matchesCategory(CommunityPost post) =>
+      _categories.isEmpty ||
+      _categories.any((category) => _matchesCategoryValue(post, category));
 
   bool _matchesFilters(CommunityPost post, Community? business) {
     if (!_matchesCategory(post)) return false;
@@ -321,8 +482,6 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
     _maxPrice = null;
   }
 
-  void _clearFilters() => setState(_resetFilterValues);
-
   Future<void> _priceFilter() async {
     final controller = TextEditingController(text: _maxPrice?.toString() ?? '');
     final value = await showModalBottomSheet<double?>(
@@ -382,7 +541,7 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
       }
       if (snapshot.hasError) {
         return _DiscoveryMessage(
-          icon: Icons.cloud_off_outlined,
+          icon: WicchuIcons.cloudSlash,
           title: context.tr('Could not load local discovery.'),
           action: TextButton(
             onPressed: _refresh,
@@ -393,7 +552,7 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
       final data = snapshot.data!;
       if (data.towns.isEmpty) {
         return _DiscoveryMessage(
-          icon: Icons.location_off_outlined,
+          icon: WicchuIcons.mapPinSlash,
           title: context.tr('No towns are available yet.'),
         );
       }
@@ -415,83 +574,39 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
                 _matchesBusinessQuery(item),
           )
           .toList(growable: false);
-      final town =
-          data.towns.where((item) => item.id == _townId).firstOrNull ??
-          data.towns.first;
-      return RefreshIndicator(
-        onRefresh: _refresh,
-        child: ListView(
-          key: const ValueKey('local-discovery-results'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          children: [
-            Text(
-              context.tr('Discover local businesses'),
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+      final theme = Theme.of(context);
+      final colors = theme.colorScheme;
+      return Theme(
+        data: theme.copyWith(
+          chipTheme: theme.chipTheme.copyWith(
+            shape: const StadiumBorder(),
+            side: BorderSide(
+              color: colors.outlineVariant.withValues(alpha: .5),
             ),
-            const SizedBox(height: 4),
-            Text(_locationSummary(town)),
-            const SizedBox(height: 14),
-            Text(
-              context.tr('Location'),
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final mode in _DiscoveryLocationMode.values)
-                  ChoiceChip(
-                    selected: _locationMode == mode,
-                    avatar: _locating && mode == _DiscoveryLocationMode.nearby
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(_locationModeIcon(mode), size: 18),
-                    label: Text(context.tr(_locationModeLabel(mode))),
-                    onSelected: (_) => _selectLocationMode(mode),
+            backgroundColor: colors.surface,
+            selectedColor: colors.primary,
+            showCheckmark: false,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            labelStyle: theme.textTheme.labelLarge,
+          ),
+        ),
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            key: const ValueKey('local-discovery-results'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 24),
+            children: [
+              if (!widget.externalFilters)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    key: const ValueKey('discovery-location-filters'),
+                    tooltip: context.tr('Location'),
+                    onPressed: () => openFilters(locationOnly: true),
+                    icon: const Icon(WicchuIcons.mapPin),
                   ),
-              ],
-            ),
-            if (_locationMode == _DiscoveryLocationMode.town) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _townId,
-                decoration: InputDecoration(
-                  labelText: context.tr('Town'),
-                  prefixIcon: const Icon(Icons.location_on_outlined),
                 ),
-                items: [
-                  for (final item in data.towns)
-                    DropdownMenuItem(value: item.id, child: Text(item.name)),
-                ],
-                onChanged: _selectTown,
-              ),
-            ],
-            if (_locationMode == _DiscoveryLocationMode.nearby) ...[
-              const SizedBox(height: 12),
-              Text(
-                context.tr('Search radius'),
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final radius in const [1.0, 10.0, 50.0])
-                    ChoiceChip(
-                      selected: _radiusKm == radius,
-                      label: Text('${radius.toStringAsFixed(0)} km'),
-                      onSelected: (_) => _selectRadius(radius),
-                    ),
-                ],
-              ),
               if (_locationError != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -499,7 +614,7 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
-                        Icons.location_off_outlined,
+                        WicchuIcons.mapPinSlash,
                         size: 18,
                         color: Theme.of(context).colorScheme.error,
                       ),
@@ -524,65 +639,65 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
                     ],
                   ),
                 ),
-            ],
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final item in _DiscoveryCategory.values)
-                  ChoiceChip(
-                    selected: _category == item,
-                    avatar: Icon(_categoryIcon(item), size: 18),
-                    label: Text(context.tr(_categoryLabel(item))),
-                    onSelected: (_) => setState(() {
-                      _category = item;
-                      _showFoodBusinesses = false;
-                      _resetFilterValues();
-                    }),
+
+              if (_locationError != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: () => _chooseLocation(data.towns),
+                    child: Text(context.tr('Choose town')),
+                  ),
+                ),
+              if (!widget.externalCategories) buildCategoryBar(),
+              SizedBox(height: widget.externalCategories ? 2 : 8),
+              if (_category == _DiscoveryCategory.food) ...[
+                if (!_showFoodBusinesses)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      key: const ValueKey('discovery-filters'),
+                      tooltip: context.tr('Filters'),
+                      onPressed: () => openFilters(),
+                      icon: const Icon(WicchuIcons.slidersHorizontal),
+                    ),
+                  ),
+                SegmentedButton<bool>(
+                  segments: [
+                    ButtonSegment(
+                      value: false,
+                      icon: const Icon(WicchuIcons.forkKnife),
+                      label: Text(context.tr("Today's menus")),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      icon: const Icon(WicchuIcons.storefront),
+                      label: Text(context.tr('Restaurants')),
+                    ),
+                  ],
+                  selected: {_showFoodBusinesses},
+                  onSelectionChanged: (value) =>
+                      setState(() => _showFoodBusinesses = value.first),
+                ),
+                const SizedBox(height: 16),
+                if (_showFoodBusinesses)
+                  ..._businessDirectory(businesses)
+                else if (posts.isEmpty)
+                  _emptyPublications()
+                else
+                  ...posts.map(
+                    (post) => _postCard(post, communityById[post.communityId]),
+                  ),
+              ] else ...[
+                ..._businessDirectory(businesses),
+                if (_category == _DiscoveryCategory.all)
+                  ..._overviewSections(posts, communityById)
+                else if (posts.isNotEmpty)
+                  ...posts.map(
+                    (post) => _postCard(post, communityById[post.communityId]),
                   ),
               ],
-            ),
-            const SizedBox(height: 12),
-            _filterBar(),
-            const SizedBox(height: 16),
-            if (_category == _DiscoveryCategory.food) ...[
-              SegmentedButton<bool>(
-                segments: [
-                  ButtonSegment(
-                    value: false,
-                    icon: const Icon(Icons.restaurant_menu_outlined),
-                    label: Text(context.tr("Today's menus")),
-                  ),
-                  ButtonSegment(
-                    value: true,
-                    icon: const Icon(Icons.storefront_outlined),
-                    label: Text(context.tr('Restaurants')),
-                  ),
-                ],
-                selected: {_showFoodBusinesses},
-                onSelectionChanged: (value) =>
-                    setState(() => _showFoodBusinesses = value.first),
-              ),
-              const SizedBox(height: 16),
-              if (_showFoodBusinesses)
-                ..._businessDirectory(businesses)
-              else if (posts.isEmpty)
-                _emptyPublications()
-              else
-                ...posts.map(
-                  (post) => _postCard(post, communityById[post.communityId]),
-                ),
-            ] else ...[
-              if (_category == _DiscoveryCategory.all)
-                ..._overviewSections(posts, communityById)
-              else if (posts.isNotEmpty)
-                ...posts.map(
-                  (post) => _postCard(post, communityById[post.communityId]),
-                ),
-              ..._businessDirectory(businesses),
             ],
-          ],
+          ),
         ),
       );
     },
@@ -599,9 +714,13 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
         );
   }
 
-  bool _matchesBusinessCategory(Community business) {
+  bool _matchesBusinessCategory(Community business) =>
+      _categories.isEmpty ||
+      _categories.any((category) => _businessHasCategory(business, category));
+
+  bool _businessHasCategory(Community business, _DiscoveryCategory category) {
     final services = business.businessServices;
-    return switch (_category) {
+    return switch (category) {
       _DiscoveryCategory.all => true,
       _DiscoveryCategory.food => services.contains(BusinessService.food),
       _DiscoveryCategory.transport => services.contains(
@@ -648,63 +767,419 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
 
   List<Widget> _businessDirectory(List<Community> businesses) {
     final filtered = businesses.where(_matchesBusinessFilters).toList();
-    if (filtered.isEmpty) {
-      return [if (_category != _DiscoveryCategory.all) _emptyBusinesses()];
-    }
     return [
       Padding(
-        padding: const EdgeInsets.fromLTRB(0, 12, 0, 8),
+        padding: const EdgeInsets.fromLTRB(0, 4, 0, 10),
         child: Row(
           children: [
             Expanded(
               child: Text(
-                context.tr(
-                  _category == _DiscoveryCategory.food
-                      ? 'Restaurants'
-                      : 'Local businesses',
+                '${context.trCount(filtered.length, singular: '{count} business found', plural: '{count} businesses found')}'
+                '${_locationMode == _DiscoveryLocationMode.town && _townName != null
+                    ? ' · $_townName'
+                    : _locationMode == _DiscoveryLocationMode.nearby
+                    ? ' · ${context.tr('Near me')}'
+                    : ''}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
             ),
-            if (_locationMode == _DiscoveryLocationMode.nearby)
-              Text(
-                context.tr('Nearest first'),
-                style: Theme.of(context).textTheme.labelMedium,
+            IconButton(
+              key: const ValueKey('discovery-filters'),
+              tooltip: context.tr('Filters'),
+              onPressed: () => openFilters(),
+              icon: Badge(
+                isLabelVisible: _activeFilters > 0,
+                label: Text('$_activeFilters'),
+                child: Icon(
+                  WicchuIcons.slidersHorizontal,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
+            ),
           ],
         ),
       ),
-      ...filtered.map(_businessCard),
+      if (filtered.isEmpty)
+        _emptyBusinesses()
+      else
+        ...filtered.map(_businessCard),
     ];
   }
 
-  Widget _filterBar() {
+  int get _activeFilters => [
+    _delivery,
+    _pickup,
+    _openNow,
+    _departureDay != 0,
+    _listingType.isNotEmpty,
+    _maxPrice != null,
+  ].where((value) => value).length;
+
+  Future<void> _chooseLocation(List<Town> towns) {
+    var query = '';
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, refresh) => ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * .7,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(title: Text(context.tr('Choose town'))),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: context.tr('Search towns'),
+                    prefixIcon: const Icon(WicchuIcons.magnifyingGlass),
+                  ),
+                  onChanged: (value) =>
+                      refresh(() => query = value.trim().toLowerCase()),
+                ),
+              ),
+
+              ListTile(
+                leading: const Icon(WicchuIcons.globe),
+                title: Text(context.tr('Anywhere')),
+                onTap: () async {
+                  await _selectLocationMode(_DiscoveryLocationMode.anywhere);
+                  if (sheetContext.mounted) Navigator.pop(sheetContext);
+                },
+              ),
+              for (final town in towns.where(
+                (town) => town.name.toLowerCase().contains(query),
+              ))
+                ListTile(
+                  leading: const Icon(WicchuIcons.mapPin),
+                  title: Text(town.name),
+                  trailing:
+                      _townId == town.id &&
+                          _locationMode == _DiscoveryLocationMode.town
+                      ? const Icon(WicchuIcons.check)
+                      : null,
+                  onTap: () async {
+                    await _selectTown(town.id);
+                    if (sheetContext.mounted) Navigator.pop(sheetContext);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showFilters(
+    List<Town> towns, {
+    bool locationOnly = false,
+  }) => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    useSafeArea: true,
+    isScrollControlled: true,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, sheetState) {
+        void update(VoidCallback change) {
+          setState(change);
+          sheetState(() {});
+        }
+
+        final theme = Theme.of(context);
+        final colors = theme.colorScheme;
+        Widget heading(String title) => Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            context.tr(title),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        );
+        Widget divider() => Divider(
+          height: 20,
+          color: colors.outlineVariant.withValues(alpha: .5),
+        );
+        Future<void> mode(_DiscoveryLocationMode value) async {
+          final result = _selectLocationMode(value);
+          sheetState(() {});
+          await result;
+          if (context.mounted) sheetState(() {});
+        }
+
+        Widget location(
+          String label,
+          IconData icon,
+          bool selected,
+          VoidCallback? action,
+        ) => OutlinedButton.icon(
+          onPressed: action,
+          icon: Icon(icon, size: 18),
+          label: Text(label, textAlign: TextAlign.center),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 46),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            foregroundColor: selected ? colors.onPrimary : colors.primary,
+            backgroundColor: selected ? colors.primary : colors.surface,
+            side: BorderSide(
+              color: selected ? colors.primary : colors.outlineVariant,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            textStyle: theme.textTheme.labelMedium,
+          ),
+        );
+        return Theme(
+          data: theme.copyWith(
+            chipTheme: theme.chipTheme.copyWith(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              side: BorderSide(color: colors.outlineVariant),
+              backgroundColor: colors.surface,
+              selectedColor: colors.primary,
+              secondarySelectedColor: colors.primary,
+              secondaryLabelStyle: TextStyle(color: colors.onPrimary),
+              checkmarkColor: colors.onPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            ),
+          ),
+          child: SizedBox(
+            height:
+                MediaQuery.sizeOf(context).height * (locationOnly ? .58 : .45),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          locationOnly
+                              ? context.tr('Location')
+                              : '${context.tr('Filters')}${_activeFilters == 0 ? '' : ' ($_activeFilters)'}',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          update(() {
+                            if (locationOnly) {
+                              _radiusKm = 10;
+                            } else {
+                              _resetFilterValues();
+                            }
+                          });
+                          if (!locationOnly) return;
+                          final preferences =
+                              await SharedPreferences.getInstance();
+                          await preferences.setDouble(
+                            'business_discovery_radius_km',
+                            10,
+                          );
+                          await mode(_DiscoveryLocationMode.town);
+                        },
+                        child: Text(context.tr('Reset filters')),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (locationOnly) ...[
+                          heading('Location'),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: location(
+                                  context.tr('Near me'),
+                                  WicchuIcons.crosshair,
+                                  _locationMode ==
+                                      _DiscoveryLocationMode.nearby,
+                                  _locating
+                                      ? null
+                                      : () =>
+                                            mode(_DiscoveryLocationMode.nearby),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: location(
+                                  towns
+                                          .where((town) => town.id == _townId)
+                                          .firstOrNull
+                                          ?.name ??
+                                      context.tr('Choose town'),
+                                  WicchuIcons.mapPin,
+                                  _locationMode == _DiscoveryLocationMode.town,
+                                  () async {
+                                    await _chooseLocation(towns);
+                                    if (context.mounted) sheetState(() {});
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: location(
+                                  context.tr('Anywhere'),
+                                  WicchuIcons.globe,
+                                  _locationMode ==
+                                      _DiscoveryLocationMode.anywhere,
+                                  () => mode(_DiscoveryLocationMode.anywhere),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_locating) const LinearProgressIndicator(),
+                          if (_locationError != null)
+                            Text(context.tr(_locationError!)),
+                        ],
+                        if (!locationOnly) ...[
+                          heading('Services'),
+                          _filterBar(update),
+                        ],
+                        if (locationOnly &&
+                            _locationMode == _DiscoveryLocationMode.nearby) ...[
+                          divider(),
+                          heading('Search radius'),
+                          Row(
+                            children: [
+                              for (final radius in [1.0, 10.0, 50.0])
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: ChoiceChip(
+                                      label: Center(
+                                        child: Text('${radius.toInt()} km'),
+                                      ),
+                                      labelStyle: TextStyle(
+                                        color: _radiusKm == radius
+                                            ? colors.onPrimary
+                                            : colors.onSurface,
+                                      ),
+                                      selected: _radiusKm == radius,
+                                      onSelected: (_) async {
+                                        await _selectRadius(radius);
+                                        if (context.mounted) sheetState(() {});
+                                      },
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 50),
+                        ),
+                        onPressed: () => Navigator.pop(sheetContext),
+                        child: Text(context.tr('Show results')),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  ).whenComplete(_saveBusinessFilters);
+
+  Widget _filterBar(StateSetter update) {
     final chips = <Widget>[];
-    if (_category == _DiscoveryCategory.food ||
-        _category == _DiscoveryCategory.retail ||
-        _category == _DiscoveryCategory.all) {
+    if (_includes(_DiscoveryCategory.food) ||
+        _includes(_DiscoveryCategory.retail)) {
       chips.addAll([
         FilterChip(
+          avatar: Icon(
+            WicchuIcons.truck,
+            size: 19,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          showCheckmark: false,
+          selectedColor: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: .1),
+          labelStyle: TextStyle(
+            color: _delivery
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurface,
+          ),
           label: Text(context.tr('Delivery')),
           selected: _delivery,
-          onSelected: (value) => setState(() => _delivery = value),
+          onSelected: (value) => update(() => _delivery = value),
         ),
         FilterChip(
+          avatar: Icon(
+            WicchuIcons.tote,
+            size: 19,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          showCheckmark: false,
+          selectedColor: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: .1),
+          labelStyle: TextStyle(
+            color: _pickup
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurface,
+          ),
           label: Text(context.tr('Pickup')),
           selected: _pickup,
-          onSelected: (value) => setState(() => _pickup = value),
+          onSelected: (value) => update(() => _pickup = value),
         ),
       ]);
     }
-    if (_category == _DiscoveryCategory.food ||
-        _category == _DiscoveryCategory.all) {
+    if (_includes(_DiscoveryCategory.food)) {
       chips.add(
         FilterChip(
+          avatar: Icon(
+            WicchuIcons.clock,
+            size: 19,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          showCheckmark: false,
+          selectedColor: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: .1),
+          labelStyle: TextStyle(
+            color: _openNow
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurface,
+          ),
           label: Text(context.tr('Open now')),
           selected: _openNow,
-          onSelected: (value) => setState(() => _openNow = value),
+          onSelected: (value) => update(() => _openNow = value),
         ),
       );
     }
@@ -713,17 +1188,17 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
         ChoiceChip(
           label: Text(context.tr('Upcoming')),
           selected: _departureDay == 0,
-          onSelected: (_) => setState(() => _departureDay = 0),
+          onSelected: (_) => update(() => _departureDay = 0),
         ),
         ChoiceChip(
           label: Text(context.tr('Today')),
           selected: _departureDay == 1,
-          onSelected: (_) => setState(() => _departureDay = 1),
+          onSelected: (_) => update(() => _departureDay = 1),
         ),
         ChoiceChip(
           label: Text(context.tr('Tomorrow')),
           selected: _departureDay == 2,
-          onSelected: (_) => setState(() => _departureDay = 2),
+          onSelected: (_) => update(() => _departureDay = 2),
         ),
       ]);
     }
@@ -737,7 +1212,7 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
           ChoiceChip(
             label: Text(context.tr(entry.value)),
             selected: _listingType == entry.key,
-            onSelected: (_) => setState(() => _listingType = entry.key),
+            onSelected: (_) => update(() => _listingType = entry.key),
           ),
         );
       }
@@ -746,7 +1221,7 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
         _category != _DiscoveryCategory.health) {
       chips.add(
         ActionChip(
-          avatar: const Icon(Icons.payments_outlined, size: 18),
+          avatar: const Icon(WicchuIcons.money, size: 18),
           label: Text(
             _maxPrice == null
                 ? context.tr('Price')
@@ -754,29 +1229,20 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
                     'price': '\$${_maxPrice!.toStringAsFixed(0)}',
                   }),
           ),
-          onPressed: _priceFilter,
+          onPressed: () async {
+            await _priceFilter();
+            if (mounted) update(() {});
+          },
         ),
       );
     }
-    if (_delivery ||
-        _pickup ||
-        _openNow ||
-        _departureDay != 0 ||
-        _listingType.isNotEmpty ||
-        _maxPrice != null) {
-      chips.add(
-        ActionChip(
-          label: Text(context.tr('Reset filters')),
-          onPressed: _clearFilters,
-        ),
-      );
-    }
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
+    return LayoutBuilder(
+      builder: (context, constraints) => Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
           for (final chip in chips)
-            Padding(padding: const EdgeInsets.only(right: 8), child: chip),
+            SizedBox(width: (constraints.maxWidth - 8) / 2, child: chip),
         ],
       ),
     );
@@ -957,7 +1423,7 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
                 ),
               ],
               const SizedBox(width: 4),
-              const Icon(Icons.chevron_right),
+              const Icon(WicchuIcons.caretRight),
             ],
           ),
         ),
@@ -980,22 +1446,135 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
         .map((service) => context.tr(service.label))
         .take(3)
         .join(' · ');
-    final distance = business.distanceKm;
+    final distance =
+        _locationMode == _DiscoveryLocationMode.nearby &&
+            business.businessLocation?.hasCoordinates == true &&
+            business.distanceKm != null &&
+            business.distanceKm!.isFinite &&
+            business.distanceKm! >= 0
+        ? business.distanceKm
+        : null;
     final subtitle = distance == null
         ? '${services.isEmpty ? context.tr('Local business') : services} · ${business.town.name}'
         : '${services.isEmpty ? context.tr('Local business') : services} · ${context.tr('{distance} km away', {'distance': distance.toStringAsFixed(distance < 10 ? 1 : 0)})}';
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: CommunityAvatar(community: business, radius: 25),
-        title: Text(business.name),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
+    final colors = Theme.of(context).colorScheme;
+    final image = business.imageUrl?.trim().isNotEmpty == true
+        ? business.imageUrl!
+        : (business.coverImageUrl ?? '');
+    Widget fallback() => Container(
+      color: colors.primary.withValues(alpha: .09),
+      child: Icon(WicchuIcons.storefront, color: colors.primary, size: 30),
+    );
+    return ExploreResultCard(
+      margin: const EdgeInsets.only(bottom: 9),
+      child: InkWell(
         onTap: () => openResponsiveSidePanel<void>(
           context,
           builder: (_) => CommunityProfilePage(
             community: business,
             repository: widget.repository,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 68,
+                  height: 76,
+                  child: image.isEmpty
+                      ? fallback()
+                      : WicchuNetworkImage(
+                          url: image,
+                          fit: BoxFit.cover,
+                          decodeWidth: 240,
+                          errorBuilder: (_) => fallback(),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      business.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    if (business.businessHours.isNotEmpty &&
+                        _isOpenNow(business)) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        '● ${context.tr('Open now')}',
+                        style: TextStyle(fontSize: 12, color: colors.primary),
+                      ),
+                    ],
+                    if (business.shortDescription.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        business.shortDescription.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    if (business.businessFulfillmentOptions.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [
+                          for (final option
+                              in business.businessFulfillmentOptions)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.primary.withValues(alpha: .06),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                context.tr(option.label),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 4, left: 4),
+                child: Icon(WicchuIcons.caretRight, size: 20),
+              ),
+            ],
           ),
         ),
       ),
@@ -1007,7 +1586,7 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
     child: Column(
       children: [
         Icon(
-          Icons.restaurant_menu_outlined,
+          WicchuIcons.forkKnife,
           size: 56,
           color: Theme.of(context).colorScheme.primary,
         ),
@@ -1034,32 +1613,6 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
     return '${MaterialLocalizations.of(context).formatMediumDate(local)} · ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
   }
 
-  String _locationSummary(Town town) => switch (_locationMode) {
-    _DiscoveryLocationMode.town => context.tr(
-      'Profiles and useful updates from {town}',
-      {'town': town.name},
-    ),
-    _DiscoveryLocationMode.nearby => context.tr(
-      'Businesses within {radius} km of your current location',
-      {'radius': _radiusKm.toStringAsFixed(0)},
-    ),
-    _DiscoveryLocationMode.anywhere => context.tr(
-      'Explore local businesses from every available town',
-    ),
-  };
-
-  String _locationModeLabel(_DiscoveryLocationMode mode) => switch (mode) {
-    _DiscoveryLocationMode.town => 'Choose town',
-    _DiscoveryLocationMode.nearby => 'Near me',
-    _DiscoveryLocationMode.anywhere => 'Anywhere',
-  };
-
-  IconData _locationModeIcon(_DiscoveryLocationMode mode) => switch (mode) {
-    _DiscoveryLocationMode.town => Icons.location_city_outlined,
-    _DiscoveryLocationMode.nearby => Icons.my_location_outlined,
-    _DiscoveryLocationMode.anywhere => Icons.public_outlined,
-  };
-
   String _categoryLabel(_DiscoveryCategory value) => switch (value) {
     _DiscoveryCategory.all => 'All',
     _DiscoveryCategory.food => 'Food',
@@ -1072,14 +1625,14 @@ class _LocalDiscoveryViewState extends State<LocalDiscoveryView> {
   };
 
   IconData _categoryIcon(_DiscoveryCategory value) => switch (value) {
-    _DiscoveryCategory.all => Icons.explore_outlined,
-    _DiscoveryCategory.food => Icons.restaurant_outlined,
-    _DiscoveryCategory.transport => Icons.directions_bus_outlined,
-    _DiscoveryCategory.retail => Icons.storefront_outlined,
-    _DiscoveryCategory.properties => Icons.apartment_outlined,
-    _DiscoveryCategory.services => Icons.home_repair_service_outlined,
-    _DiscoveryCategory.beauty => Icons.spa_outlined,
-    _DiscoveryCategory.health => Icons.health_and_safety_outlined,
+    _DiscoveryCategory.all => WicchuIcons.compass,
+    _DiscoveryCategory.food => WicchuIcons.forkKnife,
+    _DiscoveryCategory.transport => WicchuIcons.bus,
+    _DiscoveryCategory.retail => WicchuIcons.storefront,
+    _DiscoveryCategory.properties => WicchuIcons.buildings,
+    _DiscoveryCategory.services => WicchuIcons.briefcase,
+    _DiscoveryCategory.beauty => WicchuIcons.leaf,
+    _DiscoveryCategory.health => WicchuIcons.shieldPlus,
   };
 }
 

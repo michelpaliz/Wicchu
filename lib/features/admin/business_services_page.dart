@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -23,7 +24,7 @@ class _BusinessServicesPageState extends State<BusinessServicesPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Main services'))),
+    appBar: AppBar(title: Text(context.tr('Business type and services'))),
     body: SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(16),
@@ -32,7 +33,7 @@ class _BusinessServicesPageState extends State<BusinessServicesPage> {
             children: [
               Expanded(
                 child: Text(
-                  context.tr('Main services'),
+                  context.tr('Business type and services'),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -49,7 +50,9 @@ class _BusinessServicesPageState extends State<BusinessServicesPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            context.tr('Choose up to 10 services that describe your business.'),
+            context.tr(
+              'Choose up to 10 business types and services. These appear on your page and help people find you in Explore.',
+            ),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -76,7 +79,7 @@ class _BusinessServicesPageState extends State<BusinessServicesPage> {
                       if (_businessServices.contains(service)) ...[
                         const SizedBox(width: 8),
                         Icon(
-                          Icons.check_circle,
+                          WicchuIcons.checkCircleFill,
                           size: 18,
                           color: Theme.of(context).colorScheme.primary,
                         ),

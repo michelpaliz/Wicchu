@@ -1,3 +1,5 @@
+import 'profile_communities_page.dart';
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
 import '../community/open_post_media.dart';
@@ -5,6 +7,7 @@ import '../community/post_collection_page.dart';
 import '../../widgets/profile_post_grid.dart';
 import '../../widgets/profile_link_button.dart';
 import '../../widgets/block_visibility_listener.dart';
+import '../../widgets/profile_accent_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../widgets/feed_filter_bar.dart';
@@ -121,12 +124,24 @@ class _MemberProfilePageState extends State<MemberProfilePage>
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
       actions: [
-        if (widget.onAccountMenu != null)
-          IconButton(
-            tooltip: context.tr('Account menu'),
-            onPressed: widget.onAccountMenu,
-            icon: const Icon(Icons.settings_outlined),
+        if (widget.onAccountMenu != null) ...[
+          FutureBuilder<PublicMemberProfile>(
+            future: _profile,
+            builder: (context, snapshot) => IconButton(
+              tooltip: context.tr('Share profile'),
+              onPressed: snapshot.hasData
+                  ? () => _shareProfile(snapshot.data!)
+                  : null,
+              icon: const Icon(WicchuIcons.export, size: 22),
+            ),
           ),
+          IconButton(
+            tooltip: context.tr('Find people'),
+            onPressed: _findPeople,
+            icon: const Icon(WicchuIcons.userPlus, size: 22),
+          ),
+          const SizedBox(width: 8),
+        ],
         FutureBuilder<WicchuProfile?>(
           future: _viewer,
           builder: (context, viewer) => viewer.data?.id == widget.userId
@@ -139,7 +154,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                           dimension: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.block_outlined),
+                      : const Icon(WicchuIcons.prohibit),
                 ),
         ),
         FutureBuilder<WicchuProfile?>(
@@ -154,7 +169,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                           dimension: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.flag_outlined),
+                      : const Icon(WicchuIcons.flag),
                 ),
         ),
       ],
@@ -179,7 +194,6 @@ class _MemberProfilePageState extends State<MemberProfilePage>
               return _profileHeader(profile);
             },
           ),
-          const SizedBox(height: 8),
           FutureBuilder<WicchuProfile?>(
             future: _viewer,
             builder: (context, viewer) {
@@ -406,6 +420,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   Widget _profileHeader(PublicMemberProfile profile) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final accent = profileAccentColor(profile.accentColor);
     Widget stat(int count, String label) => Text.rich(
       TextSpan(
         children: [
@@ -432,97 +447,102 @@ class _MemberProfilePageState extends State<MemberProfilePage>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            InkWell(
-              onTap: profile.socialLinks.isEmpty
-                  ? null
-                  : () => _openSocialLinks(profile),
-              borderRadius: BorderRadius.circular(14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Semantics(
-                    image: true,
-                    label: profile.name,
-                    child: Stack(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: colors.primary.withValues(alpha: .16),
+            Tooltip(
+              message: own && widget.onAccountMenu != null
+                  ? context.tr('Account menu')
+                  : profile.name,
+              child: InkWell(
+                onTap: own && widget.onAccountMenu != null
+                    ? widget.onAccountMenu
+                    : profile.socialLinks.isEmpty
+                    ? null
+                    : () => _openSocialLinks(profile),
+                borderRadius: BorderRadius.circular(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Semantics(
+                      image: true,
+                      label: profile.name,
+                      child: Stack(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: accent, width: 2),
+                            ),
+                            child: UserAvatar(
+                              name: profile.name,
+                              imageUrl: profile.avatarUrl,
+                              radius: 30,
                             ),
                           ),
-                          child: UserAvatar(
-                            name: profile.name,
-                            imageUrl: profile.avatarUrl,
-                            radius: 34,
-                          ),
-                        ),
-                        if (profile.isOnline)
-                          Positioned(
-                            right: 2,
-                            bottom: 2,
-                            child: Container(
-                              width: 13,
-                              height: 13,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: colors.surface,
-                                  width: 2,
+                          if (profile.isOnline)
+                            Positioned(
+                              right: 2,
+                              bottom: 2,
+                              child: Container(
+                                width: 13,
+                                height: 13,
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: colors.surface,
+                                    width: 2,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        if (profile.userName.isNotEmpty)
-                          Text(
-                            '@${profile.userName}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                        if (profile.isOnline ||
-                            profile.lastActiveAt != null) ...[
-                          const SizedBox(height: 3),
-                          Text(
-                            context.tr(
-                              profile.isOnline
-                                  ? 'Online now'
-                                  : 'Active recently',
-                            ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 12,
-                              color: profile.isOnline
-                                  ? colors.primary
-                                  : colors.onSurfaceVariant,
-                            ),
-                          ),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (profile.userName.isNotEmpty)
+                            Text(
+                              '@${profile.userName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          if (profile.isOnline ||
+                              profile.lastActiveAt != null) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              context.tr(
+                                profile.isOnline
+                                    ? 'Online now'
+                                    : 'Active recently',
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 12,
+                                color: profile.isOnline
+                                    ? accent
+                                    : colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             if (profile.bio?.trim().isNotEmpty == true)
@@ -535,7 +555,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                 padding: const EdgeInsets.only(top: 6),
                 child: Row(
                   children: [
-                    const Icon(Icons.location_on_outlined, size: 16),
+                    const Icon(WicchuIcons.mapPin, size: 16),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(location!, style: theme.textTheme.bodySmall),
@@ -544,15 +564,47 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              padding: const EdgeInsets.only(top: 4),
               child: Center(
                 child: Wrap(
                   alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   spacing: 20,
                   runSpacing: 4,
                   children: [
                     stat(profile.postCount, 'Posts'),
-                    stat(profile.communityCount, 'Communities'),
+                    if (own)
+                      Semantics(
+                        button: true,
+                        child: InkWell(
+                          key: const ValueKey('profile-communities'),
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ProfileCommunitiesPage(
+                                  repository: widget.repository,
+                                ),
+                              ),
+                            );
+                            if (mounted) _reload();
+                          },
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 44),
+                            child: Align(
+                              widthFactor: 1,
+                              heightFactor: 1,
+                              child: stat(
+                                profile.communityCount,
+                                'Communities',
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      stat(profile.communityCount, 'Communities'),
                     if (profile.followerCount != null)
                       stat(profile.followerCount!, 'Followers'),
                     if (profile.followingCount != null)
@@ -567,20 +619,21 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                 spacing: 10,
                 runSpacing: 4,
                 children: [
-                  _profileAction(
-                    icon: Icons.ios_share_outlined,
-                    tooltip: context.tr('Share profile'),
-                    onPressed: () => _shareProfile(profile),
-                  ),
-                  if (own)
+                  if (widget.onAccountMenu == null)
                     _profileAction(
-                      icon: Icons.person_add_outlined,
+                      icon: WicchuIcons.export,
+                      tooltip: context.tr('Share profile'),
+                      onPressed: () => _shareProfile(profile),
+                    ),
+                  if (own && widget.onAccountMenu == null)
+                    _profileAction(
+                      icon: WicchuIcons.userPlus,
                       tooltip: context.tr('Find people'),
                       onPressed: _findPeople,
                     ),
                   if (!own)
                     _profileAction(
-                      icon: Icons.chat_bubble_outline,
+                      icon: WicchuIcons.chatCircle,
                       tooltip: context.tr('Message'),
                       onPressed: _openChat,
                     ),
@@ -589,13 +642,13 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                       tooltip: context.tr('Social links'),
                       onPressed: () => _openSocialLinks(profile),
                       style: IconButton.styleFrom(
-                        foregroundColor: colors.primary,
-                        backgroundColor: colors.primary.withValues(alpha: .08),
+                        foregroundColor: accent,
+                        backgroundColor: accent.withValues(alpha: .08),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      icon: const Icon(Icons.link, size: 20),
+                      icon: const Icon(WicchuIcons.linkSimple, size: 20),
                     ),
                 ],
               ),
@@ -910,7 +963,7 @@ class _FindPeoplePageState extends State<FindPeoplePage>
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: context.tr('Search people'),
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(WicchuIcons.magnifyingGlass),
             ),
           ),
         ),
@@ -975,7 +1028,7 @@ class _FindPeoplePageState extends State<FindPeoplePage>
                       subtitle: Text(
                         username.isEmpty ? shared : '$username · $shared',
                       ),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: const Icon(WicchuIcons.caretRight),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(

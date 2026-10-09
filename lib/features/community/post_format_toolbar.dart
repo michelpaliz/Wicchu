@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 
@@ -22,7 +23,7 @@ class PostFormatToolbar extends StatelessWidget {
         quill.QuillToolbarLinkStyleButton(controller: controller),
         PopupMenuButton<_SecondaryAction>(
           tooltip: 'More formatting',
-          icon: const Icon(Icons.more_horiz),
+          icon: const Icon(WicchuIcons.dotsThree),
           onSelected: (action) => switch (action) {
             _SecondaryAction.italic => controller.formatSelection(
               quill.Attribute.italic,
@@ -37,24 +38,30 @@ class PostFormatToolbar extends StatelessWidget {
             PopupMenuItem(
               value: _SecondaryAction.italic,
               child: ListTile(
-                leading: Icon(Icons.format_italic),
+                leading: Icon(WicchuIcons.textItalic),
                 title: Text('Italic'),
               ),
             ),
             PopupMenuItem(
               value: _SecondaryAction.numberedList,
               child: ListTile(
-                leading: Icon(Icons.format_list_numbered),
+                leading: Icon(WicchuIcons.listNumbers),
                 title: Text('Numbered list'),
               ),
             ),
             PopupMenuItem(
               value: _SecondaryAction.undo,
-              child: ListTile(leading: Icon(Icons.undo), title: Text('Undo')),
+              child: ListTile(
+                leading: Icon(WicchuIcons.arrowArcLeft),
+                title: Text('Undo'),
+              ),
             ),
             PopupMenuItem(
               value: _SecondaryAction.redo,
-              child: ListTile(leading: Icon(Icons.redo), title: Text('Redo')),
+              child: ListTile(
+                leading: Icon(WicchuIcons.arrowArcRight),
+                title: Text('Redo'),
+              ),
             ),
           ],
         ),

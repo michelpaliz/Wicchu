@@ -1,9 +1,11 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../../widgets/profile_accent_picker.dart';
 
 Future<void> editProfileLinks(
   BuildContext context,
@@ -41,6 +43,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _saving = false;
   bool _allowPop = false;
   bool _confirmingLeave = false;
+  String _accentColor = 'teal';
 
   @override
   void initState() {
@@ -127,10 +130,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _details[3].text.trim(),
       ..._controllers.map((controller) => controller.text.trim()),
     ];
-    return List.generate(
-      values.length,
-      (i) => current[i] != values[i],
-    ).contains(true);
+    return _accentColor != initial.accentColor ||
+        List.generate(
+          values.length,
+          (i) => current[i] != values[i],
+        ).contains(true);
   }
 
   Future<void> _load() async {
@@ -142,6 +146,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final profile = await widget.repository.getEditableProfile();
       if (!mounted) return;
       _initial = profile;
+      _accentColor = profile.accentColor;
       final details = [
         profile.name,
         profile.userName,
@@ -190,7 +195,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               borderRadius: BorderRadius.circular(24),
             ),
             icon: Icon(
-              Icons.edit_note_outlined,
+              WicchuIcons.notePencil,
               color: Theme.of(dialogContext).colorScheme.primary,
             ),
             title: Text(context.tr('Unsaved changes')),
@@ -271,6 +276,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             email: initial.socialLinks.email,
             showOnlineStatus: initial.socialLinks.showOnlineStatus,
           ),
+          accentColor: _accentColor,
         ),
       );
       if (!mounted) return;
@@ -334,7 +340,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               color: colors.primary.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(Icons.person_outline, color: colors.primary, size: 28),
+            child: Icon(WicchuIcons.user, color: colors.primary, size: 28),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -402,9 +408,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             child: Icon(
               [
-                Icons.chat_outlined,
-                Icons.facebook,
-                Icons.camera_alt_outlined,
+                WicchuIcons.chatCircle,
+                WicchuIcons.facebookLogo,
+                WicchuIcons.camera,
               ][i],
               color: Colors.white,
               size: 24,
@@ -450,7 +456,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             'https://facebook.com/username',
                             '@username',
                           ][i],
-                          icon: i == 1 || i == 2 ? Icons.link : null,
+                          icon: i == 1 || i == 2
+                              ? WicchuIcons.linkSimple
+                              : null,
                         ).copyWith(
                           helperText: i == 0
                               ? context.tr('Include your country code.')
@@ -495,7 +503,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             onPressed: _saving ? null : _leave,
-            icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+            icon: const Icon(WicchuIcons.caretLeft, size: 20),
           ),
         ),
       ),
@@ -606,10 +614,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                   ? context.tr('Add your location')
                                   : null,
                               icon: [
-                                Icons.person_outline,
-                                Icons.alternate_email,
-                                Icons.notes_outlined,
-                                Icons.location_on_outlined,
+                                WicchuIcons.user,
+                                WicchuIcons.at,
+                                WicchuIcons.note,
+                                WicchuIcons.mapPin,
                               ][i],
                             ).copyWith(
                               suffixIcon: i != 1
@@ -623,12 +631,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                     )
                                   : _usernameAvailable == true
                                   ? const Icon(
-                                      Icons.check_circle,
+                                      WicchuIcons.checkCircleFill,
                                       color: Colors.green,
                                     )
                                   : _usernameAvailable == false
                                   ? Icon(
-                                      Icons.cancel,
+                                      WicchuIcons.xCircle,
                                       color: Theme.of(
                                         context,
                                       ).colorScheme.error,
@@ -638,6 +646,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       const SizedBox(height: 12),
                     ],
+                    const Divider(height: 32),
+                    Text(
+                      context.tr('Profile color'),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      context.tr(
+                        'Choose an accent color for your public profile.',
+                      ),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    ProfileAccentPicker(
+                      value: _accentColor,
+                      labelBuilder: (value) =>
+                          context.tr(profileAccentLabel(value)),
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() => _accentColor = value),
+                    ),
                     const Divider(height: 32),
                     Text(
                       context.tr('Social and contact links'),
@@ -704,7 +735,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.check, size: 20),
+                    : const Icon(WicchuIcons.check, size: 20),
                 label: Text(
                   context.tr(_saving ? 'Saving changes…' : 'Save changes'),
                 ),

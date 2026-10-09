@@ -1,9 +1,12 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
+import '../../widgets/explore_result_card.dart';
 import 'open_post_media.dart';
 import '../../widgets/profile_link_button.dart';
 import 'post_collection_page.dart';
 import '../../widgets/profile_post_grid.dart';
 import '../../widgets/wicchu_network_image.dart';
 import '../../widgets/block_visibility_listener.dart';
+import '../../widgets/profile_accent_picker.dart';
 import 'business_service_icon.dart';
 import 'post_rules_review_page.dart';
 import 'user_avatar.dart';
@@ -45,6 +48,7 @@ class CommunityProfilePage extends StatefulWidget {
     this.postRequest,
     this.onSwitchCommunity,
     this.onAccountMenu,
+    this.onCommunityUpdated,
     this.screen = CommunityScreen.feed,
     this.showAdministration = false,
   });
@@ -57,6 +61,7 @@ class CommunityProfilePage extends StatefulWidget {
   final Listenable? postRequest;
   final VoidCallback? onSwitchCommunity;
   final VoidCallback? onAccountMenu;
+  final ValueChanged<Community>? onCommunityUpdated;
 
   @override
   State<CommunityProfilePage> createState() => _CommunityProfilePageState();
@@ -160,6 +165,21 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     super.initState();
     widget.postRequest?.addListener(_createPost);
     _reload();
+    _refreshCommunity();
+  }
+
+  Future<void> _refreshCommunity() async {
+    final previous = _community;
+    try {
+      final updated = await widget.repository.getCommunity(previous.id);
+      if (!mounted || !identical(previous, _community)) return;
+      setState(() {
+        _community = updated;
+        _joined = updated.isJoined;
+      });
+    } catch (_) {
+      // Keep the available profile if this background refresh is unavailable.
+    }
   }
 
   bool _isGenericPostsCategory(CommunityCategory category) {
@@ -425,6 +445,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           businessHours: _community.businessHours,
           businessFulfillmentOptions: _community.businessFulfillmentOptions,
           businessContact: _community.businessContact,
+          published: _community.published,
+          accentColor: _community.accentColor,
         );
         _reload();
       });
@@ -565,7 +587,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               tooltip: context.tr(
                 _searchMembers ? 'Close search' : 'Search members',
               ),
-              icon: Icon(_searchMembers ? Icons.close : Icons.search),
+              icon: Icon(
+                _searchMembers ? WicchuIcons.x : WicchuIcons.magnifyingGlass,
+              ),
               onPressed: () => setState(() {
                 _searchMembers = !_searchMembers;
                 _memberQuery = '';
@@ -606,6 +630,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           community: _community,
           repository: widget.repository,
           screen: CommunityScreen.information,
+          onCommunityUpdated: (updated) {
+            if (!mounted) return;
+            setState(() {
+              _community = updated;
+              _joined = updated.isJoined;
+            });
+            widget.onCommunityUpdated?.call(updated);
+          },
         ),
       ),
     );
@@ -618,6 +650,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       if (result is CommunityCategory) _categoryId = result.id;
       _reload();
     });
+    await _refreshCommunity();
   }
 
   Future<void> _editPageCategories() async {
@@ -672,7 +705,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           ),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, size: 20),
+          const Icon(WicchuIcons.caretRight, size: 20),
         ],
       ),
     ),
@@ -692,8 +725,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       child: Text(
         _community.isPublicProfile
             ? typeFirst
-                  ? '${context.tr(_community.spaceTypeLabel)} · ${context.trCount(_community.memberCount, singular: '{count} follower', plural: '{count} followers')}'
-                  : '${context.trCount(_community.memberCount, singular: '{count} follower', plural: '{count} followers')} · ${context.tr(_community.spaceTypeLabel)}'
+                  ? '${context.tr(_community.spaceTypeLabel)} · ${context.trCount(_community.memberCount, singular: '{count} follower', plural: '{count} followers')}${_community.published ? '' : ' · ${context.tr('Unpublished')}'}'
+                  : '${context.trCount(_community.memberCount, singular: '{count} follower', plural: '{count} followers')} · ${context.tr(_community.spaceTypeLabel)}${_community.published ? '' : ' · ${context.tr('Unpublished')}'}'
             : '${context.trCount(_community.memberCount, singular: '{count} member', plural: '{count} members')} · ${context.tr(_community.visibility == CommunityVisibility.public ? 'Public community' : 'Private community')}',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -707,6 +740,13 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       _community.profileCategory == ProfileCategory.localBusiness;
 
   AppBar _navigationBar() => AppBar(
+    toolbarHeight: 52,
+    leadingWidth: 44,
+    titleSpacing: 8,
+    centerTitle: false,
+    backgroundColor: _pageHeaderColor(context),
+    surfaceTintColor: Colors.transparent,
+    scrolledUnderElevation: 0,
     titleTextStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
       fontSize: 15,
       fontWeight: FontWeight.w600,
@@ -717,7 +757,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         : IconButton(
             tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             onPressed: () => Navigator.pop(context, _community),
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(WicchuIcons.arrowLeft),
           ),
     title: widget.screen == CommunityScreen.information
         ? null
@@ -774,7 +814,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(Icons.keyboard_arrow_down),
+                  const Icon(WicchuIcons.caretDown),
                 ],
               ),
             ),
@@ -784,7 +824,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         IconButton(
           tooltip: context.tr('Account menu'),
           onPressed: widget.onAccountMenu,
-          icon: const Icon(Icons.settings_outlined),
+          icon: const Icon(WicchuIcons.gearSix),
         ),
       if (_joined &&
           widget.screen == CommunityScreen.feed &&
@@ -793,25 +833,88 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           tooltip: context.tr(
             _searchingPosts ? 'Close search' : 'Search posts',
           ),
-          onPressed: _togglePostSearch,
-          icon: Icon(_searchingPosts ? Icons.close : Icons.search_rounded),
-        ),
-      if (!_searchingPosts) ...[
-        if (!_isLocalBusiness && widget.screen != CommunityScreen.information)
-          IconButton(
-            tooltip: context.tr('Share'),
-            onPressed: () => shareCommunity(context, _community),
-            icon: const Icon(Icons.ios_share_outlined),
+          style: IconButton.styleFrom(
+            fixedSize: const Size.square(44),
+            padding: EdgeInsets.zero,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
           ),
+          onPressed: _togglePostSearch,
+          icon: Icon(
+            _searchingPosts ? WicchuIcons.x : WicchuIcons.magnifyingGlass,
+            size: 20,
+          ),
+        ),
+      if (!_community.isPublicProfile &&
+          widget.screen == CommunityScreen.feed) ...[
+        _communityHeaderActions(showMembership: false),
+        const SizedBox(width: 8),
+      ],
+      if (_isLocalBusiness && widget.screen == CommunityScreen.feed) ...[
+        _businessContactAction(),
+        IconButton(
+          key: const ValueKey('business-top-invite'),
+          tooltip: context.tr('Invite'),
+          onPressed: () => shareCommunity(context, _community),
+          icon: const Icon(WicchuIcons.userPlus, size: 20),
+        ),
+        const SizedBox(width: 8),
+      ],
+      if (!_searchingPosts && widget.screen == CommunityScreen.information) ...[
         IconButton(
           key: const ValueKey('community-profile-menu'),
           tooltip: context.tr('More options'),
-          icon: const Icon(Icons.more_horiz),
+          icon: const Icon(WicchuIcons.dotsThree),
           onPressed: _showCommunityOptions,
         ),
       ],
     ],
   );
+
+  Widget _communityHeaderActions({bool showMembership = true}) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showMembership && _joined && !_isLocalBusiness)
+          _communityRoleBadge(),
+        if (showMembership && _joined && _canInviteToCommunity)
+          const SizedBox(width: 6),
+        if (_canInviteToCommunity)
+          IconButton(
+            key: const ValueKey('community-header-invite'),
+            tooltip: context.tr('Invite people'),
+            onPressed: _inviteToCommunity,
+            style: IconButton.styleFrom(
+              fixedSize: const Size.square(44),
+              minimumSize: const Size.square(44),
+              maximumSize: const Size.square(44),
+              padding: EdgeInsets.zero,
+              shape: const CircleBorder(),
+              foregroundColor: scheme.onSurface,
+            ),
+            icon: const Icon(WicchuIcons.userPlus, size: 18),
+          ),
+        if (!_canManage &&
+            (_community.isPublicProfile || _joined) &&
+            !_community.isBanned)
+          IconButton(
+            key: const ValueKey('public-profile-message'),
+            tooltip: context.tr(
+              _community.isPublicProfile
+                  ? 'Message on Wicchu'
+                  : 'Message community admins',
+            ),
+            onPressed: _openSpaceChat,
+            style: IconButton.styleFrom(
+              fixedSize: const Size.square(44),
+              foregroundColor: scheme.onSurface,
+              shape: const CircleBorder(),
+            ),
+            icon: const Icon(WicchuIcons.chatCircle, size: 19),
+          ),
+      ],
+    );
+  }
 
   Future<void> _showCommunityOptions() async {
     final value = await showModalBottomSheet<String>(
@@ -868,19 +971,24 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     option(
                       'information',
                       'Community information',
-                      Icons.info_outline,
+                      WicchuIcons.info,
                     ),
                   if (_isLocalBusiness) ...[
                     if (_joined && widget.screen == CommunityScreen.feed)
-                      option('search', 'Search posts', Icons.search),
-                    option('share', 'Share', Icons.ios_share_outlined),
+                      option(
+                        'search',
+                        'Search posts',
+                        WicchuIcons.magnifyingGlass,
+                      ),
                   ],
+                  option('share', 'Share', WicchuIcons.export),
                   if (!_community.isPublicProfile ||
                       _community.links.isNotEmpty)
-                    option('links', 'Useful links', Icons.link),
-                  option('media', 'Media', Icons.photo_library_outlined),
-                  if (_community.myRole == CommunityRole.owner ||
-                      _community.myRole == CommunityRole.admin)
+                    option('links', 'Useful links', WicchuIcons.linkSimple),
+                  option('media', 'Media', WicchuIcons.images),
+                  if (widget.screen == CommunityScreen.information &&
+                      (_community.myRole == CommunityRole.owner ||
+                          _community.myRole == CommunityRole.admin))
                     option(
                       'edit',
                       _community.isPublicProfile
@@ -888,7 +996,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                 ? 'Edit business'
                                 : 'Edit profile')
                           : 'Edit community',
-                      Icons.edit_outlined,
+                      WicchuIcons.pencilSimple,
                     ),
                   if (!_community.isPublicProfile &&
                       _joined &&
@@ -896,7 +1004,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     option(
                       'leave',
                       'Leave community',
-                      Icons.logout,
+                      WicchuIcons.signOut,
                       enabled: !_savingMembership,
                     ),
                   if (_community.myRole == CommunityRole.admin ||
@@ -904,13 +1012,13 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     option(
                       'stepDown',
                       'Step down as administrator',
-                      Icons.person_remove_outlined,
+                      WicchuIcons.userMinus,
                     ),
                   if (_canManage)
                     option(
                       'contactSafety',
                       'Contact Wicchu Safety',
-                      Icons.health_and_safety_outlined,
+                      WicchuIcons.shieldPlus,
                     )
                   else ...[
                     const Divider(height: 17, indent: 16, endIndent: 16),
@@ -919,7 +1027,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       _community.isPublicProfile
                           ? 'Report page'
                           : 'Report community',
-                      Icons.flag_outlined,
+                      WicchuIcons.flag,
                       destructive: true,
                     ),
                   ],
@@ -1142,8 +1250,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     if (updated != null && mounted) {
       setState(() {
         _community = updated;
+        _joined = updated.isJoined;
         _reload();
       });
+      widget.onCommunityUpdated?.call(updated);
     }
   }
 
@@ -1267,7 +1377,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
-                    Icons.image_rounded,
+                    WicchuIcons.image,
                     size: 50,
                     color: theme.colorScheme.primary.withValues(alpha: .42),
                   ),
@@ -1279,7 +1389,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     radius: 22,
                     backgroundColor: theme.colorScheme.primary,
                     child: Icon(
-                      Icons.add,
+                      WicchuIcons.plus,
                       color: theme.colorScheme.onPrimary,
                       size: 28,
                     ),
@@ -1325,7 +1435,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              icon: const Icon(Icons.add),
+              icon: const Icon(WicchuIcons.plus),
               label: Text(context.tr('Create post')),
             ),
           ],
@@ -1336,7 +1446,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   Widget _headerDetails() {
     final theme = Theme.of(context);
-    final style = theme.textTheme.bodyMedium?.copyWith(height: 1.4);
+    final style = theme.textTheme.bodySmall?.copyWith(height: 1.4);
     final description = _community.profileSummary;
     final location = [
       _community.town.name,
@@ -1465,7 +1575,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         item(
-          icon: Icons.people_outline,
+          icon: WicchuIcons.users,
           text: context.trCount(
             _community.memberCount,
             singular: '{count} member',
@@ -1480,8 +1590,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             const SizedBox(width: 7),
             item(
               icon: _community.visibility == CommunityVisibility.public
-                  ? Icons.public_outlined
-                  : Icons.lock_outline,
+                  ? WicchuIcons.globe
+                  : WicchuIcons.lockKey,
               text: context.tr(
                 _community.visibility == CommunityVisibility.public
                     ? 'Public'
@@ -1496,7 +1606,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             separator(),
             const SizedBox(width: 7),
             item(
-              icon: Icons.location_on_outlined,
+              icon: WicchuIcons.mapPin,
               text: location,
               textKey: const ValueKey('page-header-location'),
             ),
@@ -1525,7 +1635,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 padding: EdgeInsets.zero,
               ),
               onPressed: _openMembers,
-              icon: const Icon(Icons.people_outline, size: 18),
+              icon: const Icon(WicchuIcons.users, size: 18),
               label: Text(
                 context.trCount(
                   _community.memberCount,
@@ -1542,27 +1652,25 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               spacing: 8,
               runSpacing: 4,
               children: [
-                if (_community.myRole == CommunityRole.owner ||
-                    _community.myRole == CommunityRole.admin)
-                  FilledButton.tonalIcon(
+                if (widget.screen == CommunityScreen.information &&
+                    (_community.myRole == CommunityRole.owner ||
+                        _community.myRole == CommunityRole.admin))
+                  TextButton.icon(
                     key: const ValueKey('page-header-edit'),
                     onPressed: _editCommunity,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary.withValues(
-                        alpha: .08,
-                      ),
-                      foregroundColor: theme.colorScheme.primary,
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.onSurface,
                     ),
-                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                    icon: const Icon(WicchuIcons.camera, size: 18),
                     label: Text(context.tr('Edit')),
                   ),
-                OutlinedButton.icon(
+                TextButton.icon(
                   key: const ValueKey('page-header-share'),
                   onPressed: () => shareCommunity(context, _community),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: theme.colorScheme.primary),
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.onSurface,
                   ),
-                  icon: const Icon(Icons.ios_share_outlined, size: 18),
+                  icon: const Icon(WicchuIcons.export, size: 18),
                   label: Text(context.tr('Share')),
                 ),
               ],
@@ -1612,7 +1720,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.people_outline,
+                      WicchuIcons.users,
                       size: 17,
                       color: colors.onSurfaceVariant,
                     ),
@@ -1634,7 +1742,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.location_on_outlined,
+                  WicchuIcons.mapPin,
                   size: 17,
                   color: colors.onSurfaceVariant,
                 ),
@@ -1655,7 +1763,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             key: const ValueKey('page-header-description'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium,
+            style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
           ),
         ],
       ],
@@ -1663,54 +1771,18 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   Widget _localBusinessHeaderActions() {
-    final colors = Theme.of(context).colorScheme;
     final canManage =
         _community.myRole == CommunityRole.owner ||
         _community.myRole == CommunityRole.admin;
     final isFollowing = !canManage && _joined;
-    final hasContact =
-        (!canManage && _community.createdBy.trim().isNotEmpty) ||
-        _community.businessContact.phone.trim().isNotEmpty ||
-        _community.businessContact.whatsapp.trim().isNotEmpty;
     return Wrap(
       spacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (canManage)
-          IconButton.filledTonal(
-            key: const ValueKey('page-header-edit'),
-            onPressed: _savingMembership ? null : _editCommunity,
-            style: FilledButton.styleFrom(
-              fixedSize: const Size.square(36),
-              padding: EdgeInsets.zero,
-              backgroundColor: colors.primary.withValues(alpha: .08),
-              foregroundColor: colors.primary,
-              shape: const CircleBorder(),
-            ),
-            tooltip: context.tr('Edit'),
-            icon: const Icon(Icons.edit_outlined, size: 18),
-          ),
         if (!canManage && isFollowing)
-          IconButton.outlined(
+          KeyedSubtree(
             key: const ValueKey('local-business-follow'),
-            onPressed: _savingMembership
-                ? null
-                : () => _showMembershipOptions(context.tr('Following')),
-            style: IconButton.styleFrom(
-              fixedSize: const Size.square(36),
-              padding: EdgeInsets.zero,
-              foregroundColor: colors.primary,
-              side: BorderSide(color: colors.primary),
-              shape: const CircleBorder(),
-            ),
-            tooltip: context.tr('Following'),
-            icon: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.check, size: 17),
-                Icon(Icons.arrow_drop_down, size: 15),
-              ],
-            ),
+            child: _communityRoleBadge(),
           ),
         if (!canManage && !isFollowing)
           FilledButton.icon(
@@ -1722,27 +1794,36 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               visualDensity: VisualDensity.compact,
               shape: const StadiumBorder(),
             ),
-            icon: const Icon(Icons.add, size: 16),
+            icon: const Icon(WicchuIcons.plus, size: 16),
             label: Text(
               context.tr('Follow'),
               style: const TextStyle(fontSize: 13),
             ),
           ),
-        IconButton(
-          key: const ValueKey('local-business-contact'),
-          tooltip: context.tr('Contact'),
-          onPressed: hasContact ? _contactBusiness : null,
-          style: IconButton.styleFrom(
-            fixedSize: const Size.square(36),
-            padding: EdgeInsets.zero,
-            backgroundColor: isFollowing ? colors.primary : null,
-            foregroundColor: isFollowing ? colors.onPrimary : colors.primary,
-            side: isFollowing ? null : BorderSide(color: colors.primary),
-            shape: const CircleBorder(),
-          ),
-          icon: const Icon(Icons.chat_bubble_outline, size: 18),
-        ),
       ],
+    );
+  }
+
+  Widget _businessContactAction() {
+    final colors = Theme.of(context).colorScheme;
+    final canManage =
+        _community.myRole == CommunityRole.owner ||
+        _community.myRole == CommunityRole.admin;
+    final hasContact =
+        (!canManage && !_community.isBanned) ||
+        _community.businessContact.phone.trim().isNotEmpty ||
+        _community.businessContact.whatsapp.trim().isNotEmpty;
+    return IconButton(
+      key: const ValueKey('local-business-contact'),
+      tooltip: context.tr('Contact'),
+      onPressed: hasContact ? _contactBusiness : null,
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(44),
+        padding: EdgeInsets.zero,
+        foregroundColor: colors.onSurface,
+        shape: const CircleBorder(),
+      ),
+      icon: const Icon(WicchuIcons.chatCircle, size: 19),
     );
   }
 
@@ -1751,7 +1832,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     final phone = contact.phone.trim();
     final whatsapp = contact.whatsapp.trim();
     if (phone.isEmpty && whatsapp.isEmpty) {
-      await _messageBusinessOwner();
+      await _openSpaceChat();
       return;
     }
     final selection = await showModalBottomSheet<String>(
@@ -1761,21 +1842,21 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_community.createdBy.trim().isNotEmpty)
+            if (!_canManage && !_community.isBanned)
               ListTile(
-                leading: const Icon(Icons.chat_bubble_outline),
+                leading: const Icon(WicchuIcons.chatCircle),
                 title: Text(sheetContext.tr('Message')),
                 onTap: () => Navigator.pop(sheetContext, 'message'),
               ),
             if (phone.isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.call_outlined),
+                leading: const Icon(WicchuIcons.phone),
                 title: Text(sheetContext.tr('Call')),
                 onTap: () => Navigator.pop(sheetContext, 'phone'),
               ),
             if (whatsapp.isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.chat_outlined),
+                leading: const Icon(WicchuIcons.chatCircle),
                 title: const Text('WhatsApp'),
                 onTap: () => Navigator.pop(sheetContext, 'whatsapp'),
               ),
@@ -1785,7 +1866,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
     if (!mounted || selection == null) return;
     if (selection == 'message') {
-      await _messageBusinessOwner();
+      await _openSpaceChat();
       return;
     }
     await _openBusinessContact(
@@ -1794,200 +1875,156 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
-  Future<void> _messageBusinessOwner() async {
-    try {
-      final conversation = await widget.repository.startDirectConversation(
-        _community.createdBy,
-      );
-      if (!mounted) return;
-      await Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DirectChatPage(
-            repository: widget.repository,
-            conversation: conversation,
-          ),
-        ),
-      );
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
-      }
-    }
+  Color _pageHeaderColor(BuildContext context) {
+    final theme = Theme.of(context);
+    return Color.alphaBlend(
+      profileAccentColor(
+        _community.accentColor,
+      ).withValues(alpha: theme.brightness == Brightness.dark ? .20 : .12),
+      theme.colorScheme.surface,
+    );
   }
 
   Widget _buildHeader(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final accent = profileAccentColor(_community.accentColor);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _openInformation,
-      child: Column(
-        children: [
-          SizedBox(
-            height: _community.coverImageUrl == null ? 96 : 150,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _expandableCommunityImage(
-                  ColoredBox(
-                    color: scheme.primaryContainer,
-                    child: _community.coverImageUrl == null
-                        ? null
-                        : WicchuNetworkImage(
-                            url: _community.coverImageUrl!,
-                            fit: BoxFit.cover,
-                            decodeWidth: 1600,
-                            errorBuilder: (_) => const SizedBox.shrink(),
-                          ),
-                  ),
-                  _community.coverImageUrl,
-                ),
-                Positioned(
-                  left: 16,
-                  bottom: 12,
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: scheme.surface,
-                      shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          children: [
+            SizedBox(
+              height: _community.coverImageUrl == null ? 76 : 150,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _expandableCommunityImage(
+                    ColoredBox(
+                      color: _pageHeaderColor(context),
+                      child: _community.coverImageUrl == null
+                          ? null
+                          : WicchuNetworkImage(
+                              url: _community.coverImageUrl!,
+                              fit: BoxFit.cover,
+                              decodeWidth: 1600,
+                              errorBuilder: (_) => const SizedBox.shrink(),
+                            ),
                     ),
-                    child: Semantics(
-                      button: true,
-                      label: context.tr(
-                        _community.isPublicProfile
-                            ? 'Profile information'
-                            : 'Community information',
+                    _community.coverImageUrl,
+                  ),
+                  Positioned(
+                    left: 16,
+                    bottom: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: accent,
+                        shape: BoxShape.circle,
                       ),
-                      child: GestureDetector(
-                        onTap: _openInformation,
-                        child: CommunityAvatar(
-                          community: _community,
-                          radius: 28,
+                      child: Semantics(
+                        button: true,
+                        label: context.tr(
+                          _community.isPublicProfile
+                              ? 'Profile information'
+                              : 'Community information',
+                        ),
+                        child: GestureDetector(
+                          onTap: _openInformation,
+                          child: CommunityAvatar(
+                            community: _community,
+                            radius: 28,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(child: _communityIdentity()),
-                          if (_isLocalBusiness) ...[
-                            const SizedBox(width: 8),
-                            _localBusinessHeaderActions(),
-                          ] else ...[
-                            const SizedBox(width: 8),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_joined && !_isLocalBusiness)
-                                  _communityRoleBadge(
-                                    expanded: !_community.isPublicProfile,
-                                  ),
-                                if (_joined && _canInviteToCommunity)
-                                  const SizedBox(width: 6),
-                                if (_canInviteToCommunity)
-                                  IconButton.filledTonal(
-                                    key: const ValueKey(
-                                      'community-header-invite',
-                                    ),
-                                    tooltip: context.tr('Invite people'),
-                                    onPressed: _inviteToCommunity,
-                                    style: IconButton.styleFrom(
-                                      fixedSize: Size.square(
-                                        _community.isPublicProfile ? 44 : 38,
-                                      ),
-                                      minimumSize: Size.square(
-                                        _community.isPublicProfile ? 44 : 38,
-                                      ),
-                                      maximumSize: Size.square(
-                                        _community.isPublicProfile ? 44 : 38,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      shape: const CircleBorder(),
-                                      backgroundColor: Theme.of(context)
-                                          .colorScheme
-                                          .primary
-                                          .withValues(alpha: .08),
-                                      foregroundColor: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                    ),
-                                    icon: const Icon(
-                                      Icons.person_add_alt_1_outlined,
-                                      size: 18,
-                                    ),
-                                  ),
-                              ],
-                            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: _communityIdentity()),
+                            if (_isLocalBusiness) ...[
+                              const SizedBox(width: 8),
+                              _localBusinessHeaderActions(),
+                            ] else if (_community.isPublicProfile) ...[
+                              const SizedBox(width: 8),
+                              _communityHeaderActions(),
+                            ] else if (_joined) ...[
+                              const SizedBox(width: 8),
+                              _communityRoleBadge(),
+                            ],
                           ],
-                        ],
-                      ),
-                      if (_isLocalBusiness)
-                        _localBusinessHeaderDetails()
-                      else
-                        _headerDetails(),
-                      if (!_isLocalBusiness && _community.isPublicProfile)
-                        _pageHeaderActions(),
-                      if (!_isLocalBusiness && !_joined && !_community.isBanned)
-                        TextButton.icon(
-                          onPressed: _savingMembership
-                              ? null
-                              : _toggleMembership,
-                          style: TextButton.styleFrom(
-                            minimumSize: const Size(64, 34),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            textStyle: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            shape: const StadiumBorder(),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: .07),
-                            visualDensity: VisualDensity.compact,
-                            tapTargetSize: MaterialTapTargetSize.padded,
-                          ),
-                          icon: _savingMembership
-                              ? const SizedBox.square(
-                                  dimension: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Icon(
-                                  _joined ? Icons.check : Icons.add,
-                                  size: 16,
-                                ),
-                          label: Text(
-                            context.tr(
-                              _community.isPublicProfile
-                                  ? (_joined ? 'Following' : 'Follow')
-                                  : (_joined ? 'Joined' : 'Join'),
-                            ),
-                          ),
                         ),
-                    ],
+                        if (_isLocalBusiness)
+                          _localBusinessHeaderDetails()
+                        else
+                          _headerDetails(),
+                        if (!_isLocalBusiness && _community.isPublicProfile)
+                          _pageHeaderActions(),
+                        if (!_isLocalBusiness &&
+                            !_joined &&
+                            !_community.isBanned)
+                          TextButton.icon(
+                            onPressed: _savingMembership
+                                ? null
+                                : _toggleMembership,
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(64, 34),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              shape: const StadiumBorder(),
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: .07),
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize: MaterialTapTargetSize.padded,
+                            ),
+                            icon: _savingMembership
+                                ? const SizedBox.square(
+                                    dimension: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Icon(
+                                    _joined
+                                        ? WicchuIcons.check
+                                        : WicchuIcons.plus,
+                                    size: 16,
+                                  ),
+                            label: Text(
+                              context.tr(
+                                _community.isPublicProfile
+                                    ? (_joined ? 'Following' : 'Follow')
+                                    : (_joined ? 'Joined' : 'Join'),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          if (_community.isBanned) _banNotice(context),
-        ],
+            if (_community.isBanned) _banNotice(context),
+          ],
+        ),
       ),
     );
   }
@@ -2021,7 +2058,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: _submittingBanAppeal ? null : _appealBan,
-            icon: const Icon(Icons.gavel_outlined),
+            icon: const Icon(WicchuIcons.gavel),
             label: Text(context.tr('Request Wicchu Safety review')),
           ),
         ],
@@ -2192,7 +2229,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       child: Row(
                         children: [
                           Icon(
-                            Icons.visibility_outlined,
+                            WicchuIcons.eye,
                             color: Theme.of(context).colorScheme.primary,
                           ),
                           const SizedBox(width: 10),
@@ -2310,7 +2347,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.search_off_rounded, size: 48),
+                              const Icon(
+                                WicchuIcons.magnifyingGlassMinus,
+                                size: 48,
+                              ),
                               const SizedBox(height: 12),
                               Text(
                                 context.tr('No posts found in {community}', {
@@ -2679,7 +2719,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Icon(Icons.add, size: 16),
+                            : const Icon(WicchuIcons.plus, size: 16),
                         label: Text(
                           context.tr(
                             _community.isPublicProfile ? 'Follow' : 'Join',
@@ -2715,9 +2755,43 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             const SizedBox(height: 12),
             _restaurantSummary(),
           ],
+          if (_community.isPublicProfile && !_canManage) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openSpaceChat,
+                icon: const Icon(WicchuIcons.chatCircle),
+                label: Text(context.tr('Message on Wicchu')),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _openSpaceChat() async {
+    try {
+      final conversation = await widget.repository.startPageConversation(
+        _community.id,
+      );
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DirectChatPage(
+            repository: widget.repository,
+            conversation: conversation,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
   }
 
   Widget _restaurantSummary() {
@@ -2733,7 +2807,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           children: [
             Row(
               children: [
-                const Icon(Icons.schedule_outlined, size: 20),
+                const Icon(WicchuIcons.clock, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   context.tr(
@@ -2785,7 +2859,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                           contact.phone,
                           whatsapp: false,
                         ),
-                        icon: const Icon(Icons.call_outlined),
+                        icon: const Icon(WicchuIcons.phone),
                         label: Text(context.tr('Call')),
                       ),
                     ),
@@ -2798,7 +2872,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                           contact.whatsapp,
                           whatsapp: true,
                         ),
-                        icon: const Icon(Icons.chat_outlined),
+                        icon: const Icon(WicchuIcons.chatCircle),
                         label: const Text('WhatsApp'),
                       ),
                     ),
@@ -2907,7 +2981,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     color: destructive ? color : colors.onSurface,
                   ),
                 ),
-                trailing: Icon(Icons.chevron_right, size: 20, color: color),
+                trailing: Icon(WicchuIcons.caretRight, size: 20, color: color),
                 onTap: () => Navigator.pop(sheetContext, value),
               ),
             ),
@@ -2952,7 +3026,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         sheetContext,
                       ).closeButtonTooltip,
                       onPressed: () => Navigator.pop(sheetContext),
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(WicchuIcons.x),
                     ),
                   ],
                 ),
@@ -2960,7 +3034,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 if (_canManage)
                   option(
                     'manage',
-                    Icons.admin_panel_settings_outlined,
+                    WicchuIcons.shieldCheck,
                     _community.isPublicProfile
                         ? 'Manage profile'
                         : 'Manage community',
@@ -2968,7 +3042,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 if (_community.myRole != CommunityRole.owner)
                   option(
                     'leave',
-                    Icons.logout,
+                    WicchuIcons.signOut,
                     _community.isPublicProfile ? 'Unfollow' : 'Leave community',
                     destructive: true,
                   ),
@@ -3010,9 +3084,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 width: 44,
                 height: 44,
                 child: Icon(
-                  _canManage
-                      ? Icons.admin_panel_settings_outlined
-                      : Icons.check,
+                  WicchuIcons.userCheck,
                   size: 20,
                   color: scheme.primary,
                 ),
@@ -3020,8 +3092,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             : expanded
             ? Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
+                  horizontal: 10,
+                  vertical: 8,
                 ),
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: .08),
@@ -3031,7 +3103,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      _canManage ? Icons.shield_outlined : Icons.check,
+                      WicchuIcons.userCheck,
                       size: 18,
                       color: scheme.primary,
                     ),
@@ -3047,7 +3119,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Icon(Icons.expand_more, size: 18, color: scheme.primary),
+                    Icon(
+                      WicchuIcons.caretDown,
+                      size: 18,
+                      color: scheme.primary,
+                    ),
                   ],
                 ),
               )
@@ -3063,9 +3139,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      _canManage
-                          ? Icons.admin_panel_settings_outlined
-                          : Icons.check,
+                      WicchuIcons.userCheck,
                       size: 20,
                       color: scheme.primary,
                     ),
@@ -3191,7 +3265,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right, size: 18),
+                      const Icon(WicchuIcons.caretRight, size: 18),
                     ],
                   ),
                 ),
@@ -3239,7 +3313,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             SizedBox(
               width: width,
               child: detail(
-                Icons.location_on_outlined,
+                WicchuIcons.mapPin,
                 _community.town.name,
                 'Location',
               ),
@@ -3247,7 +3321,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             SizedBox(
               width: width,
               child: detail(
-                Icons.public,
+                WicchuIcons.globe,
                 context.tr(
                   _community.isPublicProfile
                       ? _community.spaceTypeLabel
@@ -3261,7 +3335,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             SizedBox(
               width: width,
               child: detail(
-                Icons.calendar_today_outlined,
+                WicchuIcons.calendarBlank,
                 MaterialLocalizations.of(
                   context,
                 ).formatMediumDate(_community.createdAt.toLocal()),
@@ -3282,9 +3356,21 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           children: [
             if (widget.screen == CommunityScreen.information)
               _compactCommunityHeader(),
+            if (_isLocalBusiness &&
+                _community.shortDescription.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Text(
+                  _community.shortDescription.trim(),
+                  key: const ValueKey('business-information-summary'),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             _Section(
               title: context.tr('About {name}', {'name': _community.name}),
-              icon: Icons.article_outlined,
+              icon: WicchuIcons.article,
               trailing: _community.showWeather && _weather != null
                   ? _aboutWeather()
                   : null,
@@ -3314,7 +3400,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     _community.myRole == CommunityRole.admin))
               _informationRow(
                 'Edit categories',
-                Icons.category_outlined,
+                WicchuIcons.shapes,
                 context.tr('Add, rename or remove page categories.'),
                 _editPageCategories,
                 rowKey: const ValueKey('information-edit-categories'),
@@ -3346,7 +3432,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       );
                 return _informationRow(
                   _spaceText('Community rating'),
-                  Icons.star_rounded,
+                  WicchuIcons.starFill,
                   summary,
                   () => _openInformationSection(CommunityScreen.rating),
                   iconColor: Colors.amber.shade700,
@@ -3355,7 +3441,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
             _informationRow(
               _community.isPublicProfile ? 'Followers' : 'Members',
-              Icons.groups_outlined,
+              WicchuIcons.usersThree,
               context.trCount(
                 _community.memberCount,
                 singular: _community.isPublicProfile
@@ -3373,7 +3459,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               future: _rules,
               builder: (context, snapshot) => _informationRow(
                 _spaceText('Community rules'),
-                Icons.shield_outlined,
+                WicchuIcons.shield,
                 context.tr(
                   'Read the guidelines for a safe and respectful community.',
                 ),
@@ -3383,7 +3469,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
             _informationRow(
               'Useful links',
-              Icons.link,
+              WicchuIcons.linkSimple,
               context.tr('Website, directions and more'),
               () => _openInformationSection(CommunityScreen.links),
               count: _community.links.length + 2,
@@ -3410,7 +3496,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Icon(
-                Icons.logout,
+                WicchuIcons.signOut,
                 color: Theme.of(sheetContext).colorScheme.error,
                 size: 30,
               ),
@@ -3528,12 +3614,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     Widget action(IconData icon, String label, VoidCallback? onTap) => Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton.filledTonal(
+        IconButton(
           tooltip: context.tr(label),
           onPressed: onTap,
           style: IconButton.styleFrom(
-            backgroundColor: colors.primary.withValues(alpha: .07),
-            foregroundColor: colors.primary,
+            foregroundColor: colors.onSurface,
             fixedSize: const Size(46, 46),
           ),
           icon: Icon(icon, size: 23),
@@ -3602,7 +3687,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         ),
                         if (onTap != null)
                           Icon(
-                            Icons.chevron_right,
+                            WicchuIcons.caretRight,
                             size: 18,
                             color: colors.onSurfaceVariant,
                           ),
@@ -3628,14 +3713,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Stack(
               children: [
                 Padding(
                   padding: const EdgeInsets.only(right: 4, bottom: 4),
                   child: _expandableCommunityImage(
-                    CommunityAvatar(community: _community, radius: 36),
+                    CommunityAvatar(community: _community, radius: 28),
                     _community.imageUrl,
                   ),
                 ),
@@ -3650,7 +3735,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       border: Border.all(color: colors.surface, width: 2),
                     ),
                     child: Icon(
-                      Icons.groups,
+                      WicchuIcons.usersThree,
                       size: 15,
                       color: colors.onPrimary,
                     ),
@@ -3663,31 +3748,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _community.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 20,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      if (_joined)
-                        _communityRoleBadge(expanded: true)
-                      else
-                        TextButton.icon(
-                          onPressed: _savingMembership
-                              ? null
-                              : _toggleMembership,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: Text(context.tr('Join')),
-                        ),
-                    ],
+                  Text(
+                    _community.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -3699,6 +3767,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 ],
               ),
             ),
+            const SizedBox(width: 8),
+            if (_joined)
+              _communityRoleBadge(expanded: true)
+            else
+              TextButton.icon(
+                onPressed: _savingMembership ? null : _toggleMembership,
+                icon: const Icon(WicchuIcons.plus, size: 18),
+                label: Text(context.tr('Join')),
+              ),
           ],
         ),
         const SizedBox(height: 8),
@@ -3747,8 +3824,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final style = theme.textTheme.bodyMedium!.copyWith(
-                    fontSize: 14,
+                  final style = theme.textTheme.bodySmall!.copyWith(
                     height: 1.4,
                   );
                   final painter = TextPainter(
@@ -3827,19 +3903,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             runSpacing: 12,
             children: [
               if (canInvite)
-                action(
-                  Icons.person_add_alt_1_outlined,
-                  'Invite',
-                  _inviteToCommunity,
-                ),
+                action(WicchuIcons.userPlus, 'Invite', _inviteToCommunity),
               action(
-                Icons.share_outlined,
+                WicchuIcons.shareNetwork,
                 'Share',
                 () => shareCommunity(context, _community),
               ),
               if (_joined && _community.myRole != CommunityRole.owner)
                 action(
-                  Icons.logout,
+                  WicchuIcons.signOut,
                   'Leave',
                   _savingMembership ? null : _confirmLeave,
                 ),
@@ -3850,7 +3922,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           Column(
             children: [
               detail(
-                Icons.location_on_outlined,
+                WicchuIcons.mapPin,
                 'Location',
                 location,
                 onTap: () => launchUrl(
@@ -3866,7 +3938,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               ),
               divider,
               detail(
-                Icons.groups_outlined,
+                WicchuIcons.usersThree,
                 _community.visibility == CommunityVisibility.public
                     ? 'Public community'
                     : 'Private community',
@@ -3874,7 +3946,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               ),
               divider,
               detail(
-                Icons.calendar_today_outlined,
+                WicchuIcons.calendarBlank,
                 context.tr('Created {date}', {
                   'date':
                       '${MaterialLocalizations.of(context).formatShortMonthDay(_community.createdAt.toLocal())} ${_community.createdAt.toLocal().year}',
@@ -3903,7 +3975,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   minTileHeight: 76,
                   leading: Icon(
-                    Icons.shield_outlined,
+                    WicchuIcons.shield,
                     color: colors.primary,
                     size: 28,
                   ),
@@ -3957,7 +4029,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                             ],
                           ),
                   ),
-                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  trailing: const Icon(WicchuIcons.caretRight, size: 20),
                   onTap: () => _openMembers(administration: true),
                 ),
               );
@@ -3967,7 +4039,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           future: _rules,
           builder: (context, snapshot) => _informationRow(
             'Community rules',
-            Icons.article_outlined,
+            WicchuIcons.article,
             context.trCount(
               (snapshot.data?.rules ?? _community.rules).length,
               singular: '{count} rule',
@@ -3978,14 +4050,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         ),
         _informationRow(
           'Useful links',
-          Icons.link,
+          WicchuIcons.linkSimple,
           context.tr('Website, directions and more'),
           () => _openInformationSection(CommunityScreen.links),
           count: _community.links.length + 2,
         ),
         _informationRow(
           'Community rating',
-          Icons.star_outline,
+          WicchuIcons.star,
           context.tr('Do you find this community helpful?'),
           () => _openInformationSection(CommunityScreen.rating),
         ),
@@ -3995,11 +4067,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.group_add_outlined,
-                    color: colors.primary,
-                    size: 28,
-                  ),
+                  Icon(WicchuIcons.usersThree, color: colors.primary, size: 28),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -4021,7 +4089,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         const SizedBox(height: 8),
                         FilledButton.icon(
                           onPressed: _inviteToCommunity,
-                          icon: const Icon(Icons.person_add_alt_1, size: 18),
+                          icon: const Icon(WicchuIcons.userPlus, size: 18),
                           label: Text(context.tr('Invite')),
                         ),
                       ],
@@ -4112,7 +4180,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               Text('$count', style: theme.textTheme.bodyMedium),
               const SizedBox(width: 8),
             ],
-            const Icon(Icons.chevron_right),
+            const Icon(WicchuIcons.caretRight),
           ],
         ),
         onTap: onTap,
@@ -4122,7 +4190,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   Widget _ratingContent() => _Section(
     title: context.tr(_spaceText('Community rating')),
-    icon: Icons.star_rounded,
+    icon: WicchuIcons.starFill,
     iconColor: Colors.amber.shade700,
     child: FutureBuilder<CommunityHelpfulness>(
       future: _helpfulness,
@@ -4173,12 +4241,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 segments: [
                   ButtonSegment(
                     value: true,
-                    icon: const Icon(Icons.thumb_up_outlined),
+                    icon: const Icon(WicchuIcons.thumbsUp),
                     label: Text(context.tr('Yes')),
                   ),
                   ButtonSegment(
                     value: false,
-                    icon: const Icon(Icons.thumb_down_outlined),
+                    icon: const Icon(WicchuIcons.thumbsDown),
                     label: Text(context.tr('Not really')),
                   ),
                 ],
@@ -4199,7 +4267,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 onPressed: _savingHelpfulness
                     ? null
                     : () => _openCommunitySurvey(feedback),
-                icon: const Icon(Icons.rate_review_outlined),
+                icon: const Icon(WicchuIcons.notePencil),
                 label: Text(context.tr('Answer the short survey')),
               ),
             ],
@@ -4211,7 +4279,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               ),
               for (final entry in feedback.insights.entries)
                 _DetailRow(
-                  icon: Icons.insights_outlined,
+                  icon: WicchuIcons.chartLineUp,
                   label:
                       '${context.tr(switch (entry.key) {
                         'locallyRelevant' => 'Locally relevant',
@@ -4320,7 +4388,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               onPressed: _savingLinks || _community.links.length >= 10
                   ? null
                   : () => _editUsefulLink(),
-              icon: const Icon(Icons.add, size: 20),
+              icon: const Icon(WicchuIcons.plus, size: 20),
               label: Text(context.tr('Add')),
             ),
           ),
@@ -4413,13 +4481,16 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     IconButton(
                       tooltip: context.tr('Open link'),
                       onPressed: open,
-                      icon: const Icon(Icons.open_in_new, size: 20),
+                      icon: const Icon(WicchuIcons.arrowSquareOut, size: 20),
                     ),
                     if (_canEditLinks && index != null)
                       PopupMenuButton<String>(
                         tooltip: context.tr('More options'),
                         enabled: !_savingLinks,
-                        icon: const Icon(Icons.more_vert, size: 20),
+                        icon: const Icon(
+                          WicchuIcons.dotsThreeVertical,
+                          size: 20,
+                        ),
                         onSelected: (value) async {
                           if (value == 'copy') {
                             await Clipboard.setData(ClipboardData(text: url));
@@ -4476,7 +4547,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         title: _publicWebsiteUrl.replaceFirst('https://', ''),
         type: 'Website',
         subtitle: _community.name,
-        icon: Icons.language,
+        icon: WicchuIcons.globe,
         url: _publicWebsiteUrl,
       ),
       for (final (index, link) in _community.links.indexed)
@@ -4494,12 +4565,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             _ => 'Website',
           },
           icon: switch (profileLinkNetwork(link.url)) {
-            'telegram' => Icons.send_outlined,
-            'instagram' => Icons.camera_alt_outlined,
-            'facebook' => Icons.facebook,
-            'whatsapp' => Icons.chat_outlined,
-            'youtube' => Icons.play_circle_outline,
-            _ => Icons.language,
+            'telegram' => WicchuIcons.paperPlaneTilt,
+            'instagram' => WicchuIcons.camera,
+            'facebook' => WicchuIcons.facebookLogo,
+            'whatsapp' => WicchuIcons.chatCircle,
+            'youtube' => WicchuIcons.playCircle,
+            _ => WicchuIcons.globe,
           },
         ),
       _usefulLinkRow(
@@ -4510,7 +4581,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 _community.businessLocation!.address.isNotEmpty
             ? _community.businessLocation!.address
             : _community.town.name,
-        icon: Icons.map_outlined,
+        icon: WicchuIcons.mapTrifold,
         url: _directionsUri.toString(),
         onOpen: _openDirections,
       ),
@@ -4523,21 +4594,21 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       if (snapshot.connectionState == ConnectionState.waiting) {
         return _Section(
           title: context.tr(_spaceText('Community rules')),
-          icon: Icons.shield_outlined,
+          icon: WicchuIcons.shield,
           child: const LinearProgressIndicator(),
         );
       }
       if (snapshot.hasError) {
         return _Section(
           title: context.tr(_spaceText('Community rules')),
-          icon: Icons.shield_outlined,
+          icon: WicchuIcons.shield,
           child: Text(context.trError(snapshot.error!)),
         );
       }
       final rules = snapshot.data?.rules ?? _community.rules;
       return _Section(
         title: context.tr(_spaceText('Community rules')),
-        icon: Icons.shield_outlined,
+        icon: WicchuIcons.shield,
         child: rules.isEmpty
             ? Text(
                 context.tr(
@@ -4593,18 +4664,18 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   IconData _weatherIcon(int code, bool isDay) {
     if (code == 0) {
-      return isDay ? Icons.wb_sunny_outlined : Icons.nightlight_outlined;
+      return isDay ? WicchuIcons.sun : WicchuIcons.moon;
     }
-    if (code <= 3) return Icons.cloud_outlined;
-    if (code == 45 || code == 48) return Icons.foggy;
+    if (code <= 3) return WicchuIcons.cloud;
+    if (code == 45 || code == 48) return WicchuIcons.cloudFog;
     if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
-      return Icons.water_drop_outlined;
+      return WicchuIcons.drop;
     }
     if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) {
-      return Icons.ac_unit;
+      return WicchuIcons.snowflake;
     }
-    if (code >= 95) return Icons.thunderstorm_outlined;
-    return Icons.cloud_outlined;
+    if (code >= 95) return WicchuIcons.cloudLightning;
+    return WicchuIcons.cloud;
   }
 
   Widget _membersTab() {
@@ -4673,55 +4744,63 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               child: visible.isEmpty
                   ? Center(child: Text(context.tr('No members found')))
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       itemCount: visible.length,
                       itemBuilder: (context, index) {
                         final member = visible[index];
-                        return ListTile(
-                          leading: Badge(
-                            isLabelVisible: member.isOnline,
-                            backgroundColor: Colors.green,
-                            child: CircleAvatar(
-                              backgroundImage: member.avatarUrl == null
-                                  ? null
-                                  : NetworkImage(member.avatarUrl!),
-                              child: member.avatarUrl == null
-                                  ? Text(
-                                      member.name.isEmpty
-                                          ? '?'
-                                          : member.name[0].toUpperCase(),
-                                    )
-                                  : null,
+                        return ExploreResultCard(
+                          margin: const EdgeInsets.only(bottom: 9),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 13,
+                              vertical: 6,
                             ),
-                          ),
-                          title: Text(member.name),
-                          subtitle: member.isOnline
-                              ? Text(
-                                  context.tr('Online now'),
-                                  style: TextStyle(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                                )
-                              : null,
-                          trailing: _profileBadge(switch (member.role) {
-                            CommunityRole.owner => 'Owner',
-                            CommunityRole.admin => 'Administrator',
-                            CommunityRole.moderator => 'Moderator',
-                            _ => 'Member',
-                          }),
-                          onTap: member.isAnonymous || member.userId.isEmpty
-                              ? null
-                              : () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => MemberProfilePage(
-                                      userId: member.userId,
-                                      repository: widget.repository,
+                            leading: Badge(
+                              isLabelVisible: member.isOnline,
+                              backgroundColor: Colors.green,
+                              child: UserAvatar(
+                                name: member.name,
+                                imageUrl: member.avatarUrl,
+                                radius: 23,
+                              ),
+                            ),
+                            title: Text(
+                              member.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: member.isOnline
+                                ? Text(
+                                    context.tr('Online now'),
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                                  )
+                                : null,
+                            trailing: _profileBadge(switch (member.role) {
+                              CommunityRole.owner => 'Owner',
+                              CommunityRole.admin => 'Administrator',
+                              CommunityRole.moderator => 'Moderator',
+                              _ => 'Member',
+                            }),
+                            onTap: member.isAnonymous || member.userId.isEmpty
+                                ? null
+                                : () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => MemberProfilePage(
+                                        userId: member.userId,
+                                        repository: widget.repository,
+                                      ),
                                     ),
                                   ),
-                                ),
+                          ),
                         );
                       },
                     ),
@@ -4783,7 +4862,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     )
                   : Container(
                       color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                      child: const Icon(Icons.play_circle_outline, size: 40),
+                      child: const Icon(WicchuIcons.playCircle, size: 40),
                     ),
             );
           },

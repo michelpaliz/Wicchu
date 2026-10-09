@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -192,7 +193,7 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
             onPressed: snapshot.hasData
                 ? () => _preview(snapshot.data!.rules)
                 : null,
-            icon: const Icon(Icons.visibility_outlined),
+            icon: const Icon(WicchuIcons.eye),
           ),
         ),
       ],
@@ -235,7 +236,7 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _notice(
-                icon: Icons.verified_user_outlined,
+                icon: WicchuIcons.shieldCheck,
                 title: 'A better space for everyone',
                 description:
                     'These rules help keep your community safe, respectful and active.',
@@ -259,7 +260,9 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
                           ? null
                           : () => setState(() => _orderMode = !_orderMode),
                       icon: Icon(
-                        _orderMode ? Icons.check : Icons.swap_vert,
+                        _orderMode
+                            ? WicchuIcons.check
+                            : WicchuIcons.arrowsDownUp,
                         size: 20,
                       ),
                       label: Text(context.tr(_orderMode ? 'Done' : 'Reorder')),
@@ -286,7 +289,7 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
                           borderRadius: BorderRadius.circular(24),
                         ),
                         child: Icon(
-                          Icons.article_outlined,
+                          WicchuIcons.article,
                           size: 54,
                           color: colors.primary,
                         ),
@@ -295,7 +298,7 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
                         radius: 20,
                         backgroundColor: colors.primary,
                         child: Icon(
-                          Icons.verified_user_outlined,
+                          WicchuIcons.shieldCheck,
                           color: colors.onPrimary,
                           size: 24,
                         ),
@@ -330,13 +333,13 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
                     ),
                   ),
                   onPressed: _reordering ? null : () => _openEditor(),
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(WicchuIcons.plus),
                   label: Text(context.tr('Add rule')),
                 ),
                 if (_showTip) ...[
                   const SizedBox(height: 24),
                   _notice(
-                    icon: Icons.lightbulb_outline,
+                    icon: WicchuIcons.lightbulb,
                     title: 'Tip',
                     description:
                         'Use clear, specific rules. Tap Reorder to drag rules into place.',
@@ -415,7 +418,7 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.check_circle,
+                                  WicchuIcons.checkCircleFill,
                                   size: 16,
                                   color: colors.primary,
                                 ),
@@ -439,7 +442,7 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
                         enabled: !_reordering,
                         child: Padding(
                           padding: const EdgeInsets.all(12),
-                          child: Icon(Icons.drag_handle, color: colors.primary),
+                          child: Icon(WicchuIcons.minus, color: colors.primary),
                         ),
                       ),
                     if (canManage && !_orderMode)
@@ -513,7 +516,7 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
             IconButton(
               onPressed: onClose,
               tooltip: context.tr('Close'),
-              icon: const Icon(Icons.close, size: 18),
+              icon: const Icon(WicchuIcons.x, size: 18),
             ),
         ],
       ),
@@ -647,7 +650,7 @@ class CommunityRuleEditorPageState extends State<CommunityRuleEditorPage> {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.check),
+                    : const Icon(WicchuIcons.check),
                 label: Text(context.tr(_saving ? 'Saving…' : 'Save')),
               ),
             ],

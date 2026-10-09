@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -57,7 +58,7 @@ class _PromotionReviewPageState extends State<PromotionReviewPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.campaign_outlined),
+                        const Icon(WicchuIcons.megaphone),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(

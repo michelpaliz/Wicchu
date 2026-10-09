@@ -1,3 +1,5 @@
+import '../../widgets/category_symbol.dart';
+import 'package:wicchu/theme/wicchu_icons.dart';
 import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
 
@@ -255,7 +257,7 @@ class _CommunityPageState extends State<CommunityPage>
           IconButton(
             tooltip: context.tr('Share'),
             onPressed: () => shareCommunity(context, community),
-            icon: const Icon(Icons.ios_share_outlined),
+            icon: const Icon(WicchuIcons.export),
           ),
         ],
       ),
@@ -290,7 +292,7 @@ class _CommunityPageState extends State<CommunityPage>
                 children: [
                   if (community.imageUrl == null)
                     Icon(
-                      Icons.groups_rounded,
+                      WicchuIcons.usersThree,
                       size: 68,
                       color: Theme.of(context).colorScheme.primary,
                     )
@@ -309,7 +311,7 @@ class _CommunityPageState extends State<CommunityPage>
                     left: 12,
                     bottom: 12,
                     child: _InfoChip(
-                      icon: Icons.location_on_outlined,
+                      icon: WicchuIcons.mapPin,
                       label: community.town.name,
                     ),
                   ),
@@ -340,7 +342,7 @@ class _CommunityPageState extends State<CommunityPage>
                     runSpacing: 8,
                     children: [
                       _InfoChip(
-                        icon: Icons.people_outline,
+                        icon: WicchuIcons.users,
                         label: context.trCount(
                           community.memberCount,
                           singular: '{count} member',
@@ -350,7 +352,7 @@ class _CommunityPageState extends State<CommunityPage>
                       ),
                       if (community.myRole != null)
                         _InfoChip(
-                          icon: Icons.verified_user_outlined,
+                          icon: WicchuIcons.shieldCheck,
                           label: context.tr(
                             community.myRole == CommunityRole.owner
                                 ? 'Owner'
@@ -362,7 +364,7 @@ class _CommunityPageState extends State<CommunityPage>
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: _openProfile,
-                    icon: const Icon(Icons.info_outline),
+                    icon: const Icon(WicchuIcons.info),
                     label: Text(context.tr('View community profile')),
                   ),
                   const SizedBox(height: 18),
@@ -389,7 +391,7 @@ class _CommunityPageState extends State<CommunityPage>
                       width: double.infinity,
                       child: FilledButton.icon(
                         onPressed: _createPost,
-                        icon: const Icon(Icons.add_rounded),
+                        icon: const Icon(WicchuIcons.plus),
                         label: Text(context.tr('New post')),
                       ),
                     ),
@@ -399,7 +401,7 @@ class _CommunityPageState extends State<CommunityPage>
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: _openManagement,
-                        icon: const Icon(Icons.admin_panel_settings_outlined),
+                        icon: const Icon(WicchuIcons.shieldCheck),
                         label: Text(context.tr('Community management')),
                       ),
                     ),
@@ -461,10 +463,7 @@ class _CommunityPageState extends State<CommunityPage>
                                 padding: const EdgeInsets.all(12),
                                 child: Row(
                                   children: [
-                                    Text(
-                                      category.icon,
-                                      style: const TextStyle(fontSize: 21),
-                                    ),
+                                    CategorySymbol(category.icon, size: 21),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -478,7 +477,7 @@ class _CommunityPageState extends State<CommunityPage>
                                       ),
                                     ),
                                     const Icon(
-                                      Icons.chevron_right_rounded,
+                                      WicchuIcons.caretRight,
                                       size: 18,
                                     ),
                                   ],
@@ -704,7 +703,7 @@ class _MembershipButtonState extends State<_MembershipButton> {
               dimension: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : Icon(_joined ? Icons.check : Icons.add, size: 16),
+          : Icon(_joined ? WicchuIcons.check : WicchuIcons.plus, size: 16),
       label: Text(
         context.tr(isOwner ? 'Owner' : (_joined ? 'Joined' : 'Join')),
       ),

@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -106,7 +107,7 @@ class _RestaurantSettingsPageState extends State<RestaurantSettingsPage> {
             keyboardType: TextInputType.phone,
             decoration: InputDecoration(
               labelText: context.tr('Phone number'),
-              prefixIcon: const Icon(Icons.call_outlined),
+              prefixIcon: const Icon(WicchuIcons.phone),
             ),
           ),
           TextField(
@@ -115,14 +116,14 @@ class _RestaurantSettingsPageState extends State<RestaurantSettingsPage> {
             keyboardType: TextInputType.phone,
             decoration: InputDecoration(
               labelText: context.tr('WhatsApp number'),
-              prefixIcon: const Icon(Icons.chat_outlined),
+              prefixIcon: const Icon(WicchuIcons.chatCircle),
               helperText: context.tr('Include the international country code.'),
             ),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _apply,
-            icon: const Icon(Icons.check),
+            icon: const Icon(WicchuIcons.check),
             label: Text(context.tr('Apply settings')),
           ),
           const SizedBox(height: 8),

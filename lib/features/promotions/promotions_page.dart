@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -52,7 +53,7 @@ class _PromotionsPageState extends State<PromotionsPage> {
           return Center(
             child: FilledButton.icon(
               onPressed: _reload,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(WicchuIcons.arrowsClockwise),
               label: Text(context.trError(snapshot.error!)),
             ),
           );
@@ -75,7 +76,7 @@ class _PromotionsPageState extends State<PromotionsPage> {
                   onPressed: _submitting || data.posts.isEmpty
                       ? null
                       : () => _startPromotion(data),
-                  icon: const Icon(Icons.campaign_outlined),
+                  icon: const Icon(WicchuIcons.megaphone),
                   label: Text(context.tr('Promote a post for free')),
                 ),
               if (data.posts.isEmpty) ...[
@@ -238,7 +239,7 @@ class _TrialCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.storefront_outlined, size: 38),
+          const Icon(WicchuIcons.storefront, size: 38),
           const SizedBox(height: 12),
           Text(
             context.tr('Your first month is free'),

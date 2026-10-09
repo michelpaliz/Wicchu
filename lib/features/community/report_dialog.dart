@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../localization/app_language.dart';
@@ -19,16 +20,16 @@ Future<(String, String)?> showContentReportDialog(
 );
 
 const _categories = <String, (String, IconData)>{
-  'spam': ('Spam', Icons.block_outlined),
-  'harassment': ('Harassment', Icons.people_outline),
-  'scam': ('Scam or fraud', Icons.warning_amber_rounded),
-  'other': ('Other concern', Icons.more_horiz),
-  'hate': ('Hate speech', Icons.comments_disabled_outlined),
-  'violence': ('Violence', Icons.shield_outlined),
-  'sexual': ('Sexual content', Icons.hide_image_outlined),
-  'child_safety': ('Child safety', Icons.child_care_outlined),
-  'self_harm': ('Self-harm', Icons.health_and_safety_outlined),
-  'illegal': ('Illegal activity', Icons.gavel_outlined),
+  'spam': ('Spam', WicchuIcons.prohibit),
+  'harassment': ('Harassment', WicchuIcons.users),
+  'scam': ('Scam or fraud', WicchuIcons.warning),
+  'other': ('Other concern', WicchuIcons.dotsThree),
+  'hate': ('Hate speech', WicchuIcons.chatCircleSlash),
+  'violence': ('Violence', WicchuIcons.shield),
+  'sexual': ('Sexual content', WicchuIcons.imageBroken),
+  'child_safety': ('Child safety', WicchuIcons.baby),
+  'self_harm': ('Self-harm', WicchuIcons.shieldPlus),
+  'illegal': ('Illegal activity', WicchuIcons.gavel),
 };
 
 class _ReportSheet extends StatefulWidget {
@@ -66,7 +67,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                   radius: 26,
                   backgroundColor: colors.errorContainer,
                   foregroundColor: colors.error,
-                  child: const Icon(Icons.outlined_flag, size: 30),
+                  child: const Icon(WicchuIcons.flag, size: 30),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -80,7 +81,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                 IconButton.filledTonal(
                   tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(WicchuIcons.x),
                 ),
               ],
             ),
@@ -104,7 +105,7 @@ class _ReportSheetState extends State<_ReportSheet> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.shield_outlined, color: colors.primary),
+                  Icon(WicchuIcons.shield, color: colors.primary),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -228,7 +229,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                         _category,
                       ));
                     },
-                    icon: const Icon(Icons.send_outlined, size: 20),
+                    icon: const Icon(WicchuIcons.paperPlaneTilt, size: 20),
                     label: Text(context.tr('Submit report')),
                   ),
                 ),

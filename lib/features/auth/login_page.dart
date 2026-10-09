@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'auth_sign_in_button.dart';
 import 'package:flutter/material.dart';
 
@@ -101,7 +102,7 @@ class _LoginPageState extends State<LoginPage> {
                     provider: 'email',
                     label: 'Continue with email',
                     onPressed: _openEmail,
-                    icon: const Icon(Icons.mail_outline_rounded, size: 22),
+                    icon: const Icon(WicchuIcons.envelope, size: 22),
                     filled: true,
                   ),
                   const SizedBox(height: 18),
@@ -258,7 +259,7 @@ class _LoginPageState extends State<LoginPage> {
     final action = await showDialog<_ExistingAccountAction>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.account_circle_outlined),
+        icon: const Icon(WicchuIcons.userCircle),
         title: Text(dialogContext.tr('Account already exists')),
         content: Text(dialogContext.tr(message)),
         actions: [

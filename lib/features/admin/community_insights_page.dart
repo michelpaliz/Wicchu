@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -65,7 +66,7 @@ class _CommunityInsightsPageState extends State<CommunityInsightsPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.insights_outlined,
+                    WicchuIcons.chartLineUp,
                     size: 44,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -234,7 +235,7 @@ class _InsightsContentState extends State<_InsightsContent> {
                     child: metric(
                       _number(insights.monthlyActiveUsers),
                       'Monthly active',
-                      Icons.groups_outlined,
+                      WicchuIcons.usersThree,
                     ),
                   ),
                   SizedBox(
@@ -242,7 +243,7 @@ class _InsightsContentState extends State<_InsightsContent> {
                     child: metric(
                       _number(insights.weeklyActiveUsers),
                       'Weekly active',
-                      Icons.person_outline,
+                      WicchuIcons.user,
                     ),
                   ),
                   SizedBox(
@@ -250,7 +251,7 @@ class _InsightsContentState extends State<_InsightsContent> {
                     child: metric(
                       '${_decimal(insights.monthlyActivityRate)}%',
                       'Monthly activity rate',
-                      Icons.bar_chart_rounded,
+                      WicchuIcons.chartBar,
                     ),
                   ),
                   SizedBox(
@@ -258,7 +259,7 @@ class _InsightsContentState extends State<_InsightsContent> {
                     child: metric(
                       _number(insights.posts30d),
                       'Posts in the last 30 days',
-                      Icons.article_outlined,
+                      WicchuIcons.article,
                     ),
                   ),
                 ],
@@ -303,7 +304,9 @@ class _InsightsContentState extends State<_InsightsContent> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
-                          change >= 0 ? Icons.trending_up : Icons.trending_down,
+                          change >= 0
+                              ? WicchuIcons.trendUp
+                              : WicchuIcons.trendDown,
                           size: 18,
                           color: change >= 0 ? colors.primary : colors.error,
                         ),
@@ -350,7 +353,7 @@ class _InsightsContentState extends State<_InsightsContent> {
           card(
             Column(
               children: [
-                activity(Icons.article_outlined, 'Posts', insights.posts30d),
+                activity(WicchuIcons.article, 'Posts', insights.posts30d),
                 Divider(
                   height: 1,
                   indent: 66,
@@ -358,7 +361,7 @@ class _InsightsContentState extends State<_InsightsContent> {
                   color: colors.onSurface.withValues(alpha: .06),
                 ),
                 activity(
-                  Icons.chat_bubble_outline,
+                  WicchuIcons.chatCircle,
                   'Comments',
                   insights.comments30d,
                 ),
@@ -368,11 +371,7 @@ class _InsightsContentState extends State<_InsightsContent> {
                   endIndent: 14,
                   color: colors.onSurface.withValues(alpha: .06),
                 ),
-                activity(
-                  Icons.favorite_border,
-                  'Reactions',
-                  insights.reactions30d,
-                ),
+                activity(WicchuIcons.heart, 'Reactions', insights.reactions30d),
                 Divider(
                   height: 1,
                   indent: 66,
@@ -380,7 +379,7 @@ class _InsightsContentState extends State<_InsightsContent> {
                   color: colors.onSurface.withValues(alpha: .06),
                 ),
                 activity(
-                  Icons.group_add_outlined,
+                  WicchuIcons.usersThree,
                   'New members',
                   insights.newMembers30d,
                 ),
@@ -398,7 +397,7 @@ class _InsightsContentState extends State<_InsightsContent> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  badge(Icons.lightbulb_outline),
+                  badge(WicchuIcons.lightbulb),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -425,7 +424,7 @@ class _InsightsContentState extends State<_InsightsContent> {
                   IconButton(
                     tooltip: context.tr('Close'),
                     onPressed: () => setState(() => _showTip = false),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(WicchuIcons.x, size: 18),
                   ),
                 ],
               ),

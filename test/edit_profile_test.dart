@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
@@ -40,7 +41,7 @@ void main() {
         'Unsaved name',
       );
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.tap(find.byIcon(WicchuIcons.caretLeft));
       await tester.pumpAndSettle();
       expect(find.text('Unsaved changes'), findsOneWidget);
       await tester.tap(find.text('Keep editing'));
@@ -55,7 +56,7 @@ void main() {
       expect((await repository.getEditableProfile()).name, 'Michael P.');
       await tester.tap(find.text('Open editor'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.tap(find.byIcon(WicchuIcons.caretLeft));
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.byType(EditProfilePage), findsNothing);
@@ -104,7 +105,7 @@ void main() {
     expect(repository.saves, 1);
     expect(find.text('+34600123456'), findsOneWidget);
     expect(find.byType(EditProfilePage), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byIcon(WicchuIcons.caretLeft));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
   });
@@ -128,5 +129,22 @@ void main() {
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
       isNull,
     );
+  });
+
+  testWidgets('profile accent color can be selected and saved', (tester) async {
+    final repository = DemoCommunityRepository();
+    await tester.pumpWidget(
+      MaterialApp(home: EditProfilePage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    final purple = find.byKey(const ValueKey('profile-accent-purple'));
+    await tester.ensureVisible(purple);
+    await tester.tap(purple);
+    await tester.pump();
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+
+    expect((await repository.getEditableProfile()).accentColor, 'purple');
   });
 }

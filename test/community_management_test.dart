@@ -610,4 +610,146 @@ void main() {
     expect(updated.rules.last.title, 'Be respectful');
     expect(updated.rules.last.description, 'Respect your neighbors');
   });
+  testWidgets('settings protects edits and allows explicit discard', (
+    tester,
+  ) async {
+    final repository = DemoCommunityRepository();
+    final community = (await repository.listJoinedCommunities()).first;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => CommunitySettingsPage(
+                      community: community,
+                      repository: repository,
+                    ),
+                  ),
+                ),
+                child: const Text('Open settings'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open settings'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.widgetWithText(TextFormField, 'About'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'About'),
+      'Changed description',
+    );
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Unsaved changes'), findsOneWidget);
+    await tester.tap(find.text('Keep editing'));
+    await tester.pumpAndSettle();
+    expect(find.text('Changed description'), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open settings'), findsOneWidget);
+    expect(find.byType(CommunitySettingsPage), findsNothing);
+  });
+  testWidgets('custom category emoji saves and reopens', (tester) async {
+    final repository = DemoCommunityRepository();
+    final community = (await repository.listJoinedCommunities()).first;
+    final category = (await repository.listCategories(
+      community.id,
+    )).firstWhere((c) => c.name == 'News');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CategoryManagementPage(
+          community: community,
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('News'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('See all'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('category-other-icon')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('category-custom-icon')),
+      '👩🏽‍🍳',
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Apply'));
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save changes'));
+    await tester.tap(find.text('Save changes'));
+    await tester.pumpAndSettle();
+    final updated = (await repository.listCategories(
+      community.id,
+    )).firstWhere((c) => c.id == category.id);
+    expect(updated.icon, '👩🏽‍🍳');
+    await tester.tap(find.text('News'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('category-icon-👩🏽‍🍳')), findsOneWidget);
+  });
+  testWidgets(
+    'category footer stays visible with keyboard and preview is only a draft',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = DemoCommunityRepository();
+      final community = (await repository.listJoinedCommunities()).first;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CategoryManagementPage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('News'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Name'),
+        'Draft name',
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+      expect(find.text('Save changes').hitTestable(), findsOneWidget);
+      expect(find.text('Cancel').hitTestable(), findsOneWidget);
+      tester.view.resetViewInsets();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('category-live-preview')),
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('category-live-preview')),
+          matching: find.text('Draft name'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        (await repository.listCategories(
+          community.id,
+        )).any((category) => category.name == 'Draft name'),
+        isFalse,
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('News'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

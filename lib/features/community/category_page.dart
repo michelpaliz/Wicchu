@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import '../../widgets/block_visibility_listener.dart';
 import 'category_empty_state.dart';
 import 'package:flutter/material.dart';
@@ -81,7 +82,7 @@ class _CategoryPageState extends State<CategoryPage>
       floatingActionButton: (widget.canPost && widget.community.canPublish)
           ? FloatingActionButton.extended(
               onPressed: _createPost,
-              icon: const Icon(Icons.add),
+              icon: const Icon(WicchuIcons.plus),
               label: Text(
                 context.tr(
                   widget.category.name == 'Marketplace'

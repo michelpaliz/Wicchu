@@ -165,9 +165,47 @@ void main() {
 
     expect(repository.lastConversationPageId, 'page-1');
     expect(repository.lastRequestPageId, 'page-1');
+    await tester.tap(find.text('Personal'));
+    await tester.pumpAndSettle();
+    expect(repository.lastConversationPageId, isNull);
   });
 
-  testWidgets('incoming message requests open first and show their count', (
+  testWidgets('pending incoming and sent requests stay in separate lists', (
+    tester,
+  ) async {
+    final repository = _ChatRepository()
+      ..chats = const [
+        DirectConversation(
+          id: 'incoming',
+          otherUser: WicchuUser(id: 'a', name: 'Incoming'),
+          unreadCount: 1,
+          requestStatus: MessageRequestStatus.pending,
+        ),
+        DirectConversation(
+          id: 'outgoing',
+          otherUser: WicchuUser(id: 'b', name: 'Outgoing'),
+          unreadCount: 0,
+          requestStatus: MessageRequestStatus.pending,
+          requestedByMe: true,
+        ),
+      ];
+    await tester.pumpWidget(
+      MaterialApp(home: ConversationListPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Incoming'), findsNothing);
+    expect(find.text('Outgoing'), findsOneWidget);
+    expect(find.text('Request sent'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('message-requests-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Incoming'), findsOneWidget);
+    expect(find.text('Outgoing'), findsNothing);
+    await tester.tap(find.text('Chats'));
+    await tester.pumpAndSettle();
+    expect(find.text('Outgoing'), findsOneWidget);
+  });
+
+  testWidgets('chats open first and requests button shows incoming count', (
     tester,
   ) async {
     final repository = _ChatRepository()
@@ -187,10 +225,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final selector = tester.widget<SegmentedButton<bool>>(
-      find.byType(SegmentedButton<bool>),
+    expect(find.text('Ana'), findsNothing);
+    expect(find.byType(SegmentedButton<bool>), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('message-requests-button')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
     );
-    expect(selector.selected, {true});
+    await tester.tap(find.byKey(const ValueKey('message-requests-button')));
+    await tester.pumpAndSettle();
     expect(find.text('Ana'), findsOneWidget);
     expect(find.text('Hello from Ana'), findsOneWidget);
     expect(
@@ -200,13 +245,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Nothing else for now'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(SegmentedButton<bool>),
-        matching: find.text('1'),
-      ),
-      findsOneWidget,
-    );
     await tester.tap(
       find.byKey(const ValueKey('dismiss-message-request-information')),
     );

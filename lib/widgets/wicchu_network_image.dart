@@ -5,7 +5,12 @@ String stableImageCacheKey(String url, {String? cacheKey}) {
   if (cacheKey?.trim().isNotEmpty == true) return cacheKey!.trim();
   final uri = Uri.tryParse(url);
   if (uri == null) return url;
-  return uri.replace(query: '', fragment: '').toString();
+  // Query parameters may identify the image (for example blobName) or its
+  // version. Removing them can serve an older or entirely different upload.
+  const signingParameters = {'sig', 'se', 'st', 'sp', 'sv', 'sr', 'spr', 'sip'};
+  final parameters = Map<String, dynamic>.from(uri.queryParametersAll)
+    ..removeWhere((key, _) => signingParameters.contains(key.toLowerCase()));
+  return uri.replace(queryParameters: parameters, fragment: '').toString();
 }
 
 class WicchuNetworkImage extends StatelessWidget {

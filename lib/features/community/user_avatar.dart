@@ -6,6 +6,7 @@ class UserAvatar extends StatelessWidget {
     super.key,
     required this.name,
     this.imageUrl,
+    this.userId,
     this.radius = 20,
     this.backgroundColor,
     this.foregroundColor,
@@ -13,6 +14,7 @@ class UserAvatar extends StatelessWidget {
 
   final String name;
   final String? imageUrl;
+  final String? userId;
   final double radius;
   final Color? backgroundColor;
   final Color? foregroundColor;
@@ -40,11 +42,14 @@ class UserAvatar extends StatelessWidget {
         ),
         child: canLoadImage
             ? WicchuNetworkImage(
+                key: ValueKey('avatar-v2:${userId ?? ''}:${uri.toString()}'),
+                cacheKey: 'avatar-v2:${userId ?? ''}:${uri.toString()}',
                 url: uri.toString(),
                 fit: BoxFit.cover,
                 decodeWidth:
                     (radius * 2 * MediaQuery.devicePixelRatioOf(context))
                         .ceil(),
+                loadingBuilder: (_) => fallback,
                 errorBuilder: (_) => fallback,
               )
             : fallback,

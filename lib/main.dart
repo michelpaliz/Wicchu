@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
@@ -106,7 +107,7 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
         builder: (context) => PopScope(
           canPop: !update.required,
           child: AlertDialog(
-            icon: const Icon(Icons.system_update_rounded, size: 40),
+            icon: const Icon(WicchuIcons.downloadSimple, size: 40),
             title: Text(
               context.tr(
                 update.required
@@ -160,7 +161,7 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
                     Navigator.pop(context);
                   }
                 },
-                icon: const Icon(Icons.open_in_new),
+                icon: const Icon(WicchuIcons.arrowSquareOut),
                 label: Text(context.tr('Update now')),
               ),
             ],

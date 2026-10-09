@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../localization/app_language.dart';
@@ -32,11 +33,7 @@ class CategoryEmptyState extends StatelessWidget {
                     borderRadius: BorderRadius.circular(70),
                   ),
                 ),
-                Icon(
-                  Icons.inventory_2_outlined,
-                  size: 92,
-                  color: scheme.primary,
-                ),
+                Icon(WicchuIcons.package, size: 92, color: scheme.primary),
                 Positioned(
                   right: 35,
                   bottom: 16,
@@ -47,7 +44,7 @@ class CategoryEmptyState extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.sell_outlined,
+                      WicchuIcons.tag,
                       size: 26,
                       color: scheme.primary,
                     ),
@@ -84,7 +81,7 @@ class CategoryEmptyState extends StatelessWidget {
                   vertical: 12,
                 ),
               ),
-              icon: const Icon(Icons.add),
+              icon: const Icon(WicchuIcons.plus),
               label: Text(
                 context.tr('Post in {category}', {'category': name}),
                 textAlign: TextAlign.center,

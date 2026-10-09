@@ -1,3 +1,6 @@
+import '../../widgets/category_symbol.dart';
+import 'post_rules_review_page.dart';
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -88,6 +91,74 @@ Future<CommunityPost?> openPostComposer(
 }
 
 class _CreatePostPageState extends State<CreatePostPage> {
+  late Community _community = widget.community;
+  late List<CommunityCategory> _categories = widget.categories;
+  bool _changingCommunity = false;
+
+  Future<void> _changeCommunity() async {
+    if (_changingCommunity) return;
+    setState(() => _changingCommunity = true);
+    try {
+      final groups = await widget.repository.listJoinedCommunities();
+      if (!mounted) return;
+      final selected = await showModalBottomSheet<Community>(
+        context: context,
+        showDragHandle: true,
+        useSafeArea: true,
+        isScrollControlled: true,
+        builder: (sheetContext) => SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * .55,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              ListTile(title: Text(context.tr('Choose a community'))),
+              for (final group in groups.where(
+                (item) => !item.isPublicProfile && item.canPublish,
+              ))
+                ListTile(
+                  title: Text(group.name),
+                  subtitle: Text(group.town.name),
+                  leading: const Icon(WicchuIcons.usersThree),
+                  trailing: group.id == _community.id
+                      ? const Icon(WicchuIcons.check)
+                      : null,
+                  onTap: () => Navigator.pop(sheetContext, group),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (selected == null || selected.id == _community.id || !mounted) return;
+      final categories = await widget.repository.listCategories(selected.id);
+      if (!mounted) return;
+      final accepted = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PostRulesReviewPage(
+            community: selected,
+            repository: widget.repository,
+          ),
+        ),
+      );
+      if (accepted != true || !mounted) return;
+      setState(() {
+        _community = selected;
+        _categories = categories;
+        _category = categories.firstOrNull;
+        _mentionedUserIds.clear();
+        _publishAnonymously = false;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _changingCommunity = false);
+    }
+  }
+
   late final Future<WicchuProfile> _postingAuthor = widget.repository
       .getProfile();
   CommunityCategory? _category;
@@ -103,7 +174,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final _pollControllers = [TextEditingController(), TextEditingController()];
   final _menuDishes = [_MenuDishDraft()];
   late final Set<BusinessFulfillmentOption> _menuFulfillment = {
-    ...widget.community.businessFulfillmentOptions,
+    ..._community.businessFulfillmentOptions,
   };
   final _featureTitle = TextEditingController();
   final _featurePrice = TextEditingController();
@@ -124,17 +195,20 @@ class _CreatePostPageState extends State<CreatePostPage> {
     CommunityRole.owner,
     CommunityRole.admin,
     CommunityRole.moderator,
-  }.contains(widget.community.myRole);
-  bool get _canPublishAnonymously => widget.community.myRole != null;
+  }.contains(_community.myRole);
+  bool get _canPublishAnonymously => _community.myRole != null;
   bool get _canPublishTodayMenu =>
-      widget.community.isPublicProfile &&
-      widget.community.profileCategory == ProfileCategory.localBusiness &&
-      widget.community.businessServices.contains(BusinessService.food);
+      _community.isPublicProfile &&
+      _community.profileCategory == ProfileCategory.localBusiness &&
+      _community.businessServices.contains(BusinessService.food);
+  bool get _isLocalBusiness =>
+      _community.isPublicProfile &&
+      _community.profileCategory == ProfileCategory.localBusiness;
 
   bool _hasBusinessService(BusinessService service) =>
-      widget.community.isPublicProfile &&
-      widget.community.profileCategory == ProfileCategory.localBusiness &&
-      widget.community.businessServices.contains(service);
+      _community.isPublicProfile &&
+      _community.profileCategory == ProfileCategory.localBusiness &&
+      _community.businessServices.contains(service);
 
   bool get _isStructuredBusinessPost => const {
     _PostKind.todayMenu,
@@ -177,7 +251,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   };
 
   Future<void> _chooseMentions() async {
-    final members = (await widget.repository.listMembers(widget.community.id))
+    final members = (await widget.repository.listMembers(_community.id))
         .where((member) => !member.isAnonymous && member.userId.isNotEmpty)
         .toList(growable: false);
     if (!mounted) return;
@@ -261,8 +335,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
     _textController = PostTextController(existingPost?.text ?? '');
     _textController.addListener(_refreshValidity);
     _category = existingPost == null
-        ? widget.initialCategory ?? widget.categories.firstOrNull
-        : widget.categories
+        ? widget.initialCategory ?? _categories.firstOrNull
+        : _categories
               .where((category) => category.id == existingPost.categoryId)
               .firstOrNull;
     if (existingPost != null) {
@@ -336,7 +410,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
   bool get _canSubmit {
-    if (!widget.community.canPublish ||
+    if (!_community.canPublish ||
         _saving ||
         _uploading ||
         _category == null ||
@@ -346,6 +420,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
     if (!_validTodayMenu) return false;
     if (!_validBusinessFeature) return false;
+    if (_kind == _PostKind.media && _attachments.isEmpty) return false;
     if (!_hasPoll) return true;
     final options = _pollControllers
         .map((controller) => controller.text.trim())
@@ -377,7 +452,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.community.canPublish) return _permissionDenied(context);
+    if (!_community.canPublish) return _permissionDenied(context);
     if (_publishedPost case final post?) return _successScreen(context, post);
     return PopScope(
       canPop: _step == 0 && !_saving,
@@ -459,21 +534,21 @@ class _CreatePostPageState extends State<CreatePostPage> {
       _kindCard(
         context,
         kind: _PostKind.text,
-        icon: Icons.notes_outlined,
+        icon: WicchuIcons.note,
         title: 'Standard post',
         subtitle: 'Share an update, idea, or local news.',
       ),
       _kindCard(
         context,
         kind: _PostKind.media,
-        icon: Icons.photo_library_outlined,
+        icon: WicchuIcons.images,
         title: 'Photos or video',
         subtitle: 'Tell your story with up to 10 media files.',
       ),
       _kindCard(
         context,
         kind: _PostKind.poll,
-        icon: Icons.poll_outlined,
+        icon: WicchuIcons.chartBar,
         title: 'Poll',
         subtitle: 'Ask a question and let members vote.',
       ),
@@ -481,7 +556,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         _kindCard(
           context,
           kind: _PostKind.todayMenu,
-          icon: Icons.restaurant_menu,
+          icon: WicchuIcons.forkKnife,
           title: "Today's menu",
           subtitle: 'Publish dishes, prices and availability for today.',
         ),
@@ -489,7 +564,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         _kindCard(
           context,
           kind: _PostKind.retailOffer,
-          icon: Icons.local_offer_outlined,
+          icon: WicchuIcons.tag,
           title: 'Product or offer',
           subtitle: 'Share a product, price and availability.',
         ),
@@ -497,7 +572,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         _kindCard(
           context,
           kind: _PostKind.transportTrip,
-          icon: Icons.directions_bus_outlined,
+          icon: WicchuIcons.bus,
           title: 'Trip availability',
           subtitle: 'Share a route, departure time and available seats.',
         ),
@@ -505,7 +580,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         _kindCard(
           context,
           kind: _PostKind.realEstate,
-          icon: Icons.apartment_outlined,
+          icon: WicchuIcons.buildings,
           title: 'Property listing',
           subtitle: 'Publish a property for rent or sale.',
         ),
@@ -513,7 +588,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         _kindCard(
           context,
           kind: _PostKind.professionalService,
-          icon: Icons.business_center_outlined,
+          icon: WicchuIcons.briefcase,
           title: 'Professional service',
           subtitle: 'Describe a service, area and starting price.',
         ),
@@ -563,7 +638,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   ),
                 ),
                 Icon(
-                  selected ? Icons.check_circle : Icons.circle_outlined,
+                  selected ? WicchuIcons.checkCircleFill : WicchuIcons.circle,
                   color: selected ? colors.primary : colors.outline,
                 ),
               ],
@@ -603,7 +678,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           alignment: Alignment.centerLeft,
           minimumSize: const Size.fromHeight(48),
         ),
-        icon: const Icon(Icons.alternate_email),
+        icon: const Icon(WicchuIcons.at),
         label: Text(
           _mentionedUserIds.isEmpty
               ? context.tr('Tag people')
@@ -636,14 +711,18 @@ class _CreatePostPageState extends State<CreatePostPage> {
       const SizedBox(height: 16),
       Card(
         child: ListTile(
-          leading: const Icon(Icons.category_outlined),
+          leading: const Icon(WicchuIcons.shapes),
           title: Text(context.tr('Category')),
-          subtitle: Text(
-            _category == null
-                ? context.tr('Not selected')
-                : '${_category!.icon} ${context.tr(_category!.name)}',
-          ),
-          trailing: const Icon(Icons.chevron_right),
+          subtitle: _category == null
+              ? Text(context.tr('Not selected'))
+              : Row(
+                  children: [
+                    CategorySymbol(_category!.icon, size: 18),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(context.tr(_category!.name))),
+                  ],
+                ),
+          trailing: const Icon(WicchuIcons.caretRight),
           onTap: _saving ? null : _chooseCategory,
         ),
       ),
@@ -674,7 +753,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             key: const ValueKey('post-draft-preview'),
             category: _category?.name ?? 'General',
             icon: _category?.icon ?? '💬',
-            community: widget.community.name,
+            community: _community.name,
             author: author,
             authorAvatarUrl: _publishAnonymously
                 ? null
@@ -684,7 +763,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             text: _effectiveText,
             post: CommunityPost(
               id: 'draft',
-              communityId: widget.community.id,
+              communityId: _community.id,
               categoryId: _category?.id ?? '',
               authorId: '',
               text: _effectiveText,
@@ -713,40 +792,94 @@ class _CreatePostPageState extends State<CreatePostPage> {
     ],
   );
 
-  Widget _postingDestination(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Theme.of(
-        context,
-      ).colorScheme.primaryContainer.withValues(alpha: .4),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.groups_2_outlined),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: '${context.tr('Posting to')} '),
-                TextSpan(
-                  text: widget.community.name,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+  Widget _postingDestination(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .4),
+    borderRadius: BorderRadius.circular(16),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap:
+          _step == 0 &&
+              widget.existingPost == null &&
+              !_community.isPublicProfile &&
+              !_changingCommunity
+          ? _changeCommunity
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(
+              _isLocalBusiness
+                  ? WicchuIcons.storefront
+                  : WicchuIcons.usersThree,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _isLocalBusiness
+                        ? context.tr('Publishing as your business')
+                        : context.tr('Posting to'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  Text(
+                    _isLocalBusiness
+                        ? '${_community.name} · ${_community.town.name}'
+                        : _community.name,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  if (_isLocalBusiness &&
+                      (_community.businessLocation?.address.isNotEmpty ==
+                              true ||
+                          _community.businessContact.phone.isNotEmpty ||
+                          _community.businessContact.whatsapp.isNotEmpty))
+                    Text(
+                      context.tr(
+                        'Contact and location details are added from your business profile.',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
+            if (_step == 0 &&
+                widget.existingPost == null &&
+                !_community.isPublicProfile) ...[
+              const SizedBox(width: 8),
+              if (_changingCommunity)
+                const Icon(WicchuIcons.hourglass, size: 18)
+              else ...[
+                Text(
+                  context.tr('Change'),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  WicchuIcons.caretDown,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ],
-            ),
-          ),
+            ],
+          ],
         ),
-      ],
+      ),
     ),
   );
 
   Future<void> _chooseCategory() async {
     final categories =
-        widget.categories.isEmpty && widget.initialCategory != null
+        _community.id == widget.community.id &&
+            _categories.isEmpty &&
+            widget.initialCategory != null
         ? [widget.initialCategory!]
-        : widget.categories;
+        : _categories;
     final selected = await showModalBottomSheet<CommunityCategory>(
       context: context,
       showDragHandle: true,
@@ -757,10 +890,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ListTile(title: Text(sheetContext.tr('Category'))),
             for (final category in categories)
               ListTile(
-                leading: Text(category.icon),
+                leading: CategorySymbol(category.icon),
                 title: Text(sheetContext.tr(category.name)),
                 trailing: _category?.id == category.id
-                    ? const Icon(Icons.check)
+                    ? const Icon(WicchuIcons.check)
                     : null,
                 onTap: () => Navigator.pop(sheetContext, category),
               ),
@@ -779,7 +912,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           onChanged: _saving
               ? null
               : (value) => setState(() => _publishAnonymously = value),
-          secondary: const Icon(Icons.person_off_outlined),
+          secondary: const Icon(WicchuIcons.userMinus),
           title: Text(context.tr('Publish anonymously')),
         ),
         Padding(
@@ -794,7 +927,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               ),
               IconButton(
                 tooltip: context.tr('About anonymous posts'),
-                icon: const Icon(Icons.info_outline, size: 20),
+                icon: const Icon(WicchuIcons.info, size: 20),
                 onPressed: () => showDialog<void>(
                   context: context,
                   builder: (dialogContext) => AlertDialog(
@@ -879,7 +1012,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                               final removed = _menuDishes.removeAt(index);
                               removed.dispose();
                             }),
-                      icon: const Icon(Icons.remove_circle_outline),
+                      icon: const Icon(WicchuIcons.minusCircle),
                     ),
                   ],
                 ),
@@ -898,7 +1031,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 onPressed: _menuDishes.length >= 30
                     ? null
                     : () => setState(() => _menuDishes.add(_MenuDishDraft())),
-                icon: const Icon(Icons.add),
+                icon: const Icon(WicchuIcons.plus),
                 label: Text(context.tr('Add dish')),
               ),
             ],
@@ -921,10 +1054,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
             FilterChip(
               label: Text(context.tr(option.label)),
               avatar: Icon(switch (option) {
-                BusinessFulfillmentOption.delivery =>
-                  Icons.delivery_dining_outlined,
-                BusinessFulfillmentOption.pickup => Icons.shopping_bag_outlined,
-                BusinessFulfillmentOption.eatIn => Icons.restaurant_outlined,
+                BusinessFulfillmentOption.delivery => WicchuIcons.moped,
+                BusinessFulfillmentOption.pickup => WicchuIcons.tote,
+                BusinessFulfillmentOption.eatIn => WicchuIcons.forkKnife,
               }, size: 18),
               selected: _menuFulfillment.contains(option),
               onSelected: (selected) => setState(() {
@@ -980,7 +1112,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   labelText: context.tr('Departure location'),
-                  prefixIcon: const Icon(Icons.trip_origin),
+                  prefixIcon: const Icon(WicchuIcons.circle),
                 ),
               ),
               TextField(
@@ -989,12 +1121,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   labelText: context.tr('Destination'),
-                  prefixIcon: const Icon(Icons.location_on_outlined),
+                  prefixIcon: const Icon(WicchuIcons.mapPin),
                 ),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.schedule_outlined),
+                leading: const Icon(WicchuIcons.clock),
                 title: Text(context.tr('Departure time')),
                 subtitle: Text(
                   MaterialLocalizations.of(
@@ -1014,7 +1146,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   labelText: context.tr('Available seats'),
-                  prefixIcon: const Icon(Icons.event_seat_outlined),
+                  prefixIcon: const Icon(WicchuIcons.armchair),
                 ),
               ),
             ],
@@ -1044,7 +1176,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   labelText: context.tr('Bedrooms'),
-                  prefixIcon: const Icon(Icons.bed_outlined),
+                  prefixIcon: const Icon(WicchuIcons.bed),
                 ),
               ),
               TextField(
@@ -1053,7 +1185,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   labelText: context.tr('Property location'),
-                  prefixIcon: const Icon(Icons.location_on_outlined),
+                  prefixIcon: const Icon(WicchuIcons.mapPin),
                 ),
               ),
             ],
@@ -1064,7 +1196,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   labelText: context.tr('Service area'),
-                  prefixIcon: const Icon(Icons.map_outlined),
+                  prefixIcon: const Icon(WicchuIcons.mapTrifold),
                 ),
               ),
             TextField(
@@ -1077,7 +1209,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       ? 'Starting price (optional)'
                       : 'Price',
                 ),
-                prefixIcon: const Icon(Icons.payments_outlined),
+                prefixIcon: const Icon(WicchuIcons.money),
               ),
             ),
             if (_kind != _PostKind.transportTrip)
@@ -1178,7 +1310,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     if (dishes.isEmpty) return '';
     final options = _menuFulfillment.map((option) => option.label).join(' · ');
     return [
-      "🍴 Today's menu · ${widget.community.name}",
+      "🍴 Today's menu · ${_community.name}",
       dishes,
       if (options.isNotEmpty) options,
     ].join('\n\n');
@@ -1277,10 +1409,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.add_photo_alternate_outlined,
-                      color: colors.primary,
-                    ),
+                    Icon(WicchuIcons.imageSquare, color: colors.primary),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -1328,7 +1457,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       width: 88,
                       child: OutlinedButton.icon(
                         onPressed: _saving || _uploading ? null : _chooseMedia,
-                        icon: const Icon(Icons.add),
+                        icon: const Icon(WicchuIcons.plus),
                         label: Text(context.tr('Add')),
                       ),
                     );
@@ -1365,7 +1494,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                                 : () => setState(
                                     () => _attachments.removeAt(index),
                                   ),
-                            icon: const Icon(Icons.close, size: 16),
+                            icon: const Icon(WicchuIcons.x, size: 16),
                           ),
                         ),
                       ],
@@ -1408,7 +1537,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       onPressed: () => setState(() {
                         _pollControllers.removeAt(index).dispose();
                       }),
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(WicchuIcons.x),
                     )
                   : null,
             ),
@@ -1418,7 +1547,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         TextButton.icon(
           onPressed: () =>
               setState(() => _pollControllers.add(TextEditingController())),
-          icon: const Icon(Icons.add),
+          icon: const Icon(WicchuIcons.plus),
           label: Text(context.tr('Add option')),
         ),
     ],
@@ -1478,7 +1607,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Icon(_step == 3 ? Icons.publish : Icons.arrow_forward),
+                : Icon(
+                    _step == 3
+                        ? WicchuIcons.uploadSimple
+                        : WicchuIcons.arrowRight,
+                  ),
             label: Text(
               context.tr(
                 _step == 3 ? (_isEditing ? 'Save changes' : 'Publish') : 'Next',
@@ -1506,7 +1639,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 radius: 48,
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 child: Icon(
-                  pending ? Icons.hourglass_top : Icons.check,
+                  pending ? WicchuIcons.hourglass : WicchuIcons.check,
                   size: 54,
                   color: Theme.of(context).colorScheme.onPrimary,
                 ),
@@ -1526,10 +1659,43 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 context.tr(
                   pending
                       ? 'A community moderator will review it before publication.'
-                      : 'Your post is live and can now be shared.',
+                      : (_isLocalBusiness
+                            ? 'Visible in {town} and on your business profile.'
+                            : 'Your post is live and can now be shared.'),
+                  {'town': _community.town.name},
                 ),
                 textAlign: TextAlign.center,
               ),
+              if (!pending) ...[
+                const SizedBox(height: 20),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          _community.name,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          post.text,
+                          maxLines: 5,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (post.media.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 160,
+                            child: PostMediaGallery(media: post.media),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
@@ -1549,7 +1715,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               if (!pending) ...[
                 const SizedBox(height: 28),
                 Text(
-                  context.tr('Get more reach'),
+                  context.tr('Share with your customers'),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -1562,7 +1728,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () => _copyDescription(post.text.trim()),
-                        icon: const Icon(Icons.copy_outlined),
+                        icon: const Icon(WicchuIcons.copy),
                         label: Text(context.tr('Copy description')),
                       ),
                     ),
@@ -1570,35 +1736,35 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 _shareAction(
                   context,
                   post,
-                  icon: Icons.auto_awesome_outlined,
+                  icon: WicchuIcons.sparkle,
                   label: 'Instagram Story',
                   destination: PostShareDestination.instagramStory,
                 ),
                 _shareAction(
                   context,
                   post,
-                  icon: Icons.photo_outlined,
+                  icon: WicchuIcons.image,
                   label: 'Instagram Post',
                   destination: PostShareDestination.instagramFeed,
                 ),
                 _shareAction(
                   context,
                   post,
-                  icon: Icons.chat_outlined,
+                  icon: WicchuIcons.chatCircle,
                   label: 'WhatsApp',
                   destination: PostShareDestination.whatsapp,
                 ),
                 _shareAction(
                   context,
                   post,
-                  icon: Icons.facebook_outlined,
+                  icon: WicchuIcons.facebookLogo,
                   label: 'Facebook',
                   destination: PostShareDestination.facebook,
                 ),
                 _shareAction(
                   context,
                   post,
-                  icon: Icons.link,
+                  icon: WicchuIcons.linkSimple,
                   label: 'Copy link',
                   destination: PostShareDestination.copyLink,
                 ),
@@ -1686,12 +1852,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_outlined),
+              leading: const Icon(WicchuIcons.image),
               title: Text(context.tr('Photo')),
               onTap: () => Navigator.pop(context, false),
             ),
             ListTile(
-              leading: const Icon(Icons.videocam_outlined),
+              leading: const Icon(WicchuIcons.videoCamera),
               title: Text(context.tr('Video')),
               onTap: () => Navigator.pop(context, true),
             ),
@@ -1703,7 +1869,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
   Future<void> _publish() async {
-    if (_saving || !widget.community.canPublish) return;
+    if (_saving || !_community.canPublish) return;
     if (_textController.exceedsCharacterLimit) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1743,9 +1909,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
     setState(() => _saving = true);
     try {
-      final currentSpace = await widget.repository.getCommunity(
-        widget.community.id,
-      );
+      final currentSpace = await widget.repository.getCommunity(_community.id);
       if (!currentSpace.canPublish) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1773,7 +1937,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       );
       final post = _isEditing
           ? await widget.repository.updatePost(widget.existingPost!.id, input)
-          : await widget.repository.createPost(widget.community.id, input);
+          : await widget.repository.createPost(_community.id, input);
       if (!mounted) return;
       if (_isEditing) {
         Navigator.pop(context, post);

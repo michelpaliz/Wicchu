@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import '../../localization/app_language.dart';
 
@@ -139,6 +140,10 @@ class FacebookSignInButton extends StatelessWidget {
     onPressed: onPressed,
     isLoading: isLoading,
     disabled: disabled,
-    icon: const Icon(Icons.facebook, color: Color(0xFF1877F2), size: 24),
+    icon: const Icon(
+      WicchuIcons.facebookLogo,
+      color: Color(0xFF1877F2),
+      size: 24,
+    ),
   );
 }

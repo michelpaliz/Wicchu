@@ -4,7 +4,104 @@ import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
 
+class _PageMessagingRepository extends DemoCommunityRepository {
+  String? contactedPage;
+
+  @override
+  Future<DirectConversation> startPageConversation(String pageId) async {
+    contactedPage = pageId;
+    throw Exception('Connection unavailable');
+  }
+}
+
+class _FreshProfileRepository extends DemoCommunityRepository {
+  late Community current;
+  @override
+  Future<Community> getCommunity(String id) async => current;
+}
+
 void main() {
+  testWidgets('profile refreshes a stale business snapshot on opening', (
+    tester,
+  ) async {
+    Community business(String name, String summary) => Community(
+      id: 'fresh-business',
+      name: name,
+      description: '',
+      shortDescription: summary,
+      town: const Town(id: 'town', name: 'Town', countryCode: 'EC'),
+      visibility: CommunityVisibility.public,
+      createdBy: 'owner',
+      createdAt: DateTime(2026),
+      type: CommunityType.publicProfile,
+      profileCategory: ProfileCategory.localBusiness,
+    );
+    final repository = _FreshProfileRepository()
+      ..current = business('Updated business', 'New summary');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityProfilePage(
+          community: business('Old business', 'Old summary'),
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Old business'), findsNothing);
+    expect(find.text('Old summary'), findsNothing);
+    expect(find.text('New summary'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('page-header-description')));
+    await tester.pumpAndSettle();
+    repository.current = business('Edited business', 'Saved from settings');
+    Navigator.of(
+      tester.element(
+        find.byKey(const ValueKey('community-information-content')),
+      ),
+    ).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Saved from settings'), findsOneWidget);
+    expect(find.text('New summary'), findsNothing);
+  });
+
+  for (final business in [false, true]) {
+    testWidgets('header opens the shared inbox for business=$business', (
+      tester,
+    ) async {
+      final repository = _PageMessagingRepository();
+      final community = Community(
+        id: 'shared-space',
+        name: 'Shared space',
+        description: '',
+        town: const Town(id: 'town', name: 'Town', countryCode: 'EC'),
+        visibility: CommunityVisibility.public,
+        createdBy: 'owner',
+        createdAt: DateTime(2026),
+        myRole: CommunityRole.member,
+        type: business ? CommunityType.publicProfile : CommunityType.community,
+        profileCategory: business ? ProfileCategory.localBusiness : null,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CommunityProfilePage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          ValueKey(
+            business ? 'local-business-contact' : 'public-profile-message',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(repository.contactedPage, 'shared-space');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test('profile summary never falls back to the full About description', () {
     final community = Community(
       id: 'page',
@@ -94,7 +191,7 @@ void main() {
               ? findsNothing
               : findsOneWidget,
         );
-        expect(find.byKey(const ValueKey('page-header-edit')), findsOneWidget);
+        expect(find.byKey(const ValueKey('page-header-edit')), findsNothing);
         expect(
           find.byKey(const ValueKey('page-header-followers')),
           findsOneWidget,

@@ -36,22 +36,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
-      await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsOneWidget);
       expect(
-        find.text('Edit community'),
-        scenario.$2 == CommunityRole.admin ? findsOneWidget : findsNothing,
+        find.byKey(const ValueKey('community-profile-menu')),
+        findsNothing,
       );
-      await tester.tap(find.text('Community information'));
-      await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsNothing);
-      expect(
-        find.byKey(const ValueKey('community-information-content')),
-        findsOneWidget,
-      );
-      await tester.pageBack();
-      await tester.pumpAndSettle();
       final invite = find.byKey(const ValueKey('community-header-invite'));
       expect(invite, scenario.$3 ? findsOneWidget : findsNothing);
       if (scenario.$2 == CommunityRole.admin) {

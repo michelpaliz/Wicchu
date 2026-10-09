@@ -1,3 +1,5 @@
+import 'category_symbol.dart';
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'wicchu_network_image.dart';
 
@@ -22,13 +24,13 @@ class ProfileViewSwitch extends StatelessWidget {
         tooltip: context.tr('Grid'),
         isSelected: grid,
         onPressed: () => onChanged(true),
-        icon: const Icon(Icons.grid_on_outlined),
+        icon: const Icon(WicchuIcons.gridNine),
       ),
       IconButton(
         tooltip: context.tr('Posts'),
         isSelected: !grid,
         onPressed: () => onChanged(false),
-        icon: const Icon(Icons.view_agenda_outlined),
+        icon: const Icon(WicchuIcons.rows),
       ),
     ],
   );
@@ -52,16 +54,16 @@ class ProfilePostTile extends StatelessWidget {
     final photo = post.media.where((m) => m.type == 'image').firstOrNull;
     final video = post.media.any((m) => m.type == 'video');
     final marker = video
-        ? Icons.play_circle_outline
+        ? WicchuIcons.playCircle
         : post.media.length > 1
-        ? Icons.collections_outlined
+        ? WicchuIcons.images
         : null;
     final fallback = Padding(
       padding: const EdgeInsets.all(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(categoryIcon, style: const TextStyle(fontSize: 22)),
+          CategorySymbol(categoryIcon, size: 22),
           const SizedBox(height: 4),
           Expanded(
             child: Text(
@@ -114,7 +116,7 @@ class ProfilePostTile extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.favorite,
+                            WicchuIcons.heartFill,
                             size: 13,
                             color: Colors.white,
                           ),

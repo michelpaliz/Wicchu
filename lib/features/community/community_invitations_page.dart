@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -239,7 +240,7 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
           children: [
             Align(
               alignment: Alignment.centerLeft,
-              child: _icon(Icons.groups_outlined),
+              child: _icon(WicchuIcons.usersThree),
             ),
             const SizedBox(height: 16),
             Text(
@@ -267,7 +268,7 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                 children: [
                   Row(
                     children: [
-                      _icon(Icons.link),
+                      _icon(WicchuIcons.linkSimple),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -315,7 +316,7 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                         : () => _shareLink(current),
                     icon: _busy == 'link'
                         ? _spinner()
-                        : const Icon(Icons.share_outlined),
+                        : const Icon(WicchuIcons.shareNetwork),
                     label: Text(
                       context.tr(
                         current == null
@@ -333,7 +334,7 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.schedule, color: colors.primary),
+                        Icon(WicchuIcons.clock, color: colors.primary),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
@@ -376,7 +377,7 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                       decoration: InputDecoration(
                         labelText: context.tr('Email address'),
                         prefixIcon: Icon(
-                          Icons.mail_outline,
+                          WicchuIcons.envelope,
                           color: colors.primary,
                         ),
                       ),
@@ -397,7 +398,7 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                       onPressed: _busy == null ? _invite : null,
                       icon: _busy == 'email'
                           ? _spinner()
-                          : const Icon(Icons.send_outlined),
+                          : const Icon(WicchuIcons.paperPlaneTilt),
                       label: Text(context.tr('Send invitation')),
                     ),
                   ],
@@ -469,7 +470,7 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.lightbulb_outline, color: colors.primary),
+                    Icon(WicchuIcons.lightbulb, color: colors.primary),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -491,7 +492,7 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                     IconButton(
                       tooltip: context.tr('Close'),
                       onPressed: () => setState(() => _showTip = false),
-                      icon: const Icon(Icons.close, size: 18),
+                      icon: const Icon(WicchuIcons.x, size: 18),
                     ),
                   ],
                 ),
@@ -518,10 +519,10 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
             children: [
               _icon(
                 item.isOwnershipTransfer
-                    ? Icons.swap_horiz_rounded
+                    ? WicchuIcons.arrowsLeftRight
                     : item.isLink
-                    ? Icons.link
-                    : Icons.mail_outline,
+                    ? WicchuIcons.linkSimple
+                    : WicchuIcons.envelope,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -576,7 +577,7 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                         : null,
                     icon: _busy == item.id
                         ? _spinner()
-                        : const Icon(Icons.share_outlined, size: 18),
+                        : const Icon(WicchuIcons.shareNetwork, size: 18),
                     label: Text(context.tr('Share')),
                   ),
                 ),
@@ -584,7 +585,7 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _busy == null ? () => _copy(item) : null,
-                    icon: const Icon(Icons.copy_outlined, size: 18),
+                    icon: const Icon(WicchuIcons.copy, size: 18),
                     label: Text(context.tr('Copy')),
                   ),
                 ),
@@ -686,7 +687,7 @@ class _CommunityInvitationLinkPageState
                 children: [
                   const CircleAvatar(
                     radius: 38,
-                    child: Icon(Icons.groups_outlined, size: 38),
+                    child: Icon(WicchuIcons.usersThree, size: 38),
                   ),
                   const SizedBox(height: 18),
                   Text(
@@ -791,8 +792,8 @@ class _MyCommunityInvitationsPageState
               leading: CircleAvatar(
                 child: Icon(
                   ownershipTransfer
-                      ? Icons.swap_horiz_rounded
-                      : Icons.groups_outlined,
+                      ? WicchuIcons.arrowsLeftRight
+                      : WicchuIcons.usersThree,
                 ),
               ),
               title: Text(item.communityName ?? context.tr('Community')),

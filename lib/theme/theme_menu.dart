@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../localization/app_language.dart';
@@ -53,7 +54,7 @@ class ThemeMenu extends StatelessWidget {
                 Expanded(child: Text(context.tr(label))),
                 if (selection.themeMode == mode)
                   Icon(
-                    Icons.check,
+                    WicchuIcons.check,
                     size: 18,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -67,9 +68,9 @@ class ThemeMenu extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(switch (selection.themeMode) {
-              ThemeMode.system => Icons.brightness_auto_outlined,
-              ThemeMode.light => Icons.light_mode_outlined,
-              ThemeMode.dark => Icons.dark_mode_outlined,
+              ThemeMode.system => WicchuIcons.sunDim,
+              ThemeMode.light => WicchuIcons.sun,
+              ThemeMode.dark => WicchuIcons.moon,
             }),
             if (showLabel) ...[
               const SizedBox(width: 4),

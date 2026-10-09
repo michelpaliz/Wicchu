@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'auth_sign_in_button.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -166,7 +167,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                         textCapitalization: TextCapitalization.words,
                         autofillHints: const [AutofillHints.name],
                         decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.person_outline),
+                          prefixIcon: const Icon(WicchuIcons.user),
                           labelText: context.tr('Full name'),
                         ),
                         validator: (value) => (value?.trim().isEmpty ?? true)
@@ -182,7 +183,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                         textCapitalization: TextCapitalization.none,
                         autofillHints: const [AutofillHints.newUsername],
                         decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.alternate_email),
+                          prefixIcon: const Icon(WicchuIcons.at),
                           labelText: context.tr('Username'),
                         ),
                         validator: (value) {
@@ -214,7 +215,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                       textCapitalization: TextCapitalization.none,
                       autofillHints: const [AutofillHints.email],
                       decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.mail_outline),
+                        prefixIcon: const Icon(WicchuIcons.envelope),
                         labelText: context.tr('Email address'),
                       ),
                       validator: (value) =>
@@ -242,7 +243,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                               : AutofillHints.password,
                         ],
                         decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.lock_outline),
+                          prefixIcon: const Icon(WicchuIcons.lockKey),
                           labelText: context.tr('Password'),
                           suffixIcon: IconButton(
                             tooltip: context.tr(
@@ -257,8 +258,8 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                                   ),
                             icon: Icon(
                               _obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
+                                  ? WicchuIcons.eye
+                                  : WicchuIcons.eyeSlash,
                             ),
                           ),
                         ),
@@ -289,7 +290,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                           obscureText: _obscureConfirmation,
                           autofillHints: const [AutofillHints.newPassword],
                           decoration: InputDecoration(
-                            prefixIcon: const Icon(Icons.lock_outline),
+                            prefixIcon: const Icon(WicchuIcons.lockKey),
                             suffixIcon: IconButton(
                               tooltip: context.tr(
                                 _obscureConfirmation
@@ -304,8 +305,8 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                                     ),
                               icon: Icon(
                                 _obscureConfirmation
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                                    ? WicchuIcons.eye
+                                    : WicchuIcons.eyeSlash,
                               ),
                             ),
                             helperText: _confirmPassword.text.isEmpty
@@ -459,7 +460,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                             vertical: 8,
                           ),
                           leading: Icon(
-                            Icons.groups_outlined,
+                            WicchuIcons.usersThree,
                             color: Theme.of(context).colorScheme.primary,
                           ),
                           title: Text(
@@ -471,7 +472,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
                               'Create an account and start exploring.',
                             ),
                           ),
-                          trailing: const Icon(Icons.arrow_forward),
+                          trailing: const Icon(WicchuIcons.arrowRight),
                           onTap: _loading
                               ? null
                               : () => setState(() {
@@ -623,7 +624,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
     final action = await showDialog<_ExistingAccountAction>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.account_circle_outlined),
+        icon: const Icon(WicchuIcons.userCircle),
         title: Text(dialogContext.tr('Account already exists')),
         content: Text(dialogContext.tr(message)),
         actions: [
@@ -711,7 +712,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
         await showDialog<void>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            icon: const Icon(Icons.mark_email_read_outlined),
+            icon: const Icon(WicchuIcons.envelopeOpen),
             title: Text(dialogContext.tr('Check your email')),
             content: Text(
               dialogContext.tr(

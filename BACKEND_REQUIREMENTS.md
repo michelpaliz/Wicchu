@@ -130,3 +130,7 @@ The Flutter editor retains input on error and only retries changes not yet saved
 This PATCH contract has client test coverage; deployed server support is unverified.
 
 Location search uses `https://geocoding-api.open-meteo.com/v1/search` (GeoNames data), then `/towns/resolve` for a stable backend town ID. GPS permission is requested only after the current-location button is tapped. The geocoding provider endpoint/account should be configured for production commercial usage; no API key is embedded in the app.
+
+### People discovery location filtering (pending backend support)
+
+The current users search client contract accepts only query, cursor, and limit; its results contain no public town or coordinates. The Personas filter sheet therefore keeps location selection disabled with an availability explanation. To enable it, extend users search with a town ID or latitude/longitude/radius filter, applied before pagination. Match only location information users have made available for discovery; do not expose private coordinates. Define and verify this server contract before enabling the Flutter controls. Community and business nearby searches already use their respective location endpoints.

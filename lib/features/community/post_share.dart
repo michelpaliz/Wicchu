@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -248,7 +249,7 @@ Future<void> sharePost(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.auto_awesome_outlined),
+              leading: const Icon(WicchuIcons.sparkle),
               title: Text(sheetContext.tr('Instagram Story')),
               subtitle: Text(
                 sheetContext.tr('Share a Wicchu-designed 9:16 image.'),
@@ -259,7 +260,7 @@ Future<void> sharePost(
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_outlined),
+              leading: const Icon(WicchuIcons.image),
               title: Text(sheetContext.tr('Instagram Post')),
               subtitle: Text(
                 sheetContext.tr('Share a Wicchu-designed 4:5 image.'),
@@ -270,26 +271,26 @@ Future<void> sharePost(
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.chat_outlined),
+              leading: const Icon(WicchuIcons.chatCircle),
               title: const Text('WhatsApp'),
               onTap: () =>
                   Navigator.pop(sheetContext, PostShareDestination.whatsapp),
             ),
             ListTile(
-              leading: const Icon(Icons.facebook_outlined),
+              leading: const Icon(WicchuIcons.facebookLogo),
               title: const Text('Facebook'),
               onTap: () =>
                   Navigator.pop(sheetContext, PostShareDestination.facebook),
             ),
             ListTile(
-              leading: const Icon(Icons.ios_share_outlined),
+              leading: const Icon(WicchuIcons.export),
               title: Text(sheetContext.tr('More sharing options')),
               onTap: () =>
                   Navigator.pop(sheetContext, PostShareDestination.system),
             ),
             if (post.media.isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
+                leading: const Icon(WicchuIcons.images),
                 title: Text(
                   sheetContext.tr('Create an Instagram or Facebook post'),
                 ),
@@ -304,13 +305,13 @@ Future<void> sharePost(
                 ),
               ),
             ListTile(
-              leading: const Icon(Icons.copy_outlined),
+              leading: const Icon(WicchuIcons.copy),
               title: Text(sheetContext.tr('Copy description and link')),
               onTap: () =>
                   Navigator.pop(sheetContext, PostShareDestination.copyCaption),
             ),
             ListTile(
-              leading: const Icon(Icons.link_outlined),
+              leading: const Icon(WicchuIcons.linkSimple),
               title: Text(sheetContext.tr('Copy link')),
               onTap: () =>
                   Navigator.pop(sheetContext, PostShareDestination.copyLink),

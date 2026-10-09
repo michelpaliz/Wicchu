@@ -1,3 +1,5 @@
+import '../../widgets/explore_result_card.dart';
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -20,49 +22,47 @@ class ConversationListPage extends StatefulWidget {
 }
 
 class _ConversationListPageState extends State<ConversationListPage> {
-  late Future<List<DirectConversation>> _conversations = _loadInitial();
+  late Future<List<DirectConversation>> _conversations = _load();
+  late final Future<List<Community>> _pageIdentities = _loadPageIdentities();
   StreamSubscription<Map<String, dynamic>>? _subscription;
   StreamSubscription<Map<String, dynamic>>? _updateSubscription;
   StreamSubscription<Map<String, dynamic>>? _requestSubscription;
   bool _showRequests = false;
   int _requestCount = 0;
+  String? _selectedPageId;
+  ConversationLabel? _selectedLabel;
+
+  Future<List<Community>> _loadPageIdentities() async =>
+      (await widget.repository.listManagedCommunities())
+          .where(
+            (page) =>
+                page.myRole == CommunityRole.owner ||
+                (page.myRole == CommunityRole.admin && page.canManagePageInbox),
+          )
+          .toList(growable: false);
+
   bool _showRequestInfo = true;
 
-  Future<List<DirectConversation>> _loadInitial() async {
-    final results = await Future.wait([
-      widget.repository.listDirectConversations(),
-      widget.repository.listMessageRequests(),
-    ]);
-    final chats = results[0];
-    final requests = results[1];
-    if (requests.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _requestCount = requests.length;
-          _showRequests = true;
-        });
-      } else {
-        _requestCount = requests.length;
-        _showRequests = true;
-      }
-      return requests;
-    }
-    _updateRequestCount(0);
-    return chats;
-  }
-
   Future<List<DirectConversation>> _load() async {
-    if (_showRequests) {
-      final requests = await widget.repository.listMessageRequests();
-      _updateRequestCount(requests.length);
-      return requests;
-    }
+    final pageId = _selectedPageId;
+    final showRequests = _showRequests;
     final results = await Future.wait([
-      widget.repository.listDirectConversations(),
-      widget.repository.listMessageRequests(),
+      widget.repository.listDirectConversations(pageId: pageId),
+      widget.repository.listMessageRequests(pageId: pageId),
     ]);
-    _updateRequestCount(results[1].length);
-    return results[0];
+    final all = <String, DirectConversation>{
+      for (final conversation in results.expand((items) => items))
+        conversation.id: conversation,
+    }.values;
+    bool incoming(DirectConversation item) =>
+        item.requestStatus == MessageRequestStatus.pending &&
+        !item.requestedByMe;
+    final requests = all.where(incoming).toList();
+    final chats = all.where((item) => !incoming(item)).toList();
+    if (mounted && pageId == _selectedPageId) {
+      _updateRequestCount(requests.length);
+    }
+    return showRequests ? requests : chats;
   }
 
   void _updateRequestCount(int count) {
@@ -88,6 +88,65 @@ class _ConversationListPageState extends State<ConversationListPage> {
       _showRequests = requests;
       _conversations = _load();
     });
+  }
+
+  void _selectIdentity(String? pageId) {
+    if (_selectedPageId == pageId) return;
+    setState(() {
+      _selectedPageId = pageId;
+      _showRequests = false;
+      _requestCount = 0;
+      _selectedLabel = null;
+      _conversations = _load();
+    });
+  }
+
+  void _selectLabel(ConversationLabel? label) {
+    if (_selectedLabel == label) return;
+    setState(() => _selectedLabel = label);
+  }
+
+  Future<void> _changeLabel(DirectConversation conversation) async {
+    final label = await showModalBottomSheet<ConversationLabel>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(
+                sheetContext.tr('Conversation label'),
+                style: Theme.of(sheetContext).textTheme.titleMedium,
+              ),
+            ),
+            for (final value in ConversationLabel.values)
+              ListTile(
+                leading: Icon(
+                  value == conversation.label
+                      ? WicchuIcons.checkCircleFill
+                      : WicchuIcons.tag,
+                ),
+                title: Text(sheetContext.tr(_labelText(value))),
+                onTap: () => Navigator.pop(sheetContext, value),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (label == null || label == conversation.label || !mounted) return;
+    try {
+      await widget.repository.updateDirectConversationLabel(
+        conversation.id,
+        label,
+      );
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
   }
 
   Future<void> _deleteConversation(DirectConversation conversation) async {
@@ -167,7 +226,7 @@ class _ConversationListPageState extends State<ConversationListPage> {
   String _conversationPreview(DirectConversation conversation) =>
       conversation.requestStatus == MessageRequestStatus.pending &&
           conversation.requestedByMe
-      ? context.tr('Message request pending')
+      ? context.tr('Request sent')
       : conversation.lastMessageRemoved
       ? context.tr('Message removed')
       : conversation.lastMessagePreview.isEmpty
@@ -194,7 +253,7 @@ class _ConversationListPageState extends State<ConversationListPage> {
               color: scheme.primary.withValues(alpha: .08),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.info_outline, size: 20, color: scheme.primary),
+            child: Icon(WicchuIcons.info, size: 20, color: scheme.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -212,7 +271,7 @@ class _ConversationListPageState extends State<ConversationListPage> {
             key: const ValueKey('dismiss-message-request-information'),
             tooltip: context.tr('Dismiss'),
             onPressed: () => setState(() => _showRequestInfo = false),
-            icon: const Icon(Icons.close, size: 20),
+            icon: const Icon(WicchuIcons.x, size: 20),
           ),
         ],
       ),
@@ -222,44 +281,17 @@ class _ConversationListPageState extends State<ConversationListPage> {
   Widget _conversationCard(DirectConversation conversation) {
     final scheme = Theme.of(context).colorScheme;
     final unread = conversation.unreadCount > 0;
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .8)),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      clipBehavior: Clip.antiAlias,
+    return ExploreResultCard(
       child: InkWell(
         onTap: () => _openConversation(conversation),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+          padding: const EdgeInsets.all(13),
           child: Row(
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  UserAvatar(
-                    name: conversation.otherUser.name,
-                    imageUrl: conversation.otherUser.avatarUrl,
-                    radius: 25,
-                  ),
-                  if (unread)
-                    Positioned(
-                      right: -1,
-                      bottom: -1,
-                      child: Container(
-                        width: 13,
-                        height: 13,
-                        decoration: BoxDecoration(
-                          color: scheme.error,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: scheme.surface, width: 2),
-                        ),
-                      ),
-                    ),
-                ],
+              UserAvatar(
+                name: conversation.otherUser.name,
+                imageUrl: conversation.otherUser.avatarUrl,
+                radius: 23,
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -275,13 +307,33 @@ class _ConversationListPageState extends State<ConversationListPage> {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      _conversationPreview(conversation),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                    if (_selectedPageId != null)
+                      Text(
+                        context.tr(_labelText(conversation.label)),
+                        style: TextStyle(color: scheme.primary, fontSize: 12),
                       ),
+                    Row(
+                      children: [
+                        if (conversation.requestStatus ==
+                                MessageRequestStatus.pending &&
+                            conversation.requestedByMe) ...[
+                          Icon(
+                            WicchuIcons.clock,
+                            size: 17,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Expanded(
+                          child: Text(
+                            _conversationPreview(conversation),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -305,9 +357,18 @@ class _ConversationListPageState extends State<ConversationListPage> {
               ),
               PopupMenuButton<String>(
                 tooltip: context.tr('More'),
+                icon: const Icon(WicchuIcons.dotsThree),
                 color: scheme.surface,
-                onSelected: (_) => _deleteConversation(conversation),
+                onSelected: (value) {
+                  if (value == 'label') _changeLabel(conversation);
+                  if (value == 'delete') _deleteConversation(conversation);
+                },
                 itemBuilder: (_) => [
+                  if (_selectedPageId != null)
+                    PopupMenuItem(
+                      value: 'label',
+                      child: Text(context.tr('Change label')),
+                    ),
                   PopupMenuItem(
                     value: 'delete',
                     child: Text(context.tr('Delete conversation')),
@@ -330,7 +391,7 @@ class _ConversationListPageState extends State<ConversationListPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              remaining ? Icons.inbox_outlined : Icons.chat_bubble_outline,
+              remaining ? WicchuIcons.tray : WicchuIcons.chatCircle,
               size: 58,
               color: scheme.onSurfaceVariant.withValues(alpha: .35),
             ),
@@ -341,7 +402,9 @@ class _ConversationListPageState extends State<ConversationListPage> {
                     ? 'Nothing else for now'
                     : _showRequests
                     ? 'No message requests'
-                    : 'No messages yet',
+                    : _selectedPageId == null
+                    ? 'No messages yet'
+                    : 'No page messages yet',
               ),
               textAlign: TextAlign.center,
               style: Theme.of(
@@ -353,6 +416,8 @@ class _ConversationListPageState extends State<ConversationListPage> {
               context.tr(
                 _showRequests
                     ? 'When you receive new message requests, they will appear here.'
+                    : _selectedPageId != null
+                    ? 'Messages sent to this page will appear here.'
                     : 'Open a member profile and tap Message to start a conversation.',
               ),
               textAlign: TextAlign.center,
@@ -372,46 +437,131 @@ class _ConversationListPageState extends State<ConversationListPage> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.tr('Messages')),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(64),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(28, 2, 28, 12),
-            child: SizedBox(
-              width: 330,
-              child: SegmentedButton<bool>(
-                expandedInsets: EdgeInsets.zero,
-                style: SegmentedButton.styleFrom(
-                  minimumSize: const Size(0, 44),
-                  backgroundColor: scheme.surface,
-                  foregroundColor: scheme.onSurface,
-                  selectedBackgroundColor: scheme.primary,
-                  selectedForegroundColor: scheme.onPrimary,
-                  side: BorderSide(color: scheme.outlineVariant),
-                  shape: const StadiumBorder(),
+        title: Text(context.tr(_showRequests ? 'Requests' : 'Messages')),
+        leading: _showRequests
+            ? BackButton(onPressed: () => _selectList(false))
+            : null,
+        centerTitle: true,
+        actions: [
+          TextButton(
+            key: const ValueKey('message-requests-button'),
+            onPressed: () => _selectList(!_showRequests),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(context.tr(_showRequests ? 'Chats' : 'Requests')),
+                if (!_showRequests && _requestCount > 0) ...[
+                  const SizedBox(width: 6),
+                  Badge(label: Text('$_requestCount')),
+                ],
+              ],
+            ),
+          ),
+          if (_selectedPageId != null)
+            PopupMenuButton<ConversationLabel?>(
+              tooltip: context.tr('Conversation label'),
+              icon: Icon(
+                _selectedLabel == null
+                    ? WicchuIcons.funnel
+                    : WicchuIcons.funnel,
+              ),
+              onSelected: _selectLabel,
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  onTap: () => _selectLabel(null),
+                  child: Text(context.tr('All')),
                 ),
-                segments: [
-                  ButtonSegment(
-                    value: false,
-                    icon: const Icon(Icons.chat_bubble_outline, size: 19),
-                    label: Text(context.tr('Chats')),
+                for (final label in ConversationLabel.values)
+                  CheckedPopupMenuItem(
+                    value: label,
+                    checked: label == _selectedLabel,
+                    child: Text(context.tr(_labelText(label))),
                   ),
-                  ButtonSegment(
-                    value: true,
-                    icon: const Icon(Icons.check, size: 19),
-                    label: Badge(
-                      isLabelVisible: _requestCount > 0,
-                      label: Text('$_requestCount'),
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Text(context.tr('Requests')),
+              ],
+            ),
+        ],
+        backgroundColor: Color.alphaBlend(
+          scheme.primary.withValues(alpha: .07),
+          scheme.surface,
+        ),
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(68),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: FutureBuilder<List<Community>>(
+              future: _pageIdentities,
+              builder: (context, snapshot) {
+                final pages = snapshot.data ?? const <Community>[];
+                final identities = <String?, String>{
+                  null: context.tr('Personal'),
+                  for (final page in pages) page.id: page.name,
+                };
+                Widget tab(MapEntry<String?, String> entry) => Semantics(
+                  selected: entry.key == _selectedPageId,
+                  button: true,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => _selectIdentity(entry.key),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      constraints: const BoxConstraints(minHeight: 44),
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        color: entry.key == _selectedPageId
+                            ? scheme.primary
+                            : Colors.transparent,
+                      ),
+                      child: Text(
+                        entry.value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: entry.key == _selectedPageId
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: entry.key == _selectedPageId
+                              ? scheme.onPrimary
+                              : scheme.onSurface,
+                        ),
                       ),
                     ),
                   ),
-                ],
-                selected: {_showRequests},
-                onSelectionChanged: (values) => _selectList(values.first),
-              ),
+                );
+                return Container(
+                  key: const ValueKey('inbox-identity-tabs'),
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Color.alphaBlend(
+                      scheme.primary.withValues(alpha: .05),
+                      scheme.surface,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: identities.length <= 3
+                      ? Row(
+                          children: [
+                            for (final entry in identities.entries)
+                              Expanded(child: tab(entry)),
+                          ],
+                        )
+                      : SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              for (final entry in identities.entries)
+                                SizedBox(width: 160, child: tab(entry)),
+                            ],
+                          ),
+                        ),
+                );
+              },
             ),
           ),
         ),
@@ -442,7 +592,13 @@ class _ConversationListPageState extends State<ConversationListPage> {
                 ],
               );
             }
-            final conversations = snapshot.data ?? const [];
+            final allConversations =
+                snapshot.data ?? const <DirectConversation>[];
+            final conversations = _selectedLabel == null
+                ? allConversations
+                : allConversations
+                      .where((item) => item.label == _selectedLabel)
+                      .toList(growable: false);
             return CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -458,7 +614,7 @@ class _ConversationListPageState extends State<ConversationListPage> {
                     ),
                     sliver: SliverList.separated(
                       itemCount: conversations.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      separatorBuilder: (_, _) => const SizedBox(height: 9),
                       itemBuilder: (context, index) =>
                           _conversationCard(conversations[index]),
                     ),
@@ -627,10 +783,11 @@ class _DirectChatPageState extends State<DirectChatPage> {
           createdAt: createdAt,
           readAt: DateTime.tryParse(json['readAt']?.toString() ?? ''),
           removedAt: DateTime.tryParse(json['removedAt']?.toString() ?? ''),
+          sentByMe: json['sentByMe'] == true,
         ),
       );
     });
-    if (json['recipientId']?.toString() == _viewerId) {
+    if (json['sentByMe'] != true) {
       unawaited(
         widget.repository
             .markDirectConversationRead(widget.conversation.id)
@@ -687,7 +844,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
     setState(() {
       for (var index = 0; index < _messages.length; index++) {
         final message = _messages[index];
-        if (message.senderId == _viewerId && message.readAt == null) {
+        if (message.sentByMe && message.readAt == null) {
           _messages[index] = message.copyWith(readAt: readAt);
         }
       }
@@ -794,14 +951,14 @@ class _DirectChatPageState extends State<DirectChatPage> {
 
   Future<void> _reportRequest() async {
     final incoming = _messages.where(
-      (message) => message.senderId != _viewerId && message.removedAt == null,
+      (message) => !message.sentByMe && message.removedAt == null,
     );
     if (incoming.isNotEmpty) await _report(incoming.first);
   }
 
   Future<void> _messageActions(DirectMessage message) async {
     if (message.removedAt != null) return;
-    final mine = message.senderId == _viewerId;
+    final mine = message.sentByMe;
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -810,18 +967,18 @@ class _DirectChatPageState extends State<DirectChatPage> {
           children: [
             if (!mine)
               ListTile(
-                leading: const Icon(Icons.flag_outlined),
+                leading: const Icon(WicchuIcons.flag),
                 title: Text(sheetContext.tr('Report message')),
                 onTap: () => Navigator.pop(sheetContext, 'report'),
               ),
             if (mine)
               ListTile(
-                leading: const Icon(Icons.delete_forever_outlined),
+                leading: const Icon(WicchuIcons.trash),
                 title: Text(sheetContext.tr('Delete for everyone')),
                 onTap: () => Navigator.pop(sheetContext, 'everyone'),
               ),
             ListTile(
-              leading: const Icon(Icons.delete_outline),
+              leading: const Icon(WicchuIcons.trash),
               title: Text(sheetContext.tr('Delete for me')),
               onTap: () => Navigator.pop(sheetContext, 'me'),
             ),
@@ -983,15 +1140,17 @@ class _DirectChatPageState extends State<DirectChatPage> {
           const SizedBox(width: 12),
           Expanded(
             child: InkWell(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MemberProfilePage(
-                    userId: widget.conversation.otherUser.id,
-                    repository: widget.repository,
-                  ),
-                ),
-              ),
+              onTap: widget.conversation.otherIsPage
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MemberProfilePage(
+                          userId: widget.conversation.otherUser.id,
+                          repository: widget.repository,
+                        ),
+                      ),
+                    ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1007,7 +1166,18 @@ class _DirectChatPageState extends State<DirectChatPage> {
                   const SizedBox(height: 3),
                   Text(
                     context.tr(
-                      _otherUserTyping ? 'Typing…' : 'Private conversation',
+                      _otherUserTyping
+                          ? 'Typing…'
+                          : widget.conversation.viewingAsPage
+                          ? 'Replying as {page}'
+                          : widget.conversation.otherIsPage
+                          ? widget.conversation.communityInbox
+                                ? 'Community admin conversation'
+                                : 'Page conversation'
+                          : 'Private conversation',
+                      widget.conversation.viewingAsPage
+                          ? {'page': widget.conversation.pageName ?? 'Wicchu'}
+                          : const {},
                     ),
                     style: TextStyle(
                       fontSize: 12,
@@ -1031,22 +1201,23 @@ class _DirectChatPageState extends State<DirectChatPage> {
               value: 'delete',
               child: Row(
                 children: [
-                  const Icon(Icons.delete_outline),
+                  const Icon(WicchuIcons.trash),
                   const SizedBox(width: 10),
                   Text(context.tr('Delete conversation')),
                 ],
               ),
             ),
-            PopupMenuItem(
-              value: 'block',
-              child: Row(
-                children: [
-                  const Icon(Icons.block_outlined),
-                  const SizedBox(width: 10),
-                  Text(context.tr('Block user')),
-                ],
+            if (!widget.conversation.otherIsPage)
+              PopupMenuItem(
+                value: 'block',
+                child: Row(
+                  children: [
+                    const Icon(WicchuIcons.prohibit),
+                    const SizedBox(width: 10),
+                    Text(context.tr('Block user')),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ],
@@ -1101,12 +1272,12 @@ class _DirectChatPageState extends State<DirectChatPage> {
                     children: [
                       TextButton.icon(
                         onPressed: _reportRequest,
-                        icon: const Icon(Icons.flag_outlined),
+                        icon: const Icon(WicchuIcons.flag),
                         label: Text(context.tr('Report')),
                       ),
                       TextButton.icon(
                         onPressed: _block,
-                        icon: const Icon(Icons.block_outlined),
+                        icon: const Icon(WicchuIcons.prohibit),
                         label: Text(context.tr('Block')),
                       ),
                     ],
@@ -1145,6 +1316,28 @@ class _DirectChatPageState extends State<DirectChatPage> {
                 context.tr('Typing…'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+            ),
+          ),
+        if (widget.conversation.viewingAsPage &&
+            _requestStatus != MessageRequestStatus.declined)
+          Container(
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.primaryContainer,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(WicchuIcons.storefront, size: 17),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    context.tr('You are replying as {page}', {
+                      'page': widget.conversation.pageName ?? 'Wicchu',
+                    }),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ),
           ),
         if (_requestStatus != MessageRequestStatus.declined &&
@@ -1191,10 +1384,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                                 onPressed: _sending || !_canSendMessage
                                     ? null
                                     : _chooseEmoji,
-                                icon: const Icon(
-                                  Icons.sentiment_satisfied_alt_outlined,
-                                  size: 26,
-                                ),
+                                icon: const Icon(WicchuIcons.smiley, size: 26),
                               ),
                             ),
                             Expanded(
@@ -1256,7 +1446,10 @@ class _DirectChatPageState extends State<DirectChatPage> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Icon(Icons.send_rounded, size: 26),
+                              : const Icon(
+                                  WicchuIcons.paperPlaneTilt,
+                                  size: 26,
+                                ),
                         ),
                       ),
                     ),
@@ -1389,13 +1582,13 @@ class _DirectChatPageState extends State<DirectChatPage> {
                       dimension: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.history),
+                  : const Icon(WicchuIcons.clockCounterClockwise),
               label: Text(context.tr('Load older messages')),
             ),
           );
         }
         final message = _messages[index - (_nextCursor == null ? 0 : 1)];
-        final mine = message.senderId == _viewerId;
+        final mine = message.sentByMe;
         final colors = Theme.of(context).colorScheme;
         final messageIndex = index - (_nextCursor == null ? 0 : 1);
         final showDate =
@@ -1475,8 +1668,8 @@ class _DirectChatPageState extends State<DirectChatPage> {
                             const SizedBox(width: 4),
                             Icon(
                               message.readAt == null
-                                  ? Icons.done
-                                  : Icons.done_all,
+                                  ? WicchuIcons.check
+                                  : WicchuIcons.checks,
                               size: 15,
                               color: message.readAt == null
                                   ? colors.onPrimary.withValues(alpha: .75)
@@ -1503,12 +1696,12 @@ class _ChatWallpaper extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const icons = [
-      Icons.eco_outlined,
-      Icons.landscape_outlined,
-      Icons.camera_alt_outlined,
-      Icons.park_outlined,
-      Icons.chat_bubble_outline,
-      Icons.wb_sunny_outlined,
+      WicchuIcons.leaf,
+      WicchuIcons.mountains,
+      WicchuIcons.camera,
+      WicchuIcons.tree,
+      WicchuIcons.chatCircle,
+      WicchuIcons.sun,
     ];
     for (var row = 0; row * 120 < size.height; row++) {
       for (var column = 0; column * 110 < size.width; column++) {
@@ -1550,3 +1743,12 @@ String _shortTime(BuildContext context, DateTime value) {
   }
   return MaterialLocalizations.of(context).formatShortDate(local);
 }
+
+String _labelText(ConversationLabel label) => switch (label) {
+  ConversationLabel.newConversation => 'New',
+  ConversationLabel.inProgress => 'In progress',
+  ConversationLabel.customer => 'Customer',
+  ConversationLabel.order => 'Order',
+  ConversationLabel.quote => 'Quote',
+  ConversationLabel.completed => 'Completed',
+};

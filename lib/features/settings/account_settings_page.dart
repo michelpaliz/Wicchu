@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -119,13 +120,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
             children: [
               _settingsCard([
                 _sectionHeader(
-                  Icons.notifications_none,
+                  WicchuIcons.bell,
                   'Notifications',
                   'Choose which activity you receive.',
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(Icons.article_outlined),
+                  secondary: const Icon(WicchuIcons.article),
                   title: Text(context.tr('Post activity')),
                   subtitle: Text(
                     context.tr('Reactions and comments on your posts'),
@@ -138,7 +139,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(Icons.groups_outlined),
+                  secondary: const Icon(WicchuIcons.usersThree),
                   title: Text(context.tr('Community activity')),
                   subtitle: Text(
                     context.tr('Membership and moderation updates'),
@@ -151,7 +152,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(Icons.campaign_outlined),
+                  secondary: const Icon(WicchuIcons.megaphone),
                   title: Text(context.tr('Promotions')),
                   subtitle: Text(context.tr('Promotion approval updates')),
                   value: _promotionNotifications,
@@ -163,12 +164,12 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 const Divider(height: 20),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.alternate_email),
+                  leading: const Icon(WicchuIcons.at),
                   title: Text(context.tr('Social and contact links')),
                   subtitle: Text(
                     context.tr('WhatsApp, Facebook, Instagram and email'),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(WicchuIcons.caretRight),
                   onTap: () async {
                     await editProfileLinks(context, widget.repository);
                     if (mounted) await _load();
@@ -178,13 +179,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               const SizedBox(height: 16),
               _settingsCard([
                 _sectionHeader(
-                  Icons.shield_outlined,
+                  WicchuIcons.shield,
                   'Privacy',
                   'Control your information and visibility.',
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(Icons.location_on_outlined),
+                  secondary: const Icon(WicchuIcons.mapPin),
                   title: Text(context.tr('Nearby discovery')),
                   subtitle: Text(
                     context.tr(
@@ -199,7 +200,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(Icons.visibility_outlined),
+                  secondary: const Icon(WicchuIcons.eye),
                   title: Text(context.tr('Show online status')),
                   subtitle: Text(
                     context.tr(
@@ -211,8 +212,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.chat_bubble_outline),
-                  trailing: const Icon(Icons.chevron_right),
+                  leading: const Icon(WicchuIcons.chatCircle),
+                  trailing: const Icon(WicchuIcons.caretRight),
                   title: Text(context.tr('Messages')),
                   subtitle: Text(context.tr('Private conversations')),
                   onTap: () => Navigator.push(
@@ -225,7 +226,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.mark_chat_unread_outlined),
+                  leading: const Icon(WicchuIcons.chatCircleDots),
                   title: Text(context.tr('Who can message me')),
                   subtitle: Text(
                     context.tr(switch (_messagingPrivacy) {
@@ -235,13 +236,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                       MessagingPrivacy.nobody => 'Nobody',
                     }),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(WicchuIcons.caretRight),
                   onTap: _chooseMessagingPrivacy,
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.block_outlined),
-                  trailing: const Icon(Icons.chevron_right),
+                  leading: const Icon(WicchuIcons.prohibit),
+                  trailing: const Icon(WicchuIcons.caretRight),
                   title: Text(context.tr('Blocked users')),
                   onTap: () => Navigator.push(
                     context,
@@ -254,8 +255,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 const Divider(height: 20),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.lock_outline),
-                  trailing: const Icon(Icons.chevron_right),
+                  leading: const Icon(WicchuIcons.lockKey),
+                  trailing: const Icon(WicchuIcons.caretRight),
                   onTap: () => showDialog<void>(
                     context: context,
                     builder: (context) => AlertDialog(
@@ -283,7 +284,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 if (widget.authGateway is FacebookAccountLinker)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.facebook),
+                    leading: const Icon(WicchuIcons.facebookLogo),
                     title: Text(context.tr('Facebook account')),
                     subtitle: Text(
                       context.tr(
@@ -299,8 +300,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                           )
                         : Icon(
                             _facebookLinked
-                                ? Icons.check_circle_outline
-                                : Icons.chevron_right,
+                                ? WicchuIcons.checkCircle
+                                : WicchuIcons.caretRight,
                           ),
                     enabled: !_facebookLinked && !_linkingFacebook,
                     onTap: _facebookLinked || _linkingFacebook
@@ -309,20 +310,20 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.privacy_tip_outlined),
-                  trailing: const Icon(Icons.open_in_new, size: 20),
+                  leading: const Icon(WicchuIcons.shieldWarning),
+                  trailing: const Icon(WicchuIcons.arrowSquareOut, size: 20),
                   title: Text(context.tr('Privacy Policy')),
                   onTap: _openPrivacyPolicy,
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.delete_outline),
+                  leading: const Icon(WicchuIcons.trash),
                   trailing: _deletingAccount
                       ? const SizedBox.square(
                           dimension: 22,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.chevron_right, size: 20),
+                      : const Icon(WicchuIcons.caretRight, size: 20),
                   onTap: _deletingAccount
                       ? null
                       : widget.authGateway == null
@@ -344,7 +345,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               _settingsCard([
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: _headerIcon(Icons.info_outline),
+                  leading: _headerIcon(WicchuIcons.info),
                   title: Text(
                     context.tr('About the app'),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -353,7 +354,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                     ),
                   ),
                   subtitle: const Text('Wicchu'),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(WicchuIcons.caretRight),
                   onTap: () => showAboutDialog(
                     context: context,
                     applicationName: 'Wicchu',
@@ -380,7 +381,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                     context,
                   ).colorScheme.primaryContainer,
                   child: Icon(
-                    Icons.check_rounded,
+                    WicchuIcons.check,
                     size: 54,
                     color: Theme.of(context).colorScheme.onPrimaryContainer,
                   ),
@@ -405,7 +406,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: widget.onAccountDeleted,
-                    icon: const Icon(Icons.login),
+                    icon: const Icon(WicchuIcons.signIn),
                     label: Text(context.tr('Continue to sign in')),
                   ),
                 ),
@@ -430,8 +431,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     value == _messagingPrivacy
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_off,
+                        ? WicchuIcons.radioButton
+                        : WicchuIcons.circle,
                   ),
                   title: Text(
                     dialogContext.tr(switch (value) {
@@ -852,19 +853,19 @@ class _HelpPageState extends State<HelpPage> {
 
   static const _questions = [
     (
-      icon: Icons.groups_outlined,
+      icon: WicchuIcons.usersThree,
       title: 'How do I join a community?',
       answer:
           'Open Explore, select a community, and tap Join. Private communities require administrator approval.',
     ),
     (
-      icon: Icons.shield_outlined,
+      icon: WicchuIcons.shield,
       title: 'How do I report a post?',
       answer:
           'Open the post’s options menu, select Report, enter a reason, and submit it to the community moderators.',
     ),
     (
-      icon: Icons.location_on_outlined,
+      icon: WicchuIcons.mapPin,
       title: 'How is my location used?',
       answer:
           'Location is requested only when you choose nearby discovery and is sent to the server to find communities within the selected radius.',
@@ -975,9 +976,7 @@ class _HelpPageState extends State<HelpPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                ExcludeSemantics(
-                  child: _icon(Icons.question_answer_outlined, size: 64),
-                ),
+                ExcludeSemantics(child: _icon(WicchuIcons.chats, size: 64)),
               ],
             ),
             const SizedBox(height: 24),
@@ -987,12 +986,12 @@ class _HelpPageState extends State<HelpPage> {
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: context.tr('Search help…'),
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(WicchuIcons.magnifyingGlass),
                 suffixIcon: _query.isEmpty
                     ? null
                     : IconButton(
                         tooltip: context.tr('Clear search'),
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(WicchuIcons.x),
                         onPressed: () {
                           _search.clear();
                           setState(() => _query = '');
@@ -1083,7 +1082,7 @@ class _HelpPageState extends State<HelpPage> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _icon(Icons.mail_outline, size: 48),
+                      _icon(WicchuIcons.envelope, size: 48),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
@@ -1122,7 +1121,7 @@ class _HelpPageState extends State<HelpPage> {
                               dimension: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.open_in_new, size: 20),
+                          : const Icon(WicchuIcons.arrowSquareOut, size: 20),
                       label: Text(context.tr('Contact support')),
                     ),
                   ),
@@ -1141,7 +1140,7 @@ class _HelpPageState extends State<HelpPage> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _icon(Icons.lightbulb_outline, size: 36),
+                      _icon(WicchuIcons.lightbulb, size: 36),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(

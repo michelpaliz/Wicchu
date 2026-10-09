@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -17,10 +18,10 @@ class SpaceRoleIcon extends StatelessWidget {
       _ => space.isPublicProfile ? 'Following' : 'Member',
     });
     final icon = switch (space.myRole) {
-      CommunityRole.owner => Icons.shield_outlined,
-      CommunityRole.admin => Icons.admin_panel_settings_outlined,
-      CommunityRole.moderator => Icons.verified_user_outlined,
-      _ => space.isPublicProfile ? Icons.check : Icons.how_to_reg_outlined,
+      CommunityRole.owner => WicchuIcons.shield,
+      CommunityRole.admin => WicchuIcons.shieldCheck,
+      CommunityRole.moderator => WicchuIcons.shieldCheck,
+      _ => WicchuIcons.userCheck,
     };
     final colors = Theme.of(context).colorScheme;
     return Tooltip(

@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/community_input_limits.dart';
@@ -149,7 +150,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           leading: IconButton(
             tooltip: context.tr('Back'),
             onPressed: _saving ? null : _back,
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(WicchuIcons.arrowLeft),
           ),
           title: Text(context.tr('Create a space')),
         ),
@@ -212,7 +213,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                             children: [
                               Text(context.tr('Continue')),
                               const SizedBox(width: 12),
-                              const Icon(Icons.arrow_forward, size: 20),
+                              const Icon(WicchuIcons.arrowRight, size: 20),
                             ],
                           )
                         : Text(
@@ -276,9 +277,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                     ),
                     const Spacer(),
                     Icon(
-                      selected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
+                      selected ? WicchuIcons.radioButton : WicchuIcons.circle,
                       color: selected ? colors.primary : colors.outline,
                     ),
                   ],
@@ -328,13 +327,13 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 final cards = [
                   _typeCard(
                     CommunityType.community,
-                    Icons.groups_outlined,
+                    WicchuIcons.usersThree,
                     'Community',
                     'Members join and participate together.',
                   ),
                   _typeCard(
                     CommunityType.publicProfile,
-                    Icons.person_outline,
+                    WicchuIcons.user,
                     'Public profile',
                     'People follow a person, business, creator or organization.',
                   ),
@@ -460,7 +459,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    Icons.lightbulb_outline,
+                    WicchuIcons.lightbulb,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   const SizedBox(width: 12),
@@ -507,7 +506,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           const SizedBox(height: 18),
           FilledButton.icon(
             onPressed: _detectingLocation ? null : _searchLocation,
-            icon: const Icon(Icons.search),
+            icon: const Icon(WicchuIcons.magnifyingGlass),
             label: Text(context.tr('Search city or place')),
           ),
           const SizedBox(height: 6),
@@ -518,7 +517,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _detectingLocation ? null : _detectLocation,
-            icon: const Icon(Icons.my_location),
+            icon: const Icon(WicchuIcons.crosshair),
             label: Text(context.tr('Use my current location')),
           ),
           if (_detectingLocation) ...[
@@ -548,13 +547,13 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
             const SizedBox(height: 8),
             Card(
               child: ListTile(
-                leading: const Icon(Icons.location_on_outlined),
+                leading: const Icon(WicchuIcons.mapPin),
                 title: Text(
                   _selectedLocationLabel ??
                       '${_town!.name}, ${_town!.countryCode}',
                 ),
                 trailing: Icon(
-                  Icons.check_circle,
+                  WicchuIcons.checkCircleFill,
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ),
@@ -590,7 +589,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           else if (_type == CommunityType.publicProfile)
             Card(
               child: ListTile(
-                leading: const Icon(Icons.dynamic_feed_outlined),
+                leading: const Icon(WicchuIcons.cards),
                 title: Text(context.tr('Posts')),
               ),
             )
@@ -637,7 +636,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _saving ? null : () => _editStep(0),
-            icon: const Icon(Icons.edit_outlined),
+            icon: const Icon(WicchuIcons.pencilSimple),
             label: Text(context.tr('Edit information')),
           ),
           if (_type == CommunityType.community) ...[
@@ -673,7 +672,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 trailing: IconButton(
                   tooltip: context.tr('Delete rule'),
                   onPressed: () => setState(() => _draftRules.removeAt(index)),
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(WicchuIcons.x),
                 ),
                 onTap: () => _editDraftRule(index),
               ),
@@ -684,7 +683,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 onPressed: _draftRules.length >= 25
                     ? null
                     : () => _editDraftRule(),
-                icon: const Icon(Icons.add),
+                icon: const Icon(WicchuIcons.plus),
                 label: Text(context.tr('Add rule')),
               ),
             ),
@@ -730,7 +729,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       subtitle: Padding(padding: const EdgeInsets.only(top: 5), child: value),
       trailing: onTap == null
           ? null
-          : const Icon(Icons.chevron_right, size: 20),
+          : const Icon(WicchuIcons.caretRight, size: 20),
       onTap: _saving ? null : onTap,
     );
     final divider = Divider(
@@ -757,10 +756,10 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
               children: [
                 icon(
                   _isLocalBusiness
-                      ? Icons.storefront_outlined
+                      ? WicchuIcons.storefront
                       : _type == CommunityType.community
-                      ? Icons.groups_outlined
-                      : Icons.account_circle_outlined,
+                      ? WicchuIcons.usersThree
+                      : WicchuIcons.userCircle,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -829,7 +828,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           ),
           divider,
           row(
-            Icons.location_on_outlined,
+            WicchuIcons.mapPin,
             'Location',
             Text(
               _selectedLocationLabel ??
@@ -839,7 +838,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           ),
           divider,
           row(
-            Icons.sell_outlined,
+            WicchuIcons.tag,
             'Categories',
             Wrap(
               spacing: 6,
@@ -867,7 +866,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 : null,
           ),
           divider,
-          row(Icons.person_outline, 'Owner', Text(context.tr('You'))),
+          row(WicchuIcons.user, 'Owner', Text(context.tr('You'))),
         ],
       ),
     );
@@ -884,7 +883,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.check_circle, color: colors.primary, size: 22),
+          Icon(WicchuIcons.checkCircleFill, color: colors.primary, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -909,15 +908,15 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     Widget chip(String name) {
       final selected = _businessCategories.contains(name);
       final icon = switch (name) {
-        'Products' => Icons.sell_outlined,
-        'Offers' => Icons.percent,
-        'News' => Icons.newspaper_outlined,
-        'Events' => Icons.calendar_today_outlined,
-        'Tips' => Icons.lightbulb_outline,
-        'Questions' => Icons.help_outline,
-        'Tutorials' => Icons.play_circle_outline,
-        'Testimonials' => Icons.chat_bubble_outline,
-        _ => Icons.label_outline,
+        'Products' => WicchuIcons.tag,
+        'Offers' => WicchuIcons.percent,
+        'News' => WicchuIcons.newspaper,
+        'Events' => WicchuIcons.calendarBlank,
+        'Tips' => WicchuIcons.lightbulb,
+        'Questions' => WicchuIcons.question,
+        'Tutorials' => WicchuIcons.playCircle,
+        'Testimonials' => WicchuIcons.chatCircle,
+        _ => WicchuIcons.tag,
       };
       return FilterChip(
         avatar: Icon(
@@ -936,7 +935,11 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
             ),
             if (selected) ...[
               const SizedBox(width: 6),
-              Icon(Icons.check_circle, color: colors.primary, size: 20),
+              Icon(
+                WicchuIcons.checkCircleFill,
+                color: colors.primary,
+                size: 20,
+              ),
             ],
           ],
         ),
@@ -1017,7 +1020,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
             prefixIcon: IconButton(
               tooltip: context.tr('Add category'),
               onPressed: _addBusinessCategory,
-              icon: const Icon(Icons.add),
+              icon: const Icon(WicchuIcons.plus),
             ),
             filled: true,
             fillColor: colors.surface,
@@ -1047,11 +1050,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.info_outline,
-                color: colors.onSurfaceVariant,
-                size: 22,
-              ),
+              Icon(WicchuIcons.info, color: colors.onSurfaceVariant, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -1165,7 +1164,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.celebration_outlined, size: 42),
+        icon: const Icon(WicchuIcons.confetti, size: 42),
         title: Text(
           dialogContext.tr(
             _type == CommunityType.publicProfile
@@ -1186,7 +1185,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         actions: [
           TextButton.icon(
             onPressed: () => shareCommunity(dialogContext, community),
-            icon: const Icon(Icons.ios_share_outlined),
+            icon: const Icon(WicchuIcons.export),
             label: Text(
               dialogContext.tr(
                 _type == CommunityType.publicProfile

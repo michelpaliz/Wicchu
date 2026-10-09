@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -150,7 +151,7 @@ class _PostRulesReviewPageState extends State<PostRulesReviewPage> {
                             dimension: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.arrow_forward),
+                        : const Icon(WicchuIcons.arrowRight),
                     label: Text(
                       context.tr(
                         rules.rules.isEmpty ? 'Continue' : 'Agree and continue',

@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -55,7 +56,7 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
           return Center(
             child: FilledButton.icon(
               onPressed: _reload,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(WicchuIcons.arrowsClockwise),
               label: Text(context.trError(snapshot.error!)),
             ),
           );

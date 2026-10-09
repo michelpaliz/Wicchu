@@ -18,6 +18,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'userName': 'ana',
           'bio': 'Community volunteer',
           'location': 'Dénia',
+          'accentColor': 'purple',
           'socialLinks': {
             'whatsapp': '+34600123456',
             'facebook': 'ana',
@@ -440,12 +441,14 @@ void main() {
       final profile = await repository.getEditableProfile();
       expect(profile.name, 'Ana Rivera');
       expect(profile.bio, 'Community volunteer');
+      expect(profile.accentColor, 'purple');
       expect(await repository.isUsernameAvailable('available'), isTrue);
       expect(await repository.isUsernameAvailable('taken'), isFalse);
 
       await repository.updateEditableProfile(profile);
       expect(api.lastPath, '/api/community/v1/me/profile');
       expect(api.lastBody?['name'], 'Ana Rivera');
+      expect(api.lastBody?['accentColor'], 'purple');
       expect(api.lastBody?['socialLinks'], {
         'whatsapp': '+34600123456',
         'facebook': 'ana',
@@ -830,6 +833,8 @@ void main() {
       Community community, {
       ProfileCategory? profileCategory,
       List<BusinessService> businessServices = const [],
+      bool? published,
+      String? accentColor,
     }) => repository.updateCommunity(
       community,
       town: town,
@@ -843,6 +848,8 @@ void main() {
       profileCategory: profileCategory,
       businessServices: businessServices,
       businessLocation: null,
+      published: published,
+      accentColor: accentColor,
     );
 
     await update(
@@ -859,6 +866,7 @@ void main() {
     expect(api.lastBody, isNot(contains('businessServices')));
     expect(api.lastBody, isNot(contains('businessLocation')));
     expect(api.lastBody?['shortDescription'], 'A short profile summary');
+    expect(api.lastBody?['accentColor'], 'teal');
 
     await update(
       Community(
@@ -876,6 +884,26 @@ void main() {
     );
     expect(api.lastBody, isNot(contains('businessServices')));
     expect(api.lastBody?['businessLocation'], isNull);
+    expect(api.lastBody?['published'], isTrue);
+
+    await update(
+      Community(
+        id: 'profile-1',
+        name: 'Creator',
+        description: '',
+        town: town,
+        visibility: CommunityVisibility.public,
+        createdBy: 'user-1',
+        createdAt: createdAt,
+        type: CommunityType.publicProfile,
+        profileCategory: ProfileCategory.creator,
+      ),
+      profileCategory: ProfileCategory.creator,
+      published: false,
+      accentColor: 'rose',
+    );
+    expect(api.lastBody?['published'], isFalse);
+    expect(api.lastBody?['accentColor'], 'rose');
 
     await update(
       Community(

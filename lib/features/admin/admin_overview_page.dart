@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -203,7 +204,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                     children: [
                       _stat(
                         width,
-                        Icons.group_outlined,
+                        WicchuIcons.users,
                         '${_community.memberCount}',
                         _community.isPublicProfile ? 'Followers' : 'Members',
                         _canConfigure
@@ -217,14 +218,14 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                       ),
                       _stat(
                         width,
-                        Icons.article_outlined,
+                        WicchuIcons.article,
                         '${data.posts.length}',
                         'Posts',
                         _posts,
                       ),
                       _stat(
                         width,
-                        Icons.flag_outlined,
+                        WicchuIcons.flag,
                         '${data.attention.openReports}',
                         'Open reports',
                         () => _open(
@@ -236,7 +237,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                       ),
                       _stat(
                         width,
-                        Icons.visibility_outlined,
+                        WicchuIcons.eye,
                         context.tr(_community.visibility.name),
                         'Visibility',
                         _canConfigure ? _settings : null,
@@ -257,7 +258,9 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                     CircleAvatar(
                       backgroundColor: colors.primary,
                       child: Icon(
-                        pending == 0 ? Icons.check : Icons.pending_actions,
+                        pending == 0
+                            ? WicchuIcons.check
+                            : WicchuIcons.clipboardText,
                         color: colors.onPrimary,
                       ),
                     ),
@@ -331,7 +334,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                     for (final post in data.posts.take(3))
                       ListTile(
                         leading: Icon(
-                          Icons.article_outlined,
+                          WicchuIcons.article,
                           color: colors.primary,
                         ),
                         title: Text(
@@ -381,24 +384,23 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                           if (_canConfigure)
                             TextButton.icon(
                               onPressed: _settings,
-                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              icon: const Icon(
+                                WicchuIcons.pencilSimple,
+                                size: 18,
+                              ),
                               label: Text(context.tr('Edit')),
                             ),
                         ],
                       ),
                     ),
+                    _detail(WicchuIcons.mapPin, 'Town', _community.town.name),
                     _detail(
-                      Icons.location_on_outlined,
-                      'Town',
-                      _community.town.name,
-                    ),
-                    _detail(
-                      Icons.visibility_outlined,
+                      WicchuIcons.eye,
                       'Visibility',
                       context.tr(_community.visibility.name),
                     ),
                     _detail(
-                      Icons.approval_outlined,
+                      WicchuIcons.stamp,
                       'Post approval',
                       context.tr(
                         _community.approvalRequired ? 'Required' : 'Automatic',
@@ -421,7 +423,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                       Padding(
                         padding: const EdgeInsets.all(8),
                         child: Icon(
-                          Icons.lightbulb_outline,
+                          WicchuIcons.lightbulb,
                           color: colors.primary,
                         ),
                       ),
@@ -457,7 +459,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                       IconButton(
                         tooltip: context.tr('Close'),
                         onPressed: () => setState(() => _showTip = false),
-                        icon: const Icon(Icons.close, size: 18),
+                        icon: const Icon(WicchuIcons.x, size: 18),
                       ),
                     ],
                   ),
@@ -527,7 +529,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                   ],
                 ),
               ),
-              if (onTap != null) const Icon(Icons.chevron_right, size: 18),
+              if (onTap != null) const Icon(WicchuIcons.caretRight, size: 18),
             ],
           ),
         ),
@@ -542,7 +544,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
       style: Theme.of(context).textTheme.bodySmall,
     ),
     subtitle: Text(value, style: Theme.of(context).textTheme.bodyMedium),
-    trailing: _canConfigure ? const Icon(Icons.chevron_right) : null,
+    trailing: _canConfigure ? const Icon(WicchuIcons.caretRight) : null,
     onTap: _canConfigure ? _settings : null,
   );
 }

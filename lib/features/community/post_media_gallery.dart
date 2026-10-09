@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
@@ -77,7 +78,7 @@ class PostMediaGallery extends StatelessWidget {
                           child: CircleAvatar(
                             backgroundColor: Colors.black54,
                             foregroundColor: Colors.white,
-                            child: Icon(Icons.play_arrow_rounded),
+                            child: Icon(WicchuIcons.playFill),
                           ),
                         ),
                       if (index == 1 && media.length > 2)
@@ -149,12 +150,56 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
   late int _index = widget.initialIndex.clamp(0, widget.media.length - 1);
   late final _pages = PageController(initialPage: _index);
   bool _zoomed = false;
+  final _imageRatios = <String, double>{};
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageListener;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolveImageSize();
+  }
+
+  void _resolveImageSize() {
+    final previousListener = _imageListener;
+    if (previousListener != null) {
+      _imageStream?.removeListener(previousListener);
+    }
+    _imageStream = null;
+    _imageListener = null;
+    final item = widget.media[_index];
+    if (item.type == 'video' || _imageRatios.containsKey(item.url)) return;
+    final stream = CachedNetworkImageProvider(
+      item.url,
+      cacheKey: stableImageCacheKey(item.url, cacheKey: item.blobName),
+    ).resolve(createLocalImageConfiguration(context));
+    final listener = ImageStreamListener(
+      (info, synchronousCall) {
+        final ratio = info.image.width / info.image.height;
+        info.dispose();
+        if (!mounted) return;
+        if (synchronousCall) {
+          _imageRatios[item.url] = ratio;
+        } else {
+          setState(() => _imageRatios[item.url] = ratio);
+        }
+      },
+      onError: (Object error, StackTrace? stackTrace) {
+        // The image widget supplies the existing error and retry controls.
+      },
+    );
+    _imageStream = stream;
+    _imageListener = listener;
+    stream.addListener(listener);
+  }
 
   @override
   void dispose() {
     if (_immersive) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
+    final listener = _imageListener;
+    if (listener != null) _imageStream?.removeListener(listener);
     _pages.dispose();
     _scroll.dispose();
     super.dispose();
@@ -231,9 +276,15 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final height = constraints.maxHeight;
+                  final ratio = _imageRatios[widget.media[_index].url];
                   _mediaHeight = _immersive || widget.contentBuilder == null
                       ? height
-                      : height * .74;
+                      : ratio == null
+                      ? height * .74
+                      : (constraints.maxWidth / ratio).clamp(
+                          56.0,
+                          height * .74,
+                        );
                   return Stack(
                     children: [
                       SingleChildScrollView(
@@ -246,10 +297,7 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
                         child: Column(
                           children: [
                             SizedBox(
-                              height:
-                                  _immersive || widget.contentBuilder == null
-                                  ? height
-                                  : height * .74,
+                              height: _mediaHeight,
                               child: PageView.builder(
                                 controller: _pages,
                                 physics: _zoomed
@@ -259,6 +307,7 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
                                 onPageChanged: (index) => setState(() {
                                   _index = index;
                                   _zoomed = false;
+                                  _resolveImageSize();
                                 }),
                                 itemBuilder: (context, index) {
                                   final item = widget.media[index];
@@ -314,7 +363,7 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
                                     context,
                                   ).closeButtonTooltip,
                                   onPressed: () => Navigator.pop(context),
-                                  icon: const Icon(Icons.arrow_back),
+                                  icon: const Icon(WicchuIcons.arrowLeft),
                                 ),
                                 Expanded(
                                   child: Text(
@@ -344,7 +393,7 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
                                 onPressed: _index > 0
                                     ? () => _goTo(_index - 1)
                                     : null,
-                                icon: const Icon(Icons.chevron_left),
+                                icon: const Icon(WicchuIcons.caretLeft),
                               ),
                               Expanded(
                                 child: Text(
@@ -357,7 +406,7 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
                                 onPressed: _index < widget.media.length - 1
                                     ? () => _goTo(_index + 1)
                                     : null,
-                                icon: const Icon(Icons.chevron_right),
+                                icon: const Icon(WicchuIcons.caretRight),
                               ),
                             ],
                           ),
@@ -480,7 +529,7 @@ class _MediaImageState extends State<_MediaImage> {
     decodeWidth: widget.decodeWidth,
     loadingBuilder: (_) => const ColoredBox(
       color: Color(0x11000000),
-      child: Center(child: Icon(Icons.image_outlined, color: Colors.white54)),
+      child: Center(child: Icon(WicchuIcons.image, color: Colors.white54)),
     ),
     errorBuilder: (_) => _MediaError(
       onRetry: () async {
@@ -504,7 +553,7 @@ class _MediaError extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.broken_image_outlined, color: Colors.white70),
+          const Icon(WicchuIcons.imageBroken, color: Colors.white70),
           const SizedBox(height: 8),
           Text(
             context.tr('Could not load media'),
@@ -669,7 +718,9 @@ class _MediaVideoState extends State<_MediaVideo> with WidgetsBindingObserver {
                               }
                             : null,
                         icon: Icon(
-                          value.isPlaying ? Icons.pause : Icons.play_arrow,
+                          value.isPlaying
+                              ? WicchuIcons.pause
+                              : WicchuIcons.playFill,
                         ),
                       ),
                       Expanded(

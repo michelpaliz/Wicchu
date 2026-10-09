@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
 
@@ -365,7 +366,7 @@ class _SavedPostsEmptyState extends StatelessWidget {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Icon(
-                                        Icons.landscape_rounded,
+                                        WicchuIcons.mountains,
                                         size: 65,
                                         color: colors.primary.withValues(
                                           alpha: .23,
@@ -377,7 +378,7 @@ class _SavedPostsEmptyState extends StatelessWidget {
                                   Row(
                                     children: [
                                       Icon(
-                                        Icons.favorite,
+                                        WicchuIcons.heartFill,
                                         size: 16,
                                         color: colors.primary.withValues(
                                           alpha: .3,
@@ -401,7 +402,7 @@ class _SavedPostsEmptyState extends StatelessWidget {
                             right: 7,
                             bottom: 0,
                             child: Icon(
-                              Icons.bookmark_rounded,
+                              WicchuIcons.bookmarkFill,
                               size: 100,
                               color: colors.primary,
                             ),
@@ -444,7 +445,7 @@ class _SavedPostsEmptyState extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      icon: const Icon(Icons.explore),
+                      icon: const Icon(WicchuIcons.compassFill),
                       label: Text(context.tr('Explore posts')),
                     ),
                   ],

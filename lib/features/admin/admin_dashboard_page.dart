@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -90,7 +91,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       : 'Private community')}',
                 ),
               ),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(WicchuIcons.caretRight),
               onTap: () => Navigator.pop(context, community),
             ),
           ),
@@ -130,10 +131,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       CircleAvatar(
                         radius: 20,
                         backgroundColor: colors.primary,
-                        child: Icon(
-                          Icons.check_rounded,
-                          color: colors.onPrimary,
-                        ),
+                        child: Icon(WicchuIcons.check, color: colors.onPrimary),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -172,14 +170,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     ),
                     if (summary.pendingPosts > 0)
                       _ActionRow(
-                        icon: Icons.pending_actions,
+                        icon: WicchuIcons.clipboardText,
                         label: 'Posts awaiting approval',
                         count: summary.pendingPosts,
                         onTap: _openPendingPosts,
                       ),
                     if (summary.pendingPromotions > 0)
                       _ActionRow(
-                        icon: Icons.campaign_outlined,
+                        icon: WicchuIcons.megaphone,
                         label: 'Promotion requests',
                         count: summary.pendingPromotions,
                         onTap: () => _openQueue(
@@ -191,7 +189,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       ),
                     if (summary.openReports > 0)
                       _ActionRow(
-                        icon: Icons.flag_outlined,
+                        icon: WicchuIcons.flag,
                         label: 'Reports',
                         count: summary.openReports,
                         onTap: () => _openQueue(
@@ -203,7 +201,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       ),
                     if (_canConfigure && summary.membershipRequests > 0)
                       _ActionRow(
-                        icon: Icons.person_add_alt,
+                        icon: WicchuIcons.userPlus,
                         label: 'Membership requests',
                         count: summary.membershipRequests,
                         onTap: () => _openQueue(
@@ -245,7 +243,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             label: 'Content',
             children: [
               _MenuRow(
-                icon: Icons.bar_chart_rounded,
+                icon: WicchuIcons.chartBar,
                 label: 'Overview',
                 description: community.isPublicProfile
                     ? 'Page activity and key details'
@@ -254,7 +252,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               ),
               if (_canConfigure)
                 _MenuRow(
-                  icon: Icons.insights_outlined,
+                  icon: WicchuIcons.chartLineUp,
                   label: 'Insights',
                   description: 'Understand community growth and engagement',
                   onTap: () => _openQueue(
@@ -266,7 +264,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
               if (_canConfigure)
                 _MenuRow(
-                  icon: Icons.folder_outlined,
+                  icon: WicchuIcons.folder,
                   label: 'Categories',
                   description: community.isPublicProfile
                       ? 'Manage page categories'
@@ -279,7 +277,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   ),
                 ),
               _MenuRow(
-                icon: Icons.rule_outlined,
+                icon: WicchuIcons.listChecks,
                 label: 'Rules',
                 description: community.isPublicProfile
                     ? 'Define the page rules'
@@ -298,7 +296,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             children: [
               if (_canConfigure)
                 _MenuRow(
-                  icon: Icons.group_outlined,
+                  icon: WicchuIcons.users,
                   label: community.isPublicProfile ? 'Followers' : 'Members',
                   description: community.isPublicProfile
                       ? 'Manage followers'
@@ -311,7 +309,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   ),
                 ),
               _MenuRow(
-                icon: Icons.person_add_alt_1_outlined,
+                icon: WicchuIcons.userPlus,
                 label: 'Invitations',
                 description: community.isPublicProfile
                     ? 'Manage page invitations'
@@ -329,7 +327,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             label: 'Security',
             children: [
               _MenuRow(
-                icon: Icons.shield_outlined,
+                icon: WicchuIcons.shield,
                 label: 'Moderation',
                 description: 'Review content and manage reports',
                 onTap: () => _openQueue(
@@ -340,7 +338,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
               ),
               _MenuRow(
-                icon: Icons.restore_page_outlined,
+                icon: WicchuIcons.fileArrowUp,
                 label: 'Removed posts',
                 description: 'Review and restore posts removed by moderators',
                 onTap: () => _openQueue(
@@ -357,7 +355,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               label: 'Configuration',
               children: [
                 _MenuRow(
-                  icon: Icons.settings_outlined,
+                  icon: WicchuIcons.gearSix,
                   label: 'Settings',
                   description: community.isPublicProfile
                       ? 'Configure your page'
@@ -461,8 +459,8 @@ class _MonetizationCard extends StatelessWidget {
               children: [
                 Icon(
                   eligibility.eligible
-                      ? Icons.celebration_outlined
-                      : Icons.monetization_on_outlined,
+                      ? WicchuIcons.confetti
+                      : WicchuIcons.currencyDollar,
                   color: colors.primary,
                 ),
                 const SizedBox(width: 10),
@@ -491,7 +489,7 @@ class _MonetizationCard extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             _MonetizationRequirement(
-              icon: Icons.group_outlined,
+              icon: WicchuIcons.users,
               label: context.tr('Members'),
               value: insights.totalMembers,
               target: eligibility.memberTarget,
@@ -499,7 +497,7 @@ class _MonetizationCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _MonetizationRequirement(
-              icon: Icons.circle,
+              icon: WicchuIcons.circleFill,
               label: context.tr('Monthly active members'),
               value: insights.monthlyActiveUsers,
               target: eligibility.monthlyActiveTarget,
@@ -511,8 +509,8 @@ class _MonetizationCard extends StatelessWidget {
               children: [
                 Icon(
                   eligibility.goodStanding
-                      ? Icons.verified_user_outlined
-                      : Icons.gpp_bad_outlined,
+                      ? WicchuIcons.shieldCheck
+                      : WicchuIcons.shieldWarning,
                   color: eligibility.goodStanding ? Colors.green : colors.error,
                 ),
                 const SizedBox(width: 10),
@@ -545,7 +543,7 @@ class _MonetizationCard extends StatelessWidget {
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: onInvite,
-                icon: const Icon(Icons.person_add_alt_1_outlined),
+                icon: const Icon(WicchuIcons.userPlus),
                 label: Text(context.tr('Invite people')),
               ),
             ] else ...[
@@ -676,7 +674,7 @@ class _MenuRow extends StatelessWidget {
         height: 1.4,
       ),
     ),
-    trailing: const Icon(Icons.chevron_right),
+    trailing: const Icon(WicchuIcons.caretRight),
     onTap: onTap,
   );
 }

@@ -3,6 +3,17 @@ import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/widgets/wicchu_network_image.dart';
 
 void main() {
+  test('different media blobs and image versions have distinct cache keys', () {
+    expect(
+      stableImageCacheKey('https://example.com/media?blobName=old.jpg'),
+      isNot(stableImageCacheKey('https://example.com/media?blobName=new.jpg')),
+    );
+    expect(
+      stableImageCacheKey('https://example.com/image.jpg?v=1'),
+      isNot(stableImageCacheKey('https://example.com/image.jpg?v=2')),
+    );
+  });
+
   test('signed image URLs share a stable cache key', () {
     const first = 'https://storage.example.com/image.jpg?sig=one&se=1';
     const second = 'https://storage.example.com/image.jpg?sig=two&se=2';

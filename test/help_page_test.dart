@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/features/settings/account_settings_page.dart';
@@ -22,7 +23,7 @@ void main() {
         find.text('No answers found. Try another search or contact support.'),
         findsOneWidget,
       );
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(find.byIcon(WicchuIcons.x));
       await tester.pumpAndSettle();
       expect(find.byType(ExpansionTile), findsNWidgets(3));
       expect(tester.takeException(), isNull);

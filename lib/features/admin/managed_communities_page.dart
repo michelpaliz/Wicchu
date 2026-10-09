@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -78,7 +79,7 @@ class _ManagedCommunitiesPageState extends State<ManagedCommunitiesPage> {
           onPressed: () => setState(() {
             _summaries.remove(community.id);
           }),
-          icon: const Icon(Icons.refresh, size: 16),
+          icon: const Icon(WicchuIcons.arrowsClockwise, size: 16),
           label: Text(context.tr('Retry status')),
         );
       }
@@ -94,7 +95,9 @@ class _ManagedCommunitiesPageState extends State<ManagedCommunitiesPage> {
       return Row(
         children: [
           Icon(
-            count == 0 ? Icons.check_circle : Icons.pending_actions_outlined,
+            count == 0
+                ? WicchuIcons.checkCircleFill
+                : WicchuIcons.clipboardText,
             size: 18,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -126,7 +129,7 @@ class _ManagedCommunitiesPageState extends State<ManagedCommunitiesPage> {
       actions: [
         TextButton.icon(
           onPressed: _create,
-          icon: const Icon(Icons.add, size: 20),
+          icon: const Icon(WicchuIcons.plus, size: 20),
           label: Text(context.tr('Create')),
         ),
         const SizedBox(width: 8),

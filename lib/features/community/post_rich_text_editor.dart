@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -194,7 +195,7 @@ class _PostImageEmbed extends quill.EmbedBuilder {
       url,
       height: 160,
       fit: BoxFit.contain,
-      errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined),
+      errorBuilder: (_, _, _) => const Icon(WicchuIcons.imageBroken),
     );
   }
 }

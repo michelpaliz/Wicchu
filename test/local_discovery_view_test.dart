@@ -111,6 +111,45 @@ class _LocalDiscoveryRepository extends DemoCommunityRepository {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('multiple categories are combined and retained after reopening', (
+    tester,
+  ) async {
+    Widget screen() => MaterialApp(
+      home: Scaffold(
+        body: LocalDiscoveryView(repository: _LocalDiscoveryRepository()),
+      ),
+    );
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Food'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Transport'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Transport'));
+    await tester.pumpAndSettle();
+    final preferences = await SharedPreferences.getInstance();
+    expect(
+      preferences.getStringList('business_filter_categories'),
+      containsAll(['food', 'transport']),
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Food'))
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Transport'))
+          .selected,
+      isTrue,
+    );
+    expect(find.text('Como en Casa'), findsWidgets);
+    expect(find.text('Transporte Express'), findsWidgets);
+  });
+
   testWidgets(
     'local discovery groups structured posts and filters categories',
     (tester) async {
@@ -123,16 +162,22 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Discover local businesses'), findsOneWidget);
-      expect(find.text("Today's menus"), findsOneWidget);
-      expect(find.text('Upcoming transport'), findsOneWidget);
-      expect(find.text('Seco de carne'), findsOneWidget);
+      expect(find.byKey(const ValueKey('discovery-filters')), findsOneWidget);
+      expect(find.text('Como en Casa'), findsWidgets);
+      expect(find.widgetWithText(FilterChip, 'Delivery'), findsNothing);
 
       await tester.tap(find.widgetWithText(ChoiceChip, 'Food'));
       await tester.pumpAndSettle();
       expect(find.text('Seco de carne'), findsOneWidget);
       expect(find.text('Echeandía → Guayaquil'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('discovery-filters')));
+      await tester.pumpAndSettle();
       expect(find.widgetWithText(FilterChip, 'Delivery'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilterChip, 'Delivery'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show results'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
     },
   );
 
@@ -168,14 +213,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Anywhere'));
+    await tester.tap(find.byKey(const ValueKey('discovery-location-filters')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Anywhere'));
     await tester.pumpAndSettle();
 
     expect(repository.requestedAnywhere, isTrue);
-    expect(
-      find.text('Explore local businesses from every available town'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Anywhere'), findsWidgets);
     final preferences = await SharedPreferences.getInstance();
     expect(
       preferences.getString('business_discovery_location_mode'),

@@ -1,7 +1,8 @@
+import '../../widgets/category_symbol.dart';
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 
 import '../../domain/community_models.dart';
 import '../../theme/wicchu_theme.dart';
@@ -152,7 +153,7 @@ class PostCard extends StatefulWidget {
       author: context.tr(author),
       actionsBuilder: (viewerContext) => IconButton(
         tooltip: viewerContext.tr('Post options'),
-        icon: const Icon(Icons.more_horiz),
+        icon: const Icon(WicchuIcons.dotsThree),
         onPressed: () => cardKey.currentState?._menu()._open(viewerContext),
       ),
       contentBuilder: (viewerContext) => Column(
@@ -286,7 +287,7 @@ class _PostCardState extends State<PostCard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.delete_outline),
+        icon: const Icon(WicchuIcons.trash),
         title: Text(dialogContext.tr('Delete publication?')),
         content: Text(
           dialogContext.tr(
@@ -526,7 +527,7 @@ class _PostCardState extends State<PostCard> {
                     borderRadius: BorderRadius.circular(14),
                     color: Theme.of(context).colorScheme.primaryContainer,
                   ),
-                  child: Icon(Icons.image_outlined, size: 54, color: accent),
+                  child: Icon(WicchuIcons.image, size: 54, color: accent),
                 ),
               ],
               if (_poll != null) ...[
@@ -543,8 +544,8 @@ class _PostCardState extends State<PostCard> {
                   children: [
                     _PostAction(
                       icon: _reacted
-                          ? CupertinoIcons.heart_fill
-                          : CupertinoIcons.heart,
+                          ? WicchuIcons.heartFill
+                          : WicchuIcons.heart,
                       value: '$_likes',
                       tooltip: context.tr(_reacted ? 'Unlike' : 'Like'),
                       color: _reacted ? const Color(0xFFE53945) : null,
@@ -554,14 +555,14 @@ class _PostCardState extends State<PostCard> {
                     ),
                     const SizedBox(width: 12),
                     _PostAction(
-                      icon: CupertinoIcons.chat_bubble,
+                      icon: WicchuIcons.chatCircle,
                       value: '$_comments',
                       tooltip: context.tr('Comments'),
                       onTap: widget.onComments == null ? null : _openComments,
                     ),
                     const SizedBox(width: 12),
                     _PostAction(
-                      icon: CupertinoIcons.arrowshape_turn_up_right,
+                      icon: WicchuIcons.shareNetwork,
                       tooltip: context.tr('Share'),
                       value: widget.viewerContent ? context.tr('Share') : null,
                       onTap: widget.onShare,
@@ -612,14 +613,14 @@ class _PostCardState extends State<PostCard> {
             Align(
               alignment: Alignment.centerLeft,
               child: Chip(
-                avatar: const Icon(Icons.history, size: 16),
+                avatar: const Icon(WicchuIcons.clockCounterClockwise, size: 16),
                 label: Text(context.tr(status)),
               ),
             ),
           if (widget.onCommunityTap != null)
             OutlinedButton.icon(
               onPressed: _contactBusiness,
-              icon: const Icon(Icons.storefront_outlined),
+              icon: const Icon(WicchuIcons.storefront),
               label: Text(context.tr('Contact business')),
             ),
           if (post.ownedByMe)
@@ -780,7 +781,7 @@ class _TodayMenuView extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.restaurant_menu, size: 21),
+              const Icon(WicchuIcons.forkKnife, size: 21),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -805,8 +806,8 @@ class _TodayMenuView extends StatelessWidget {
                 children: [
                   Icon(
                     dish.available
-                        ? Icons.check_circle_outline
-                        : Icons.remove_circle_outline,
+                        ? WicchuIcons.checkCircle
+                        : WicchuIcons.minusCircle,
                     size: 17,
                     color: dish.available
                         ? scheme.primary
@@ -842,12 +843,9 @@ class _TodayMenuView extends StatelessWidget {
                   Chip(
                     visualDensity: VisualDensity.compact,
                     avatar: Icon(switch (option) {
-                      BusinessFulfillmentOption.delivery =>
-                        Icons.delivery_dining_outlined,
-                      BusinessFulfillmentOption.pickup =>
-                        Icons.shopping_bag_outlined,
-                      BusinessFulfillmentOption.eatIn =>
-                        Icons.restaurant_outlined,
+                      BusinessFulfillmentOption.delivery => WicchuIcons.moped,
+                      BusinessFulfillmentOption.pickup => WicchuIcons.tote,
+                      BusinessFulfillmentOption.eatIn => WicchuIcons.forkKnife,
                     }, size: 16),
                     label: Text(context.tr(option.label)),
                   ),
@@ -871,39 +869,39 @@ class _BusinessFeatureView extends StatelessWidget {
     final details = <(IconData, String)>[];
     switch (feature.type) {
       case BusinessPostFeatureType.retailOffer:
-        details.add((Icons.inventory_2_outlined, feature.title));
+        details.add((WicchuIcons.package, feature.title));
       case BusinessPostFeatureType.transportTrip:
         details.add((
-          Icons.route_outlined,
+          WicchuIcons.path,
           '${feature.routeFrom} → ${feature.routeTo}',
         ));
         if (feature.departureAt != null) {
           final local = feature.departureAt!.toLocal();
           details.add((
-            Icons.schedule_outlined,
+            WicchuIcons.clock,
             '${MaterialLocalizations.of(context).formatMediumDate(local)} · ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(local))}',
           ));
         }
         details.add((
-          Icons.event_seat_outlined,
+          WicchuIcons.armchair,
           context.tr('{count} seats available', {
             'count': '${feature.seatsAvailable ?? 0}',
           }),
         ));
       case BusinessPostFeatureType.realEstateListing:
-        details.add((Icons.apartment_outlined, feature.title));
+        details.add((WicchuIcons.buildings, feature.title));
         details.add((
-          Icons.key_outlined,
+          WicchuIcons.key,
           context.tr(feature.listingType == 'rent' ? 'For rent' : 'For sale'),
         ));
         details.add((
-          Icons.bed_outlined,
+          WicchuIcons.bed,
           context.tr('{count} bedrooms', {'count': '${feature.bedrooms ?? 0}'}),
         ));
-        details.add((Icons.location_on_outlined, feature.location));
+        details.add((WicchuIcons.mapPin, feature.location));
       case BusinessPostFeatureType.professionalService:
-        details.add((Icons.business_center_outlined, feature.title));
-        details.add((Icons.map_outlined, feature.serviceArea));
+        details.add((WicchuIcons.briefcase, feature.title));
+        details.add((WicchuIcons.mapTrifold, feature.serviceArea));
     }
     return Container(
       width: double.infinity,
@@ -991,11 +989,10 @@ class _BusinessFeatureView extends StatelessWidget {
   };
 
   IconData get _featureIcon => switch (feature.type) {
-    BusinessPostFeatureType.retailOffer => Icons.local_offer_outlined,
-    BusinessPostFeatureType.transportTrip => Icons.directions_bus_outlined,
-    BusinessPostFeatureType.realEstateListing => Icons.apartment_outlined,
-    BusinessPostFeatureType.professionalService =>
-      Icons.business_center_outlined,
+    BusinessPostFeatureType.retailOffer => WicchuIcons.tag,
+    BusinessPostFeatureType.transportTrip => WicchuIcons.bus,
+    BusinessPostFeatureType.realEstateListing => WicchuIcons.buildings,
+    BusinessPostFeatureType.professionalService => WicchuIcons.briefcase,
   };
 }
 
@@ -1169,7 +1166,7 @@ class _PostMenu extends StatelessWidget {
         Widget fallback() => Container(
           color: colors.primary.withValues(alpha: .08),
           alignment: Alignment.center,
-          child: Text(categoryIcon, style: const TextStyle(fontSize: 24)),
+          child: CategorySymbol(categoryIcon, size: 24),
         );
         Widget option(
           _PostMenuAction action,
@@ -1221,7 +1218,7 @@ class _PostMenu extends StatelessWidget {
                   ),
                 ),
                 trailing: Icon(
-                  Icons.chevron_right,
+                  WicchuIcons.caretRight,
                   size: 20,
                   color: destructive ? colors.error : colors.onSurfaceVariant,
                 ),
@@ -1277,12 +1274,24 @@ class _PostMenu extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 3),
-                            Text(
-                              '$categoryIcon ${sheetContext.tr(category)}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: colors.onSurfaceVariant,
-                              ),
+                            Row(
+                              children: [
+                                CategorySymbol(
+                                  categoryIcon,
+                                  size: 14,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    sheetContext.tr(category),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1297,7 +1306,7 @@ class _PostMenu extends StatelessWidget {
                           ),
                         ),
                         onPressed: () => Navigator.pop(sheetContext),
-                        icon: const Icon(Icons.close, size: 22),
+                        icon: const Icon(WicchuIcons.x, size: 22),
                       ),
                     ],
                   ),
@@ -1305,7 +1314,7 @@ class _PostMenu extends StatelessWidget {
                 if (onSave != null)
                   option(
                     _PostMenuAction.save,
-                    saved ? Icons.bookmark : Icons.bookmark_border,
+                    saved ? WicchuIcons.bookmarkFill : WicchuIcons.bookmark,
                     saved ? 'Unsave post' : 'Save post',
                     saved
                         ? 'Remove it from your saved posts'
@@ -1314,14 +1323,14 @@ class _PostMenu extends StatelessWidget {
                 if (onShare != null)
                   option(
                     _PostMenuAction.share,
-                    Icons.ios_share_outlined,
+                    WicchuIcons.export,
                     'Share post',
                     'Share it in other apps',
                   ),
                 if (ownedByMe && onEdit != null)
                   option(
                     _PostMenuAction.edit,
-                    Icons.edit_outlined,
+                    WicchuIcons.pencilSimple,
                     'Edit post',
                     'Update your post',
                     tint: const Color(0xff1769aa),
@@ -1332,7 +1341,7 @@ class _PostMenu extends StatelessWidget {
                 if (ownedByMe && onDelete != null)
                   option(
                     _PostMenuAction.delete,
-                    Icons.delete_outline,
+                    WicchuIcons.trash,
                     'Delete publication',
                     'It will be permanently deleted',
                     tint: colors.error,
@@ -1341,7 +1350,7 @@ class _PostMenu extends StatelessWidget {
                 if (!ownedByMe && onReport != null)
                   option(
                     _PostMenuAction.report,
-                    Icons.flag_outlined,
+                    WicchuIcons.flag,
                     'Report post',
                     'Report inappropriate content',
                     tint: const Color(0xffbf510d),
@@ -1378,7 +1387,7 @@ class _PostMenu extends StatelessWidget {
             dimension: 20,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
-        : const Icon(Icons.more_horiz),
+        : const Icon(WicchuIcons.dotsThree),
   );
 }
 

@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -133,7 +134,7 @@ class _RemovedPostsPageState extends State<RemovedPostsPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.restore_page_outlined,
+                  WicchuIcons.fileArrowUp,
                   size: 64,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -221,7 +222,7 @@ class _RemovedPostsPageState extends State<RemovedPostsPage> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Icon(Icons.restore),
+                              : const Icon(WicchuIcons.clockCounterClockwise),
                           label: Text(context.tr('Restore post')),
                         ),
                       ),

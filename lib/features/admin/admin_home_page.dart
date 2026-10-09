@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -51,7 +52,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
-                icon: const Icon(Icons.add),
+                icon: const Icon(WicchuIcons.plus),
                 label: Text(context.tr('Create a community')),
                 onPressed: _createCommunity,
               ),

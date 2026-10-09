@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -56,8 +57,8 @@ class _SpaceCollectionListState extends State<SpaceCollectionList> {
           triggerMode: TooltipTriggerMode.tap,
           child: Icon(
             visibility == CommunityVisibility.public
-                ? Icons.public
-                : Icons.lock_outline,
+                ? WicchuIcons.globe
+                : WicchuIcons.lockKey,
             size: 15,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -202,12 +203,12 @@ class _SpaceCollectionListState extends State<SpaceCollectionList> {
                                     children: [
                                       _metadata(
                                         context,
-                                        Icons.location_on_outlined,
+                                        WicchuIcons.mapPin,
                                         space.town.name,
                                       ),
                                       _metadata(
                                         context,
-                                        Icons.people_outline,
+                                        WicchuIcons.users,
                                         context.trCount(
                                           space.memberCount,
                                           singular: space.isPublicProfile

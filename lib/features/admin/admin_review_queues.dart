@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
@@ -70,7 +71,7 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
                       : null,
                   child: item.reporterAvatarUrl?.isNotEmpty == true
                       ? null
-                      : const Icon(Icons.person_outline, size: 20),
+                      : const Icon(WicchuIcons.user, size: 20),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -124,7 +125,7 @@ class _ReportsQueuePageState extends State<ReportsQueuePage> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.perm_media_outlined, size: 18),
+                        const Icon(WicchuIcons.images, size: 18),
                         const SizedBox(width: 6),
                         Text(
                           context.tr('{count} media attachments', {
@@ -270,7 +271,7 @@ class _ReportsEmptyState extends StatelessWidget {
                                 ),
                               ),
                               child: Icon(
-                                Icons.verified_user_outlined,
+                                WicchuIcons.shieldCheck,
                                 size: 110,
                                 color: colors.primary,
                               ),
@@ -379,7 +380,7 @@ class _MembershipRequestsPageState extends State<MembershipRequestsPage> {
           children: [
             for (final item in snapshot.data!)
               ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+                leading: const CircleAvatar(child: Icon(WicchuIcons.user)),
                 title: Text(item.userName),
                 trailing: Wrap(
                   children: [

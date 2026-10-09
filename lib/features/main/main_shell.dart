@@ -1,3 +1,9 @@
+import '../../data/authenticated_api_client.dart';
+import '../../theme/wicchu_theme.dart';
+import '../../widgets/wicchu_search_field.dart';
+import 'package:wicchu/theme/wicchu_icons.dart';
+import '../../widgets/explore_result_card.dart';
+import 'explore_person_card.dart';
 import '../../widgets/wicchu_logo.dart';
 import '../../widgets/block_visibility_listener.dart';
 import '../community/space_role_icon.dart';
@@ -9,7 +15,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,6 +39,7 @@ import '../community/post_card.dart';
 import '../community/post_collection_page.dart';
 import '../community/post_detail_page.dart';
 import '../community/post_share.dart';
+import '../community/local_discovery_view.dart';
 import '../community/user_avatar.dart';
 import '../chat/direct_chat_pages.dart';
 import '../settings/account_settings_page.dart';
@@ -300,7 +306,7 @@ class _DesktopNavigation extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    icon: const Icon(Icons.add_rounded),
+                    icon: const Icon(WicchuIcons.plus),
                     label: Text(
                       context.tr('Post'),
                       style: const TextStyle(fontWeight: FontWeight.w700),
@@ -310,22 +316,22 @@ class _DesktopNavigation extends StatelessWidget {
                 const SizedBox(height: 26),
                 _DesktopNavigationItem(
                   selected: selectedIndex == 0,
-                  icon: Icons.home_outlined,
-                  selectedIcon: Icons.home_rounded,
+                  icon: WicchuIcons.house,
+                  selectedIcon: WicchuIcons.houseFill,
                   label: context.tr('Home'),
                   onTap: () => onSelected(0),
                 ),
                 _DesktopNavigationItem(
                   selected: selectedIndex == 1,
-                  icon: CupertinoIcons.compass,
-                  selectedIcon: CupertinoIcons.compass_fill,
+                  icon: WicchuIcons.compass,
+                  selectedIcon: WicchuIcons.compassFill,
                   label: context.tr('Explore'),
                   onTap: () => onSelected(1),
                 ),
                 _DesktopNavigationItem(
                   selected: selectedIndex == 2,
-                  icon: CupertinoIcons.person_2,
-                  selectedIcon: CupertinoIcons.person_2_fill,
+                  icon: WicchuIcons.users,
+                  selectedIcon: WicchuIcons.usersFill,
                   label: context.tr('Community'),
                   onTap: () => onSelected(2),
                 ),
@@ -478,10 +484,7 @@ class _DesktopAccountItem extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: scheme.onSurfaceVariant,
-                ),
+                Icon(WicchuIcons.caretRight, color: scheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -602,7 +605,7 @@ class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.holiday_village_outlined,
+                    WicchuIcons.houseLine,
                     size: 56,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -614,7 +617,7 @@ class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
                   const SizedBox(height: 20),
                   FilledButton.icon(
                     onPressed: widget.onExplore,
-                    icon: const Icon(Icons.explore_outlined),
+                    icon: const Icon(WicchuIcons.compass),
                     label: Text(context.tr('Explore communities')),
                   ),
                 ],
@@ -636,6 +639,9 @@ class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
     },
   );
 }
+
+const _darkNavigationSurface = Color(0xFF1C2923);
+const _darkNavigationAccent = Color(0xFF79D6BB);
 
 class _CompactBottomNavigation extends StatelessWidget {
   const _CompactBottomNavigation({
@@ -664,71 +670,84 @@ class _CompactBottomNavigation extends StatelessWidget {
           Positioned.fill(
             top: 8,
             child: Material(
-              color: scheme.surface,
-              elevation: 3,
+              color: scheme.brightness == Brightness.light
+                  ? const Color(0xFFEDF5F2)
+                  : _darkNavigationSurface,
+              elevation: 1,
               shadowColor: scheme.shadow.withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(14),
+              shape: RoundedRectangleBorder(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(14),
+                ),
+                side: BorderSide(
+                  color: scheme.outlineVariant.withValues(alpha: .15),
+                  width: .5,
+                ),
               ),
               child: SafeArea(
                 top: false,
-                child: Row(
-                  children: [
-                    _CompactNavigationItem(
-                      icon: Icons.home_outlined,
-                      selectedIcon: Icons.home_rounded,
-                      label: context.tr('Home'),
-                      selected: selectedIndex == 0,
-                      onTap: () => onSelected(0),
-                    ),
-                    _CompactNavigationItem(
-                      icon: CupertinoIcons.compass,
-                      selectedIcon: CupertinoIcons.compass_fill,
-                      label: context.tr('Explore'),
-                      selected: selectedIndex == 1,
-                      onTap: () => onSelected(1),
-                    ),
-                    const Spacer(),
-                    _CompactNavigationItem(
-                      icon: CupertinoIcons.person_2,
-                      selectedIcon: CupertinoIcons.person_2_fill,
-                      label: context.tr('Community'),
-                      selected: selectedIndex == 2,
-                      onTap: () => onSelected(2),
-                    ),
-                    _CompactNavigationItem(
-                      key: const ValueKey('bottom-profile-navigation'),
-                      icon: CupertinoIcons.person,
-                      selectedIcon: CupertinoIcons.person_fill,
-                      customIcon: profile == null
-                          ? null
-                          : ExcludeSemantics(
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: selectedIndex == 3
-                                        ? scheme.primary
-                                        : Colors.transparent,
-                                    width: 2,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      _CompactNavigationItem(
+                        icon: WicchuIcons.house,
+                        selectedIcon: WicchuIcons.houseFill,
+                        label: context.tr('Home'),
+                        selected: selectedIndex == 0,
+                        onTap: () => onSelected(0),
+                      ),
+                      _CompactNavigationItem(
+                        icon: WicchuIcons.compass,
+                        selectedIcon: WicchuIcons.compassFill,
+                        label: context.tr('Explore'),
+                        selected: selectedIndex == 1,
+                        onTap: () => onSelected(1),
+                      ),
+                      const Spacer(),
+                      _CompactNavigationItem(
+                        icon: WicchuIcons.users,
+                        selectedIcon: WicchuIcons.usersFill,
+                        label: context.tr('Community'),
+                        selected: selectedIndex == 2,
+                        onTap: () => onSelected(2),
+                      ),
+                      _CompactNavigationItem(
+                        key: const ValueKey('bottom-profile-navigation'),
+                        icon: WicchuIcons.user,
+                        selectedIcon: WicchuIcons.userFill,
+                        customIcon: profile == null
+                            ? null
+                            : ExcludeSemantics(
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: selectedIndex == 3
+                                          ? scheme.brightness == Brightness.dark
+                                                ? _darkNavigationAccent
+                                                : const Color(0xFF176F5B)
+                                          : Colors.transparent,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: UserAvatar(
+                                    name: space?.name ?? profile!.name,
+                                    imageUrl: space == null
+                                        ? profile!.avatarUrl
+                                        : space!.imageUrl,
+                                    radius: 11,
                                   ),
                                 ),
-                                child: UserAvatar(
-                                  name: space?.name ?? profile!.name,
-                                  imageUrl: space == null
-                                      ? profile!.avatarUrl
-                                      : space!.imageUrl,
-                                  radius: 11,
-                                ),
                               ),
-                            ),
-                      label: context.tr('You'),
-                      selected: selectedIndex == 3,
-                      onTap: () => onSelected(3),
-                      onLongPress: onProfileLongPress,
-                    ),
-                  ],
+                        label: context.tr('You'),
+                        selected: selectedIndex == 3,
+                        onTap: () => onSelected(3),
+                        onLongPress: onProfileLongPress,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -769,7 +788,13 @@ class _CompactNavigationItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = selected ? scheme.primary : scheme.onSurface;
+    final color = selected
+        ? scheme.brightness == Brightness.light
+              ? const Color(0xFF176F5B)
+              : _darkNavigationAccent
+        : scheme.brightness == Brightness.dark
+        ? scheme.onSurface.withValues(alpha: .85)
+        : scheme.onSurfaceVariant;
     return Expanded(
       child: Semantics(
         button: true,
@@ -781,9 +806,19 @@ class _CompactNavigationItem extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              customIcon ??
-                  Icon(selected ? selectedIcon : icon, size: 20, color: color),
-              const SizedBox(height: 5),
+              SizedBox.square(
+                dimension: 26,
+                child: Center(
+                  child:
+                      customIcon ??
+                      Icon(
+                        selected ? selectedIcon : icon,
+                        size: 23,
+                        color: color,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 4),
               Text(
                 label,
                 maxLines: 1,
@@ -792,6 +827,18 @@ class _CompactNavigationItem extends StatelessWidget {
                   color: color,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 3),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 8,
+                height: 2,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? color.withValues(alpha: .55)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(1),
                 ),
               ),
             ],
@@ -815,16 +862,24 @@ class _CreatePostNavigationItem extends StatelessWidget {
       button: true,
       label: label,
       child: Material(
-        color: scheme.primary,
-        elevation: 6,
-        shadowColor: scheme.shadow.withValues(alpha: 0.35),
+        color: scheme.brightness == Brightness.dark
+            ? _darkNavigationAccent
+            : scheme.primary,
+        elevation: 3,
+        shadowColor: scheme.shadow.withValues(alpha: 0.18),
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onTap,
           child: SizedBox.square(
-            dimension: 48,
-            child: Icon(CupertinoIcons.plus, color: scheme.onPrimary, size: 24),
+            dimension: 54,
+            child: Icon(
+              WicchuIcons.plus,
+              color: scheme.brightness == Brightness.dark
+                  ? _darkNavigationSurface
+                  : scheme.onPrimary,
+              size: 26,
+            ),
           ),
         ),
       ),
@@ -887,7 +942,16 @@ class _HomeTabState extends State<_HomeTab>
   }
 
   void _reloadMessageRequests() {
-    _messageRequests = widget.repository.listMessageRequests();
+    _messageRequests =
+        Future.wait([
+          widget.repository.listDirectConversations(),
+          widget.repository.listMessageRequests(),
+        ]).then(
+          (lists) => {
+            for (final list in lists)
+              for (final conversation in list) conversation.id: conversation,
+          }.values.toList(),
+        );
   }
 
   Timer? _searchDelay;
@@ -898,7 +962,7 @@ class _HomeTabState extends State<_HomeTab>
   String _category = 'All';
   String _query = '';
   String? _selectedCommunityId;
-  bool _showSearch = false;
+  final _homeSearchController = TextEditingController();
 
   @override
   void initState() {
@@ -931,6 +995,7 @@ class _HomeTabState extends State<_HomeTab>
     _notificationSubscription?.cancel();
     _chatMessageSubscription?.cancel();
     _chatRequestSubscription?.cancel();
+    _homeSearchController.dispose();
     _feedScroll.dispose();
     super.dispose();
   }
@@ -1243,13 +1308,13 @@ class _HomeTabState extends State<_HomeTab>
                 ).colorScheme.onSurface.withValues(alpha: .08),
               ),
               _CommunitySwitcherAction(
-                icon: Icons.explore_outlined,
+                icon: WicchuIcons.compass,
                 title: context.tr('Explore spaces'),
                 subtitle: context.tr('Discover new communities and profiles'),
                 onTap: () => Navigator.pop(sheetContext, '__explore'),
               ),
               _CommunitySwitcherAction(
-                icon: Icons.add,
+                icon: WicchuIcons.plus,
                 title: context.tr('Create a community or profile'),
                 subtitle: context.tr(
                   'Bring people together or share your updates',
@@ -1275,7 +1340,7 @@ class _HomeTabState extends State<_HomeTab>
       _selectedCommunityId = selected;
       _category = 'All';
       _query = '';
-      _showSearch = false;
+      _homeSearchController.clear();
     });
     if (_feedScroll.hasClients) _feedScroll.jumpTo(0);
     final preferences = await SharedPreferences.getInstance();
@@ -1291,7 +1356,7 @@ class _HomeTabState extends State<_HomeTab>
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.holiday_village_outlined,
+            WicchuIcons.houseLine,
             size: 64,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -1323,8 +1388,8 @@ class _HomeTabState extends State<_HomeTab>
                 : () => _chooseCommunity(communities),
             icon: Icon(
               communities.isEmpty
-                  ? Icons.explore_outlined
-                  : Icons.groups_outlined,
+                  ? WicchuIcons.compass
+                  : WicchuIcons.usersThree,
             ),
             label: Text(
               context.tr(
@@ -1336,7 +1401,7 @@ class _HomeTabState extends State<_HomeTab>
           ),
           TextButton.icon(
             onPressed: _createHomeCommunity,
-            icon: const Icon(Icons.add),
+            icon: const Icon(WicchuIcons.plus),
             label: Text(context.tr('Create a community')),
           ),
         ],
@@ -1412,6 +1477,9 @@ class _HomeTabState extends State<_HomeTab>
       padding: const EdgeInsets.all(11),
       constraints: const BoxConstraints.tightFor(width: 44, height: 44),
       style: IconButton.styleFrom(
+        backgroundColor: scheme.primary.withValues(alpha: .07),
+        foregroundColor: scheme.onSurface,
+        shape: const CircleBorder(),
         fixedSize: const Size(44, 44),
         minimumSize: const Size(44, 44),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1420,21 +1488,45 @@ class _HomeTabState extends State<_HomeTab>
     );
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 44,
-        title: const WicchuTitle(scale: .87),
+        toolbarHeight: 60,
+        titleSpacing: 8,
+        automaticallyImplyLeading: false,
+        title: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: WicchuSearchField(
+            key: const ValueKey('home-search'),
+            showSearchIcon: false,
+            controller: _homeSearchController,
+            onChanged: _updateSearch,
+            onClear: () {
+              _homeSearchController.clear();
+              _updateSearch('');
+            },
+          ),
+        ),
         actions: [
           FutureBuilder<List<DirectConversation>>(
             future: _messageRequests,
             builder: (context, snapshot) {
-              final requests = snapshot.data?.length ?? 0;
+              final requests = (snapshot.data ?? const <DirectConversation>[])
+                  .fold<int>(
+                    0,
+                    (total, conversation) =>
+                        total +
+                        (conversation.requestStatus ==
+                                    MessageRequestStatus.pending &&
+                                !conversation.requestedByMe
+                            ? math.max(1, conversation.unreadCount)
+                            : conversation.unreadCount),
+                  );
               return headerAction(
                 tooltip: context.tr('Messages'),
                 icon: Badge.count(
-                  backgroundColor: const Color(0xFFC62828),
-                  textColor: Colors.white,
+                  backgroundColor: scheme.error,
+                  textColor: scheme.onError,
                   count: requests,
                   isLabelVisible: requests > 0,
-                  child: const Icon(Icons.chat_bubble_outline),
+                  child: const Icon(WicchuIcons.chatCircle),
                 ),
                 onPressed: () async {
                   await openResponsiveSidePanel<void>(
@@ -1448,30 +1540,7 @@ class _HomeTabState extends State<_HomeTab>
               );
             },
           ),
-          headerAction(
-            tooltip: context.tr('My spaces'),
-            icon: const Icon(Icons.grid_view_outlined),
-            onPressed: () async {
-              final data = await _data;
-              if (mounted) {
-                await _chooseCommunity(
-                  data.communities.where((c) => c.myRole != null).toList(),
-                );
-              }
-            },
-          ),
-          headerAction(
-            tooltip: context.tr(_showSearch ? 'Close search' : 'Search posts'),
-            onPressed: () => setState(() {
-              _showSearch = !_showSearch;
-              if (!_showSearch) {
-                _searchDelay?.cancel();
-                _query = '';
-                _reload();
-              }
-            }),
-            icon: Icon(_showSearch ? Icons.close : Icons.search_rounded),
-          ),
+          const SizedBox(width: 8),
           FutureBuilder<NotificationFeed>(
             future: _notifications,
             builder: (context, snapshot) {
@@ -1479,11 +1548,11 @@ class _HomeTabState extends State<_HomeTab>
               return headerAction(
                 tooltip: context.tr('Notifications'),
                 icon: Badge.count(
-                  backgroundColor: const Color(0xFFC62828),
-                  textColor: Colors.white,
+                  backgroundColor: scheme.error,
+                  textColor: scheme.onError,
                   count: unread,
                   isLabelVisible: unread > 0,
-                  child: const Icon(Icons.notifications_none_outlined),
+                  child: const Icon(WicchuIcons.bell),
                 ),
                 onPressed: () async {
                   await openResponsiveSidePanel<void>(
@@ -1496,7 +1565,7 @@ class _HomeTabState extends State<_HomeTab>
               );
             },
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
         ],
       ),
       body: FutureBuilder<_HomeFeedData>(
@@ -1662,7 +1731,7 @@ class _HomeTabState extends State<_HomeTab>
                                               backgroundColor:
                                                   scheme.primaryContainer,
                                               child: Icon(
-                                                CupertinoIcons.person_2,
+                                                WicchuIcons.users,
                                                 size: 22,
                                                 color:
                                                     scheme.onPrimaryContainer,
@@ -1750,17 +1819,6 @@ class _HomeTabState extends State<_HomeTab>
                             ),
                           ),
                           const SizedBox(height: 16),
-                        ],
-                        if (_showSearch) ...[
-                          const SizedBox(height: 16),
-                          TextField(
-                            autofocus: true,
-                            onChanged: _updateSearch,
-                            decoration: InputDecoration(
-                              hintText: context.tr('Search local posts'),
-                              prefixIcon: const Icon(Icons.search_rounded),
-                            ),
-                          ),
                         ],
                       ],
                     ),
@@ -1947,7 +2005,7 @@ class _HomeTabState extends State<_HomeTab>
                               child: Column(
                                 children: [
                                   Icon(
-                                    Icons.search_off_rounded,
+                                    WicchuIcons.magnifyingGlassMinus,
                                     size: 32,
                                     color: scheme.primary,
                                   ),
@@ -2016,15 +2074,18 @@ class _ExploreTab extends StatefulWidget {
 }
 
 class _ExploreTabState extends State<_ExploreTab> {
+  final _businessDiscoveryKey = GlobalKey<LocalDiscoveryViewState>();
   late Future<List<Community>> _communities;
   late Future<PeopleSearchPage> _people;
   final _saving = <String>{};
   Timer? _searchDelay;
   final _searchController = TextEditingController();
   String _query = '';
-  int _filter = 0;
+  int _filter = 3;
   int _createdWithinDays = 0;
   int _audienceRange = 0;
+  String? _discoveryTownId;
+  double _discoveryRadius = 10;
   Position? _position;
   bool _usingLocation = false;
   bool _locating = false;
@@ -2036,7 +2097,9 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   void _reload() {
-    if (_filter == 6) {
+    if (_filter == 5) {
+      return;
+    } else if (_filter == 6) {
       _people = widget.repository.searchPeople(query: _query, limit: 50);
     } else if (_filter == 2) {
       _communities = widget.repository.listJoinedCommunities();
@@ -2047,6 +2110,7 @@ class _ExploreTabState extends State<_ExploreTab> {
           : widget.repository.listNearbyCommunities(
               latitude: position.latitude,
               longitude: position.longitude,
+              radiusKm: _discoveryRadius,
             );
     } else {
       _communities = widget.repository.listCommunities(query: _query);
@@ -2147,6 +2211,7 @@ class _ExploreTabState extends State<_ExploreTab> {
   }
 
   Future<void> _refresh() async {
+    if (_filter == 5) return;
     if (_filter == 6) {
       setState(_reload);
       try {
@@ -2182,11 +2247,24 @@ class _ExploreTabState extends State<_ExploreTab> {
     });
   }
 
+  void _shareDiscoveryLocation(
+    String? townId,
+    Position? position,
+    double radius,
+  ) {
+    setState(() {
+      _discoveryTownId = townId;
+      _position = position;
+      _usingLocation = position != null;
+      _discoveryRadius = radius;
+    });
+  }
+
   void _selectFilter(int index) {
     _searchDelay?.cancel();
     setState(() {
       _query = _searchController.text;
-      _filter = index;
+      _filter = index == 3 && _usingLocation ? 1 : index;
       _reload();
     });
     if (index == 1 && !_usingLocation) _findNearby();
@@ -2261,7 +2339,7 @@ class _ExploreTabState extends State<_ExploreTab> {
             children: [
               const SizedBox(height: 48),
               Icon(
-                Icons.person_search_outlined,
+                WicchuIcons.userFocus,
                 size: 72,
                 color: Theme.of(context).colorScheme.primary,
               ),
@@ -2285,122 +2363,30 @@ class _ExploreTabState extends State<_ExploreTab> {
         return ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: people.length + 1,
-          separatorBuilder: (_, index) => index == 0
-              ? const SizedBox(height: 12)
-              : Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: colors.onSurface.withValues(alpha: .06),
-                ),
+          separatorBuilder: (_, index) => SizedBox(height: index == 0 ? 10 : 9),
           itemBuilder: (context, index) {
             if (index == 0) {
               final count =
                   '${people.length}${snapshot.data?.nextCursor == null ? '' : '+'}';
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.people_outline,
-                        color: colors.primary,
-                        size: 25,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          context.tr('People'),
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        context.tr(
-                          people.length == 1 &&
-                                  snapshot.data?.nextCursor == null
-                              ? '{count} result'
-                              : '{count} results',
-                          {'count': count},
-                        ),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              return Text(
+                context.tr(
+                  people.length == 1 && snapshot.data?.nextCursor == null
+                      ? '{count} person found'
+                      : '{count} people found',
+                  {'count': count},
+                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
               );
             }
             final person = people[index - 1];
-            return InkWell(
-              borderRadius: BorderRadius.circular(12),
+            return ExplorePersonCard(
+              key: ValueKey('explore-person-${person.id}'),
+              person: person,
               onTap: () => _openPerson(person),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    UserAvatar(
-                      name: person.name,
-                      imageUrl: person.avatarUrl,
-                      radius: 22,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            person.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (person.userName.isNotEmpty) ...[
-                            const SizedBox(height: 1),
-                            Text(
-                              '@${person.userName.replaceFirst(RegExp(r'^@'), '')}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: colors.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                          if (person.sharedCommunityCount > 0) ...[
-                            const SizedBox(height: 3),
-                            Text(
-                              context.trCount(
-                                person.sharedCommunityCount,
-                                singular: '{count} shared community',
-                                plural: '{count} shared communities',
-                              ),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: colors.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.chevron_right,
-                      color: colors.onSurface,
-                      size: 24,
-                    ),
-                  ],
-                ),
-              ),
             );
           },
         );
@@ -2438,7 +2424,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                     ).colorScheme.primaryContainer.withValues(alpha: .5),
                   ),
                   child: Icon(
-                    Icons.groups_rounded,
+                    WicchuIcons.usersThree,
                     size: 76,
                     color: Theme.of(
                       context,
@@ -2449,7 +2435,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                   right: 0,
                   bottom: 0,
                   child: Icon(
-                    Icons.search_rounded,
+                    WicchuIcons.magnifyingGlass,
                     size: 68,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -2483,9 +2469,9 @@ class _ExploreTabState extends State<_ExploreTab> {
           if (!searching)
             FilledButton.icon(
               onPressed: _filter == 2
-                  ? () => _selectFilter(0)
+                  ? () => _selectFilter(3)
                   : _createCommunity,
-              icon: Icon(_filter == 2 ? Icons.explore_outlined : Icons.add),
+              icon: Icon(_filter == 2 ? WicchuIcons.compass : WicchuIcons.plus),
               label: Text(
                 context.tr(
                   _filter == 2 ? 'Explore communities' : 'Create community',
@@ -2501,10 +2487,10 @@ class _ExploreTabState extends State<_ExploreTab> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final typeIcon = !community.isPublicProfile
-        ? Icons.groups_outlined
+        ? WicchuIcons.usersThree
         : community.profileCategory == ProfileCategory.localBusiness
-        ? Icons.storefront_outlined
-        : Icons.person_outline;
+        ? WicchuIcons.storefront
+        : WicchuIcons.user;
     Widget metadata(
       IconData icon,
       String text, {
@@ -2533,8 +2519,8 @@ class _ExploreTabState extends State<_ExploreTab> {
             triggerMode: TooltipTriggerMode.tap,
             child: Icon(
               visibility == CommunityVisibility.public
-                  ? Icons.public
-                  : Icons.lock_outline,
+                  ? WicchuIcons.globe
+                  : WicchuIcons.lockKey,
               size: 15,
               color: scheme.primary,
             ),
@@ -2553,14 +2539,8 @@ class _ExploreTabState extends State<_ExploreTab> {
         ],
       ],
     );
-    return Card(
-      margin: const EdgeInsets.only(bottom: 6),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: scheme.onSurface.withValues(alpha: .07)),
-      ),
-      clipBehavior: Clip.antiAlias,
+    return ExploreResultCard(
+      margin: const EdgeInsets.only(bottom: 9),
       child: InkWell(
         onTap: () => _openCommunity(community),
         child: Padding(
@@ -2664,13 +2644,13 @@ class _ExploreTabState extends State<_ExploreTab> {
                           runSpacing: 4,
                           children: [
                             metadata(
-                              Icons.location_on_outlined,
+                              WicchuIcons.mapPin,
                               _filter == 1 && community.distanceKm != null
                                   ? '${community.distanceKm!.toStringAsFixed(1).replaceAll('.', context.isSpanish ? ',' : '.')} km'
                                   : community.town.name,
                             ),
                             metadata(
-                              Icons.people_outline,
+                              WicchuIcons.users,
                               context.trCount(
                                 community.memberCount,
                                 singular: community.isPublicProfile
@@ -2727,7 +2707,7 @@ class _ExploreTabState extends State<_ExploreTab> {
             setState(() {
               _searchController.clear();
               _query = '';
-              _filter = 0;
+              _filter = 3;
               _reload();
             });
           },
@@ -2739,7 +2719,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                   radius: 24,
                   backgroundColor: scheme.primary.withValues(alpha: .08),
                   child: Icon(
-                    Icons.explore_outlined,
+                    WicchuIcons.compass,
                     size: 28,
                     color: scheme.primary,
                   ),
@@ -2768,7 +2748,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: scheme.primary),
+                Icon(WicchuIcons.caretRight, color: scheme.primary),
               ],
             ),
           ),
@@ -2781,6 +2761,12 @@ class _ExploreTabState extends State<_ExploreTab> {
     var scope = _filter;
     var days = _createdWithinDays;
     var audience = _audienceRange;
+    var townId = _discoveryTownId;
+    var nearby = _usingLocation;
+    var radius = _discoveryRadius;
+    final peopleOnly = _filter == 6;
+    final towns = await widget.repository.listTowns();
+    if (!mounted) return;
     final apply = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -2794,69 +2780,85 @@ class _ExploreTabState extends State<_ExploreTab> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  context.tr('Discovery filters'),
+                  context.tr('Location'),
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 20),
-                DropdownButtonFormField<int>(
-                  initialValue: scope,
-                  decoration: InputDecoration(labelText: context.tr('Show')),
-                  items: [
-                    for (final entry in const {
-                      0: 'All',
-                      3: 'Communities',
-                      5: 'Businesses',
-                      6: 'People',
-                      1: 'Near you',
-                      2: 'My communities',
-                      4: 'Public profiles',
-                    }.entries)
-                      DropdownMenuItem(
-                        value: entry.key,
-                        child: Text(context.tr(entry.value)),
-                      ),
-                  ],
-                  onChanged: (value) => scope = value ?? 0,
+                Text(
+                  context.tr('Location'),
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
-                  initialValue: days,
-                  decoration: InputDecoration(labelText: context.tr('Created')),
-                  items: [
-                    for (final entry in const {
-                      0: 'Any time',
-                      1: 'Last 24 hours',
-                      7: 'Last 7 days',
-                      30: 'Last 30 days',
-                      90: 'Last 90 days',
-                    }.entries)
-                      DropdownMenuItem(
-                        value: entry.key,
-                        child: Text(context.tr(entry.value)),
-                      ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: Text(context.tr('Near me')),
+                      avatar: const Icon(WicchuIcons.crosshair, size: 18),
+                      selected: !peopleOnly && nearby,
+                      onSelected: peopleOnly
+                          ? null
+                          : (_) async {
+                              await _findNearby();
+                              if (sheetContext.mounted) {
+                                setSheetState(() => nearby = _usingLocation);
+                              }
+                            },
+                    ),
+                    ChoiceChip(
+                      label: Text(context.tr('Anywhere')),
+                      selected: peopleOnly || (!nearby && townId == null),
+                      onSelected: peopleOnly
+                          ? null
+                          : (_) => setSheetState(() {
+                              nearby = false;
+                              townId = null;
+                            }),
+                    ),
                   ],
-                  onChanged: (value) => days = value ?? 0,
                 ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
-                  initialValue: audience,
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: towns.any((town) => town.id == townId)
+                      ? townId
+                      : null,
                   decoration: InputDecoration(
-                    labelText: context.tr('Members / followers'),
+                    labelText: context.tr('Choose town'),
+                    prefixIcon: const Icon(WicchuIcons.mapPin),
                   ),
                   items: [
-                    for (final entry in const {
-                      0: 'Any number',
-                      1: 'Fewer than 50',
-                      2: '50–499',
-                      3: '500 or more',
-                    }.entries)
-                      DropdownMenuItem(
-                        value: entry.key,
-                        child: Text(context.tr(entry.value)),
-                      ),
+                    for (final town in towns)
+                      DropdownMenuItem(value: town.id, child: Text(town.name)),
                   ],
-                  onChanged: (value) => audience = value ?? 0,
+                  onChanged: peopleOnly
+                      ? null
+                      : (value) => setSheetState(() {
+                          townId = value;
+                          nearby = false;
+                        }),
                 ),
+                if (peopleOnly)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      context.tr(
+                        'Location filtering for people is not available yet.',
+                      ),
+                    ),
+                  ),
+                if (nearby && !peopleOnly)
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final km in [1.0, 10.0, 50.0])
+                        ChoiceChip(
+                          label: Text('${km.toInt()} km'),
+                          selected: radius == km,
+                          onSelected: (_) => setSheetState(() => radius = km),
+                        ),
+                    ],
+                  ),
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: () => Navigator.pop(sheetContext, true),
@@ -2864,7 +2866,10 @@ class _ExploreTabState extends State<_ExploreTab> {
                 ),
                 TextButton(
                   onPressed: () {
-                    scope = 0;
+                    scope = peopleOnly ? 6 : 3;
+                    townId = null;
+                    nearby = false;
+                    radius = 10;
                     days = 0;
                     audience = 0;
                     Navigator.pop(sheetContext, true);
@@ -2881,103 +2886,227 @@ class _ExploreTabState extends State<_ExploreTab> {
     setState(() {
       _createdWithinDays = days;
       _audienceRange = audience;
+      if (!peopleOnly) {
+        _discoveryTownId = townId;
+        _usingLocation = nearby;
+        _discoveryRadius = radius;
+        if (!nearby) _position = null;
+      }
     });
-    _selectFilter(scope);
+    if (!peopleOnly) {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(
+        'business_discovery_location_mode',
+        nearby
+            ? 'nearby'
+            : townId == null
+            ? 'anywhere'
+            : 'town',
+      );
+      await preferences.setDouble('business_discovery_radius_km', radius);
+      if (townId != null) {
+        await preferences.setString('business_discovery_town_id', townId!);
+      }
+    }
+    if (!mounted) return;
+    _selectFilter(!peopleOnly && scope == 1 && !nearby ? 3 : scope);
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       automaticallyImplyLeading: false,
-      toolbarHeight: 64,
+      toolbarHeight: 60,
       titleSpacing: 16,
-      title: TextField(
-        key: const ValueKey('explore-search'),
-        controller: _searchController,
-        onChanged: _search,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          hintText: context.tr('Search Wicchu…'),
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _searchController,
-            builder: (context, value, _) => value.text.isEmpty
-                ? const SizedBox.shrink()
-                : IconButton(
-                    tooltip: context.tr('Clear search'),
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      _searchDelay?.cancel();
-                      _searchController.clear();
-                      setState(() {
-                        _query = '';
-                        _reload();
-                      });
-                    },
-                  ),
+      title: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            Theme.of(context).colorScheme.primary.withValues(alpha: .05),
+            Theme.of(context).colorScheme.surface,
           ),
-          isDense: true,
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(28)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            for (final entry in const {
+              3: 'Communities',
+              5: 'Businesses',
+              6: 'People',
+            }.entries)
+              Expanded(
+                child: Semantics(
+                  selected:
+                      _filter == entry.key ||
+                      (entry.key == 3 && _filter != 5 && _filter != 6),
+                  button: true,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => _selectFilter(entry.key),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      constraints: const BoxConstraints(minHeight: 44),
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        color:
+                            _filter == entry.key ||
+                                (entry.key == 3 && _filter != 5 && _filter != 6)
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                      ),
+                      child: Text(
+                        context.tr(entry.value),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight:
+                              _filter == entry.key ||
+                                  (entry.key == 3 &&
+                                      _filter != 5 &&
+                                      _filter != 6)
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color:
+                              _filter == entry.key ||
+                                  (entry.key == 3 &&
+                                      _filter != 5 &&
+                                      _filter != 6)
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? Theme.of(context).colorScheme.surfaceContainer
+          : WicchuColors.headerLight,
+      surfaceTintColor: Colors.transparent,
+      scrolledUnderElevation: 0,
+      bottom: PreferredSize(
+        preferredSize: Size.fromHeight(_filter == 5 ? 126 : 68),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: WicchuSearchField(
+                      key: const ValueKey('explore-search'),
+                      controller: _searchController,
+                      onChanged: _search,
+                      onClear: () {
+                        _searchDelay?.cancel();
+                        _searchController.clear();
+                        setState(() {
+                          _query = '';
+                          _reload();
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  if (_filter == 5)
+                    IconButton.filledTonal(
+                      style: IconButton.styleFrom(
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: .07),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      key: const ValueKey('discovery-location-filters'),
+                      tooltip: context.tr('Location'),
+                      onPressed: () => _businessDiscoveryKey.currentState
+                          ?.openFilters(locationOnly: true),
+                      icon: Badge(
+                        isLabelVisible:
+                            _discoveryTownId != null || _usingLocation,
+                        child: Icon(
+                          WicchuIcons.mapPin,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  if (_filter != 5)
+                    IconButton.filledTonal(
+                      style: IconButton.styleFrom(
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: .07),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      tooltip: context.tr('Location'),
+                      onPressed: _openDiscoveryFilters,
+                      icon: Badge(
+                        isLabelVisible:
+                            _filter != 6 &&
+                            (_createdWithinDays != 0 ||
+                                _audienceRange != 0 ||
+                                _discoveryTownId != null ||
+                                _usingLocation),
+                        child: Icon(
+                          WicchuIcons.mapPin,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+              if (_filter == 5) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 48,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child:
+                        _businessDiscoveryKey.currentState
+                            ?.buildCategoryBar() ??
+                        const SizedBox.shrink(),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
-      actions: [
-        if (_filter != 6)
-          IconButton(
-            tooltip: context.tr('Discovery filters'),
-            onPressed: _openDiscoveryFilters,
-            icon: Badge(
-              isLabelVisible: _createdWithinDays != 0 || _audienceRange != 0,
-              child: Icon(
-                Icons.tune,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
-        const SizedBox(width: 8),
-      ],
     ),
     body: Column(
       children: [
-        FeedFilterBar(
-          height: 48,
-          labels: [
-            context.tr('All'),
-            context.tr('Communities'),
-            context.tr('Businesses'),
-            context.tr('People'),
-            if (_filter == 1) context.tr('Near you'),
-            if (_filter == 2) context.tr('My communities'),
-            if (_filter == 4) context.tr('Public profiles'),
-          ],
-          selectedIndex: [
-            0,
-            3,
-            5,
-            6,
-            if ([1, 2, 4].contains(_filter)) _filter,
-          ].indexOf(_filter),
-          onSelected: (index) => _selectFilter(
-            [
-              0,
-              3,
-              5,
-              6,
-              if ([1, 2, 4].contains(_filter)) _filter,
-            ][index],
-          ),
-        ),
         Expanded(
-          child: _filter == 6
-              ? _peopleResults()
+          child: _filter == 5
+              ? LocalDiscoveryView(
+                  key: _businessDiscoveryKey,
+                  externalFilters: true,
+                  externalCategories: true,
+                  onCategoriesChanged: () => setState(() {}),
+                  onLocationChanged: _shareDiscoveryLocation,
+                  repository: widget.repository,
+                  initialQuery: _query,
+                )
+              : _filter == 6
+              ? ColoredBox(
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? const Color(0xFFFAFAF8)
+                      : Theme.of(context).scaffoldBackgroundColor,
+                  child: _peopleResults(),
+                )
               : RefreshIndicator(
                   onRefresh: _refresh,
                   child: FutureBuilder<List<Community>>(
@@ -2992,10 +3121,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                               if (_locating)
                                 const CircularProgressIndicator()
                               else
-                                const Icon(
-                                  Icons.location_on_outlined,
-                                  size: 48,
-                                ),
+                                const Icon(WicchuIcons.mapPin, size: 48),
                               const SizedBox(height: 16),
                               Text(
                                 context.tr(
@@ -3032,6 +3158,12 @@ class _ExploreTabState extends State<_ExploreTab> {
                               Duration(days: _createdWithinDays),
                             );
                       final communities = (snapshot.data ?? <Community>[])
+                          .where(
+                            (community) =>
+                                _filter != 3 ||
+                                _discoveryTownId == null ||
+                                community.town.id == _discoveryTownId,
+                          )
                           .where(
                             (community) => _filter == 3
                                 ? !community.isPublicProfile
@@ -3077,6 +3209,30 @@ class _ExploreTabState extends State<_ExploreTab> {
                             ScrollViewKeyboardDismissBehavior.onDrag,
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                         children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${context.trCount(communities.length, singular: '{count} community found', plural: '{count} communities found')}'
+                                  '${_usingLocation
+                                      ? ' · ${context.tr('Near me')}'
+                                      : _discoveryTownId == null
+                                      ? ''
+                                      : ' · ${(snapshot.data ?? <Community>[]).where((item) => item.town.id == _discoveryTownId).firstOrNull?.town.name ?? context.tr('Selected town')}'}',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
                           if (status != null)
                             status
                           else if (communities.isEmpty &&
@@ -3207,7 +3363,7 @@ class _ActivityTabState extends State<_ActivityTab> {
       actions: [
         IconButton(
           tooltip: context.tr('Notification settings'),
-          icon: const Icon(Icons.settings_outlined),
+          icon: const Icon(WicchuIcons.gearSix),
           onPressed: () => Navigator.push<void>(
             context,
             MaterialPageRoute(
@@ -3217,6 +3373,54 @@ class _ActivityTabState extends State<_ActivityTab> {
           ),
         ),
       ],
+    ),
+    bottomNavigationBar: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: FutureBuilder<NotificationFeed>(
+          future: _feed,
+          builder: (context, snapshot) => SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              key: const ValueKey('mark-all-notifications-read'),
+              style: TextButton.styleFrom(
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: .06),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed:
+                  !_markingAll &&
+                      snapshot.connectionState == ConnectionState.done &&
+                      !snapshot.hasError &&
+                      (snapshot.data?.unreadCount ?? 0) > 0
+                  ? _markAllRead
+                  : null,
+              icon: _markingAll
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(WicchuIcons.checks, size: 22),
+              label: Text(
+                context.tr('Mark all read'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     ),
     body: Column(
       children: [
@@ -3272,49 +3476,6 @@ class _ActivityTabState extends State<_ActivityTab> {
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              FutureBuilder<NotificationFeed>(
-                future: _feed,
-                builder: (context, snapshot) => SizedBox(
-                  width: double.infinity,
-                  child: TextButton.icon(
-                    key: const ValueKey('mark-all-notifications-read'),
-                    style: TextButton.styleFrom(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: .06),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed:
-                        !_markingAll &&
-                            snapshot.connectionState == ConnectionState.done &&
-                            !snapshot.hasError &&
-                            (snapshot.data?.unreadCount ?? 0) > 0
-                        ? _markAllRead
-                        : null,
-                    icon: _markingAll
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.done_all, size: 22),
-                    label: Text(
-                      context.tr('Mark all read'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -3366,7 +3527,7 @@ class _ActivityTabState extends State<_ActivityTab> {
                                             .withValues(alpha: 0.08),
                                       ),
                                       child: Icon(
-                                        Icons.notifications_none_rounded,
+                                        WicchuIcons.bell,
                                         size: 76,
                                         color: Theme.of(
                                           context,
@@ -3382,7 +3543,7 @@ class _ActivityTabState extends State<_ActivityTab> {
                                           context,
                                         ).colorScheme.surface,
                                         child: Icon(
-                                          Icons.check_circle,
+                                          WicchuIcons.checkCircleFill,
                                           size: 42,
                                           color: Theme.of(
                                             context,
@@ -3470,35 +3631,32 @@ class _ActivityTabState extends State<_ActivityTab> {
 
   Widget _notificationRow(CommunityNotification notification) {
     final icon = switch (notification.type) {
-      CommunityNotificationType.postReaction => Icons.favorite_border,
-      CommunityNotificationType.postMention => Icons.alternate_email,
-      CommunityNotificationType.todayMenu => Icons.restaurant_menu,
-      CommunityNotificationType.commentReaction => Icons.favorite_border,
+      CommunityNotificationType.postReaction => WicchuIcons.heart,
+      CommunityNotificationType.postMention => WicchuIcons.at,
+      CommunityNotificationType.todayMenu => WicchuIcons.forkKnife,
+      CommunityNotificationType.commentReaction => WicchuIcons.heart,
       CommunityNotificationType.postComment ||
       CommunityNotificationType.commentReply ||
       CommunityNotificationType.commentApproved ||
       CommunityNotificationType.commentRejected ||
-      CommunityNotificationType.commentRemoved => Icons.chat_bubble_outline,
-      CommunityNotificationType.membershipRequest =>
-        Icons.person_add_alt_1_outlined,
-      CommunityNotificationType.communityInvitation => Icons.mail_outline,
-      CommunityNotificationType.communityRoleChanged =>
-        Icons.admin_panel_settings_outlined,
+      CommunityNotificationType.commentRemoved => WicchuIcons.chatCircle,
+      CommunityNotificationType.membershipRequest => WicchuIcons.userPlus,
+      CommunityNotificationType.communityInvitation => WicchuIcons.envelope,
+      CommunityNotificationType.communityRoleChanged => WicchuIcons.shieldCheck,
       CommunityNotificationType.postPending ||
-      CommunityNotificationType.commentPending =>
-        Icons.pending_actions_outlined,
-      CommunityNotificationType.reportCreated => Icons.flag_outlined,
+      CommunityNotificationType.commentPending => WicchuIcons.clipboardText,
+      CommunityNotificationType.reportCreated => WicchuIcons.flag,
       CommunityNotificationType.postApproved ||
       CommunityNotificationType.postRestored ||
       CommunityNotificationType.membershipApproved ||
       CommunityNotificationType.memberUnbanned ||
-      CommunityNotificationType.promotionApproved => Icons.check_circle_outline,
+      CommunityNotificationType.promotionApproved => WicchuIcons.checkCircle,
       CommunityNotificationType.postRejected ||
       CommunityNotificationType.postRemoved ||
       CommunityNotificationType.membershipRejected ||
       CommunityNotificationType.memberRemoved ||
       CommunityNotificationType.memberBanned ||
-      CommunityNotificationType.promotionRejected => Icons.error_outline,
+      CommunityNotificationType.promotionRejected => WicchuIcons.warningCircle,
     };
     final colors = Theme.of(context).colorScheme;
     final badgeColor = switch (notification.type) {
@@ -3509,18 +3667,9 @@ class _ActivityTabState extends State<_ActivityTab> {
       CommunityNotificationType.commentReply => Colors.blue.shade600,
       _ => colors.primary,
     };
-    return Card(
+    return ExploreResultCard(
       key: ValueKey('notification-${notification.id}'),
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: colors.outlineVariant.withValues(alpha: .4)),
-      ),
-      color: notification.isRead
-          ? colors.surface
-          : colors.primary.withValues(alpha: 0.07),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 9),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -3581,13 +3730,17 @@ class _ActivityTabState extends State<_ActivityTab> {
               )
             : notification.isRead
             ? Icon(
-                Icons.chevron_right,
+                WicchuIcons.caretRight,
                 size: 20,
                 color: colors.onSurfaceVariant,
               )
             : Semantics(
                 label: context.tr('Unread'),
-                child: Icon(Icons.circle, size: 8, color: colors.primary),
+                child: Icon(
+                  WicchuIcons.circleFill,
+                  size: 8,
+                  color: colors.primary,
+                ),
               ),
         onTap: () => _openNotification(notification),
       ),
@@ -3890,7 +4043,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                   onTap: () => Navigator.pop(context, space.id),
                 ),
               ListTile(
-                leading: const Icon(Icons.add),
+                leading: const Icon(WicchuIcons.plus),
                 title: Text(context.tr('Create a public profile')),
                 onTap: () => Navigator.pop(context, 'create'),
               ),
@@ -3979,11 +4132,16 @@ class _ProfileTabState extends State<_ProfileTab> {
                   Flexible(
                     child: Text(
                       profile.name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(Icons.keyboard_arrow_down),
+                  const SizedBox(width: 4),
+                  const Icon(WicchuIcons.caretDown, size: 18),
                 ],
               ),
             ),
@@ -4004,7 +4162,7 @@ class _ProfileTabState extends State<_ProfileTab> {
         IconButton(
           tooltip: context.tr('Settings'),
           onPressed: _openSettings,
-          icon: const Icon(Icons.settings_outlined),
+          icon: const Icon(WicchuIcons.gearSix),
         ),
       ],
     ),
@@ -4077,21 +4235,6 @@ class _ProfileTabState extends State<_ProfileTab> {
                                   ).colorScheme.onSurfaceVariant,
                                 ),
                           ),
-                          const SizedBox(height: 8),
-                          FilledButton.tonalIcon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: 0.10),
-                              foregroundColor: Theme.of(
-                                context,
-                              ).colorScheme.primary,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            onPressed: () => _openMyProfile(profile.id),
-                            icon: const Icon(Icons.person_outline, size: 18),
-                            label: Text(context.tr('View my profile')),
-                          ),
                         ],
                       ),
                     ),
@@ -4102,7 +4245,7 @@ class _ProfileTabState extends State<_ProfileTab> {
             _accountSection('My content'),
             _accountCard([
               _ProfileRow(
-                icon: Icons.edit_outlined,
+                icon: WicchuIcons.pencilSimple,
                 label: 'Edit profile',
                 onTap: () async {
                   await editProfileLinks(context, widget.repository);
@@ -4110,7 +4253,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                 },
               ),
               _ProfileRow(
-                icon: Icons.groups_outlined,
+                icon: WicchuIcons.usersThree,
                 label: 'My spaces',
                 onTap: () => _openCommunities(
                   'My spaces',
@@ -4118,13 +4261,13 @@ class _ProfileTabState extends State<_ProfileTab> {
                 ),
               ),
               _ProfileRow(
-                icon: Icons.article_outlined,
+                icon: WicchuIcons.article,
                 label: 'My posts',
                 onTap: () =>
                     _openPosts('My posts', widget.repository.listMyPosts),
               ),
               _ProfileRow(
-                icon: Icons.mail_outline,
+                icon: WicchuIcons.envelope,
                 label: 'Invitations',
                 onTap: () => Navigator.push(
                   context,
@@ -4136,7 +4279,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                 ),
               ),
               _ProfileRow(
-                icon: Icons.bookmark_border,
+                icon: WicchuIcons.bookmark,
                 label: 'Saved posts',
                 onTap: () =>
                     _openPosts('Saved posts', widget.repository.listSavedPosts),
@@ -4149,7 +4292,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                 builder: (context, snapshot) =>
                     snapshot.data?.platformModerator == true
                     ? _ProfileRow(
-                        icon: Icons.health_and_safety_outlined,
+                        icon: WicchuIcons.shieldPlus,
                         label: 'Wicchu Safety',
                         subtitle: 'Platform moderation',
                         onTap: () => Navigator.push(
@@ -4164,7 +4307,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                     : const SizedBox.shrink(),
               ),
               _ProfileRow(
-                icon: Icons.shield_outlined,
+                icon: WicchuIcons.shield,
                 label: 'Spaces I manage',
                 onTap: () async {
                   await Navigator.push(
@@ -4180,19 +4323,19 @@ class _ProfileTabState extends State<_ProfileTab> {
                 },
               ),
               _ProfileRow(
-                icon: Icons.add_circle_outline,
+                icon: WicchuIcons.plusCircle,
                 label: 'Create a community',
                 subtitle: 'For neighborhoods and local groups',
                 onTap: () => _createCommunity(),
               ),
               _ProfileRow(
-                icon: Icons.person_add_outlined,
+                icon: WicchuIcons.userPlus,
                 label: 'Create a public profile',
                 subtitle: 'For businesses, creators, clubs, and organizations',
                 onTap: () => _createCommunity(CommunityType.publicProfile),
               ),
               _ProfileRow(
-                icon: Icons.campaign_outlined,
+                icon: WicchuIcons.megaphone,
                 label: 'Promote locally',
                 onTap: () => Navigator.push(
                   context,
@@ -4206,7 +4349,7 @@ class _ProfileTabState extends State<_ProfileTab> {
             _accountSection('Account and app'),
             _accountCard([
               _ProfileRow(
-                icon: Icons.chat_bubble_outline,
+                icon: WicchuIcons.chatCircle,
                 label: 'Messages',
                 subtitle: 'Private conversations',
                 onTap: () => Navigator.push(
@@ -4218,7 +4361,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                 ),
               ),
               _ProfileRow(
-                icon: Icons.settings_outlined,
+                icon: WicchuIcons.gearSix,
                 label: 'Settings',
                 onTap: () => Navigator.push(
                   context,
@@ -4232,7 +4375,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                 ),
               ),
               _ProfileRow(
-                icon: Icons.notifications_outlined,
+                icon: WicchuIcons.bell,
                 label: 'Notifications',
                 onTap: () => openResponsiveSidePanel<void>(
                   context,
@@ -4241,7 +4384,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                 ),
               ),
               _ProfileRow(
-                icon: Icons.help_outline,
+                icon: WicchuIcons.question,
                 label: 'Help',
                 onTap: () => Navigator.push(
                   context,
@@ -4253,13 +4396,13 @@ class _ProfileTabState extends State<_ProfileTab> {
             _accountCard([
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.language_rounded),
+                leading: const Icon(WicchuIcons.globe),
                 title: Text(context.tr('Language')),
                 trailing: const LanguageMenu(),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.brightness_6_outlined),
+                leading: const Icon(WicchuIcons.circleHalf),
                 title: Text(context.tr('Appearance')),
                 trailing: const ThemeMenu(showLabel: true),
               ),
@@ -4271,7 +4414,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                       dimension: 24,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.logout),
+                  : const Icon(WicchuIcons.signOut),
               title: Text(context.tr(_signingOut ? 'Signing out…' : 'Log out')),
               enabled: !_signingOut,
               onTap: _signingOut ? null : _logout,
@@ -4458,7 +4601,7 @@ class _CommunityCollectionPageState extends State<_CommunityCollectionPage> {
       actions: [
         TextButton.icon(
           onPressed: _create,
-          icon: const Icon(Icons.add, size: 20),
+          icon: const Icon(WicchuIcons.plus, size: 20),
           label: Text(context.tr('Create')),
         ),
         const SizedBox(width: 8),
@@ -4502,35 +4645,76 @@ class _ProfileRow extends StatelessWidget {
     leading: Icon(icon),
     title: Text(context.tr(label)),
     subtitle: subtitle == null ? null : Text(context.tr(subtitle!)),
-    trailing: const Icon(Icons.chevron_right),
+    trailing: const Icon(WicchuIcons.caretRight),
     onTap: onTap,
   );
 }
 
-class _LoadError extends StatelessWidget {
+class _LoadError extends StatefulWidget {
   const _LoadError({required this.error, required this.onRetry});
-
   final Object error;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(context.trError(error), textAlign: TextAlign.center),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: Text(context.tr('Retry')),
-          ),
-        ],
+  State<_LoadError> createState() => _LoadErrorState();
+}
+
+class _LoadErrorState extends State<_LoadError> {
+  bool _signingOut = false;
+
+  Future<void> _signInAgain(_MainShellState shell) async {
+    if (_signingOut) return;
+    setState(() => _signingOut = true);
+    try {
+      await shell.widget.authGateway.signOut();
+      if (shell.mounted) shell.widget.onSignedOut();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _signingOut = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shell = context.findAncestorStateOfType<_MainShellState>();
+    final expired =
+        widget.error is ApiException &&
+        (widget.error as ApiException).statusCode == 401 &&
+        shell != null;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(context.trError(widget.error), textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _signingOut
+                  ? null
+                  : expired
+                  ? () => _signInAgain(shell)
+                  : widget.onRetry,
+              icon: _signingOut
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      expired ? WicchuIcons.user : WicchuIcons.arrowsClockwise,
+                    ),
+              label: Text(context.tr(expired ? 'Sign in' : 'Retry')),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _CommunitySwitcherHeading extends StatelessWidget {
@@ -4625,7 +4809,7 @@ class _CommunitySwitcherRow extends StatelessWidget {
             style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
           ),
           trailing: selected
-              ? Icon(Icons.check_circle, color: colors.primary)
+              ? Icon(WicchuIcons.checkCircleFill, color: colors.primary)
               : null,
           onTap: onTap,
         ),
@@ -4663,7 +4847,7 @@ class _CommunitySwitcherAction extends StatelessWidget {
         subtitle,
         style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
       ),
-      trailing: Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
+      trailing: Icon(WicchuIcons.caretRight, color: colors.onSurfaceVariant),
       onTap: onTap,
     );
   }

@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -15,10 +16,10 @@ class CommunityAvatar extends StatelessWidget {
     final placeholder = Icon(
       community.isPublicProfile &&
               community.profileCategory == ProfileCategory.localBusiness
-          ? Icons.storefront_outlined
+          ? WicchuIcons.storefront
           : community.isPublicProfile
-          ? Icons.account_circle_outlined
-          : Icons.groups_outlined,
+          ? WicchuIcons.userCircle
+          : WicchuIcons.usersThree,
       size: radius,
       color: colors.primary,
     );

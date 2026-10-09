@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -143,7 +144,7 @@ class _PostCommentsState extends State<PostComments> {
                         context,
                       ).closeButtonTooltip,
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(WicchuIcons.x),
                     ),
                 ],
               ),
@@ -246,8 +247,8 @@ class _PostCommentsState extends State<PostComments> {
                                   }),
                                   icon: Icon(
                                     _expandedThreads.contains(root.id)
-                                        ? Icons.expand_less
-                                        : Icons.subdirectory_arrow_right,
+                                        ? WicchuIcons.caretUp
+                                        : WicchuIcons.arrowElbowDownRight,
                                     size: 18,
                                   ),
                                   label: Text(
@@ -339,7 +340,7 @@ class _PostCommentsState extends State<PostComments> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.reply_rounded, size: 18),
+                            const Icon(WicchuIcons.arrowBendUpLeft, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -357,7 +358,7 @@ class _PostCommentsState extends State<PostComments> {
                               ).closeButtonTooltip,
                               onPressed: () =>
                                   setState(() => _replyingTo = null),
-                              icon: const Icon(Icons.close, size: 18),
+                              icon: const Icon(WicchuIcons.x, size: 18),
                             ),
                           ],
                         ),
@@ -423,7 +424,7 @@ class _PostCommentsState extends State<PostComments> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Icon(Icons.send_rounded),
+                              : const Icon(WicchuIcons.paperPlaneTilt),
                         ),
                       ],
                     ),
@@ -654,14 +655,14 @@ class _CommentItem extends StatelessWidget {
                           value: 'report',
                           child: Row(
                             children: [
-                              const Icon(Icons.flag_outlined, size: 20),
+                              const Icon(WicchuIcons.flag, size: 20),
                               const SizedBox(width: 10),
                               Text(context.tr('Report comment')),
                             ],
                           ),
                         ),
                       ],
-                      icon: const Icon(Icons.more_horiz, size: 20),
+                      icon: const Icon(WicchuIcons.dotsThree, size: 20),
                     ),
                   ],
                 ),
@@ -701,8 +702,8 @@ class _CommentItem extends StatelessWidget {
                       onPressed: savingReaction ? null : onReaction,
                       icon: Icon(
                         comment.reactedByMe
-                            ? Icons.favorite
-                            : Icons.favorite_border,
+                            ? WicchuIcons.heartFill
+                            : WicchuIcons.heart,
                         size: 17,
                       ),
                       label: Text(
@@ -747,7 +748,7 @@ class _EmptyComments extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.forum_outlined,
+            WicchuIcons.chats,
             size: 48,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -785,13 +786,13 @@ class _CommentsError extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, size: 42),
+          const Icon(WicchuIcons.warningCircle, size: 42),
           const SizedBox(height: 12),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(WicchuIcons.arrowsClockwise),
             label: Text(context.tr('Retry')),
           ),
         ],

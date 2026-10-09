@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 String profileLinkNetwork(String url) {
@@ -29,25 +30,33 @@ class ProfileLinkButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (defaultLabel, icon, brandColor) = switch (network) {
-      'whatsapp' => ('WhatsApp', Icons.chat_outlined, const Color(0xFF128C7E)),
-      'facebook' => ('Facebook', Icons.facebook, const Color(0xFF1877F2)),
-      'instagram' => (
-        'Instagram',
-        Icons.camera_alt_outlined,
-        const Color(0xFFC13584),
+      'whatsapp' => (
+        'WhatsApp',
+        WicchuIcons.chatCircle,
+        const Color(0xFF128C7E),
       ),
+      'facebook' => (
+        'Facebook',
+        WicchuIcons.facebookLogo,
+        const Color(0xFF1877F2),
+      ),
+      'instagram' => ('Instagram', WicchuIcons.camera, const Color(0xFFC13584)),
       'email' => (
         'Email',
-        Icons.mail_outline,
+        WicchuIcons.envelope,
         Theme.of(context).colorScheme.primary,
       ),
-      'telegram' => ('Telegram', Icons.send_outlined, const Color(0xFF0088CC)),
-      'youtube' => (
-        'YouTube',
-        Icons.play_circle_outline,
-        const Color(0xFFCC0000),
+      'telegram' => (
+        'Telegram',
+        WicchuIcons.paperPlaneTilt,
+        const Color(0xFF0088CC),
       ),
-      _ => ('Website', Icons.language, Theme.of(context).colorScheme.primary),
+      'youtube' => ('YouTube', WicchuIcons.playCircle, const Color(0xFFCC0000)),
+      _ => (
+        'Website',
+        WicchuIcons.globe,
+        Theme.of(context).colorScheme.primary,
+      ),
     };
     final label = this.label ?? defaultLabel;
     final theme = Theme.of(context);

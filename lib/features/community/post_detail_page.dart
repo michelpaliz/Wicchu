@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
 
@@ -75,7 +76,7 @@ class _PostDetailPageState extends State<PostDetailPage>
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: _reload,
-                    icon: const Icon(Icons.refresh),
+                    icon: const Icon(WicchuIcons.arrowsClockwise),
                     label: Text(context.tr('Retry')),
                   ),
                 ],
@@ -175,7 +176,7 @@ class _PostDetailPageState extends State<PostDetailPage>
               FilledButton.icon(
                 onPressed: () =>
                     showPostComments(context, widget.repository, post),
-                icon: const Icon(Icons.forum_outlined),
+                icon: const Icon(WicchuIcons.chats),
                 label: Text(context.tr('Open comments')),
               ),
             ],

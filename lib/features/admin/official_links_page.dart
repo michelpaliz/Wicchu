@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -65,7 +66,7 @@ class _OfficialLinksPageState extends State<OfficialLinksPage> {
           for (final (index, link) in _links.indexed)
             Card(
               child: ListTile(
-                leading: const Icon(Icons.link),
+                leading: const Icon(WicchuIcons.linkSimple),
                 title: Text(link.label),
                 subtitle: Text(
                   link.url,
@@ -75,7 +76,7 @@ class _OfficialLinksPageState extends State<OfficialLinksPage> {
                 onTap: () => _edit(index: index),
                 trailing: IconButton(
                   tooltip: context.tr('Remove'),
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const Icon(WicchuIcons.trash),
                   onPressed: () {
                     setState(() => _links.removeAt(index));
                     _notify();
@@ -86,7 +87,7 @@ class _OfficialLinksPageState extends State<OfficialLinksPage> {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _links.length >= 10 ? null : () => _edit(),
-            icon: const Icon(Icons.add_link),
+            icon: const Icon(WicchuIcons.linkSimple),
             label: Text(context.tr('Add link')),
           ),
         ],
@@ -168,27 +169,27 @@ class OfficialLinkEditorState extends State<OfficialLinkEditor> {
   }
 
   (String, IconData, Color) _network(String network) => switch (network) {
-    'telegram' => ('Telegram', Icons.send_outlined, const Color(0xFF0088CC)),
-    'instagram' => (
-      'Instagram',
-      Icons.camera_alt_outlined,
-      const Color(0xFFC13584),
+    'telegram' => (
+      'Telegram',
+      WicchuIcons.paperPlaneTilt,
+      const Color(0xFF0088CC),
     ),
-    'facebook' => ('Facebook', Icons.facebook, const Color(0xFF1877F2)),
-    'whatsapp' => ('WhatsApp', Icons.chat_outlined, const Color(0xFF128C7E)),
-    'youtube' => (
-      'YouTube',
-      Icons.play_circle_outline,
-      const Color(0xFFCC0000),
+    'instagram' => ('Instagram', WicchuIcons.camera, const Color(0xFFC13584)),
+    'facebook' => (
+      'Facebook',
+      WicchuIcons.facebookLogo,
+      const Color(0xFF1877F2),
     ),
+    'whatsapp' => ('WhatsApp', WicchuIcons.chatCircle, const Color(0xFF128C7E)),
+    'youtube' => ('YouTube', WicchuIcons.playCircle, const Color(0xFFCC0000)),
     'other' => (
       context.tr('Other'),
-      Icons.more_horiz,
+      WicchuIcons.dotsThree,
       Theme.of(context).colorScheme.primary,
     ),
     _ => (
       context.tr('Website'),
-      Icons.language,
+      WicchuIcons.globe,
       Theme.of(context).colorScheme.primary,
     ),
   };
@@ -277,7 +278,7 @@ class OfficialLinkEditorState extends State<OfficialLinkEditor> {
                 ),
               ),
               onPressed: _save,
-              icon: const Icon(Icons.check),
+              icon: const Icon(WicchuIcons.check),
               label: Text(context.tr('Save')),
             ),
           ),
@@ -358,7 +359,7 @@ class OfficialLinkEditorState extends State<OfficialLinkEditor> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: colors.primary, size: 22),
+                    Icon(WicchuIcons.info, color: colors.primary, size: 22),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -401,12 +402,12 @@ class OfficialLinkEditorState extends State<OfficialLinkEditor> {
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _save(),
                 decoration: decoration('https://').copyWith(
-                  prefixIcon: const Icon(Icons.link),
+                  prefixIcon: const Icon(WicchuIcons.linkSimple),
                   suffixIcon: _url.text.isEmpty
                       ? null
                       : IconButton(
                           tooltip: context.tr('Clear link'),
-                          icon: const Icon(Icons.close),
+                          icon: const Icon(WicchuIcons.x),
                           onPressed: _url.clear,
                         ),
                 ),

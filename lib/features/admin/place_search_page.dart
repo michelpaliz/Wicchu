@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../localization/app_language.dart';
@@ -81,10 +82,10 @@ class _PlaceSearchPageState extends State<PlaceSearchPage> {
               onSubmitted: _changed,
               decoration: InputDecoration(
                 hintText: context.tr('Search by city, town or area'),
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(WicchuIcons.magnifyingGlass),
                 suffixIcon: IconButton(
                   tooltip: context.tr('Clear search'),
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(WicchuIcons.x),
                   onPressed: () {
                     _controller.clear();
                     _changed('');
@@ -126,7 +127,7 @@ class _PlaceSearchPageState extends State<PlaceSearchPage> {
               itemBuilder: (context, index) {
                 final result = _results[index];
                 return ListTile(
-                  leading: const Icon(Icons.location_on_outlined),
+                  leading: const Icon(WicchuIcons.mapPin),
                   title: Text(result.name),
                   subtitle: Text(result.label),
                   onTap: () => Navigator.pop(context, result),

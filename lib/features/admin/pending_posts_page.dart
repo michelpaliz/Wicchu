@@ -1,3 +1,4 @@
+import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -89,7 +90,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                             onPressed: saving
                                 ? null
                                 : () => _moderate(post, approve: false),
-                            icon: const Icon(Icons.close),
+                            icon: const Icon(WicchuIcons.x),
                             label: Text(context.tr('Reject')),
                           ),
                         ),
@@ -112,7 +113,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : const Icon(Icons.check),
+                                : const Icon(WicchuIcons.check),
                             label: Text(context.tr('Approve')),
                           ),
                         ),
@@ -140,7 +141,11 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.task_alt, size: 64, color: colors.primary),
+                      Icon(
+                        WicchuIcons.checkCircle,
+                        size: 64,
+                        color: colors.primary,
+                      ),
                       const SizedBox(height: 16),
                       Text(context.tr('No posts need approval')),
                     ],
@@ -170,7 +175,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                             onPressed: saving || index == 0
                                 ? null
                                 : () => setState(() => _index = index - 1),
-                            icon: const Icon(Icons.chevron_left),
+                            icon: const Icon(WicchuIcons.caretLeft),
                           ),
                           const SizedBox(width: 8),
                           IconButton.filledTonal(
@@ -178,7 +183,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                             onPressed: saving || index == posts.length - 1
                                 ? null
                                 : () => setState(() => _index = index + 1),
-                            icon: const Icon(Icons.chevron_right),
+                            icon: const Icon(WicchuIcons.caretRight),
                           ),
                         ],
                       ),
@@ -203,7 +208,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                               child: Row(
                                 children: [
                                   const Icon(
-                                    Icons.schedule,
+                                    WicchuIcons.clock,
                                     color: Color(0xFFB58125),
                                     size: 28,
                                   ),

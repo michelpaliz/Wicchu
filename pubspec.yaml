@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+16
+version: 1.0.0+17
 
 environment:
   sdk: ^3.10.8
@@ -61,7 +61,7 @@ dependencies:
   markdown: ^7.3.1
   cached_network_image: ^4.0.4
   package_info_plus: ^9.0.1
-
+  phosphoricons_flutter: ^1.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -83,6 +83,45 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  fonts:
+    - family: Plus Jakarta Sans
+      fonts:
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-200.ttf
+          weight: 200
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-300.ttf
+          weight: 300
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-400.ttf
+          weight: 400
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-500.ttf
+          weight: 500
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-600.ttf
+          weight: 600
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-700.ttf
+          weight: 700
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-800.ttf
+          weight: 800
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-200Italic.ttf
+          weight: 200
+          style: italic
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-300Italic.ttf
+          weight: 300
+          style: italic
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-400Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-500Italic.ttf
+          weight: 500
+          style: italic
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-600Italic.ttf
+          weight: 600
+          style: italic
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-700Italic.ttf
+          weight: 700
+          style: italic
+        - asset: assets/fonts/plus_jakarta_sans/PlusJakartaSans-800Italic.ttf
+          weight: 800
+          style: italic
 
   assets:
     - assets/brand/logo_wicchu.png
