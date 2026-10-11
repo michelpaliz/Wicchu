@@ -1,3 +1,4 @@
+import 'community_rating_sheet.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import '../../widgets/explore_result_card.dart';
 import 'open_post_media.dart';
@@ -252,110 +253,38 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     CommunityHelpfulness feedback, {
     bool? initialHelpful,
   }) async {
-    final current = feedback.myVote;
-    var helpful = initialHelpful ?? current?.helpful ?? true;
-    var locallyRelevant = current?.locallyRelevant ?? 'yes';
-    var safeParticipation = current?.safeParticipation ?? 'yes';
-    var wellOrganized = current?.wellOrganized ?? 'yes';
-    var recommend = current?.recommend ?? true;
-    final submitted = await showDialog<bool>(
+    if (_savingHelpfulness) return;
+    setState(() => _savingHelpfulness = true);
+    final result = await showModalBottomSheet<CommunityHelpfulness>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(context.tr(_spaceText('Community feedback'))),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _SurveyChoice<bool>(
-                  question: _spaceText('Do you find this community helpful?'),
-                  value: helpful,
-                  choices: const {true: 'Yes', false: 'Not really'},
-                  onChanged: (value) => setDialogState(() => helpful = value),
-                ),
-                _SurveyChoice<String>(
-                  question: 'Is the information relevant to your local area?',
-                  value: locallyRelevant,
-                  choices: const {
-                    'yes': 'Yes',
-                    'sometimes': 'Sometimes',
-                    'no': 'No',
-                  },
-                  onChanged: (value) =>
-                      setDialogState(() => locallyRelevant = value),
-                ),
-                _SurveyChoice<String>(
-                  question: 'Do you feel safe participating here?',
-                  value: safeParticipation,
-                  choices: const {
-                    'yes': 'Yes',
-                    'sometimes': 'Sometimes',
-                    'no': 'No',
-                  },
-                  onChanged: (value) =>
-                      setDialogState(() => safeParticipation = value),
-                ),
-                _SurveyChoice<String>(
-                  question: _spaceText('Is the community well organized?'),
-                  value: wellOrganized,
-                  choices: const {
-                    'yes': 'Yes',
-                    'somewhat': 'Somewhat',
-                    'no': 'No',
-                  },
-                  onChanged: (value) =>
-                      setDialogState(() => wellOrganized = value),
-                ),
-                _SurveyChoice<bool>(
-                  question: _spaceText(
-                    'Would you recommend this community to someone nearby?',
-                  ),
-                  value: recommend,
-                  choices: const {true: 'Yes', false: 'No'},
-                  onChanged: (value) => setDialogState(() => recommend = value),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(context.tr('Cancel')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text(context.tr('Submit')),
-            ),
-          ],
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (_) => CommunityRatingSheet(
+        isPage: _community.isPublicProfile,
+        current: feedback.myVote,
+        initialHelpful: initialHelpful,
+        onSubmit: (answers) => widget.repository.setCommunityHelpfulness(
+          _community.id,
+          helpful: answers[0],
+          locallyRelevant: answers[1] ? 'yes' : 'no',
+          safeParticipation: answers[2] ? 'yes' : 'no',
+          wellOrganized: answers[3] ? 'yes' : 'no',
+          recommend: answers[4],
         ),
       ),
     );
-    if (submitted != true || !mounted) return;
-    setState(() => _savingHelpfulness = true);
-    try {
-      final result = await widget.repository.setCommunityHelpfulness(
-        _community.id,
-        helpful: helpful,
-        locallyRelevant: locallyRelevant,
-        safeParticipation: safeParticipation,
-        wellOrganized: wellOrganized,
-        recommend: recommend,
-      );
-      if (!mounted) return;
-      setState(() {
-        _helpfulness = Future.value(result);
-      });
+    if (!mounted) return;
+    setState(() {
+      _savingHelpfulness = false;
+      if (result != null) _helpfulness = Future.value(result);
+    });
+    if (result != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.tr('Thanks for your feedback.'))),
       );
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
-      }
-    } finally {
-      if (mounted) setState(() => _savingHelpfulness = false);
     }
   }
 
@@ -1447,7 +1376,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   Widget _headerDetails() {
     final theme = Theme.of(context);
-    final style = theme.textTheme.bodySmall?.copyWith(height: 1.4);
+    final style = theme.textTheme.bodySmall?.copyWith(
+      fontSize: _community.isPublicProfile ? null : 15,
+      fontWeight: FontWeight.w400,
+      height: 1.4,
+    );
     final description = _community.profileSummary;
     final location = [
       _community.town.name,
@@ -1472,11 +1405,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
-          )
-        else
-          _communityHeaderMetadata(location),
+          ),
         if (description.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          if (_community.isPublicProfile) const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
               final painter = TextPainter(
@@ -1528,6 +1459,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             },
           ),
         ],
+        if (!_community.isPublicProfile) ...[
+          if (description.isNotEmpty) const SizedBox(height: 8),
+          _communityHeaderMetadata(location),
+        ],
         const SizedBox(height: 6),
       ],
     );
@@ -1538,6 +1473,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     final color = theme.colorScheme.onSurfaceVariant;
     final textStyle = theme.textTheme.bodySmall?.copyWith(
       color: color,
+      fontSize: 13,
       fontWeight: FontWeight.w400,
     );
 
@@ -1551,14 +1487,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       final content = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 17, color: color),
+          Icon(icon, size: 16, color: color),
           const SizedBox(width: 4),
           Text(
             text,
             key: textKey,
-            style: compact
-                ? textStyle?.copyWith(fontSize: (textStyle.fontSize ?? 14) - 2)
-                : textStyle,
+            style: compact ? textStyle?.copyWith(fontSize: 12) : textStyle,
           ),
         ],
       );
@@ -1899,6 +1833,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   Widget _buildHeader(BuildContext context) {
     final accent = profileAccentColor(_community.accentColor);
+    final roundedAvatar = !_community.isPublicProfile;
+    final overlap = roundedAvatar ? 8.0 : 0.0;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _openInformation,
@@ -1907,55 +1843,94 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         child: Column(
           children: [
             SizedBox(
-              height: _community.coverImageUrl == null ? 76 : 150,
+              height: (_community.coverImageUrl == null ? 76 : 150) + overlap,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _expandableCommunityImage(
-                    ColoredBox(
-                      color: _pageHeaderColor(context),
-                      child: _community.coverImageUrl == null
-                          ? null
-                          : WicchuNetworkImage(
-                              url: _community.coverImageUrl!,
-                              fit: BoxFit.cover,
-                              decodeWidth: 1600,
-                              errorBuilder: (_) => const SizedBox.shrink(),
-                            ),
+                  Positioned.fill(
+                    bottom: overlap,
+                    child: _expandableCommunityImage(
+                      ColoredBox(
+                        color: _pageHeaderColor(context),
+                        child: _community.coverImageUrl == null
+                            ? null
+                            : WicchuNetworkImage(
+                                url: _community.coverImageUrl!,
+                                fit: BoxFit.cover,
+                                decodeWidth: 1600,
+                                errorBuilder: (_) => const SizedBox.shrink(),
+                              ),
+                      ),
+                      _community.coverImageUrl,
                     ),
-                    _community.coverImageUrl,
                   ),
                   Positioned(
-                    left: 16,
-                    bottom: 4,
+                    left: roundedAvatar ? 0 : 16,
+                    bottom: roundedAvatar ? 0 : 4,
                     child: Container(
-                      padding: const EdgeInsets.all(3),
+                      key: const ValueKey('community-avatar-backing'),
+                      padding: EdgeInsets.all(roundedAvatar ? 5 : 0),
                       decoration: BoxDecoration(
-                        color: accent,
-                        shape: BoxShape.circle,
+                        color: roundedAvatar
+                            ? Theme.of(context).scaffoldBackgroundColor
+                            : null,
+                        shape: roundedAvatar
+                            ? BoxShape.rectangle
+                            : BoxShape.circle,
+                        borderRadius: roundedAvatar
+                            ? const BorderRadius.only(
+                                topLeft: Radius.circular(39),
+                                topRight: Radius.circular(39),
+                                bottomRight: Radius.circular(39),
+                              )
+                            : null,
                       ),
-                      child: Semantics(
-                        button: true,
-                        label: context.tr(
-                          _community.isPublicProfile
-                              ? 'Profile information'
-                              : 'Community information',
+                      child: Container(
+                        padding: EdgeInsets.all(roundedAvatar ? 2 : 3),
+                        decoration: BoxDecoration(
+                          color: accent,
+                          shape: BoxShape.circle,
                         ),
-                        child: GestureDetector(
-                          onTap: _openInformation,
-                          child: CommunityAvatar(
-                            community: _community,
-                            radius: 28,
+                        child: Semantics(
+                          button: true,
+                          label: context.tr(
+                            _community.isPublicProfile
+                                ? 'Profile information'
+                                : 'Community information',
+                          ),
+                          child: GestureDetector(
+                            onTap: _openInformation,
+                            child: CommunityAvatar(
+                              community: _community,
+                              radius: roundedAvatar ? 32 : 28,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
+                  if (roundedAvatar && _joined)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        key: const ValueKey('community-membership-backing'),
+                        padding: const EdgeInsets.fromLTRB(5, 5, 5, 0),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(25),
+                            topRight: Radius.circular(25),
+                          ),
+                        ),
+                        child: _communityRoleBadge(headerTab: true),
+                      ),
+                    ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+              padding: EdgeInsets.fromLTRB(16, roundedAvatar ? 0 : 8, 16, 2),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1963,25 +1938,39 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(child: _communityIdentity()),
-                            if (_isLocalBusiness) ...[
-                              const SizedBox(width: 8),
-                              _localBusinessHeaderActions(),
-                            ] else if (_community.isPublicProfile) ...[
-                              const SizedBox(width: 8),
-                              _communityHeaderActions(),
-                            ] else if (_joined) ...[
-                              const SizedBox(width: 8),
-                              _communityRoleBadge(),
+                        if (!_community.isPublicProfile)
+                          Tooltip(
+                            message: context.tr('Community information'),
+                            child: InkWell(
+                              key: const ValueKey(
+                                'community-information-entry',
+                              ),
+                              onTap: _openInformation,
+                              borderRadius: BorderRadius.circular(8),
+                              child: _headerDetails(),
+                            ),
+                          )
+                        else ...[
+                          Row(
+                            children: [
+                              Expanded(child: _communityIdentity()),
+                              if (_isLocalBusiness) ...[
+                                const SizedBox(width: 8),
+                                _localBusinessHeaderActions(),
+                              ] else if (_community.isPublicProfile) ...[
+                                const SizedBox(width: 8),
+                                _communityHeaderActions(),
+                              ] else if (_joined) ...[
+                                const SizedBox(width: 8),
+                                _communityRoleBadge(),
+                              ],
                             ],
-                          ],
-                        ),
-                        if (_isLocalBusiness)
-                          _localBusinessHeaderDetails()
-                        else
-                          _headerDetails(),
+                          ),
+                          if (_isLocalBusiness)
+                            _localBusinessHeaderDetails()
+                          else
+                            _headerDetails(),
+                        ],
                         if (!_isLocalBusiness && _community.isPublicProfile)
                           _pageHeaderActions(),
                         if (!_isLocalBusiness &&
@@ -3086,7 +3075,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     if (action == 'leave') await _confirmLeave();
   }
 
-  Widget _communityRoleBadge({bool expanded = false, bool inline = false}) {
+  Widget _communityRoleBadge({
+    bool expanded = false,
+    bool inline = false,
+    bool headerTab = false,
+  }) {
     final scheme = Theme.of(context).colorScheme;
     final message = _community.isPublicProfile
         ? context.tr(switch (_community.myRole) {
@@ -3103,7 +3096,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           });
     return InkWell(
       key: const ValueKey('community-role-badge'),
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: headerTab
+          ? const BorderRadius.vertical(top: Radius.circular(20))
+          : BorderRadius.circular(24),
       onTap: _savingMembership ? null : () => _showMembershipOptions(message),
       child: Semantics(
         button: true,
@@ -3157,20 +3152,29 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 ),
               )
             : SizedBox(
-                width: 44,
-                height: 44,
+                width: headerTab ? 48 : 44,
+                height: headerTab ? 50 : 44,
                 child: Center(
                   child: Container(
-                    width: 44,
-                    height: 44,
+                    width: headerTab ? 48 : 44,
+                    height: headerTab ? 50 : 44,
                     decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: .08),
-                      shape: BoxShape.circle,
+                      color: headerTab
+                          ? Theme.of(context).scaffoldBackgroundColor
+                          : scheme.primary.withValues(alpha: .08),
+                      shape: headerTab ? BoxShape.rectangle : BoxShape.circle,
+                      borderRadius: headerTab
+                          ? const BorderRadius.vertical(
+                              top: Radius.circular(20),
+                            )
+                          : null,
                     ),
                     child: Icon(
                       WicchuIcons.userCheck,
                       size: 20,
-                      color: scheme.primary,
+                      color: headerTab
+                          ? scheme.onSurfaceVariant
+                          : scheme.primary,
                     ),
                   ),
                 ),
@@ -5199,42 +5203,6 @@ class _Section extends StatelessWidget {
       ),
     );
   }
-}
-
-class _SurveyChoice<T> extends StatelessWidget {
-  const _SurveyChoice({
-    required this.question,
-    required this.value,
-    required this.choices,
-    required this.onChanged,
-  });
-  final String question;
-  final T value;
-  final Map<T, String> choices;
-  final ValueChanged<T> onChanged;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
-    child: DropdownButtonFormField<T>(
-      initialValue: value,
-      decoration: InputDecoration(
-        labelText: context.tr(question),
-        border: const OutlineInputBorder(),
-      ),
-      items: choices.entries
-          .map(
-            (entry) => DropdownMenuItem(
-              value: entry.key,
-              child: Text(context.tr(entry.value)),
-            ),
-          )
-          .toList(),
-      onChanged: (value) {
-        if (value != null) onChanged(value);
-      },
-    ),
-  );
 }
 
 class _DetailRow extends StatelessWidget {

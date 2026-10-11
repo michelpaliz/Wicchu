@@ -277,6 +277,25 @@ const _spanish = <String, String>{
   'Warn admin': 'Advertir al administrador',
   'Remove admin role': 'Quitar rol de administrador',
   'Personal publication': 'Publicación personal',
+  'You haven’t shared anything yet': 'Aún no has compartido nada',
+  'Share your ideas, photos, videos or moments with your community. Your first post could inspire others.':
+      'Comparte tus ideas, fotos, vídeos o momentos con tu comunidad. Tu primera publicación puede inspirar a otros.',
+  'Create your first post': 'Crear tu primera publicación',
+  'Share what you love: places, news, events, recommendations and more.':
+      'Comparte lo que te apasiona: lugares, noticias, eventos, recomendaciones y más.',
+
+  'Create publication': 'Crear publicación',
+  'My profile': 'Mi perfil',
+  'Publishing to': 'Publicar en',
+  'Choose where to publish': 'Elige dónde publicar',
+  'No followers yet': 'Aún no hay seguidores',
+  'Not following anyone yet': 'Aún no sigue a nadie',
+  'Load more': 'Cargar más',
+  'Followers will appear here.': 'Los seguidores aparecerán aquí.',
+  'Follow people from their profiles to see them here.':
+      'Sigue a personas desde sus perfiles para verlas aquí.',
+  'Choose your profile or a community.': 'Elige tu perfil o una comunidad.',
+  'Close': 'Cerrar',
   'Comment': 'Comentario',
   'User': 'Usuario',
   'Remove content': 'Eliminar contenido',
@@ -1151,8 +1170,7 @@ const _spanish = <String, String>{
   'Basics': 'Datos básicos',
   'Community name': 'Nombre de la comunidad',
   'Short description': 'Descripción breve',
-  'Describe yourself in one short sentence…':
-      'Descríbete en una frase corta…',
+  'Describe yourself in one short sentence…': 'Descríbete en una frase corta…',
   'A quick summary shown on your profile.':
       'Un resumen breve que se muestra en tu perfil.',
   'Tell people more about your community or page…':
@@ -1224,6 +1242,20 @@ const _spanish = <String, String>{
   'Based on {count} response': 'Basado en {count} respuesta',
   'Based on {count} responses': 'Basado en {count} respuestas',
   'Do you find this community helpful?': '¿Consideras útil esta comunidad?',
+  'Rate this community': 'Valora esta comunidad',
+  'Rate this page': 'Valora esta página',
+  'Your feedback helps us improve.': 'Tu opinión nos ayuda a mejorar.',
+  '{count} of 5 answered': '{count} de 5 respondidas',
+  'Is this community useful?': '¿Te resulta útil esta comunidad?',
+  'Is this page useful?': '¿Te resulta útil esta página?',
+  'Is the information relevant locally?':
+      '¿La información es relevante para tu zona?',
+  'Do you feel safe participating?': '¿Te sientes seguro al participar?',
+  'Is it well organized?': '¿Está bien organizada?',
+  'Would you recommend it to others?': '¿La recomendarías a otras personas?',
+  'Send rating': 'Enviar valoración',
+  'Yes': 'Sí',
+  'No': 'No',
   'Not really': 'No mucho',
   'Thanks for your feedback.': 'Gracias por tu opinión.',
   'Your feedback is saved. You can update it at any time.':
@@ -1256,8 +1288,7 @@ const _spanish = <String, String>{
   'Community invitation': 'Invitación a la comunidad',
   'You joined the community.': 'Te uniste a la comunidad.',
   'Invitation declined.': 'Invitación rechazada.',
-  'Administrator invitation accepted.':
-      'Invitación de administrador aceptada.',
+  'Administrator invitation accepted.': 'Invitación de administrador aceptada.',
   'Ownership transfer accepted.': 'Transferencia de propiedad aceptada.',
   'Show local weather': 'Mostrar clima local',
   'Display current conditions for the community town.':

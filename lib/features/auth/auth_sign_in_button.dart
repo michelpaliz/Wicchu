@@ -1,5 +1,6 @@
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../localization/app_language.dart';
 
 class AuthSignInButton extends StatelessWidget {
@@ -94,6 +95,30 @@ class AuthSignInButton extends StatelessWidget {
             ),
     );
   }
+}
+
+class AppleSignInButton extends StatelessWidget {
+  const AppleSignInButton({
+    super.key,
+    required this.onPressed,
+    this.isLoading = false,
+    this.disabled = false,
+  });
+
+  final VoidCallback onPressed;
+  final bool isLoading, disabled;
+
+  @override
+  Widget build(BuildContext context) => AuthSignInButton(
+    label: 'Continue with Apple',
+    onPressed: onPressed,
+    isLoading: isLoading,
+    disabled: disabled,
+    icon: CustomPaint(
+      size: const Size(20, 24),
+      painter: AppleLogoPainter(color: Theme.of(context).colorScheme.onSurface),
+    ),
+  );
 }
 
 class GoogleSignInButton extends StatelessWidget {

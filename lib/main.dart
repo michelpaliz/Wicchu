@@ -1,3 +1,4 @@
+import 'widgets/wicchu_viewport.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
@@ -524,6 +525,8 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
           navigatorKey: _navigatorKey,
           scaffoldMessengerKey: _scaffoldMessengerKey,
           title: 'Wicchu',
+          builder: (context, child) =>
+              WicchuViewport(child: child ?? const SizedBox.shrink()),
           debugShowCheckedModeBanner: false,
           theme: WicchuTheme.light,
           darkTheme: WicchuTheme.dark,

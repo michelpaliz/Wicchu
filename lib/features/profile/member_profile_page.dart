@@ -1,4 +1,6 @@
 import 'profile_communities_page.dart';
+import 'profile_empty_state.dart';
+import '../../widgets/explore_result_card.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
@@ -32,10 +34,14 @@ class MemberProfilePage extends StatefulWidget {
     this.header,
     this.onAccountMenu,
     this.embedded = false,
+    this.postRequest,
+    this.onExploreCommunities,
   });
 
+  final VoidCallback? onExploreCommunities;
+  final Listenable? postRequest;
   final Widget? header;
-  final VoidCallback? onAccountMenu;
+  final FutureOr<void> Function()? onAccountMenu;
   final bool embedded;
   final String userId;
   final CommunityRepository repository;
@@ -62,7 +68,7 @@ class _UserFollowListPage extends StatefulWidget {
 class _UserFollowListPageState extends State<_UserFollowListPage> {
   final _users = <UserFollowProfile>[];
   String? _cursor;
-  bool _loading = true;
+  bool _loading = false;
   bool _hasMore = true;
   Object? _error;
 
@@ -72,8 +78,8 @@ class _UserFollowListPageState extends State<_UserFollowListPage> {
     _load();
   }
 
-  Future<void> _load() async {
-    if (!_hasMore && _users.isNotEmpty) return;
+  Future<void> _load({bool refresh = false}) async {
+    if (_loading || (!_hasMore && !refresh)) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -82,14 +88,15 @@ class _UserFollowListPageState extends State<_UserFollowListPage> {
       final page = widget.followers
           ? await widget.repository.listFollowers(
               widget.userId,
-              cursor: _cursor,
+              cursor: refresh ? null : _cursor,
             )
           : await widget.repository.listFollowingUsers(
               widget.userId,
-              cursor: _cursor,
+              cursor: refresh ? null : _cursor,
             );
       if (!mounted) return;
       setState(() {
+        if (refresh) _users.clear();
         _users.addAll(
           page.users.where((item) => !_users.any((old) => old.id == item.id)),
         );
@@ -108,47 +115,157 @@ class _UserFollowListPageState extends State<_UserFollowListPage> {
     appBar: AppBar(
       title: Text(context.tr(widget.followers ? 'Followers' : 'Following')),
     ),
-    body: _error != null && _users.isEmpty
-        ? Center(child: Text(context.trError(_error!)))
-        : _users.isEmpty && !_loading
-        ? Center(
-            child: Text(
-              context.tr(
-                widget.followers
-                    ? 'No followers yet'
-                    : 'Not following anyone yet',
+    body: SafeArea(
+      top: false,
+      child: RefreshIndicator(
+        onRefresh: () => _load(refresh: true),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            if (_users.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: _loading
+                        ? const CircularProgressIndicator()
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 32,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                child: Icon(
+                                  WicchuIcons.usersThree,
+                                  size: 28,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _error != null
+                                    ? context.trError(_error!)
+                                    : context.tr(
+                                        widget.followers
+                                            ? 'No followers yet'
+                                            : 'Not following anyone yet',
+                                      ),
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              if (_error == null)
+                                Text(
+                                  context.tr(
+                                    widget.followers
+                                        ? 'Followers will appear here.'
+                                        : 'Follow people from their profiles to see them here.',
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              if (_error != null)
+                                FilledButton(
+                                  onPressed: () => _load(),
+                                  child: Text(context.tr('Retry')),
+                                ),
+                            ],
+                          ),
+                  ),
+                ),
+              )
+            else ...[
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                sliver: SliverList.builder(
+                  itemCount: _users.length,
+                  itemBuilder: (context, index) {
+                    final user = _users[index];
+                    return ExploreResultCard(
+                      key: ValueKey(user.id),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        leading: UserAvatar(
+                          name: user.name,
+                          imageUrl: user.avatarUrl,
+                          userId: user.id,
+                          radius: 24,
+                        ),
+                        title: Text(
+                          user.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: user.userName.isEmpty
+                            ? null
+                            : Text(
+                                '@${user.userName}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                        trailing: const Icon(WicchuIcons.caretRight, size: 18),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MemberProfilePage(
+                              userId: user.id,
+                              repository: widget.repository,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-          )
-        : ListView.builder(
-            itemCount: _users.length + (_hasMore || _loading ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index == _users.length) {
-                if (!_loading) _load();
-                return const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-              final user = _users[index];
-              return ListTile(
-                leading: UserAvatar(name: user.name, imageUrl: user.avatarUrl),
-                title: Text(user.name),
-                subtitle: user.userName.isEmpty
-                    ? null
-                    : Text('@${user.userName}'),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MemberProfilePage(
-                      userId: user.id,
-                      repository: widget.repository,
+              if (_hasMore || _loading || _error != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(
+                      child: _loading
+                          ? const CircularProgressIndicator()
+                          : Column(
+                              children: [
+                                if (_error != null)
+                                  Text(
+                                    context.trError(_error!),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                TextButton(
+                                  onPressed: () => _load(refresh: !_hasMore),
+                                  child: Text(
+                                    context.tr(
+                                      _error != null ? 'Retry' : 'Load more',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
                 ),
-              );
-            },
-          ),
+            ],
+          ],
+        ),
+      ),
+    ),
   );
 }
 
@@ -159,6 +276,29 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   @override
   void reloadBlockVisibility() {
     _reload();
+  }
+
+  bool _composing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.postRequest?.addListener(_createPersonalPost);
+  }
+
+  @override
+  void didUpdateWidget(covariant MemberProfilePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.postRequest != widget.postRequest) {
+      oldWidget.postRequest?.removeListener(_createPersonalPost);
+      widget.postRequest?.addListener(_createPersonalPost);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.postRequest?.removeListener(_createPersonalPost);
+    super.dispose();
   }
 
   bool _blocking = false;
@@ -229,14 +369,29 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       toolbarHeight: 48,
+      centerTitle: false,
+      titleSpacing: 8,
       automaticallyImplyLeading: !widget.embedded,
       title:
           widget.header ??
-          Text(
-            context.tr('Profile'),
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          FutureBuilder<PublicMemberProfile>(
+            future: _profile,
+            builder: (context, snapshot) {
+              final profile = snapshot.data;
+              return Text(
+                profile == null
+                    ? ''
+                    : profile.userName.isNotEmpty
+                    ? '@${profile.userName}'
+                    : profile.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              );
+            },
           ),
       actions: [
         FutureBuilder<PublicMemberProfile>(
@@ -348,6 +503,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                 if (viewer.data?.id == widget.userId) 'saved',
               ];
               return FeedFilterBar(
+                compact: true,
                 style: FeedNavigationStyle.underline,
                 labels: [
                   context.tr('Posts'),
@@ -407,9 +563,20 @@ class _MemberProfilePageState extends State<MemberProfilePage>
               }
               final posts = snapshot.data ?? const [];
               if (posts.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(child: Text(context.tr('No posts found'))),
+                return FutureBuilder<WicchuProfile?>(
+                  future: _viewer,
+                  builder: (context, viewer) {
+                    if (_kind == 'all' && viewer.data?.id == widget.userId) {
+                      return ProfileEmptyState(
+                        onCreate: _createPersonalPost,
+                        onExplore: widget.onExploreCommunities,
+                      );
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(child: Text(context.tr('No posts found'))),
+                    );
+                  },
                 );
               }
               if (_grid) {
@@ -583,7 +750,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
           TextSpan(
             text: '$count ',
             style: TextStyle(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: colors.onSurface,
             ),
           ),
@@ -591,6 +758,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
         ],
       ),
       style: theme.textTheme.bodySmall?.copyWith(
+        fontSize: 11,
         color: colors.onSurfaceVariant,
       ),
     );
@@ -611,7 +779,10 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                   : profile.name,
               child: InkWell(
                 onTap: own && widget.onAccountMenu != null
-                    ? widget.onAccountMenu
+                    ? () async {
+                        await widget.onAccountMenu!();
+                        if (mounted) _reload();
+                      }
                     : profile.socialLinks.isEmpty
                     ? null
                     : () => _openSocialLinks(profile),
@@ -670,41 +841,131 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          if (profile.userName.isNotEmpty)
-                            Text(
-                              '@${profile.userName}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.onSurfaceVariant,
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6, bottom: 4),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Wrap(
+                                alignment: WrapAlignment.start,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 16,
+                                runSpacing: 0,
+                                children:
+                                    [
+                                          if (own)
+                                            Semantics(
+                                              button: true,
+                                              child: InkWell(
+                                                key: const ValueKey(
+                                                  'profile-communities',
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                onTap: () async {
+                                                  await Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          ProfileCommunitiesPage(
+                                                            repository: widget
+                                                                .repository,
+                                                          ),
+                                                    ),
+                                                  );
+                                                  if (mounted) _reload();
+                                                },
+                                                child: ConstrainedBox(
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        minHeight: 24,
+                                                      ),
+                                                  child: Align(
+                                                    widthFactor: 1,
+                                                    heightFactor: 1,
+                                                    child: stat(
+                                                      profile.communityCount,
+                                                      'Communities',
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            stat(
+                                              profile.communityCount,
+                                              'Communities',
+                                            ),
+                                          Semantics(
+                                            button: true,
+                                            child: InkWell(
+                                              key: const ValueKey(
+                                                'profile-followers-count',
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              onTap: () => _openFollowList(
+                                                followers: true,
+                                              ),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 2,
+                                                    ),
+                                                child: stat(
+                                                  _followerCount!,
+                                                  'Followers',
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          Semantics(
+                                            button: true,
+                                            child: InkWell(
+                                              key: const ValueKey(
+                                                'profile-following-count',
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              onTap: () => _openFollowList(
+                                                followers: false,
+                                              ),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 2,
+                                                    ),
+                                                child: stat(
+                                                  profile.followingCount ?? 0,
+                                                  'Following',
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ]
+                                        .map(
+                                          (child) => ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                              minHeight: 24,
+                                            ),
+                                            child: Center(
+                                              widthFactor: 1,
+                                              heightFactor: 1,
+                                              child: child,
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
                               ),
                             ),
-                          if (profile.shortDescription.trim().isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              profile.shortDescription.trim(),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.onSurfaceVariant,
-                                height: 1.3,
-                              ),
-                            ),
-                          ],
-                          if (profile.isOnline ||
+                          ),
+                          if (!profile.isOnline &&
                               profile.lastActiveAt != null) ...[
                             const SizedBox(height: 3),
                             Text(
-                              context.tr(
-                                profile.isOnline
-                                    ? 'Online now'
-                                    : 'Active recently',
-                              ),
+                              context.tr('Active recently'),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 fontSize: 12,
-                                color: profile.isOnline
-                                    ? accent
-                                    : colors.onSurfaceVariant,
+                                color: colors.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -715,6 +976,52 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                 ),
               ),
             ),
+            if (profile.shortDescription.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 8),
+                child: Text(
+                  profile.shortDescription.trim(),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            if (!own)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    key: const ValueKey('profile-follow-button'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      textStyle: theme.textTheme.labelSmall?.copyWith(
+                        fontSize: 12,
+                      ),
+                    ),
+                    onPressed: _followBusy ? null : _toggleFollow,
+                    icon: _followBusy
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            _following == true
+                                ? WicchuIcons.check
+                                : WicchuIcons.userPlus,
+                            size: 18,
+                          ),
+                    label: Text(
+                      context.tr(_following == true ? 'Following' : 'Follow'),
+                    ),
+                  ),
+                ),
+              ),
             if (profile.bio?.trim().isNotEmpty == true)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
@@ -733,111 +1040,6 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                   ],
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Center(
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 20,
-                  runSpacing: 4,
-                  children: [
-                    stat(profile.postCount, 'Posts'),
-                    if (own)
-                      Semantics(
-                        button: true,
-                        child: InkWell(
-                          key: const ValueKey('profile-communities'),
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ProfileCommunitiesPage(
-                                  repository: widget.repository,
-                                ),
-                              ),
-                            );
-                            if (mounted) _reload();
-                          },
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 44),
-                            child: Align(
-                              widthFactor: 1,
-                              heightFactor: 1,
-                              child: stat(
-                                profile.communityCount,
-                                'Communities',
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      stat(profile.communityCount, 'Communities'),
-                    Semantics(
-                      button: true,
-                      child: InkWell(
-                        key: const ValueKey('profile-followers-count'),
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: () => _openFollowList(followers: true),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: stat(_followerCount!, 'Followers'),
-                        ),
-                      ),
-                    ),
-                    Semantics(
-                      button: true,
-                      child: InkWell(
-                        key: const ValueKey('profile-following-count'),
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: () => _openFollowList(followers: false),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: stat(profile.followingCount ?? 0, 'Following'),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 10,
-                runSpacing: 4,
-                children: [
-                  if (!own)
-                    FilledButton.tonalIcon(
-                      key: const ValueKey('profile-follow-button'),
-                      onPressed: _followBusy ? null : _toggleFollow,
-                      icon: _followBusy
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Icon(
-                              _following == true
-                                  ? WicchuIcons.check
-                                  : WicchuIcons.userPlus,
-                              size: 18,
-                            ),
-                      label: Text(
-                        context.tr(_following == true ? 'Following' : 'Follow'),
-                      ),
-                    ),
-                  if (own)
-                    FilledButton.tonalIcon(
-                      key: const ValueKey('profile-create-publication'),
-                      onPressed: _createPersonalPost,
-                      icon: const Icon(WicchuIcons.note, size: 18),
-                      label: Text(context.tr('Create publication')),
-                    ),
-                ],
-              ),
-            ),
           ],
         );
       },
@@ -887,11 +1089,19 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   }
 
   Future<void> _createPersonalPost() async {
-    final post = await openPersonalPostComposer(
-      context,
-      repository: widget.repository,
-    );
-    if (post != null && mounted) _reload();
+    if (_composing) return;
+    _composing = true;
+    try {
+      final viewer = await _viewer;
+      if (!mounted || viewer?.id != widget.userId) return;
+      final post = await openPersonalPostComposer(
+        context,
+        repository: widget.repository,
+      );
+      if (post != null && mounted) _reload();
+    } finally {
+      _composing = false;
+    }
   }
 
   Future<void> _openSocialLinks(PublicMemberProfile profile) async {

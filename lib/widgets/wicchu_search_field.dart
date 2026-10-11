@@ -22,6 +22,10 @@ class WicchuSearchField extends StatelessWidget {
     textInputAction: TextInputAction.search,
     decoration: InputDecoration(
       hintText: context.tr('Search Wicchu…'),
+      hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+        fontSize: 14,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       prefixIcon: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Container(

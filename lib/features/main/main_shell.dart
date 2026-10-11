@@ -118,6 +118,7 @@ class _MainShellState extends State<MainShell> {
         const SizedBox.shrink(),
       _ProfileTab(
         key: _profileKey,
+        onExploreCommunities: () => _selectDestination(1),
         postRequest: _profilePostRequest,
         onSpaceSelected: (space) => setState(() => _navigationSpace = space),
         repository: widget.repository,
@@ -136,7 +137,7 @@ class _MainShellState extends State<MainShell> {
     ];
     final content = IndexedStack(index: _index, children: pages);
     void createPost() {
-      if (_index == 3 && _navigationSpace != null) {
+      if (_index == 3) {
         _profilePostRequest.value++;
       } else if (_index == 2) {
         _communityPostRequest.value++;
@@ -1698,106 +1699,105 @@ class _HomeTabState extends State<_HomeTab>
                         if (visibleOnlineMembers.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           SizedBox(
-                            height:
-                                56 +
-                                MediaQuery.textScalerOf(context).scale(12) *
-                                    1.5,
+                            height: math.max(
+                              48,
+                              MediaQuery.textScalerOf(context).scale(12) * 1.5 +
+                                  16,
+                            ),
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
-                              itemCount: visibleOnlineMembers.length > 5
-                                  ? 6
-                                  : visibleOnlineMembers.length,
+                              itemCount: math.min(
+                                visibleOnlineMembers.length,
+                                6,
+                              ),
                               separatorBuilder: (_, _) =>
                                   const SizedBox(width: 12),
                               itemBuilder: (context, index) {
-                                if (index == 5) {
-                                  final remaining =
-                                      visibleOnlineMembers.length - 5;
-                                  return Semantics(
-                                    button: true,
-                                    label: context.tr(
-                                      'View all online neighbors',
-                                    ),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(16),
-                                      onTap: () =>
-                                          _showMembers(visibleOnlineMembers),
-                                      child: SizedBox(
-                                        width: 58,
-                                        child: Column(
-                                          children: [
+                                final showMore = index == 5;
+                                final member = visibleOnlineMembers[index];
+                                return Semantics(
+                                  button: true,
+                                  label: showMore
+                                      ? context.tr('View all online neighbors')
+                                      : member.name,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: showMore
+                                        ? () =>
+                                              _showMembers(visibleOnlineMembers)
+                                        : () => openResponsiveSidePanel<void>(
+                                            context,
+                                            builder: (_) => MemberProfilePage(
+                                              repository: widget.repository,
+                                              userId: member.userId,
+                                            ),
+                                          ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (showMore)
                                             CircleAvatar(
-                                              radius: 24,
+                                              radius: 18,
                                               backgroundColor:
                                                   scheme.primaryContainer,
                                               child: Icon(
                                                 WicchuIcons.users,
-                                                size: 22,
+                                                size: 20,
                                                 color:
                                                     scheme.onPrimaryContainer,
                                               ),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              '+$remaining',
-                                              style: textTheme.labelSmall,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                final member = visibleOnlineMembers[index];
-                                return InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () => openResponsiveSidePanel<void>(
-                                    context,
-                                    builder: (_) => MemberProfilePage(
-                                      repository: widget.repository,
-                                      userId: member.userId,
-                                    ),
-                                  ),
-                                  child: SizedBox(
-                                    width: 58,
-                                    child: Column(
-                                      children: [
-                                        Stack(
-                                          clipBehavior: Clip.none,
-                                          children: [
-                                            UserAvatar(
-                                              name: member.name,
-                                              imageUrl: member.avatarUrl,
-                                              radius: 24,
-                                            ),
-                                            Positioned(
-                                              right: -1,
-                                              bottom: -1,
-                                              child: Container(
-                                                width: 14,
-                                                height: 14,
-                                                decoration: BoxDecoration(
-                                                  color: const Color(
-                                                    0xFF45B95C,
-                                                  ),
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(
-                                                    color: scheme.surface,
-                                                    width: 2,
+                                            )
+                                          else
+                                            Stack(
+                                              clipBehavior: Clip.none,
+                                              children: [
+                                                UserAvatar(
+                                                  name: member.name,
+                                                  imageUrl: member.avatarUrl,
+                                                  radius: 18,
+                                                ),
+                                                Positioned(
+                                                  right: -1,
+                                                  bottom: -1,
+                                                  child: Container(
+                                                    width: 12,
+                                                    height: 12,
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(
+                                                        0xFF45B95C,
+                                                      ),
+                                                      shape: BoxShape.circle,
+                                                      border: Border.all(
+                                                        color: scheme.surface,
+                                                        width: 2,
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
+                                              ],
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          member.name.split(' ').first,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: textTheme.labelSmall,
-                                        ),
-                                      ],
+                                          const SizedBox(width: 8),
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                              maxWidth: 100,
+                                            ),
+                                            child: Text(
+                                              showMore
+                                                  ? '+${visibleOnlineMembers.length - 5}'
+                                                  : member.name
+                                                        .split(' ')
+                                                        .first,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: textTheme.labelSmall,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 );
@@ -2507,6 +2507,8 @@ class _ExploreTabState extends State<_ExploreTab> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
               color: scheme.onSurfaceVariant,
             ),
           ),
@@ -2545,7 +2547,7 @@ class _ExploreTabState extends State<_ExploreTab> {
       child: InkWell(
         onTap: () => _openCommunity(community),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.all(12),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final compact =
@@ -2553,8 +2555,9 @@ class _ExploreTabState extends State<_ExploreTab> {
                   MediaQuery.textScalerOf(context).scale(1) > 1.2;
               final pending =
                   community.membershipStatus == MembershipStatus.pending;
+              final joinedState = SpaceRoleIcon(space: community);
               final action = community.isJoined && !pending
-                  ? SpaceRoleIcon(space: community)
+                  ? joinedState
                   : FilledButton(
                       onPressed:
                           pending ||
@@ -2591,100 +2594,183 @@ class _ExploreTabState extends State<_ExploreTab> {
                               ),
                             ),
                     );
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
-                    width: compact ? 44 : 50,
-                    child: Column(
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
+                  Row(
+                    crossAxisAlignment: community.isPublicProfile
+                        ? CrossAxisAlignment.center
+                        : CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: community.isPublicProfile ? 48 : 80,
+                        child: Column(
                           children: [
-                            CommunityAvatar(
-                              community: community,
-                              radius: compact ? 22 : 25,
-                            ),
-                            if (community.isPublicProfile)
-                              Positioned(
-                                left: -4,
-                                top: -2,
-                                child: CircleAvatar(
-                                  radius: 11,
-                                  backgroundColor: scheme.surface,
-                                  child: Icon(
-                                    typeIcon,
-                                    size: 15,
-                                    color: scheme.primary,
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                CommunityAvatar(
+                                  community: community,
+                                  radius: community.isPublicProfile ? 24 : 40,
+                                  square: !community.isPublicProfile,
+                                ),
+                                if (community.isPublicProfile)
+                                  Positioned(
+                                    left: -4,
+                                    top: -2,
+                                    child: CircleAvatar(
+                                      radius: 11,
+                                      backgroundColor: scheme.surface,
+                                      child: Icon(
+                                        typeIcon,
+                                        size: 15,
+                                        color: scheme.primary,
+                                      ),
+                                    ),
                                   ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              community.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 16,
+                                height: 1.2,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: community.isPublicProfile ? 2 : 4),
+                            if (!community.isPublicProfile)
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: Icon(
+                                        WicchuIcons.mapPin,
+                                        size: 15,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: ' ${community.town.name} · ',
+                                    ),
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: Icon(
+                                        WicchuIcons.users,
+                                        size: 15,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text:
+                                          ' ${context.trCount(community.memberCount, singular: '{count} member', plural: '{count} members')}',
+                                    ),
+                                    if (community.visibility ==
+                                        CommunityVisibility.private)
+                                      WidgetSpan(
+                                        alignment: PlaceholderAlignment.middle,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 4,
+                                          ),
+                                          child: Tooltip(
+                                            message: context.tr('Private'),
+                                            child: Icon(
+                                              WicchuIcons.lockKey,
+                                              size: 15,
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 12,
+                                  height: 1.4,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              )
+                            else
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 4,
+                                children: [
+                                  metadata(
+                                    WicchuIcons.users,
+                                    context.trCount(
+                                      community.memberCount,
+                                      singular: community.isPublicProfile
+                                          ? '{count} follower'
+                                          : '{count} member',
+                                      plural: community.isPublicProfile
+                                          ? '{count} followers'
+                                          : '{count} members',
+                                    ),
+                                    visibility: community.isPublicProfile
+                                        ? null
+                                        : community.visibility,
+                                  ),
+                                  metadata(
+                                    WicchuIcons.mapPin,
+                                    _filter == 1 && community.distanceKm != null
+                                        ? '${community.distanceKm!.toStringAsFixed(1).replaceAll('.', context.isSpanish ? ',' : '.')} km'
+                                        : community.town.name,
+                                  ),
+                                ],
+                              ),
+                            if (!community.isPublicProfile &&
+                                community.profileSummary.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                community.profileSummary,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                  height: 1.35,
                                 ),
                               ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          community.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontSize: 16,
-                            height: 1.2,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 4,
-                          children: [
-                            metadata(
-                              WicchuIcons.mapPin,
-                              _filter == 1 && community.distanceKm != null
-                                  ? '${community.distanceKm!.toStringAsFixed(1).replaceAll('.', context.isSpanish ? ',' : '.')} km'
-                                  : community.town.name,
-                            ),
-                            metadata(
-                              WicchuIcons.users,
-                              context.trCount(
-                                community.memberCount,
-                                singular: community.isPublicProfile
-                                    ? '{count} follower'
-                                    : '{count} member',
-                                plural: community.isPublicProfile
-                                    ? '{count} followers'
-                                    : '{count} members',
+                            ],
+                            if (compact &&
+                                (!community.isJoined || pending)) ...[
+                              const SizedBox(height: 2),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [action],
                               ),
-                              visibility: community.isPublicProfile
-                                  ? null
-                                  : community.visibility,
-                            ),
+                            ],
                           ],
                         ),
-                        if ((!community.isJoined || pending) && compact) ...[
-                          const SizedBox(height: 2),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [action],
-                          ),
-                        ],
+                      ),
+                      if (!compact && (!community.isJoined || pending)) ...[
+                        const SizedBox(width: 8),
+                        action,
                       ],
-                    ),
+                      if (community.isJoined && !pending) ...[
+                        const SizedBox(width: 8),
+                        joinedState,
+                      ],
+                    ],
                   ),
-                  if (!compact && (!community.isJoined || pending)) ...[
-                    const SizedBox(width: 8),
-                    action,
-                  ],
-                  if (community.isJoined && !pending)
-                    SpaceRoleIcon(space: community),
                 ],
               );
             },
@@ -3884,6 +3970,7 @@ class _ProfileTab extends StatefulWidget {
   const _ProfileTab({
     super.key,
     this.accountHub = false,
+    this.onExploreCommunities,
     this.onSpaceSelected,
     this.postRequest,
     required this.repository,
@@ -3894,6 +3981,7 @@ class _ProfileTab extends StatefulWidget {
     required this.onProfileLoaded,
     required this.onBrowsePosts,
   });
+  final VoidCallback? onExploreCommunities;
   final bool accountHub;
   final ValueChanged<Community?>? onSpaceSelected;
   final Listenable? postRequest;
@@ -3966,8 +4054,8 @@ class _ProfileTabState extends State<_ProfileTab> {
     ),
   );
 
-  void _openAccountMenu() {
-    Navigator.push(
+  Future<void> _openAccountMenu() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => _ProfileTab(
@@ -4121,7 +4209,9 @@ class _ProfileTabState extends State<_ProfileTab> {
         return MemberProfilePage(
           key: ValueKey(profile.id),
           userId: profile.id,
+          onExploreCommunities: widget.onExploreCommunities,
           repository: widget.repository,
+          postRequest: widget.postRequest,
           embedded: true,
           onAccountMenu: _openAccountMenu,
           header: InkWell(
@@ -4133,9 +4223,11 @@ class _ProfileTabState extends State<_ProfileTab> {
                 children: [
                   Flexible(
                     child: Text(
-                      profile.name,
+                      profile.userName.isNotEmpty
+                          ? '@${profile.userName}'
+                          : profile.name,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,

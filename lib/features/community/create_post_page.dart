@@ -148,35 +148,107 @@ class _CreatePostPageState extends State<CreatePostPage> {
         showDragHandle: true,
         useSafeArea: true,
         isScrollControlled: true,
-        builder: (sheetContext) => SizedBox(
-          height: MediaQuery.sizeOf(sheetContext).height * .55,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            children: [
-              ListTile(title: Text(context.tr('Choose where to publish'))),
-              for (final group in destinations)
-                ListTile(
-                  title: Text(group.name),
-                  subtitle: Text(
-                    group.id == 'personal'
-                        ? context.tr('Personal publication')
-                        : group.spaceTypeLabel,
+        builder: (sheetContext) {
+          final theme = Theme.of(sheetContext);
+          final colors = theme.colorScheme;
+          return SafeArea(
+            top: false,
+            child: SizedBox(
+              height: MediaQuery.sizeOf(sheetContext).height * .65,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            context.tr('Choose where to publish'),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: context.tr('Close'),
+                          onPressed: () => Navigator.pop(sheetContext),
+                          icon: const Icon(WicchuIcons.x),
+                        ),
+                      ],
+                    ),
                   ),
-                  leading: Icon(
-                    group.id == 'personal'
-                        ? WicchuIcons.user
-                        : group.isPublicProfile
-                        ? WicchuIcons.storefront
-                        : WicchuIcons.usersThree,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    child: Text(
+                      context.tr('Choose your profile or a community.'),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
                   ),
-                  trailing: group.id == _community.id
-                      ? const Icon(WicchuIcons.check)
-                      : null,
-                  onTap: () => Navigator.pop(sheetContext, group),
-                ),
-            ],
-          ),
-        ),
+                  Expanded(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      itemCount: destinations.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (_, index) {
+                        final group = destinations[index];
+                        final selected = group.id == _community.id;
+                        return Material(
+                          color: selected
+                              ? colors.primaryContainer
+                              : colors.surfaceContainerLow,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: selected
+                                ? BorderSide(color: colors.primary)
+                                : BorderSide.none,
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: ListTile(
+                            selected: selected,
+                            selectedColor: colors.onPrimaryContainer,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 6,
+                            ),
+                            title: Text(
+                              group.id == 'personal'
+                                  ? context.tr('My profile')
+                                  : group.name,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              context.tr(
+                                group.id == 'personal'
+                                    ? 'Personal publication'
+                                    : group.spaceTypeLabel,
+                              ),
+                            ),
+                            leading: Icon(
+                              group.id == 'personal'
+                                  ? WicchuIcons.user
+                                  : group.isPublicProfile
+                                  ? WicchuIcons.storefront
+                                  : WicchuIcons.usersThree,
+                            ),
+                            trailing: selected
+                                ? const Icon(WicchuIcons.check)
+                                : const Icon(WicchuIcons.caretRight, size: 18),
+                            onTap: () => Navigator.pop(sheetContext, group),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       );
       if (selected == null || selected.id == _community.id || !mounted) return;
       if (selected.id == 'personal') {
@@ -856,9 +928,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               text: _effectiveText,
               status: PostStatus.published,
               createdAt: DateTime.now(),
-              destinationType: _personalProfile
-                  ? 'personal'
-                  : 'community',
+              destinationType: _personalProfile ? 'personal' : 'community',
               todayMenu: _buildTodayMenu(),
               businessFeature: _buildBusinessFeature(),
             ),
@@ -887,8 +957,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     borderRadius: BorderRadius.circular(16),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
-      onTap:
-          _step == 0 && !_isEditing && !_changingCommunity
+      onTap: _step == 0 && !_isEditing && !_changingCommunity
           ? _changeCommunity
           : null,
       child: Padding(

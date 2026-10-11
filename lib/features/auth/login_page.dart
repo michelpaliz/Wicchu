@@ -1,6 +1,7 @@
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'auth_sign_in_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../domain/auth_gateway.dart';
 import '../../localization/app_language.dart';
@@ -66,6 +67,16 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 28),
+                  if (!kIsWeb &&
+                      (defaultTargetPlatform == TargetPlatform.iOS ||
+                          defaultTargetPlatform == TargetPlatform.macOS)) ...[
+                    AppleSignInButton(
+                      onPressed: _signInApple,
+                      isLoading: _loadingProvider == 'apple',
+                      disabled: _loadingProvider != null,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   GoogleSignInButton(
                     onPressed: _signInGoogle,
                     isLoading: _loadingProvider == 'google',

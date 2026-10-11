@@ -89,9 +89,25 @@ void main() {
     await tester.tap(find.text('Yes').first);
     await tester.pumpAndSettle();
     expect(repository.submissions, 0);
-    expect(find.text('Community feedback'), findsOneWidget);
+    expect(find.text('Rate this community'), findsOneWidget);
+    expect(find.text('1 of 5 answered'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const ValueKey('rating-submit')))
+          .onPressed,
+      isNull,
+    );
+    for (var i = 1; i < 5; i++) {
+      final choice = find.descendant(
+        of: find.byKey(ValueKey('rating-answer-$i')),
+        matching: find.text('Yes'),
+      );
+      await tester.ensureVisible(choice);
+      await tester.tap(choice);
+      await tester.pumpAndSettle();
+    }
 
-    await tester.tap(find.text('Submit'));
+    await tester.tap(find.text('Send rating'));
     await tester.pumpAndSettle();
     expect(repository.submissions, 1);
     expect(repository.response?.helpful, isTrue);
@@ -113,7 +129,7 @@ void main() {
 
     await tester.tap(find.text('Not really').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Submit'));
+    await tester.tap(find.text('Send rating'));
     await tester.pumpAndSettle();
     expect(repository.submissions, 2);
     expect(repository.response?.helpful, isFalse);
