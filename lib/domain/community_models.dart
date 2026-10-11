@@ -422,6 +422,7 @@ class Community {
     this.neonBordersEnabled = false,
     this.neonBorderAnimation = NeonBorderAnimation.staticGlow,
     this.neonAnimationDurationSeconds = 5,
+    this.headerBorderEnabled = false,
   });
 
   final String id;
@@ -462,6 +463,7 @@ class Community {
   final bool neonBordersEnabled;
   final NeonBorderAnimation neonBorderAnimation;
   final double neonAnimationDurationSeconds;
+  final bool headerBorderEnabled;
 
   bool get isJoined => myRole != null;
   bool get isBanned => membershipStatus == MembershipStatus.banned;

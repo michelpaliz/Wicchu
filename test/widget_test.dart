@@ -1,3 +1,4 @@
+import 'package:wicchu/features/community/post_collection_page.dart';
 import 'package:wicchu/features/profile/profile_communities_page.dart';
 import 'package:wicchu/widgets/explore_result_card.dart';
 import 'package:wicchu/data/authenticated_api_client.dart';
@@ -759,6 +760,21 @@ void main() {
     await tester.tap(find.byTooltip('Menú de cuenta'));
     await tester.pumpAndSettle();
     expect(find.text('Editar perfil'), findsOneWidget);
+    for (final label in ['Votaciones', 'Publicaciones guardadas']) {
+      await tester.scrollUntilVisible(
+        find.text(label),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      expect(find.byType(PostCollectionPage), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+    }
+    await tester.ensureVisible(find.text('Editar perfil'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Editar perfil'));
     await tester.pumpAndSettle();
     expect(find.byType(EditProfilePage), findsOneWidget);
@@ -895,7 +911,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Restore default order'), findsOneWidget);
-    expect(find.text('Save order'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
     await tester.tap(find.text('Restore default order'));
     await tester.pumpAndSettle();
     expect(find.byType(FloatingActionButton), findsNothing);

@@ -1291,6 +1291,7 @@ class HttpCommunityRepository implements CommunityRepository {
     bool? neonBordersEnabled,
     NeonBorderAnimation? neonBorderAnimation,
     double? neonAnimationDurationSeconds,
+    bool? headerBorderEnabled,
   }) async {
     final body = await _api.patch(
       '/api/community/v1/communities/${community.id}',
@@ -1310,6 +1311,9 @@ class HttpCommunityRepository implements CommunityRepository {
         'neonAnimationDurationSeconds':
             neonAnimationDurationSeconds ??
             community.neonAnimationDurationSeconds,
+        if (headerBorderEnabled != null || community.headerBorderEnabled)
+          'headerBorderEnabled':
+              headerBorderEnabled ?? community.headerBorderEnabled,
         'approvalRequired': approvalRequired,
         'showWeather': showWeather,
         if (community.isPublicProfile && profileCategory != null)
@@ -2370,6 +2374,7 @@ class HttpCommunityRepository implements CommunityRepository {
       ),
       neonAnimationDurationSeconds:
           (json['neonAnimationDurationSeconds'] as num?)?.toDouble() ?? 5,
+      headerBorderEnabled: json['headerBorderEnabled'] == true,
       approvalRequired: json['approvalRequired'] as bool? ?? false,
       showWeather: json['showWeather'] as bool? ?? false,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),

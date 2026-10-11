@@ -10,7 +10,9 @@ import 'package:wicchu/features/community/post_collection_page.dart';
 import 'package:wicchu/widgets/profile_post_grid.dart';
 
 void main() {
-  testWidgets('saved tab is private and shows saved content', (tester) async {
+  testWidgets('personal profiles show only posts and media tabs', (
+    tester,
+  ) async {
     final repository = DemoCommunityRepository();
     final community = (await repository.listJoinedCommunities()).first;
     final category = (await repository.listCategories(community.id)).first;
@@ -26,13 +28,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Saved'));
-    await tester.tap(find.text('Saved'));
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<ProfilePostTile>(find.byType(ProfilePostTile)).post.id,
-      saved.id,
-    );
+    expect(find.text('Posts'), findsOneWidget);
+    expect(find.text('Media'), findsOneWidget);
+    expect(find.text('Polls'), findsNothing);
+    expect(find.text('Saved'), findsNothing);
     await tester.pumpWidget(
       MaterialApp(
         home: MemberProfilePage(

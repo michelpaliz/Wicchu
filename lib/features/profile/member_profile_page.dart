@@ -323,22 +323,11 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   final Map<String, String> _communityNames = {};
 
   Future<List<CommunityPost>> _loadPosts() async {
-    final posts = _kind == 'saved'
-        ? (await _viewer)?.id == widget.userId
-              ? (await widget.repository.listSavedPosts()).toList()
-              : <CommunityPost>[]
-        : await widget.repository.listMemberPosts(
-            widget.userId,
-            kind: _kind,
-            sort: _sort,
-          );
-    if (_kind == 'saved') {
-      posts.sort(
-        (a, b) => _sort == 'oldest'
-            ? a.createdAt.compareTo(b.createdAt)
-            : b.createdAt.compareTo(a.createdAt),
-      );
-    }
+    final posts = await widget.repository.listMemberPosts(
+      widget.userId,
+      kind: _kind,
+      sort: _sort,
+    );
     try {
       final communities = await widget.repository.listJoinedCommunities();
       for (final community in communities) {
@@ -495,31 +484,15 @@ class _MemberProfilePageState extends State<MemberProfilePage>
               return _profileHeader(profile);
             },
           ),
-          FutureBuilder<WicchuProfile?>(
-            future: _viewer,
-            builder: (context, viewer) {
-              final kinds = [
-                'all',
-                'media',
-                'polls',
-                if (viewer.data?.id == widget.userId) 'saved',
-              ];
-              return FeedFilterBar(
-                compact: true,
-                style: FeedNavigationStyle.underline,
-                labels: [
-                  context.tr('Posts'),
-                  context.tr('Media'),
-                  context.tr('Polls'),
-                  if (viewer.data?.id == widget.userId) context.tr('Saved'),
-                ],
-                selectedIndex: kinds.indexOf(_kind),
-                onSelected: (index) => setState(() {
-                  _kind = kinds[index];
-                  _posts = _loadPosts();
-                }),
-              );
-            },
+          FeedFilterBar(
+            compact: true,
+            style: FeedNavigationStyle.underline,
+            labels: [context.tr('Posts'), context.tr('Media')],
+            selectedIndex: _kind == 'media' ? 1 : 0,
+            onSelected: (index) => setState(() {
+              _kind = index == 0 ? 'all' : 'media';
+              _posts = _loadPosts();
+            }),
           ),
           Row(
             children: [

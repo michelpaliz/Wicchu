@@ -45,6 +45,7 @@ class DemoCommunityRepository implements CommunityRepository {
   final Map<String, List<CommunityRule>> _rules = {};
   final Map<String, int> _ruleVersions = {};
   final Map<String, List<CommunityPost>> _posts = {};
+  final Map<String, Set<String>> _seenPosts = {};
   final List<PromotionCampaign> _promotions = [];
   final Map<String, List<Comment>> _comments = {};
   final Set<String> _savedPostIds = {};
@@ -238,14 +239,38 @@ class DemoCommunityRepository implements CommunityRepository {
   );
 
   @override
-  Future<CategoryActivity> getCategoryActivity(String communityId) async =>
-      const CategoryActivity();
+  Future<CategoryActivity> getCategoryActivity(String communityId) async {
+    final viewer = await getProfile();
+    final seen = _seenPosts[communityId] ?? const <String>{};
+    final counts = <String, int>{};
+    for (final post in await listPosts(communityId)) {
+      if (post.communityId != communityId ||
+          post.status != PostStatus.published ||
+          post.authorId == viewer.id ||
+          seen.contains(post.id)) {
+        continue;
+      }
+      counts.update(post.categoryId, (count) => count + 1, ifAbsent: () => 1);
+    }
+    return CategoryActivity(
+      totalUnreadCount: counts.values.fold(0, (sum, count) => sum + count),
+      unreadByCategory: counts,
+    );
+  }
 
   @override
   Future<void> markCommunityPostsSeen(
     String communityId,
     List<String> postIds,
-  ) async {}
+  ) async {
+    final validIds = (await listPosts(communityId))
+        .where((post) => post.communityId == communityId)
+        .map((post) => post.id)
+        .toSet();
+    _seenPosts
+        .putIfAbsent(communityId, () => {})
+        .addAll(postIds.where(validIds.contains));
+  }
 
   @override
   Future<ScopedNotificationPreferences>
@@ -742,6 +767,7 @@ class DemoCommunityRepository implements CommunityRepository {
     bool? neonBordersEnabled,
     NeonBorderAnimation? neonBorderAnimation,
     double? neonAnimationDurationSeconds,
+    bool? headerBorderEnabled,
   }) async {
     final updated = Community(
       id: community.id,
@@ -778,6 +804,7 @@ class DemoCommunityRepository implements CommunityRepository {
       neonAnimationDurationSeconds:
           neonAnimationDurationSeconds ??
           community.neonAnimationDurationSeconds,
+      headerBorderEnabled: headerBorderEnabled ?? community.headerBorderEnabled,
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;
@@ -972,6 +999,7 @@ class DemoCommunityRepository implements CommunityRepository {
             ),
       todayMenu: input.todayMenu,
       businessFeature: input.businessFeature,
+      importantAnnouncement: input.importantAnnouncement,
     );
     _posts.putIfAbsent(communityId, () => []).insert(0, post);
     return post;
@@ -1051,6 +1079,7 @@ class DemoCommunityRepository implements CommunityRepository {
               ),
         todayMenu: input.todayMenu ?? current.todayMenu,
         businessFeature: input.businessFeature ?? current.businessFeature,
+        importantAnnouncement: input.importantAnnouncement,
         businessViewCount: current.businessViewCount,
         businessContactCount: current.businessContactCount,
       );
@@ -1279,6 +1308,7 @@ class DemoCommunityRepository implements CommunityRepository {
       poll: post.poll,
       todayMenu: post.todayMenu,
       businessFeature: post.businessFeature,
+      importantAnnouncement: post.importantAnnouncement,
       mentionedUserIds: post.mentionedUserIds,
       isAnonymous: post.isAnonymous,
     );

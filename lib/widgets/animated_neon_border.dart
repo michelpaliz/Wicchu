@@ -16,6 +16,7 @@ class AnimatedNeonBorder extends StatefulWidget {
     this.borderRadius = const BorderRadius.all(Radius.circular(999)),
     this.padding = const EdgeInsets.all(3),
     this.strokeWidth = 2,
+    this.bottomEdgeOnly = false,
   });
 
   final Widget child;
@@ -26,6 +27,7 @@ class AnimatedNeonBorder extends StatefulWidget {
   final BorderRadius borderRadius;
   final EdgeInsets padding;
   final double strokeWidth;
+  final bool bottomEdgeOnly;
 
   @override
   State<AnimatedNeonBorder> createState() => _AnimatedNeonBorderState();
@@ -66,9 +68,10 @@ class _AnimatedNeonBorderState extends State<AnimatedNeonBorder>
   }
 
   void _syncAnimation() {
+    final durationChanged = _controller.duration != _duration;
     _controller.duration = _duration;
     if (_shouldAnimate) {
-      if (!_controller.isAnimating) _controller.repeat();
+      if (!_controller.isAnimating || durationChanged) _controller.repeat();
     } else {
       _controller.stop();
       _controller.value = 0;
@@ -92,6 +95,7 @@ class _AnimatedNeonBorderState extends State<AnimatedNeonBorder>
           : widget.animation,
       borderRadius: widget.borderRadius,
       strokeWidth: widget.strokeWidth,
+      bottomEdgeOnly: widget.bottomEdgeOnly,
     ),
     child: Padding(padding: widget.padding, child: widget.child),
   );
@@ -105,6 +109,7 @@ class _NeonBorderPainter extends CustomPainter {
     required this.animation,
     required this.borderRadius,
     required this.strokeWidth,
+    required this.bottomEdgeOnly,
   }) : progress = progress,
        super(repaint: progress);
 
@@ -114,6 +119,7 @@ class _NeonBorderPainter extends CustomPainter {
   final NeonBorderAnimation animation;
   final BorderRadius borderRadius;
   final double strokeWidth;
+  final bool bottomEdgeOnly;
 
   Paint _stroke(Color paintColor, double width, {double blur = 0}) => Paint()
     ..style = PaintingStyle.stroke
@@ -208,7 +214,11 @@ class _NeonBorderPainter extends CustomPainter {
     if (size.isEmpty) return;
     final inset = strokeWidth / 2 + 1;
     final rect = Offset.zero & size;
-    final path = Path()..addRRect(borderRadius.toRRect(rect.deflate(inset)));
+    final path = bottomEdgeOnly
+        ? (Path()
+            ..moveTo(0, size.height - inset)
+            ..lineTo(size.width, size.height - inset))
+        : (Path()..addRRect(borderRadius.toRRect(rect.deflate(inset))));
     if (!enabled) {
       canvas.drawPath(path, _stroke(color, strokeWidth));
       return;
@@ -232,5 +242,6 @@ class _NeonBorderPainter extends CustomPainter {
       enabled != oldDelegate.enabled ||
       animation != oldDelegate.animation ||
       borderRadius != oldDelegate.borderRadius ||
-      strokeWidth != oldDelegate.strokeWidth;
+      strokeWidth != oldDelegate.strokeWidth ||
+      bottomEdgeOnly != oldDelegate.bottomEdgeOnly;
 }

@@ -207,6 +207,38 @@ const _spanish = <String, String>{
       'Solo propietarios y administradores pueden encontrar y editar esta página.',
   'Unpublished': 'No publicada',
   'Profile color': 'Color del perfil',
+  'Off': 'Desactivado',
+  'On': 'Activado',
+  'Choose the color used by your page header and borders.':
+      'Elige el color de la cabecera y los bordes de tu página.',
+  'Add a glow to the bottom edge of the top bar using your selected color.':
+      'Añade un resplandor al borde inferior de la barra superior con el color que hayas elegido.',
+  'Outline the edge between the cover and page information. It uses your profile color without a glow.':
+      'Resalta la separación entre la portada y la información. Usa el color del perfil sin resplandor.',
+  'Save your changes from page settings.':
+      'Guarda los cambios desde los ajustes de la página.',
+  'Important announcements only': 'Solo anuncios importantes',
+  'All new posts': 'Todas las publicaciones nuevas',
+  'Selected categories': 'Categorías seleccionadas',
+  'Mute this community': 'Silenciar esta comunidad',
+  'Push notifications': 'Notificaciones push',
+  'Receive alerts on your device': 'Recibe avisos en tu dispositivo',
+  'Notify me about this category': 'Recibir avisos de esta categoría',
+  'Post notifications': 'Notificaciones de publicaciones',
+  'Choose alerts from this person': 'Elige los avisos de esta persona',
+  'New public posts': 'Nuevas publicaciones públicas',
+  'Notification preferences saved.':
+      'Preferencias de notificaciones guardadas.',
+  'Important announcement': 'Anuncio importante',
+  'Notify members who selected important announcements.':
+      'Notifica a los miembros que eligieron recibir anuncios importantes.',
+  'Category and notification preferences saved.':
+      'Preferencias de categorías y notificaciones guardadas.',
+  'Top bar glow': 'Resplandor de la barra superior',
+  'Decorative border': 'Borde decorativo',
+  'Uses the existing header color.': 'Usa el color actual de la cabecera.',
+  'The decorative border setting could not be saved. Please try again later.':
+      'No se pudo guardar el ajuste del borde decorativo. Inténtalo de nuevo más tarde.',
   'Choose an accent color for your public profile.':
       'Elige un color de acento para tu perfil público.',
   'Choose an accent color for this page.':

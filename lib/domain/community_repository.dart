@@ -368,6 +368,7 @@ abstract interface class CommunityRepository {
     bool? neonBordersEnabled,
     NeonBorderAnimation? neonBorderAnimation,
     double? neonAnimationDurationSeconds,
+    bool? headerBorderEnabled,
   });
   Future<CommunityWeather?> getCommunityWeather(String communityId);
   Future<List<CommunityPost>> listPosts(

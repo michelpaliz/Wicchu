@@ -162,3 +162,78 @@ so the list does not duplicate the actor's name.
 Verify Spanish and English payloads, and phone banners while the app is in the
 background or closed. The backend sender is not available in this workspace;
 this requirement documents the pending fix, not a completed server change.
+
+## Decorative community/page header border
+
+The Flutter appearance settings reuse the existing `accentColor` and community
+PATCH endpoint. Top-bar neon rendering reuses `neonBordersEnabled` and the shared neon
+accent/glow definitions. The decorative cover boundary remains a solid accent
+line; glow is limited to the top bar on community/public pages. No separate color or neon configuration is added.
+The only new optional community property is `headerBorderEnabled` (boolean,
+default `false`). Personal member profiles are unaffected.
+
+- Accept this optional field on `PATCH /api/community/v1/communities/{id}` using
+  the same authorization as existing appearance edits.
+- Persist it with the existing community/page appearance data; omitted fields
+  must preserve the saved value. Existing records without it remain disabled.
+- Return it in community details, lists, and PATCH responses, including public
+  business/organization pages. The client derives the border color from
+  `accentColor` at render time; changing that accent requires no border update.
+- The client omits the field for unchanged legacy settings, sends explicit
+  `false` when disabling, and checks the returned value before reporting a
+  successful settings save.
+
+Client and demo persistence are implemented and tested. Server persistence is
+not implemented or verified in this checkout, which contains no backend source.
+Extend the existing appearance storage rather than creating a separate system;
+no client-side database migration is needed.
+
+## Scoped content notifications and category unread activity
+
+The Flutter client consumes the following contracts. Server implementation and
+push delivery have not been verified in this client-only checkout.
+
+- `GET /api/community/v1/communities/{id}/category-activity` returns
+  `{ "totalUnreadCount": 4, "activity": [{ "categoryId": "category-id", "unreadCount": 4 }] }`.
+  Derive counts from published, accessible posts and the authenticated viewer's
+  read receipts. Exclude the viewer's own posts and inaccessible content.
+- `POST /api/community/v1/communities/{id}/posts/seen` accepts
+  `{ "postIds": ["post-id"] }`. Store receipts per viewer, validate community
+  ownership and access for every post, and make repeated requests idempotent.
+  The client batches up to 50 visible posts and retries failed requests;
+  off-screen cached widgets do not acknowledge posts. Counts must reflect
+  successful acknowledgements on the next activity request.
+- `GET` and `PUT /api/community/v1/communities/{id}/content-notification-preferences`
+  and `/api/community/v1/users/{id}/content-notification-preferences` read and save
+  preferences for the authenticated viewer and the target community/person.
+  Payload: `{ "mode": "selected", "selectedCategoryIds": ["category-id"],
+  "contentTypes": ["posts"], "pushEnabled": true }`.
+  Return stored preferences directly or inside `preferences`. Modes are
+  `important`, `all`, `selected`, and `muted`; business content types are `posts`,
+  `offers`, and `events`. Validate category IDs against the target community.
+  Missing settings default to important, no selected categories, posts, push on.
+  Failed writes must return an error rather than acknowledge an ignored update.
+- Preserve per-viewer category order through the existing category-order
+  endpoints for communities and compatible public pages.
+
+Notification delivery must be implemented in the existing server notification
+service, not by sending notifications from the viewer's Flutter client. Apply
+scope membership/following, content access, blocked-user rules, global settings,
+selected categories and content types before creating an eligible notification.
+`muted` suppresses scoped notifications, `important` selects important announcements,
+`all` allows eligible content, and `selected` filters by the saved categories.
+`pushEnabled: false` suppresses device delivery; confirm whether in-app entries
+remain enabled with the product's existing notification policy.
+
+Persist `importantAnnouncement` on posts, return it in post responses, and
+enforce owner/admin authorization on the server. Trigger delivery when a post
+becomes published, including moderation approval; never for drafts or pending
+posts. Deduplicate per recipient/post/event so retries and routine edits do not
+send duplicate announcements. Use existing localized payloads and routing IDs.
+
+To finish verification, provide the notification/backend repository or an
+implemented staging API, two test accounts with membership/follow relationships,
+and access to delivery logs for the existing Firebase device registration flow.
+Verify preference read-back after sign-in, cross-device unread persistence,
+publish/approval delivery, muted and push-disabled behavior, and notification
+tap routing. Simulator/client tests alone do not establish real push delivery.

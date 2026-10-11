@@ -8,7 +8,9 @@ import '../../widgets/profile_post_grid.dart';
 import '../../widgets/wicchu_network_image.dart';
 import '../../widgets/block_visibility_listener.dart';
 import '../../widgets/profile_accent_picker.dart';
-import '../../widgets/animated_neon_border.dart';
+import '../../widgets/profile_top_bar_glow.dart';
+import '../../widgets/visible_post_observer.dart';
+import '../../widgets/community_header_border.dart';
 import 'business_service_icon.dart';
 import 'post_rules_review_page.dart';
 import 'user_avatar.dart';
@@ -109,7 +111,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   CategoryActivity _categoryActivity = const CategoryActivity();
   final Set<String> _pulsingCategoryTokens = {};
   final Set<String> _queuedSeenPostIds = {};
-  final Set<String> _seenPostIds = {};
+  final Set<String> _confirmedSeenPostIds = {};
+  bool _flushingSeen = false;
+  bool _refreshingCategoryActivity = false;
   Timer? _categoryActivityTimer;
   Timer? _categoryPulseTimer;
   Timer? _seenPostsTimer;
@@ -307,8 +311,13 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     try {
       initialPreferences = await widget.repository
           .getCommunityContentNotificationPreferences(_community.id);
-    } catch (_) {
-      initialPreferences = const ScopedNotificationPreferences();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+      return;
     }
     if (!mounted) return;
     final initial = _orderedCategoryEntries(data.categories, data.order);
@@ -528,7 +537,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                         .toList(),
                                   ),
                                 )),
-                                child: Text(context.tr('Save order')),
+                                child: Text(context.tr('Save')),
                               ),
                             ),
                           ],
@@ -550,10 +559,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               _community.id,
               result.order,
             );
-      await widget.repository.updateCommunityContentNotificationPreferences(
-        _community.id,
-        result.preferences,
-      );
       if (!mounted) return;
       setState(() {
         _categoryView = Future.value((
@@ -561,8 +566,17 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           order: order,
         ));
       });
+      await widget.repository.updateCommunityContentNotificationPreferences(
+        _community.id,
+        result.preferences,
+      );
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('Category order saved.'))),
+        SnackBar(
+          content: Text(
+            context.tr('Category and notification preferences saved.'),
+          ),
+        ),
       );
     } catch (error) {
       if (mounted) {
@@ -577,7 +591,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   void _reload() {
     if (_joined) {
-      _refreshCategoryActivity(animate: false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _refreshCategoryActivity(animate: false);
+      });
     } else {
       _categoryActivity = const CategoryActivity();
       _pulsingCategoryTokens.clear();
@@ -589,7 +605,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     _categories = widget.repository.listCategories(_community.id);
     _categoryView = () async {
       final categories = await _categories;
-      if (!_joined || _community.isPublicProfile) {
+      if (!_joined) {
         return (
           categories: categories,
           order: ['all', ...categories.map((category) => category.id)],
@@ -627,11 +643,20 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         : Future.value(const <CommunityMember>[]);
   }
 
+  bool get _activityVisible =>
+      mounted &&
+      _joined &&
+      TickerMode.valuesOf(context).enabled &&
+      ModalRoute.of(context)?.isCurrent != false &&
+      (WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
+
   Future<void> _refreshCategoryActivity({required bool animate}) async {
-    if (!_joined) return;
+    if (!_activityVisible || _refreshingCategoryActivity) return;
+    _refreshingCategoryActivity = true;
     try {
       final next = await widget.repository.getCategoryActivity(_community.id);
-      if (!mounted) return;
+      if (!_activityVisible) return;
       final increased = <String>{};
       if (animate) {
         if (next.totalUnreadCount > _categoryActivity.totalUnreadCount) {
@@ -655,34 +680,49 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         });
       }
     } catch (_) {
-      // Unread indicators should not block the community feed.
+      // Preserve the last successful counts when a refresh fails.
+    } finally {
+      _refreshingCategoryActivity = false;
+      if (mounted && _queuedSeenPostIds.isNotEmpty) _scheduleSeenFlush();
     }
   }
 
   void _queuePostSeen(CommunityPost post) {
-    if (!_joined ||
-        _seenPostIds.contains(post.id) ||
-        _queuedSeenPostIds.contains(post.id)) {
-      return;
-    }
-    _seenPostIds.add(post.id);
+    if (!_joined || _confirmedSeenPostIds.contains(post.id)) return;
     _queuedSeenPostIds.add(post.id);
     _scheduleSeenFlush();
   }
 
-  void _scheduleSeenFlush() {
-    _seenPostsTimer?.cancel();
-    _seenPostsTimer = Timer(const Duration(milliseconds: 250), () async {
+  void _scheduleSeenFlush({
+    Duration delay = const Duration(milliseconds: 250),
+  }) {
+    if (_flushingSeen ||
+        _seenPostsTimer?.isActive == true ||
+        _queuedSeenPostIds.isEmpty) {
+      return;
+    }
+    _seenPostsTimer = Timer(delay, () async {
+      if (!_activityVisible) return;
+      _flushingSeen = true;
       final postIds = _queuedSeenPostIds.take(50).toList(growable: false);
-      _queuedSeenPostIds.removeAll(postIds);
+      var failed = false;
       try {
         await widget.repository.markCommunityPostsSeen(_community.id, postIds);
+        if (!mounted) return;
+        _confirmedSeenPostIds.addAll(postIds);
+        _queuedSeenPostIds.removeAll(postIds);
         await _refreshCategoryActivity(animate: false);
       } catch (_) {
-        _seenPostIds.removeAll(postIds);
-      }
-      if (_queuedSeenPostIds.isNotEmpty && mounted) {
-        _scheduleSeenFlush();
+        failed = true; // Retain the batch until the server acknowledges it.
+      } finally {
+        _flushingSeen = false;
+        if (mounted && _queuedSeenPostIds.isNotEmpty) {
+          _scheduleSeenFlush(
+            delay: failed
+                ? const Duration(seconds: 5)
+                : const Duration(milliseconds: 250),
+          );
+        }
       }
     });
   }
@@ -804,6 +844,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           businessContact: _community.businessContact,
           published: _community.published,
           accentColor: _community.accentColor,
+          headerBorderEnabled: _community.headerBorderEnabled,
           neonBordersEnabled: _community.neonBordersEnabled,
           neonBorderAnimation: _community.neonBorderAnimation,
           neonAnimationDurationSeconds: _community.neonAnimationDurationSeconds,
@@ -1045,32 +1086,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     if (mounted) setState(_reload);
   }
 
-  Widget _communityIdentity() => InkWell(
-    key: const ValueKey('community-information-entry'),
-    onTap: _openInformation,
-    borderRadius: BorderRadius.circular(8),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(
-              _community.name,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontSize: 15,
-                height: 1.25,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(WicchuIcons.caretRight, size: 20),
-        ],
-      ),
-    ),
-  );
-
   Widget _memberCountLink({
     bool compact = false,
     bool typeFirst = false,
@@ -1105,6 +1120,13 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     titleSpacing: 8,
     centerTitle: false,
     backgroundColor: _pageHeaderColor(context),
+    flexibleSpace: _community.neonBordersEnabled
+        ? ProfileTopBarGlow(
+            accent: _community.accentColor,
+            animation: _community.neonBorderAnimation,
+            durationSeconds: _community.neonAnimationDurationSeconds,
+          )
+        : null,
     surfaceTintColor: Colors.transparent,
     scrolledUnderElevation: 0,
     titleTextStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1198,8 +1220,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             size: 20,
           ),
         ),
-      if (!_community.isPublicProfile &&
-          widget.screen == CommunityScreen.feed) ...[
+      if (!_isLocalBusiness && widget.screen == CommunityScreen.feed) ...[
         _communityHeaderActions(showMembership: false),
         const SizedBox(width: 8),
       ],
@@ -1821,7 +1842,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   Widget _headerDetails() {
     final theme = Theme.of(context);
     final style = theme.textTheme.bodySmall?.copyWith(
-      fontSize: _community.isPublicProfile ? null : 15,
+      fontSize: 15,
       fontWeight: FontWeight.w400,
       height: 1.4,
     );
@@ -1842,16 +1863,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_community.isPublicProfile)
-          Text(
-            '${context.tr(_community.spaceTypeLabel)} · $location',
-            key: const ValueKey('page-header-location'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
         if (description.isNotEmpty) ...[
-          if (_community.isPublicProfile) const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
               final painter = TextPainter(
@@ -1903,6 +1915,19 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             },
           ),
         ],
+        if (_community.isPublicProfile) ...[
+          if (description.isNotEmpty) const SizedBox(height: 8),
+          if (_isLocalBusiness)
+            _localBusinessHeaderDetails()
+          else
+            Text(
+              '${context.tr(_community.spaceTypeLabel)} · $location',
+              key: const ValueKey('page-header-location'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+        ],
         if (!_community.isPublicProfile) ...[
           if (description.isNotEmpty) const SizedBox(height: 8),
           _communityHeaderMetadata(location),
@@ -1931,12 +1956,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       final content = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: compact ? 14 : 16, color: color),
           const SizedBox(width: 4),
           Text(
             text,
             key: textKey,
-            style: compact ? textStyle?.copyWith(fontSize: 12) : textStyle,
+            style: compact ? textStyle?.copyWith(fontSize: 11) : textStyle,
           ),
         ],
       );
@@ -2082,13 +2107,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           ? 'Ecuador'
           : _community.town.countryCode,
     ].where((part) => part.isNotEmpty).join(', ');
-    final summary = _community.profileSummary;
-    final summaryLines = summary
-        .split(RegExp(r'\r?\n'))
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .toList(growable: false);
-    final summaryLead = summaryLines.isEmpty ? '' : summaryLines.first;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2146,50 +2164,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           ],
         ),
-        if (summary.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            summaryLead,
-            key: const ValueKey('page-header-description'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _localBusinessHeaderActions() {
-    final canManage =
-        _community.myRole == CommunityRole.owner ||
-        _community.myRole == CommunityRole.admin;
-    final isFollowing = !canManage && _joined;
-    return Wrap(
-      spacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        if (!canManage && isFollowing)
-          KeyedSubtree(
-            key: const ValueKey('local-business-follow'),
-            child: _communityRoleBadge(),
-          ),
-        if (!canManage && !isFollowing)
-          FilledButton.icon(
-            key: const ValueKey('local-business-follow'),
-            onPressed: _savingMembership ? null : _toggleMembership,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              visualDensity: VisualDensity.compact,
-              shape: const StadiumBorder(),
-            ),
-            icon: const Icon(WicchuIcons.plus, size: 16),
-            label: Text(
-              context.tr('Follow'),
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
       ],
     );
   }
@@ -2277,8 +2251,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
 
   Widget _buildHeader(BuildContext context) {
     final accent = profileAccentColor(_community.accentColor);
-    final roundedAvatar = !_community.isPublicProfile;
-    final overlap = roundedAvatar ? 8.0 : 0.0;
+    final overlap = CommunityHeaderGeometry.overlap;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _openInformation,
@@ -2309,38 +2282,25 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     ),
                   ),
                   Positioned(
-                    left: roundedAvatar ? 0 : 16,
-                    bottom: roundedAvatar ? 0 : 4,
-                    child: AnimatedNeonBorder(
+                    left: 0,
+                    bottom: 0,
+                    child: Container(
                       key: const ValueKey('community-avatar-backing'),
-                      color: accent,
-                      enabled: _community.neonBordersEnabled,
-                      animation: _community.neonBorderAnimation,
-                      durationSeconds: _community.neonAnimationDurationSeconds,
-                      padding: EdgeInsets.all(roundedAvatar ? 5 : 0),
-                      borderRadius: roundedAvatar
-                          ? const BorderRadius.only(
-                              topLeft: Radius.circular(39),
-                              topRight: Radius.circular(39),
-                              bottomRight: Radius.circular(39),
-                            )
-                          : BorderRadius.circular(999),
+                      padding: EdgeInsets.all(
+                        CommunityHeaderGeometry.cutoutPadding,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        shape: BoxShape.rectangle,
+                        borderRadius: CommunityHeaderGeometry.avatarCorners,
+                      ),
                       child: Container(
-                        padding: EdgeInsets.all(roundedAvatar ? 2 : 3),
+                        padding: EdgeInsets.all(
+                          CommunityHeaderGeometry.avatarOutline,
+                        ),
                         decoration: BoxDecoration(
-                          color: roundedAvatar
-                              ? Theme.of(context).scaffoldBackgroundColor
-                              : accent,
-                          borderRadius: roundedAvatar
-                              ? const BorderRadius.only(
-                                  topLeft: Radius.circular(34),
-                                  topRight: Radius.circular(34),
-                                  bottomRight: Radius.circular(34),
-                                )
-                              : null,
-                          shape: roundedAvatar
-                              ? BoxShape.rectangle
-                              : BoxShape.circle,
+                          color: accent,
+                          shape: BoxShape.circle,
                         ),
                         child: Semantics(
                           button: true,
@@ -2353,35 +2313,70 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                             onTap: _openInformation,
                             child: CommunityAvatar(
                               community: _community,
-                              radius: roundedAvatar ? 32 : 28,
+                              radius: CommunityHeaderGeometry.avatarRadius,
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                  if (roundedAvatar && _joined)
+                  if (!_community.isBanned)
                     Positioned(
                       right: 0,
                       bottom: 0,
                       child: Container(
                         key: const ValueKey('community-membership-backing'),
-                        padding: const EdgeInsets.fromLTRB(5, 5, 5, 0),
+                        padding: CommunityHeaderGeometry.membershipPadding,
                         decoration: BoxDecoration(
                           color: Theme.of(context).scaffoldBackgroundColor,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(25),
-                            topRight: Radius.circular(25),
-                          ),
+                          borderRadius:
+                              CommunityHeaderGeometry.membershipOuterCorners,
                         ),
-                        child: _communityRoleBadge(headerTab: true),
+                        child: _joined
+                            ? _communityRoleBadge(headerTab: true)
+                            : SizedBox(
+                                width: CommunityHeaderGeometry.membershipWidth,
+                                height:
+                                    CommunityHeaderGeometry.membershipHeight,
+                                child: IconButton(
+                                  key: const ValueKey('header-follow-action'),
+                                  tooltip: context.tr(
+                                    _community.isPublicProfile
+                                        ? 'Follow'
+                                        : 'Join',
+                                  ),
+                                  onPressed: _savingMembership
+                                      ? null
+                                      : _toggleMembership,
+                                  icon: _savingMembership
+                                      ? const SizedBox.square(
+                                          dimension: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Icon(
+                                          WicchuIcons.userPlus,
+                                          color: accent,
+                                          size: 20,
+                                        ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  if (_community.headerBorderEnabled)
+                    Positioned.fill(
+                      child: CommunityHeaderBorder(
+                        color: accent,
+                        cutouts: true,
+                        membership: !_community.isBanned,
                       ),
                     ),
                 ],
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(16, roundedAvatar ? 0 : 8, 16, 2),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2389,85 +2384,21 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (!_community.isPublicProfile)
-                          Tooltip(
-                            message: context.tr('Community information'),
-                            child: InkWell(
-                              key: const ValueKey(
-                                'community-information-entry',
-                              ),
-                              onTap: _openInformation,
-                              borderRadius: BorderRadius.circular(8),
-                              child: _headerDetails(),
-                            ),
-                          )
-                        else ...[
-                          Row(
-                            children: [
-                              Expanded(child: _communityIdentity()),
-                              if (_isLocalBusiness) ...[
-                                const SizedBox(width: 8),
-                                _localBusinessHeaderActions(),
-                              ] else if (_community.isPublicProfile) ...[
-                                const SizedBox(width: 8),
-                                _communityHeaderActions(),
-                              ] else if (_joined) ...[
-                                const SizedBox(width: 8),
-                                _communityRoleBadge(),
-                              ],
-                            ],
+                        Tooltip(
+                          message: context.tr(
+                            _community.isPublicProfile
+                                ? 'Profile information'
+                                : 'Community information',
                           ),
-                          if (_isLocalBusiness)
-                            _localBusinessHeaderDetails()
-                          else
-                            _headerDetails(),
-                        ],
+                          child: InkWell(
+                            key: const ValueKey('community-information-entry'),
+                            onTap: _openInformation,
+                            borderRadius: BorderRadius.circular(8),
+                            child: _headerDetails(),
+                          ),
+                        ),
                         if (!_isLocalBusiness && _community.isPublicProfile)
                           _pageHeaderActions(),
-                        if (!_isLocalBusiness &&
-                            !_joined &&
-                            !_community.isBanned)
-                          TextButton.icon(
-                            onPressed: _savingMembership
-                                ? null
-                                : _toggleMembership,
-                            style: TextButton.styleFrom(
-                              minimumSize: const Size(64, 34),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              textStyle: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              shape: const StadiumBorder(),
-                              backgroundColor: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: .07),
-                              visualDensity: VisualDensity.compact,
-                              tapTargetSize: MaterialTapTargetSize.padded,
-                            ),
-                            icon: _savingMembership
-                                ? const SizedBox.square(
-                                    dimension: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Icon(
-                                    _joined
-                                        ? WicchuIcons.check
-                                        : WicchuIcons.plus,
-                                    size: 16,
-                                  ),
-                            label: Text(
-                              context.tr(
-                                _community.isPublicProfile
-                                    ? (_joined ? 'Following' : 'Follow')
-                                    : (_joined ? 'Joined' : 'Join'),
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -2874,111 +2805,53 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         itemCount: posts.length,
                         itemBuilder: (context, index) {
                           final post = posts[index];
-                          _queuePostSeen(post);
                           final category = categories
                               .where((c) => c.id == post.categoryId)
                               .firstOrNull;
-                          return ProfilePostTile(
-                            post: post,
-                            categoryIcon: category?.icon ?? '💬',
-                            onTap: () async {
-                              if (post.media.isNotEmpty) {
-                                await openCommunityPostMedia(
-                                  context,
-                                  widget.repository,
-                                  post,
-                                  initialIndex: post.media
-                                      .indexWhere((m) => m.type == 'image')
-                                      .clamp(0, post.media.length - 1),
-                                  communityName: _community.name,
-                                  category: category?.name ?? 'Post',
-                                  categoryIcon: category?.icon ?? '💬',
-                                );
-                                if (mounted) {
-                                  setState(() {
-                                    _posts = widget.repository.listPosts(
-                                      _community.id,
-                                      query: _searchController.text,
-                                    );
-                                  });
+                          return VisiblePostObserver(
+                            key: ValueKey('seen-${post.id}'),
+                            onSeen: () => _queuePostSeen(post),
+                            child: ProfilePostTile(
+                              post: post,
+                              categoryIcon: category?.icon ?? '💬',
+                              onTap: () async {
+                                if (post.media.isNotEmpty) {
+                                  await openCommunityPostMedia(
+                                    context,
+                                    widget.repository,
+                                    post,
+                                    initialIndex: post.media
+                                        .indexWhere((m) => m.type == 'image')
+                                        .clamp(0, post.media.length - 1),
+                                    communityName: _community.name,
+                                    category: category?.name ?? 'Post',
+                                    categoryIcon: category?.icon ?? '💬',
+                                  );
+                                  if (mounted) {
+                                    setState(() {
+                                      _posts = widget.repository.listPosts(
+                                        _community.id,
+                                        query: _searchController.text,
+                                      );
+                                    });
+                                  }
+                                  return;
                                 }
-                                return;
-                              }
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => PostCollectionPage(
-                                    profilePresentation: true,
-                                    title: _community.name,
-                                    repository: widget.repository,
-                                    initialPostId: post.id,
-                                    initialPosts: posts,
-                                    categories: {
-                                      for (final c in categories) c.id: c,
-                                    },
-                                    communityNames: {
-                                      _community.id: _community.name,
-                                    },
-                                    loadPosts: () async {
-                                      final refreshed = await widget.repository
-                                          .listPosts(
-                                            _community.id,
-                                            query: _searchController.text,
-                                          );
-                                      return refreshed
-                                          .where(
-                                            (p) =>
-                                                (_categoryId == null ||
-                                                    p.categoryId ==
-                                                        _categoryId) &&
-                                                (_activeProfileKind == 0 ||
-                                                    (_activeProfileKind == 1
-                                                        ? p.media.isNotEmpty
-                                                        : p.poll != null)),
-                                          )
-                                          .toList();
-                                    },
-                                  ),
-                                ),
-                              );
-                              if (mounted) setState(_reload);
-                            },
-                          );
-                        },
-                      ),
-                    );
-                  }
-                  return SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                    sliver: SliverList.builder(
-                      itemCount: posts.length,
-                      itemBuilder: (context, index) {
-                        final post = posts[index];
-                        _queuePostSeen(post);
-                        final category = categories
-                            .where((c) => c.id == post.categoryId)
-                            .firstOrNull;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: PostCard(
-                            repository: widget.repository,
-                            post: post,
-                            key: ValueKey(post.id),
-                            collapseText: true,
-                            mediaFirst: _community.isPublicProfile,
-                            compact: _community.isPublicProfile,
-                            showCommunity: false,
-                            onTap: () =>
-                                Navigator.push(
+                                await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => PostCollectionPage(
+                                      profilePresentation: true,
                                       title: _community.name,
-                                      profilePresentation:
-                                          _community.isPublicProfile,
+                                      repository: widget.repository,
                                       initialPostId: post.id,
                                       initialPosts: posts,
-                                      repository: widget.repository,
+                                      categories: {
+                                        for (final c in categories) c.id: c,
+                                      },
+                                      communityNames: {
+                                        _community.id: _community.name,
+                                      },
                                       loadPosts: () async {
                                         final refreshed = await widget
                                             .repository
@@ -2992,113 +2865,180 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                                   (_categoryId == null ||
                                                       p.categoryId ==
                                                           _categoryId) &&
-                                                  (!_community
-                                                          .isPublicProfile ||
-                                                      _activeProfileKind == 0 ||
+                                                  (_activeProfileKind == 0 ||
                                                       (_activeProfileKind == 1
                                                           ? p.media.isNotEmpty
                                                           : p.poll != null)),
                                             )
                                             .toList();
                                       },
-                                      categories: {
-                                        for (final c in categories) c.id: c,
-                                      },
-                                      communityNames: {
-                                        _community.id: _community.name,
-                                      },
                                     ),
                                   ),
-                                ).then((_) {
-                                  if (mounted) setState(_reload);
-                                }),
-                            category: category?.name ?? 'General',
-                            icon: category?.icon ?? '💬',
-                            community: _community.name,
-                            author: post.authorName,
-                            authorAvatarUrl: post.authorAvatarUrl,
-                            isAnonymousAuthor: post.isAnonymous,
-                            onAuthorTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => MemberProfilePage(
-                                  userId: post.authorId,
-                                  repository: widget.repository,
-                                ),
-                              ),
+                                );
+                                if (mounted) setState(_reload);
+                              },
                             ),
-                            onMentionTap: (userId) => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => MemberProfilePage(
-                                  userId: userId,
-                                  repository: widget.repository,
-                                ),
-                              ),
-                            ),
-                            time: formatPostTime(context, post.createdAt),
-                            edited: post.editedAt != null,
-                            onEdit: post.ownedByMe
-                                ? () async {
-                                    await openEditPost(
-                                      context,
-                                      widget.repository,
-                                      post,
-                                    );
-                                    if (mounted) setState(_reload);
-                                  }
-                                : null,
-                            onDelete: post.ownedByMe
-                                ? () async {
-                                    await widget.repository.deletePost(post.id);
-                                    if (mounted) setState(_reload);
-                                  }
-                                : null,
-                            text: post.displayText,
-                            likes: post.reactionCount,
-                            comments: post.commentCount,
-                            media: post.media,
-                            poll: post.poll,
-                            onPollVote: (optionId) =>
-                                widget.repository.voteOnPost(post.id, optionId),
-                            promotion: post.promotion,
-                            onPromotionImpression: post.promotion == null
-                                ? null
-                                : () => widget.repository
-                                      .recordPromotionImpression(
-                                        post.promotion!.id,
+                          );
+                        },
+                      ),
+                    );
+                  }
+                  return SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                    sliver: SliverList.builder(
+                      itemCount: posts.length,
+                      itemBuilder: (context, index) {
+                        final post = posts[index];
+                        final category = categories
+                            .where((c) => c.id == post.categoryId)
+                            .firstOrNull;
+                        return VisiblePostObserver(
+                          key: ValueKey('seen-${post.id}'),
+                          onSeen: () => _queuePostSeen(post),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: PostCard(
+                              repository: widget.repository,
+                              post: post,
+                              key: ValueKey(post.id),
+                              collapseText: true,
+                              mediaFirst: _community.isPublicProfile,
+                              compact: _community.isPublicProfile,
+                              showCommunity: false,
+                              onTap: () =>
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PostCollectionPage(
+                                        title: _community.name,
+                                        profilePresentation:
+                                            _community.isPublicProfile,
+                                        initialPostId: post.id,
+                                        initialPosts: posts,
+                                        repository: widget.repository,
+                                        loadPosts: () async {
+                                          final refreshed = await widget
+                                              .repository
+                                              .listPosts(
+                                                _community.id,
+                                                query: _searchController.text,
+                                              );
+                                          return refreshed
+                                              .where(
+                                                (p) =>
+                                                    (_categoryId == null ||
+                                                        p.categoryId ==
+                                                            _categoryId) &&
+                                                    (!_community
+                                                            .isPublicProfile ||
+                                                        _activeProfileKind ==
+                                                            0 ||
+                                                        (_activeProfileKind == 1
+                                                            ? p.media.isNotEmpty
+                                                            : p.poll != null)),
+                                              )
+                                              .toList();
+                                        },
+                                        categories: {
+                                          for (final c in categories) c.id: c,
+                                        },
+                                        communityNames: {
+                                          _community.id: _community.name,
+                                        },
                                       ),
-                            onPromotionClick: post.promotion == null
-                                ? null
-                                : () => widget.repository.recordPromotionClick(
-                                    post.promotion!.id,
+                                    ),
+                                  ).then((_) {
+                                    if (mounted) setState(_reload);
+                                  }),
+                              category: category?.name ?? 'General',
+                              icon: category?.icon ?? '💬',
+                              community: _community.name,
+                              author: post.authorName,
+                              authorAvatarUrl: post.authorAvatarUrl,
+                              isAnonymousAuthor: post.isAnonymous,
+                              onAuthorTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => MemberProfilePage(
+                                    userId: post.authorId,
+                                    repository: widget.repository,
                                   ),
-                            reacted: post.reactedByMe,
-                            onReaction: (reacted) => widget.repository
-                                .setPostReaction(post.id, reacted: reacted),
-                            onComments: () => showPostComments(
-                              context,
-                              widget.repository,
-                              post,
-                            ),
-                            saved: post.savedByMe,
-                            onSaved: (saved) => widget.repository.setPostSaved(
-                              post.id,
-                              saved: saved,
-                            ),
-                            onReport: (reason, category, {hidePost}) =>
-                                widget.repository.reportPost(
-                                  post.id,
-                                  reason,
-                                  category: category,
-                                  hidePost: hidePost == true,
-                                  communityId: post.communityId,
                                 ),
-                            onShare: () => sharePost(
-                              context,
-                              widget.repository,
-                              post,
-                              communityName: _community.name,
+                              ),
+                              onMentionTap: (userId) => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => MemberProfilePage(
+                                    userId: userId,
+                                    repository: widget.repository,
+                                  ),
+                                ),
+                              ),
+                              time: formatPostTime(context, post.createdAt),
+                              edited: post.editedAt != null,
+                              onEdit: post.ownedByMe
+                                  ? () async {
+                                      await openEditPost(
+                                        context,
+                                        widget.repository,
+                                        post,
+                                      );
+                                      if (mounted) setState(_reload);
+                                    }
+                                  : null,
+                              onDelete: post.ownedByMe
+                                  ? () async {
+                                      await widget.repository.deletePost(
+                                        post.id,
+                                      );
+                                      if (mounted) setState(_reload);
+                                    }
+                                  : null,
+                              text: post.displayText,
+                              likes: post.reactionCount,
+                              comments: post.commentCount,
+                              media: post.media,
+                              poll: post.poll,
+                              onPollVote: (optionId) => widget.repository
+                                  .voteOnPost(post.id, optionId),
+                              promotion: post.promotion,
+                              onPromotionImpression: post.promotion == null
+                                  ? null
+                                  : () => widget.repository
+                                        .recordPromotionImpression(
+                                          post.promotion!.id,
+                                        ),
+                              onPromotionClick: post.promotion == null
+                                  ? null
+                                  : () =>
+                                        widget.repository.recordPromotionClick(
+                                          post.promotion!.id,
+                                        ),
+                              reacted: post.reactedByMe,
+                              onReaction: (reacted) => widget.repository
+                                  .setPostReaction(post.id, reacted: reacted),
+                              onComments: () => showPostComments(
+                                context,
+                                widget.repository,
+                                post,
+                              ),
+                              saved: post.savedByMe,
+                              onSaved: (saved) => widget.repository
+                                  .setPostSaved(post.id, saved: saved),
+                              onReport: (reason, category, {hidePost}) =>
+                                  widget.repository.reportPost(
+                                    post.id,
+                                    reason,
+                                    category: category,
+                                    hidePost: hidePost == true,
+                                    communityId: post.communityId,
+                                  ),
+                              onShare: () => sharePost(
+                                context,
+                                widget.repository,
+                                post,
+                                communityName: _community.name,
+                              ),
                             ),
                           ),
                         );
@@ -3550,7 +3490,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     return InkWell(
       key: const ValueKey('community-role-badge'),
       borderRadius: headerTab
-          ? const BorderRadius.vertical(top: Radius.circular(20))
+          ? CommunityHeaderGeometry.membershipCorners
           : BorderRadius.circular(24),
       onTap: _savingMembership ? null : () => _showMembershipOptions(message),
       child: Semantics(
@@ -3605,28 +3545,32 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 ),
               )
             : SizedBox(
-                width: headerTab ? 48 : 44,
-                height: headerTab ? 50 : 44,
+                width: headerTab ? CommunityHeaderGeometry.membershipWidth : 44,
+                height: headerTab
+                    ? CommunityHeaderGeometry.membershipHeight
+                    : 44,
                 child: Center(
                   child: Container(
-                    width: headerTab ? 48 : 44,
-                    height: headerTab ? 50 : 44,
+                    width: headerTab
+                        ? CommunityHeaderGeometry.membershipWidth
+                        : 44,
+                    height: headerTab
+                        ? CommunityHeaderGeometry.membershipHeight
+                        : 44,
                     decoration: BoxDecoration(
                       color: headerTab
                           ? Theme.of(context).scaffoldBackgroundColor
                           : scheme.primary.withValues(alpha: .08),
                       shape: headerTab ? BoxShape.rectangle : BoxShape.circle,
                       borderRadius: headerTab
-                          ? const BorderRadius.vertical(
-                              top: Radius.circular(20),
-                            )
+                          ? CommunityHeaderGeometry.membershipCorners
                           : null,
                     ),
                     child: Icon(
                       WicchuIcons.userCheck,
                       size: 20,
                       color: headerTab
-                          ? scheme.onSurfaceVariant
+                          ? profileAccentColor(_community.accentColor)
                           : scheme.primary,
                     ),
                   ),

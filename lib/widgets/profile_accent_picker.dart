@@ -108,8 +108,14 @@ class NeonBorderStudio extends StatelessWidget {
     required this.onEnabledChanged,
     required this.onAnimationChanged,
     required this.onDurationChanged,
+    this.showPreview = true,
+    this.toggleTitle = 'Neon borders',
+    this.toggleSubtitle = 'Add a neon glow to profile borders.',
   });
 
+  final bool showPreview;
+  final String toggleTitle;
+  final String toggleSubtitle;
   final String accentColor;
   final bool enabled;
   final NeonBorderAnimation animation;
@@ -128,64 +134,66 @@ class NeonBorderStudio extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 14),
-        Text(
-          context.tr('Live preview'),
-          style: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w700,
+        if (showPreview) ...[
+          const SizedBox(height: 14),
+          Text(
+            context.tr('Live preview'),
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-        Center(
-          child: AnimatedNeonBorder(
-            key: const ValueKey('neon-border-preview'),
-            color: profileAccentColor(accentColor),
-            enabled: enabled,
-            animation: animation,
-            durationSeconds: durationSeconds,
-            borderRadius: BorderRadius.circular(20),
-            padding: const EdgeInsets.all(4),
-            strokeWidth: 2.5,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(17),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    previewTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+          const SizedBox(height: 10),
+          Center(
+            child: AnimatedNeonBorder(
+              key: const ValueKey('neon-border-preview'),
+              color: profileAccentColor(accentColor),
+              enabled: enabled,
+              animation: animation,
+              durationSeconds: durationSeconds,
+              borderRadius: BorderRadius.circular(20),
+              padding: const EdgeInsets.all(4),
+              strokeWidth: 2.5,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(17),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      previewTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    previewSubtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 4),
+                    Text(
+                      previewSubtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 10),
+          const SizedBox(height: 10),
+        ],
         SwitchListTile.adaptive(
           key: const ValueKey('neon-borders-toggle'),
           contentPadding: EdgeInsets.zero,
           value: enabled,
           onChanged: onEnabledChanged,
-          title: Text(context.tr('Neon borders')),
-          subtitle: Text(context.tr('Add a neon glow to profile borders.')),
+          title: Text(context.tr(toggleTitle)),
+          subtitle: Text(context.tr(toggleSubtitle)),
         ),
         AnimatedCrossFade(
           duration: const Duration(milliseconds: 180),

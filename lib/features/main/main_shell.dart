@@ -909,7 +909,6 @@ class _HomeFeedData {
     required this.posts,
     required this.categories,
     required this.members,
-    required this.onlineMembers,
     required this.followingPostIds,
   });
 
@@ -917,7 +916,6 @@ class _HomeFeedData {
   final List<CommunityPost> posts;
   final Map<String, CommunityCategory> categories;
   final List<CommunityMember> members;
-  final List<CommunityMember> onlineMembers;
   final Set<String> followingPostIds;
 }
 
@@ -1044,18 +1042,11 @@ class _HomeTabState extends State<_HomeTab>
     ]);
     final memberLists = await Future.wait(memberFutures);
     final membersByUserId = <String, CommunityMember>{};
-    final onlineByUserId = <String, CommunityMember>{};
     for (final member in memberLists.expand((members) => members)) {
       membersByUserId.putIfAbsent(
         '${member.communityId}:${member.userId}',
         () => member,
       );
-      if (member.isOnline && member.userId != profile.id) {
-        onlineByUserId.putIfAbsent(
-          '${member.communityId}:${member.userId}',
-          () => member,
-        );
-      }
     }
     final posts = results.first.cast<CommunityPost>().toList();
     final followingPostIds = posts.map((post) => post.id).toSet();
@@ -1131,7 +1122,6 @@ class _HomeTabState extends State<_HomeTab>
       followingPostIds: followingPostIds,
       categories: categories,
       members: membersByUserId.values.toList(growable: false),
-      onlineMembers: onlineByUserId.values.toList(growable: false),
     );
   }
 
@@ -1410,58 +1400,6 @@ class _HomeTabState extends State<_HomeTab>
     ),
   );
 
-  Future<void> _showMembers(List<CommunityMember> members) =>
-      showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        builder: (sheetContext) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.only(bottom: 12),
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                child: Text(
-                  sheetContext.tr('Neighbors'),
-                  style: Theme.of(
-                    sheetContext,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-              for (final member in members)
-                ListTile(
-                  leading: Badge(
-                    isLabelVisible: member.isOnline,
-                    backgroundColor: Colors.green,
-                    smallSize: 10,
-                    child: UserAvatar(
-                      name: member.name,
-                      imageUrl: member.avatarUrl,
-                      radius: 21,
-                    ),
-                  ),
-                  title: Text(member.name),
-                  subtitle: member.isOnline
-                      ? Text(sheetContext.tr('Online now'))
-                      : member.lastActiveAt != null
-                      ? Text(sheetContext.tr('Active recently'))
-                      : null,
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    openResponsiveSidePanel<void>(
-                      context,
-                      builder: (_) => MemberProfilePage(
-                        repository: widget.repository,
-                        userId: member.userId,
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -1590,11 +1528,6 @@ class _HomeTabState extends State<_HomeTab>
           final visibleCommunityIds = visibleCommunities
               .map((community) => community.id)
               .toSet();
-          final visibleOnlineMembers = {
-            for (final member in data.onlineMembers)
-              if (visibleCommunityIds.contains(member.communityId))
-                member.userId: member,
-          }.values.toList(growable: false);
           final normalizedQuery = _query.trim().toLowerCase();
           final categoryNames = [
             'All',
@@ -1696,116 +1629,6 @@ class _HomeTabState extends State<_HomeTab>
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     sliver: SliverList.list(
                       children: [
-                        if (visibleOnlineMembers.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          SizedBox(
-                            height: math.max(
-                              48,
-                              MediaQuery.textScalerOf(context).scale(12) * 1.5 +
-                                  16,
-                            ),
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: math.min(
-                                visibleOnlineMembers.length,
-                                6,
-                              ),
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(width: 12),
-                              itemBuilder: (context, index) {
-                                final showMore = index == 5;
-                                final member = visibleOnlineMembers[index];
-                                return Semantics(
-                                  button: true,
-                                  label: showMore
-                                      ? context.tr('View all online neighbors')
-                                      : member.name,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: showMore
-                                        ? () =>
-                                              _showMembers(visibleOnlineMembers)
-                                        : () => openResponsiveSidePanel<void>(
-                                            context,
-                                            builder: (_) => MemberProfilePage(
-                                              repository: widget.repository,
-                                              userId: member.userId,
-                                            ),
-                                          ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (showMore)
-                                            CircleAvatar(
-                                              radius: 18,
-                                              backgroundColor:
-                                                  scheme.primaryContainer,
-                                              child: Icon(
-                                                WicchuIcons.users,
-                                                size: 20,
-                                                color:
-                                                    scheme.onPrimaryContainer,
-                                              ),
-                                            )
-                                          else
-                                            Stack(
-                                              clipBehavior: Clip.none,
-                                              children: [
-                                                UserAvatar(
-                                                  name: member.name,
-                                                  imageUrl: member.avatarUrl,
-                                                  radius: 18,
-                                                ),
-                                                Positioned(
-                                                  right: -1,
-                                                  bottom: -1,
-                                                  child: Container(
-                                                    width: 12,
-                                                    height: 12,
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(
-                                                        0xFF45B95C,
-                                                      ),
-                                                      shape: BoxShape.circle,
-                                                      border: Border.all(
-                                                        color: scheme.surface,
-                                                        width: 2,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          const SizedBox(width: 8),
-                                          ConstrainedBox(
-                                            constraints: const BoxConstraints(
-                                              maxWidth: 100,
-                                            ),
-                                            child: Text(
-                                              showMore
-                                                  ? '+${visibleOnlineMembers.length - 5}'
-                                                  : member.name
-                                                        .split(' ')
-                                                        .first,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: textTheme.labelSmall,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                        ],
                         if (communities.isEmpty) ...[
                           Card(
                             child: Padding(
@@ -4373,6 +4196,18 @@ class _ProfileTabState extends State<_ProfileTab> {
                 label: 'My posts',
                 onTap: () =>
                     _openPosts('My posts', widget.repository.listMyPosts),
+              ),
+              _ProfileRow(
+                icon: WicchuIcons.chartBar,
+                label: 'Polls',
+                onTap: () => _openPosts('Polls', () async {
+                  final profile = await widget.repository.getProfile();
+                  return widget.repository.listMemberPosts(
+                    profile.id,
+                    kind: 'polls',
+                    sort: 'newest',
+                  );
+                }),
               ),
               _ProfileRow(
                 icon: WicchuIcons.envelope,

@@ -12,6 +12,7 @@ import '../../localization/app_language.dart';
 import 'rule_management_page.dart';
 import 'official_links_page.dart';
 import 'business_services_page.dart';
+import 'page_appearance_editor.dart';
 import 'restaurant_settings_page.dart';
 import 'page_location_settings_page.dart';
 import '../community/community_invitations_page.dart';
@@ -1665,6 +1666,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       widget.community.neonBorderAnimation;
   late double _neonAnimationDurationSeconds =
       widget.community.neonAnimationDurationSeconds;
+  late bool _headerBorderEnabled = widget.community.headerBorderEnabled;
   late Town _town = widget.community.town;
 
   late ProfileCategory? _profileCategory = widget.community.profileCategory;
@@ -1716,6 +1718,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     _neonBordersEnabled,
     _neonBorderAnimation.apiValue,
     _neonAnimationDurationSeconds,
+    _headerBorderEnabled,
     _town.id,
     _profileCategory?.name,
     _businessServices.map((value) => value.name).toList()..sort(),
@@ -2120,51 +2123,29 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               ),
             ),
             const SizedBox(height: 16),
-            _settingsSection('Profile color', WicchuIcons.palette, [
-              Text(
-                context.tr(
-                  widget.community.isPublicProfile
-                      ? 'Choose an accent color for this page.'
-                      : 'Choose an accent color for this community.',
+            _settingsSection('Appearance', WicchuIcons.palette, [
+              for (final section in const [
+                PageAppearanceSection.color,
+                PageAppearanceSection.neon,
+              ])
+                ListTile(
+                  key: ValueKey('appearance-${section.name}'),
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.tr(section.title)),
+                  subtitle: Text(
+                    context.tr(switch (section) {
+                      PageAppearanceSection.color => profileAccentLabel(
+                        _accentColor,
+                      ),
+                      PageAppearanceSection.neon =>
+                        _neonBordersEnabled ? 'On' : 'Off',
+                      PageAppearanceSection.border =>
+                        _headerBorderEnabled ? 'On' : 'Off',
+                    }),
+                  ),
+                  trailing: const Icon(WicchuIcons.caretRight),
+                  onTap: _saving ? null : () => _openAppearance(section),
                 ),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 14),
-              ProfileAccentPicker(
-                value: _accentColor,
-                labelBuilder: (value) => context.tr(profileAccentLabel(value)),
-                onChanged: _saving
-                    ? null
-                    : (value) => setState(() {
-                        _accentColor = value;
-                      }),
-              ),
-              NeonBorderStudio(
-                accentColor: _accentColor,
-                enabled: _neonBordersEnabled,
-                animation: _neonBorderAnimation,
-                durationSeconds: _neonAnimationDurationSeconds,
-                previewTitle: _name.text.trim().isEmpty
-                    ? 'Wicchu'
-                    : _name.text.trim(),
-                previewSubtitle: _shortDescription.text.trim().isEmpty
-                    ? context.tr(
-                        widget.community.isPublicProfile
-                            ? 'Public profile'
-                            : 'Community',
-                      )
-                    : _shortDescription.text.trim(),
-                onEnabledChanged: _saving
-                    ? null
-                    : (value) => setState(() => _neonBordersEnabled = value),
-                onAnimationChanged: _saving
-                    ? null
-                    : (value) => setState(() => _neonBorderAnimation = value),
-                onDurationChanged: _saving
-                    ? null
-                    : (value) =>
-                          setState(() => _neonAnimationDurationSeconds = value),
-              ),
             ]),
             const SizedBox(height: 12),
             _settingsSection('Information', WicchuIcons.info, [
@@ -2524,8 +2505,24 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         neonBordersEnabled: _neonBordersEnabled,
         neonBorderAnimation: _neonBorderAnimation,
         neonAnimationDurationSeconds: _neonAnimationDurationSeconds,
+        headerBorderEnabled:
+            _headerBorderEnabled != widget.community.headerBorderEnabled
+            ? _headerBorderEnabled
+            : null,
       );
       if (!mounted) return;
+      if (updated.headerBorderEnabled != _headerBorderEnabled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.tr(
+                'The decorative border setting could not be saved. Please try again later.',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
       if (widget.community.isPublicProfile &&
           _profileCategory != null &&
           updated.profileCategory != _profileCategory) {
@@ -2623,6 +2620,32 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       _businessLatitude = result.latitude;
       _businessLongitude = result.longitude;
       _showExactBusinessAddress = result.showExactAddress;
+    });
+  }
+
+  Future<void> _openAppearance(PageAppearanceSection section) async {
+    final draft = await Navigator.push<PageAppearanceDraft>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PageAppearanceEditor(
+          section: section,
+          value: (
+            accent: _accentColor,
+            neon: _neonBordersEnabled,
+            border: _headerBorderEnabled,
+            animation: _neonBorderAnimation,
+            duration: _neonAnimationDurationSeconds,
+          ),
+        ),
+      ),
+    );
+    if (draft == null || !mounted) return;
+    setState(() {
+      _accentColor = draft.accent;
+      _neonBordersEnabled = draft.neon;
+      _headerBorderEnabled = draft.border;
+      _neonBorderAnimation = draft.animation;
+      _neonAnimationDurationSeconds = draft.duration;
     });
   }
 

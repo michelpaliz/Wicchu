@@ -965,6 +965,54 @@ void main() {
     },
   );
 
+  test(
+    'header border uses the existing community API and defaults off',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+      var community = Community(
+        id: 'community-1',
+        name: 'Community',
+        description: '',
+        town: const Town(id: 'town-1', name: 'Town X', countryCode: 'EC'),
+        visibility: CommunityVisibility.public,
+        createdBy: 'user-1',
+        createdAt: DateTime.utc(2026),
+        accentColor: 'purple',
+      );
+      for (final (enabled, expected) in <(bool?, bool)>[
+        (null, false),
+        (true, true),
+        (null, true),
+        (false, false),
+      ]) {
+        community = await repository.updateCommunity(
+          community,
+          town: community.town,
+          name: community.name,
+          description: community.description,
+          visibility: community.visibility,
+          approvalRequired: false,
+          showWeather: false,
+          links: [],
+          businessServices: [],
+          businessLocation: null,
+          headerBorderEnabled: enabled,
+        );
+        expect(api.lastPath, '/api/community/v1/communities/community-1');
+        expect(
+          community.headerBorderEnabled,
+          api.lastBody?['headerBorderEnabled'] == true,
+        );
+        expect(community.accentColor, 'purple');
+        expect(community.headerBorderEnabled, expected);
+        if (enabled != null) {
+          expect(community.headerBorderEnabled, enabled);
+        }
+      }
+    },
+  );
+
   test('page edits only send fields supported by the page type', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);
