@@ -44,6 +44,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _allowPop = false;
   bool _confirmingLeave = false;
   String _accentColor = 'teal';
+  bool _neonBordersEnabled = false;
 
   @override
   void initState() {
@@ -133,6 +134,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       ..._controllers.map((controller) => controller.text.trim()),
     ];
     return _accentColor != initial.accentColor ||
+        _neonBordersEnabled != initial.neonBordersEnabled ||
         List.generate(
           values.length,
           (i) => current[i] != values[i],
@@ -149,6 +151,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (!mounted) return;
       _initial = profile;
       _accentColor = profile.accentColor;
+      _neonBordersEnabled = profile.neonBordersEnabled;
       final details = [
         profile.name,
         profile.userName,
@@ -281,6 +284,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             showOnlineStatus: initial.socialLinks.showOnlineStatus,
           ),
           accentColor: _accentColor,
+          neonBordersEnabled: _neonBordersEnabled,
         ),
       );
       if (!mounted) return;
@@ -580,7 +584,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         enabled: !_saving,
                         maxLength: [80, 30, 160, 500, 120][i],
                         minLines: i == 3 ? 3 : 1,
-                        maxLines: i == 2 ? 2 : i == 3 ? 5 : 1,
+                        maxLines: i == 2
+                            ? 2
+                            : i == 3
+                            ? 5
+                            : 1,
                         textCapitalization: i == 1
                             ? TextCapitalization.none
                             : TextCapitalization.sentences,
@@ -682,7 +690,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           context.tr(profileAccentLabel(value)),
                       onChanged: _saving
                           ? null
-                          : (value) => setState(() => _accentColor = value),
+                          : (value) => setState(() {
+                              _accentColor = value;
+                              if (!isNeonAccent(value)) {
+                                _neonBordersEnabled = false;
+                              }
+                            }),
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: _neonBordersEnabled,
+                      onChanged: _saving || !isNeonAccent(_accentColor)
+                          ? null
+                          : (value) =>
+                                setState(() => _neonBordersEnabled = value),
+                      title: Text(context.tr('Neon borders')),
+                      subtitle: Text(
+                        context.tr(
+                          isNeonAccent(_accentColor)
+                              ? 'Add a neon glow to profile borders.'
+                              : 'Choose a neon color to enable this effect.',
+                        ),
+                      ),
                     ),
                     const Divider(height: 32),
                     Text(

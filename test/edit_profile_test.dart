@@ -146,13 +146,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final purple = find.byKey(const ValueKey('profile-accent-purple'));
-    await tester.ensureVisible(purple);
-    await tester.tap(purple);
+    final neonPink = find.byKey(const ValueKey('profile-accent-neon_pink'));
+    await tester.ensureVisible(neonPink);
+    await tester.tap(neonPink);
+    await tester.pump();
+    final neonBorders = find.text('Neon borders');
+    await tester.ensureVisible(neonBorders);
+    await tester.tap(neonBorders);
     await tester.pump();
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
 
-    expect((await repository.getEditableProfile()).accentColor, 'purple');
+    expect((await repository.getEditableProfile()).accentColor, 'neon_pink');
+    expect((await repository.getEditableProfile()).neonBordersEnabled, isTrue);
   });
 }

@@ -800,6 +800,11 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(color: accent, width: 2),
+                              boxShadow:
+                                  profile.neonBordersEnabled &&
+                                      isNeonAccent(profile.accentColor)
+                                  ? profileNeonGlow(profile.accentColor)
+                                  : null,
                             ),
                             child: UserAvatar(
                               name: profile.name,

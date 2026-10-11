@@ -64,6 +64,7 @@ void main() {
                 name: 'Test User',
                 userName: '',
                 sharedCommunityCount: 0,
+                distanceKm: 1.25,
               ),
               onTap: () {},
             ),
@@ -73,6 +74,8 @@ void main() {
       expect(find.text('TU'), findsOneWidget);
       expect(find.text('0 shared communities'), findsNothing);
       expect(find.byIcon(WicchuIcons.users), findsNothing);
+      expect(find.text('1.3 km away'), findsOneWidget);
+      expect(find.byIcon(WicchuIcons.mapPin), findsOneWidget);
       expect(find.text('@'), findsNothing);
       expect(tester.takeException(), isNull);
     },

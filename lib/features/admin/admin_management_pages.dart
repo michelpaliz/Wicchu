@@ -838,10 +838,8 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                                 }),
                         ),
                         enabled: role != member.role,
-                        onTap: () => Navigator.pop(
-                          sheetContext,
-                          'role:${role.name}',
-                        ),
+                        onTap: () =>
+                            Navigator.pop(sheetContext, 'role:${role.name}'),
                       ),
                 if (widget.community.myRole == CommunityRole.owner &&
                     member.status == MembershipStatus.active &&
@@ -1662,6 +1660,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   late CommunityVisibility _visibility = widget.community.visibility;
   late bool _published = widget.community.published;
   late String _accentColor = widget.community.accentColor;
+  late bool _neonBordersEnabled = widget.community.neonBordersEnabled;
   late Town _town = widget.community.town;
 
   late ProfileCategory? _profileCategory = widget.community.profileCategory;
@@ -1710,6 +1709,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     _visibility.name,
     _published,
     _accentColor,
+    _neonBordersEnabled,
     _town.id,
     _profileCategory?.name,
     _businessServices.map((value) => value.name).toList()..sort(),
@@ -2129,7 +2129,27 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                 labelBuilder: (value) => context.tr(profileAccentLabel(value)),
                 onChanged: _saving
                     ? null
-                    : (value) => setState(() => _accentColor = value),
+                    : (value) => setState(() {
+                        _accentColor = value;
+                        if (!isNeonAccent(value)) {
+                          _neonBordersEnabled = false;
+                        }
+                      }),
+              ),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _neonBordersEnabled,
+                onChanged: _saving || !isNeonAccent(_accentColor)
+                    ? null
+                    : (value) => setState(() => _neonBordersEnabled = value),
+                title: Text(context.tr('Neon borders')),
+                subtitle: Text(
+                  context.tr(
+                    isNeonAccent(_accentColor)
+                        ? 'Add a neon glow to page borders.'
+                        : 'Choose a neon color to enable this effect.',
+                  ),
+                ),
               ),
             ]),
             const SizedBox(height: 12),
@@ -2487,6 +2507,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         coverImageBlobName: _coverImageBlobName,
         published: widget.community.isPublicProfile ? _published : null,
         accentColor: _accentColor,
+        neonBordersEnabled: _neonBordersEnabled,
       );
       if (!mounted) return;
       if (widget.community.isPublicProfile &&

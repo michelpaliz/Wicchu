@@ -79,6 +79,7 @@ class HttpCommunityRepository implements CommunityRepository {
       isOnline: json['isOnline'] == true,
       lastActiveAt: _optionalDate(json['lastActiveAt']),
       accentColor: json['accentColor']?.toString() ?? 'teal',
+      neonBordersEnabled: json['neonBordersEnabled'] == true,
     );
   }
 
@@ -133,11 +134,19 @@ class HttpCommunityRepository implements CommunityRepository {
     String query = '',
     String? cursor,
     int limit = 25,
+    String? townId,
+    double? latitude,
+    double? longitude,
+    double radiusKm = 10,
   }) async {
     final parameters = <String, String>{
       'query': query.trim(),
       'limit': '$limit',
       if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+      if (townId != null && townId.isNotEmpty) 'townId': townId,
+      if (latitude != null) 'latitude': '$latitude',
+      if (longitude != null) 'longitude': '$longitude',
+      if (latitude != null && longitude != null) 'radiusKm': '$radiusKm',
     };
     final path = Uri(
       path: '/api/community/v1/users',
@@ -154,6 +163,7 @@ class HttpCommunityRepository implements CommunityRepository {
               avatarUrl: json['avatarUrl'] as String?,
               sharedCommunityCount:
                   (json['sharedCommunityCount'] as num?)?.toInt() ?? 0,
+              distanceKm: (json['distanceKm'] as num?)?.toDouble(),
             ),
           )
           .where((person) => person.id.isNotEmpty)
@@ -479,6 +489,7 @@ class HttpCommunityRepository implements CommunityRepository {
         'bio': profile.bio,
         'location': profile.location,
         'accentColor': profile.accentColor,
+        'neonBordersEnabled': profile.neonBordersEnabled,
         'socialLinks': {
           'whatsapp': profile.socialLinks.whatsapp,
           'facebook': profile.socialLinks.facebook,
@@ -498,6 +509,7 @@ class HttpCommunityRepository implements CommunityRepository {
     bio: json['bio']?.toString() ?? '',
     location: json['location']?.toString() ?? '',
     accentColor: json['accentColor']?.toString() ?? 'teal',
+    neonBordersEnabled: json['neonBordersEnabled'] == true,
     socialLinks: _socialLinksFromJson(json['socialLinks']),
   );
 
@@ -1013,6 +1025,40 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<List<String>> getCategoryOrder(String communityId) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/category-order',
+    );
+    return (body['order'] as List? ?? const [])
+        .map((item) => item.toString())
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<String>> updateCategoryOrder(
+    String communityId,
+    List<String> order,
+  ) async {
+    final body = await _api.put(
+      '/api/community/v1/communities/$communityId/category-order',
+      body: {'order': order},
+    );
+    return (body['order'] as List? ?? const [])
+        .map((item) => item.toString())
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<String>> resetCategoryOrder(String communityId) async {
+    final body = await _api.delete(
+      '/api/community/v1/communities/$communityId/category-order',
+    );
+    return (body['order'] as List? ?? const [])
+        .map((item) => item.toString())
+        .toList(growable: false);
+  }
+
+  @override
   Future<CommunityCategory> createCategory(
     String communityId, {
     required String name,
@@ -1159,6 +1205,7 @@ class HttpCommunityRepository implements CommunityRepository {
     String? coverImageBlobName,
     bool? published,
     String? accentColor,
+    bool? neonBordersEnabled,
   }) async {
     final body = await _api.patch(
       '/api/community/v1/communities/${community.id}',
@@ -1171,6 +1218,8 @@ class HttpCommunityRepository implements CommunityRepository {
         if (community.isPublicProfile)
           'published': published ?? community.published,
         'accentColor': accentColor ?? community.accentColor,
+        'neonBordersEnabled':
+            neonBordersEnabled ?? community.neonBordersEnabled,
         'approvalRequired': approvalRequired,
         'showWeather': showWeather,
         if (community.isPublicProfile && profileCategory != null)
@@ -2223,6 +2272,7 @@ class HttpCommunityRepository implements CommunityRepository {
       canManagePageInbox: json['canManagePageInbox'] == true,
       published: json['published'] != false,
       accentColor: json['accentColor']?.toString() ?? 'teal',
+      neonBordersEnabled: json['neonBordersEnabled'] == true,
       approvalRequired: json['approvalRequired'] as bool? ?? false,
       showWeather: json['showWeather'] as bool? ?? false,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),

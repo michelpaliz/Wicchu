@@ -65,6 +65,30 @@ class ExplorePersonCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (person.distanceKm != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              WicchuIcons.mapPin,
+                              size: 15,
+                              color: colors.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              context.tr('{distance} km away', {
+                                'distance': person.distanceKm! < 10
+                                    ? person.distanceKm!.toStringAsFixed(1)
+                                    : person.distanceKm!.round().toString(),
+                              }),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 12,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (person.sharedCommunityCount > 0) ...[
                         const SizedBox(height: 4),
                         Row(

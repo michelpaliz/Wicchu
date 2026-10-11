@@ -221,6 +221,25 @@ const _spanish = <String, String>{
   'Orange': 'Naranja',
   'Green': 'Verde',
   'Slate': 'Gris pizarra',
+  'Neon cyan': 'Cian neón',
+  'Neon lime': 'Lima neón',
+  'Neon pink': 'Rosa neón',
+  'Neon violet': 'Violeta neón',
+  'Neon orange': 'Naranja neón',
+  'Neon borders': 'Bordes neón',
+  'Add a neon glow to profile borders.':
+      'Añade un resplandor neón a los bordes del perfil.',
+  'Add a neon glow to page borders.':
+      'Añade un resplandor neón a los bordes de la página.',
+  'Choose a neon color to enable this effect.':
+      'Elige un color neón para activar este efecto.',
+  'Customize categories': 'Personalizar categorías',
+  'Your category order': 'Tu orden de categorías',
+  'Drag categories to arrange them. Changes only affect your view.':
+      'Arrastra las categorías para ordenarlas. Los cambios solo afectan a tu vista.',
+  'Restore default order': 'Restablecer orden',
+  'Save order': 'Guardar orden',
+  'Category order saved.': 'Orden de categorías guardado.',
   'Your profile, your community': 'Tu perfil, tu comunidad',
   'This information will be visible to other Wicchu users.':
       'Esta información será visible para otros usuarios de Wicchu.',

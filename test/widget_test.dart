@@ -189,6 +189,10 @@ class _PeopleExploreRepository extends DemoCommunityRepository {
     String query = '',
     String? cursor,
     int limit = 25,
+    String? townId,
+    double? latitude,
+    double? longitude,
+    double radiusKm = 10,
   }) async {
     if (query.isNotEmpty && !'sanyi ramos'.contains(query.toLowerCase())) {
       return const PeopleSearchPage(people: []);
@@ -880,6 +884,20 @@ void main() {
     expect(find.text('About'), findsNothing);
     expect(find.text('Members'), findsNothing);
     expect(find.text('All'), findsOneWidget);
+    expect(find.byTooltip('Customize categories'), findsOneWidget);
+    await tester.tap(find.byTooltip('Customize categories'));
+    await tester.pumpAndSettle();
+    expect(find.text('Your category order'), findsOneWidget);
+    expect(
+      find.text(
+        'Drag categories to arrange them. Changes only affect your view.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Restore default order'), findsOneWidget);
+    expect(find.text('Save order'), findsOneWidget);
+    await tester.tap(find.text('Restore default order'));
+    await tester.pumpAndSettle();
     expect(find.byType(FloatingActionButton), findsNothing);
     await tester.tap(find.byKey(const ValueKey('community-composer-entry')));
     await tester.pumpAndSettle();
@@ -892,7 +910,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('You own this community'), findsOneWidget);
     expect(find.text('Manage community'), findsOneWidget);
-    await tester.tapAt(const Offset(5, 5));
+    await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('community-information-entry')));
     await tester.pumpAndSettle();
@@ -1318,6 +1336,27 @@ void main() {
     expect(find.text('0 shared communities'), findsNothing);
     expect(find.text('1 person found'), findsOneWidget);
     expect(find.text('Create community'), findsNothing);
+
+    await tester.tap(find.byTooltip('Location'));
+    await tester.pumpAndSettle();
+    final nearMe = tester.widget<ChoiceChip>(
+      find.widgetWithText(ChoiceChip, 'Near me'),
+    );
+    expect(nearMe.onSelected, isNotNull);
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byType(DropdownButtonFormField<String>),
+          )
+          .onChanged,
+      isNotNull,
+    );
+    expect(
+      find.text('Location filtering for people is not available yet.'),
+      findsNothing,
+    );
+    await tester.tap(find.text('Reset filters'));
+    await tester.pumpAndSettle();
 
     await tester.enterText(
       find.byKey(const ValueKey('explore-search')),

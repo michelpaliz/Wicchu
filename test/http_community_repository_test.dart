@@ -20,6 +20,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'bio': 'Community volunteer',
           'location': 'Dénia',
           'accentColor': 'purple',
+          'neonBordersEnabled': false,
           'socialLinks': {
             'whatsapp': '+34600123456',
             'facebook': 'ana',
@@ -52,6 +53,11 @@ class _RecordingApiClient extends AuthenticatedApiClient {
             },
           },
         ],
+      };
+    }
+    if (path == '/api/community/v1/communities/community-1/category-order') {
+      return {
+        'order': ['category-1', 'all'],
       };
     }
     if (path.contains('/api/community/v1/messages/conversations') &&
@@ -108,6 +114,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
             'userName': 'ana',
             'avatarUrl': null,
             'sharedCommunityCount': 2,
+            'distanceKm': 1.25,
           },
         ],
         'nextCursor': 'MjU',
@@ -405,13 +412,65 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   }
 
   @override
+  Future<Map<String, dynamic>> put(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    lastPath = path;
+    lastBody = body;
+    if (path == '/api/community/v1/communities/community-1/category-order') {
+      return {'order': body?['order'] ?? const <String>[]};
+    }
+    return <String, dynamic>{};
+  }
+
+  @override
   Future<Map<String, dynamic>> delete(String path) async {
     lastPath = path;
+    if (path == '/api/community/v1/communities/community-1/category-order') {
+      return {
+        'order': ['all', 'category-1'],
+      };
+    }
     return {'deleted': true};
   }
 }
 
 void main() {
+  test('category order is loaded, saved and reset per community', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    expect(await repository.getCategoryOrder('community-1'), [
+      'category-1',
+      'all',
+    ]);
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/category-order',
+    );
+
+    expect(
+      await repository.updateCategoryOrder('community-1', [
+        'all',
+        'category-1',
+      ]),
+      ['all', 'category-1'],
+    );
+    expect(api.lastBody, {
+      'order': ['all', 'category-1'],
+    });
+
+    expect(await repository.resetCategoryOrder('community-1'), [
+      'all',
+      'category-1',
+    ]);
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/category-order',
+    );
+  });
+
   test('removed posts can be listed and restored with a reason', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);
@@ -452,6 +511,7 @@ void main() {
       expect(api.lastBody?['name'], 'Ana Rivera');
       expect(api.lastBody?['shortDescription'], 'Connecting neighbors');
       expect(api.lastBody?['accentColor'], 'purple');
+      expect(api.lastBody?['neonBordersEnabled'], isFalse);
       expect(api.lastBody?['socialLinks'], {
         'whatsapp': '+34600123456',
         'facebook': 'ana',
@@ -480,7 +540,18 @@ void main() {
     expect(page.people.single.name, 'Ana Rivera');
     expect(page.people.single.userName, 'ana');
     expect(page.people.single.sharedCommunityCount, 2);
+    expect(page.people.single.distanceKm, 1.25);
     expect(page.nextCursor, 'MjU');
+
+    await repository.searchPeople(
+      latitude: -1.43,
+      longitude: -79.28,
+      radiusKm: 10,
+    );
+    final nearbyUri = Uri.parse(api.lastPath!);
+    expect(nearbyUri.queryParameters['latitude'], '-1.43');
+    expect(nearbyUri.queryParameters['longitude'], '-79.28');
+    expect(nearbyUri.queryParameters['radiusKm'], '10.0');
   });
 
   test('direct messaging uses private conversation endpoints', () async {
@@ -845,6 +916,7 @@ void main() {
       List<BusinessService> businessServices = const [],
       bool? published,
       String? accentColor,
+      bool? neonBordersEnabled,
     }) => repository.updateCommunity(
       community,
       town: town,
@@ -860,6 +932,7 @@ void main() {
       businessLocation: null,
       published: published,
       accentColor: accentColor,
+      neonBordersEnabled: neonBordersEnabled,
     );
 
     await update(
@@ -877,6 +950,7 @@ void main() {
     expect(api.lastBody, isNot(contains('businessLocation')));
     expect(api.lastBody?['shortDescription'], 'A short profile summary');
     expect(api.lastBody?['accentColor'], 'teal');
+    expect(api.lastBody?['neonBordersEnabled'], isFalse);
 
     await update(
       Community(
@@ -911,9 +985,11 @@ void main() {
       profileCategory: ProfileCategory.creator,
       published: false,
       accentColor: 'rose',
+      neonBordersEnabled: true,
     );
     expect(api.lastBody?['published'], isFalse);
     expect(api.lastBody?['accentColor'], 'rose');
+    expect(api.lastBody?['neonBordersEnabled'], isTrue);
 
     await update(
       Community(

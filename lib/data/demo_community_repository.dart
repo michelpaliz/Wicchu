@@ -41,6 +41,7 @@ class DemoCommunityRepository implements CommunityRepository {
 
   final List<Community> _communities = [];
   final Map<String, List<CommunityCategory>> _categories = {};
+  final Map<String, List<String>> _categoryOrders = {};
   final Map<String, List<CommunityRule>> _rules = {};
   final Map<String, int> _ruleVersions = {};
   final Map<String, List<CommunityPost>> _posts = {};
@@ -106,6 +107,7 @@ class DemoCommunityRepository implements CommunityRepository {
         followedByMe: _followedUserIds.contains(userId),
         socialLinks: _socialLinks,
         accentColor: _editableProfile.accentColor,
+        neonBordersEnabled: _editableProfile.neonBordersEnabled,
       );
 
   @override
@@ -142,6 +144,10 @@ class DemoCommunityRepository implements CommunityRepository {
     String query = '',
     String? cursor,
     int limit = 25,
+    String? townId,
+    double? latitude,
+    double? longitude,
+    double radiusKm = 10,
   }) async => const PeopleSearchPage(people: []);
 
   @override
@@ -161,6 +167,7 @@ class DemoCommunityRepository implements CommunityRepository {
         location: _editableProfile.location,
         socialLinks: _socialLinks,
         accentColor: _editableProfile.accentColor,
+        neonBordersEnabled: _editableProfile.neonBordersEnabled,
       );
 
   @override
@@ -542,6 +549,45 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<List<CommunityCategory>> listCategories(String communityId) async =>
       List.unmodifiable(_categories[communityId] ?? const []);
 
+  List<String> _defaultCategoryOrder(String communityId) => [
+    'all',
+    for (final category
+        in _categories[communityId] ?? const <CommunityCategory>[])
+      category.id,
+  ];
+
+  List<String> _resolvedCategoryOrder(String communityId) {
+    final defaults = _defaultCategoryOrder(communityId);
+    final allowed = defaults.toSet();
+    final result = <String>[];
+    for (final token in _categoryOrders[communityId] ?? const <String>[]) {
+      if (allowed.contains(token) && !result.contains(token)) result.add(token);
+    }
+    for (final token in defaults) {
+      if (!result.contains(token)) result.add(token);
+    }
+    return result;
+  }
+
+  @override
+  Future<List<String>> getCategoryOrder(String communityId) async =>
+      List.unmodifiable(_resolvedCategoryOrder(communityId));
+
+  @override
+  Future<List<String>> updateCategoryOrder(
+    String communityId,
+    List<String> order,
+  ) async {
+    _categoryOrders[communityId] = [...order];
+    return List.unmodifiable(_resolvedCategoryOrder(communityId));
+  }
+
+  @override
+  Future<List<String>> resetCategoryOrder(String communityId) async {
+    _categoryOrders.remove(communityId);
+    return List.unmodifiable(_defaultCategoryOrder(communityId));
+  }
+
   @override
   Future<CommunityCategory> createCategory(
     String communityId, {
@@ -649,6 +695,7 @@ class DemoCommunityRepository implements CommunityRepository {
     String? coverImageBlobName,
     bool? published,
     String? accentColor,
+    bool? neonBordersEnabled,
   }) async {
     final updated = Community(
       id: community.id,
@@ -680,6 +727,7 @@ class DemoCommunityRepository implements CommunityRepository {
       businessContact: businessContact ?? community.businessContact,
       published: published ?? community.published,
       accentColor: accentColor ?? community.accentColor,
+      neonBordersEnabled: neonBordersEnabled ?? community.neonBordersEnabled,
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;

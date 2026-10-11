@@ -160,6 +160,7 @@ class PublicMemberProfile {
     this.isOnline = false,
     this.lastActiveAt,
     this.accentColor = 'teal',
+    this.neonBordersEnabled = false,
   });
   final String id;
   final String name;
@@ -178,6 +179,7 @@ class PublicMemberProfile {
   final bool isOnline;
   final DateTime? lastActiveAt;
   final String accentColor;
+  final bool neonBordersEnabled;
 }
 
 class UserFollowProfile {
@@ -218,6 +220,7 @@ class PeopleSearchResult {
     required this.userName,
     required this.sharedCommunityCount,
     this.avatarUrl,
+    this.distanceKm,
   });
 
   final String id;
@@ -225,6 +228,7 @@ class PeopleSearchResult {
   final String userName;
   final String? avatarUrl;
   final int sharedCommunityCount;
+  final double? distanceKm;
 }
 
 class PeopleSearchPage {
@@ -263,6 +267,7 @@ class EditableMemberProfile {
     this.location = '',
     this.socialLinks = const SocialLinks(),
     this.accentColor = 'teal',
+    this.neonBordersEnabled = false,
   });
 
   final String name;
@@ -272,6 +277,7 @@ class EditableMemberProfile {
   final String location;
   final SocialLinks socialLinks;
   final String accentColor;
+  final bool neonBordersEnabled;
 }
 
 class CommunityNotification {
@@ -348,6 +354,7 @@ class Community {
     this.canManagePageInbox = false,
     this.published = true,
     this.accentColor = 'teal',
+    this.neonBordersEnabled = false,
   });
 
   final String id;
@@ -385,6 +392,7 @@ class Community {
   final bool canManagePageInbox;
   final bool published;
   final String accentColor;
+  final bool neonBordersEnabled;
 
   bool get isJoined => myRole != null;
   bool get isBanned => membershipStatus == MembershipStatus.banned;

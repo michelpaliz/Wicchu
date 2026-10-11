@@ -81,6 +81,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   late bool _joined = widget.community.isJoined;
   late Future<List<CommunityMember>> _members;
   late Future<List<CommunityCategory>> _categories;
+  late Future<({List<CommunityCategory> categories, List<String> order})>
+  _categoryView;
   late Future<List<CommunityPost>> _posts;
   late Future<CommunityRules> _rules;
   late Future<CommunityHelpfulness> _helpfulness;
@@ -102,6 +104,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
   bool _searchingPosts = false;
+  bool _savingCategoryOrder = false;
 
   bool get _canManage =>
       _community.myRole == CommunityRole.owner ||
@@ -190,36 +193,213 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     return name == 'posts' || name == 'publicaciones';
   }
 
-  Widget _categoryFilters({
-    double height = 48,
-  }) => FutureBuilder<List<CommunityCategory>>(
-    future: _categories,
-    builder: (context, snapshot) {
-      final categories = snapshot.data ?? const <CommunityCategory>[];
-      final visibleCategories = _usesBusinessCategories
-          ? categories
-                .where((category) => !_isGenericPostsCategory(category))
-                .toList(growable: false)
-          : categories;
-      if (_usesBusinessCategories && visibleCategories.isEmpty) {
-        return const SizedBox.shrink();
+  List<({String token, CommunityCategory? category})> _orderedCategoryEntries(
+    List<CommunityCategory> categories,
+    List<String> order,
+  ) {
+    final visibleCategories = _usesBusinessCategories
+        ? categories
+              .where((category) => !_isGenericPostsCategory(category))
+              .toList(growable: false)
+        : categories;
+    final byId = {
+      for (final category in visibleCategories) category.id: category,
+    };
+    final available = <String>{'all', ...byId.keys};
+    final tokens = <String>[];
+    for (final token in order) {
+      if (available.contains(token) && !tokens.contains(token)) {
+        tokens.add(token);
       }
-      return FeedFilterBar(
-        height: height,
-        labels: [
-          context.tr('All'),
-          for (final category in visibleCategories) context.tr(category.name),
-        ],
-        selectedIndex: _categoryId == null
-            ? 0
-            : visibleCategories.indexWhere((c) => c.id == _categoryId) + 1,
-        onSelected: (index) => setState(
-          () =>
-              _categoryId = index == 0 ? null : visibleCategories[index - 1].id,
-        ),
+    }
+    for (final token in ['all', ...byId.keys]) {
+      if (!tokens.contains(token)) tokens.add(token);
+    }
+    return [
+      for (final token in tokens)
+        (token: token, category: token == 'all' ? null : byId[token]),
+    ];
+  }
+
+  Widget _categoryFilters({double height = 48}) =>
+      FutureBuilder<({List<CommunityCategory> categories, List<String> order})>(
+        future: _categoryView,
+        builder: (context, snapshot) {
+          final data = snapshot.data;
+          final entries = data == null
+              ? const <({String token, CommunityCategory? category})>[]
+              : _orderedCategoryEntries(data.categories, data.order);
+          if (_usesBusinessCategories && entries.length <= 1) {
+            return const SizedBox.shrink();
+          }
+          final selectedIndex = entries.indexWhere(
+            (entry) => entry.category?.id == _categoryId,
+          );
+          return Row(
+            children: [
+              Expanded(
+                child: FeedFilterBar(
+                  height: height,
+                  labels: [
+                    for (final entry in entries)
+                      entry.category == null
+                          ? context.tr('All')
+                          : context.tr(entry.category!.name),
+                  ],
+                  selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+                  onSelected: (index) =>
+                      setState(() => _categoryId = entries[index].category?.id),
+                ),
+              ),
+              SizedBox(
+                width: 44,
+                height: height,
+                child: IconButton(
+                  key: const ValueKey('customize-category-order'),
+                  tooltip: context.tr('Customize categories'),
+                  onPressed: _savingCategoryOrder
+                      ? null
+                      : _openCategoryCustomization,
+                  icon: _savingCategoryOrder
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(WicchuIcons.slidersHorizontal, size: 20),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+          );
+        },
       );
-    },
-  );
+
+  Future<void> _openCategoryCustomization() async {
+    final data = await _categoryView;
+    if (!mounted) return;
+    final initial = _orderedCategoryEntries(data.categories, data.order);
+    final result = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        var entries = [...initial];
+        return StatefulBuilder(
+          builder: (context, setSheetState) => SafeArea(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(context).height * .72,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text(
+                      context.tr('Your category order'),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: Text(
+                      context.tr(
+                        'Drag categories to arrange them. Changes only affect your view.',
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ReorderableListView.builder(
+                      buildDefaultDragHandles: false,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: entries.length,
+                      onReorderItem: (oldIndex, newIndex) {
+                        setSheetState(() {
+                          final item = entries.removeAt(oldIndex);
+                          entries.insert(newIndex, item);
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        final entry = entries[index];
+                        return ListTile(
+                          key: ValueKey('category-order-${entry.token}'),
+                          leading: Text(
+                            entry.category?.icon ?? '✦',
+                            style: const TextStyle(fontSize: 21),
+                          ),
+                          title: Text(
+                            entry.category == null
+                                ? context.tr('All')
+                                : context.tr(entry.category!.name),
+                          ),
+                          trailing: ReorderableDragStartListener(
+                            index: index,
+                            child: const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: Icon(WicchuIcons.arrowsDownUp),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextButton.icon(
+                            onPressed: () =>
+                                Navigator.pop(sheetContext, const <String>[]),
+                            icon: const Icon(WicchuIcons.arrowArcLeft),
+                            label: Text(context.tr('Restore default order')),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () => Navigator.pop(
+                              sheetContext,
+                              entries.map((entry) => entry.token).toList(),
+                            ),
+                            child: Text(context.tr('Save order')),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted || result == null) return;
+    setState(() => _savingCategoryOrder = true);
+    try {
+      final order = result.isEmpty
+          ? await widget.repository.resetCategoryOrder(_community.id)
+          : await widget.repository.updateCategoryOrder(_community.id, result);
+      if (!mounted) return;
+      setState(() {
+        _categoryView = Future.value((
+          categories: data.categories,
+          order: order,
+        ));
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Category order saved.'))),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _savingCategoryOrder = false);
+    }
+  }
 
   void _reload() {
     _helpfulness = widget.repository.getCommunityHelpfulness(_community.id);
@@ -227,6 +407,24 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         ? widget.repository.getCommunityWeather(_community.id)
         : null;
     _categories = widget.repository.listCategories(_community.id);
+    _categoryView = () async {
+      final categories = await _categories;
+      if (!_joined || _community.isPublicProfile) {
+        return (
+          categories: categories,
+          order: ['all', ...categories.map((category) => category.id)],
+        );
+      }
+      try {
+        final order = await widget.repository.getCategoryOrder(_community.id);
+        return (categories: categories, order: order);
+      } catch (_) {
+        return (
+          categories: categories,
+          order: ['all', ...categories.map((category) => category.id)],
+        );
+      }
+    }();
     _rules = _joined
         ? widget.repository.listRules(_community.id)
         : Future.value(
@@ -1883,6 +2081,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                 topRight: Radius.circular(39),
                                 bottomRight: Radius.circular(39),
                               )
+                            : null,
+                        boxShadow:
+                            _community.neonBordersEnabled &&
+                                isNeonAccent(_community.accentColor)
+                            ? profileNeonGlow(_community.accentColor)
                             : null,
                       ),
                       child: Container(

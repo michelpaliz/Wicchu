@@ -141,6 +141,10 @@ abstract interface class CommunityRepository {
     String query = '',
     String? cursor,
     int limit = 25,
+    String? townId,
+    double? latitude,
+    double? longitude,
+    double radiusKm = 10,
   });
   Future<List<BlockedUser>> listBlockedUsers();
   Future<void> blockUser(String userId);
@@ -278,6 +282,12 @@ abstract interface class CommunityRepository {
   Future<void> deleteRule(String communityId, String ruleId);
   Future<void> acceptRules(String communityId, int rulesVersion);
   Future<List<CommunityCategory>> listCategories(String communityId);
+  Future<List<String>> getCategoryOrder(String communityId);
+  Future<List<String>> updateCategoryOrder(
+    String communityId,
+    List<String> order,
+  );
+  Future<List<String>> resetCategoryOrder(String communityId);
   Future<CommunityCategory> createCategory(
     String communityId, {
     required String name,
@@ -336,6 +346,7 @@ abstract interface class CommunityRepository {
     String? coverImageBlobName,
     bool? published,
     String? accentColor,
+    bool? neonBordersEnabled,
   });
   Future<CommunityWeather?> getCommunityWeather(String communityId);
   Future<List<CommunityPost>> listPosts(

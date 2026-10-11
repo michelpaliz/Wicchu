@@ -2101,7 +2101,15 @@ class _ExploreTabState extends State<_ExploreTab> {
     if (_filter == 5) {
       return;
     } else if (_filter == 6) {
-      _people = widget.repository.searchPeople(query: _query, limit: 50);
+      final position = _usingLocation ? _position : null;
+      _people = widget.repository.searchPeople(
+        query: _query,
+        limit: 50,
+        townId: _usingLocation ? null : _discoveryTownId,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+        radiusKm: _discoveryRadius,
+      );
     } else if (_filter == 2) {
       _communities = widget.repository.listJoinedCommunities();
     } else if (_filter == 1) {
@@ -2169,15 +2177,31 @@ class _ExploreTabState extends State<_ExploreTab> {
         ),
       );
       if (!mounted) return;
-      final nearby = await widget.repository.listNearbyCommunities(
-        latitude: position.latitude,
-        longitude: position.longitude,
-      );
+      final nearbyCommunities = _filter == 6
+          ? null
+          : await widget.repository.listNearbyCommunities(
+              latitude: position.latitude,
+              longitude: position.longitude,
+              radiusKm: _discoveryRadius,
+            );
+      final nearbyPeople = _filter == 6
+          ? await widget.repository.searchPeople(
+              query: _query,
+              limit: 50,
+              latitude: position.latitude,
+              longitude: position.longitude,
+              radiusKm: _discoveryRadius,
+            )
+          : null;
       if (!mounted) return;
       setState(() {
         _usingLocation = true;
         _position = position;
-        if (_filter == 1) _communities = Future.value(nearby);
+        if (_filter == 1) {
+          _communities = Future.value(nearbyCommunities ?? const []);
+        } else if (_filter == 6) {
+          _people = Future.value(nearbyPeople!);
+        }
       });
     } on TimeoutException {
       _showLocationIssue('Could not get your location. Try again.');
@@ -2328,11 +2352,19 @@ class _ExploreTabState extends State<_ExploreTab> {
           );
         }
         final people = [...?snapshot.data?.people]
-          ..sort(
-            (first, second) => second.sharedCommunityCount.compareTo(
+          ..sort((first, second) {
+            final firstDistance = first.distanceKm;
+            final secondDistance = second.distanceKm;
+            if (firstDistance != null || secondDistance != null) {
+              if (firstDistance == null) return 1;
+              if (secondDistance == null) return -1;
+              final distanceOrder = firstDistance.compareTo(secondDistance);
+              if (distanceOrder != 0) return distanceOrder;
+            }
+            return second.sharedCommunityCount.compareTo(
               first.sharedCommunityCount,
-            ),
-          );
+            );
+          });
         if (people.isEmpty) {
           return ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -2883,25 +2915,21 @@ class _ExploreTabState extends State<_ExploreTab> {
                     ChoiceChip(
                       label: Text(context.tr('Near me')),
                       avatar: const Icon(WicchuIcons.crosshair, size: 18),
-                      selected: !peopleOnly && nearby,
-                      onSelected: peopleOnly
-                          ? null
-                          : (_) async {
-                              await _findNearby();
-                              if (sheetContext.mounted) {
-                                setSheetState(() => nearby = _usingLocation);
-                              }
-                            },
+                      selected: nearby,
+                      onSelected: (_) async {
+                        await _findNearby();
+                        if (sheetContext.mounted) {
+                          setSheetState(() => nearby = _usingLocation);
+                        }
+                      },
                     ),
                     ChoiceChip(
                       label: Text(context.tr('Anywhere')),
-                      selected: peopleOnly || (!nearby && townId == null),
-                      onSelected: peopleOnly
-                          ? null
-                          : (_) => setSheetState(() {
-                              nearby = false;
-                              townId = null;
-                            }),
+                      selected: !nearby && townId == null,
+                      onSelected: (_) => setSheetState(() {
+                        nearby = false;
+                        townId = null;
+                      }),
                     ),
                   ],
                 ),
@@ -2918,23 +2946,12 @@ class _ExploreTabState extends State<_ExploreTab> {
                     for (final town in towns)
                       DropdownMenuItem(value: town.id, child: Text(town.name)),
                   ],
-                  onChanged: peopleOnly
-                      ? null
-                      : (value) => setSheetState(() {
-                          townId = value;
-                          nearby = false;
-                        }),
+                  onChanged: (value) => setSheetState(() {
+                    townId = value;
+                    nearby = false;
+                  }),
                 ),
-                if (peopleOnly)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      context.tr(
-                        'Location filtering for people is not available yet.',
-                      ),
-                    ),
-                  ),
-                if (nearby && !peopleOnly)
+                if (nearby)
                   Wrap(
                     spacing: 8,
                     children: [
@@ -2973,12 +2990,10 @@ class _ExploreTabState extends State<_ExploreTab> {
     setState(() {
       _createdWithinDays = days;
       _audienceRange = audience;
-      if (!peopleOnly) {
-        _discoveryTownId = townId;
-        _usingLocation = nearby;
-        _discoveryRadius = radius;
-        if (!nearby) _position = null;
-      }
+      _discoveryTownId = townId;
+      _usingLocation = nearby;
+      _discoveryRadius = radius;
+      if (!nearby) _position = null;
     });
     if (!peopleOnly) {
       final preferences = await SharedPreferences.getInstance();
@@ -3142,11 +3157,10 @@ class _ExploreTabState extends State<_ExploreTab> {
                       onPressed: _openDiscoveryFilters,
                       icon: Badge(
                         isLabelVisible:
-                            _filter != 6 &&
-                            (_createdWithinDays != 0 ||
-                                _audienceRange != 0 ||
-                                _discoveryTownId != null ||
-                                _usingLocation),
+                            _createdWithinDays != 0 ||
+                            _audienceRange != 0 ||
+                            _discoveryTownId != null ||
+                            _usingLocation,
                         child: Icon(
                           WicchuIcons.mapPin,
                           color: Theme.of(context).colorScheme.primary,
