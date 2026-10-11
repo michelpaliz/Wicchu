@@ -71,6 +71,7 @@ class HttpCommunityRepository implements CommunityRepository {
       location: json['location'] is String ? json['location'] as String : null,
       followerCount: (json['followerCount'] as num?)?.toInt(),
       followingCount: (json['followingCount'] as num?)?.toInt(),
+      followedByMe: json['followedByMe'] == true,
       postCount: (json['postCount'] as num?)?.toInt() ?? 0,
       communityCount: (json['communityCount'] as num?)?.toInt() ?? 0,
       socialLinks: _socialLinksFromJson(json['socialLinks']),
@@ -79,6 +80,52 @@ class HttpCommunityRepository implements CommunityRepository {
       accentColor: json['accentColor']?.toString() ?? 'teal',
     );
   }
+
+  @override
+  Future<int> followUser(String userId) async {
+    final body = await _api.put('/api/community/v1/users/$userId/follow');
+    return (body['followerCount'] as num?)?.toInt() ?? 0;
+  }
+
+  @override
+  Future<int> unfollowUser(String userId) async {
+    final body = await _api.delete('/api/community/v1/users/$userId/follow');
+    return (body['followerCount'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<UserFollowPage> _followPage(
+    String userId,
+    String relationship, {
+    String? cursor,
+  }) async {
+    final uri = Uri(
+      path: '/api/community/v1/users/$userId/$relationship',
+      queryParameters: cursor == null ? null : {'cursor': cursor},
+    );
+    final body = await _api.get(uri.toString());
+    return UserFollowPage(
+      users: _list(body, 'users')
+          .map(
+            (json) => UserFollowProfile(
+              id: json['id']?.toString() ?? '',
+              name: json['name']?.toString() ?? 'Wicchu member',
+              userName: json['userName']?.toString() ?? '',
+              avatarUrl: json['avatarUrl'] as String?,
+            ),
+          )
+          .where((user) => user.id.isNotEmpty)
+          .toList(growable: false),
+      nextCursor: body['nextCursor']?.toString(),
+    );
+  }
+
+  @override
+  Future<UserFollowPage> listFollowers(String userId, {String? cursor}) =>
+      _followPage(userId, 'followers', cursor: cursor);
+
+  @override
+  Future<UserFollowPage> listFollowingUsers(String userId, {String? cursor}) =>
+      _followPage(userId, 'following', cursor: cursor);
 
   @override
   Future<PeopleSearchPage> searchPeople({
@@ -1414,6 +1461,58 @@ class HttpCommunityRepository implements CommunityRepository {
     return _postFromJson(_object(body, 'post'));
   }
 
+  Map<String, Object?> _postInputBody(CreatePostInput input) => {
+    'categoryId': input.categoryId,
+    'text': input.text,
+    'media': input.media
+        .map(
+          (item) => {
+            'type': item.type,
+            'blobName': item.blobName,
+            'url': item.url,
+          },
+        )
+        .toList(),
+    'mentionedUserIds': input.mentionedUserIds,
+  };
+
+  @override
+  Future<CommunityPost> createPersonalPost(CreatePostInput input) async {
+    final body = await _api.post(
+      '/api/community/v1/me/posts',
+      body: _postInputBody(input),
+    );
+    return _postFromJson(_object(body, 'post'));
+  }
+
+  @override
+  Future<List<CommunityShareResult>> sharePersonalPostToCommunities(
+    String postId, {
+    required Map<String, String> categoryByCommunity,
+    String caption = '',
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/posts/$postId/community-shares',
+      body: {
+        'caption': caption,
+        'destinations': categoryByCommunity.entries
+            .map(
+              (entry) => {'communityId': entry.key, 'categoryId': entry.value},
+            )
+            .toList(),
+      },
+    );
+    return _list(body, 'results')
+        .map(
+          (json) => CommunityShareResult(
+            communityId: json['communityId']?.toString() ?? '',
+            status: json['status']?.toString() ?? 'failed',
+            message: json['message']?.toString() ?? '',
+          ),
+        )
+        .toList(growable: false);
+  }
+
   @override
   Future<CommunityPost> updatePost(String postId, CreatePostInput input) async {
     final body = await _api.patch(
@@ -1586,10 +1685,17 @@ class HttpCommunityRepository implements CommunityRepository {
     String reason, {
     String category = 'other',
     bool hidePost = false,
+    String? communityId,
   }) async {
     await _api.post(
       '/api/community/v1/posts/$postId/reports',
-      body: {'reason': reason, 'category': category, 'hidePost': hidePost},
+      body: {
+        'reason': reason,
+        'category': category,
+        'hidePost': hidePost,
+        if (communityId != null && communityId.isNotEmpty)
+          'communityId': communityId,
+      },
     );
   }
 
@@ -1675,6 +1781,9 @@ class HttpCommunityRepository implements CommunityRepository {
             targetType: switch (json['targetType']) {
               'community_admin' => PlatformReportTargetType.communityAdmin,
               'message' => PlatformReportTargetType.message,
+              'post' => PlatformReportTargetType.post,
+              'comment' => PlatformReportTargetType.comment,
+              'user' => PlatformReportTargetType.user,
               _ => PlatformReportTargetType.community,
             },
             targetId: json['targetId']?.toString() ?? '',
@@ -1683,6 +1792,9 @@ class HttpCommunityRepository implements CommunityRepository {
                 community['name']?.toString() ??
                 (json['targetType'] == 'message'
                     ? 'Direct messages'
+                    : json['targetType'] == 'post' ||
+                          json['targetType'] == 'comment'
+                    ? 'Wicchu Safety'
                     : 'Community'),
             reporterName:
                 reporter['displayName']?.toString() ??
@@ -1692,7 +1804,11 @@ class HttpCommunityRepository implements CommunityRepository {
                 target['displayName']?.toString() ??
                 target['name']?.toString() ??
                 community['name']?.toString() ??
-                'Community',
+                (json['targetType'] == 'post'
+                    ? 'Personal publication'
+                    : json['targetType'] == 'comment'
+                    ? 'Comment'
+                    : 'Community'),
             category: json['category']?.toString() ?? 'other',
             reason: json['reason']?.toString() ?? '',
             status: json['status']?.toString() ?? 'pending',
@@ -2274,6 +2390,12 @@ class HttpCommunityRepository implements CommunityRepository {
       reviewedAt: _optionalDate(
         (json['moderation'] as Map<String, dynamic>?)?['reviewedAt'],
       ),
+      destinationType: json['destinationType']?.toString() ?? 'community',
+      shareCaption:
+          (json['communityShare'] as Map<String, dynamic>?)?['caption']
+              ?.toString() ??
+          json['shareCaption']?.toString() ??
+          '',
     );
   }
 
@@ -2434,6 +2556,7 @@ class HttpCommunityRepository implements CommunityRepository {
   static CommunityNotificationType _notificationType(
     String? value,
   ) => switch (value) {
+    'user_follow' => CommunityNotificationType.userFollow,
     'post_comment' || 'postComment' => CommunityNotificationType.postComment,
     'comment_reaction' => CommunityNotificationType.commentReaction,
     'comment_reply' => CommunityNotificationType.commentReply,

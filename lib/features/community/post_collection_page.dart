@@ -167,7 +167,7 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                           if (mounted) await _refresh();
                         }
                       : null,
-                  text: post.text,
+                  text: post.displayText,
                   likes: post.reactionCount,
                   comments: post.commentCount,
                   media: post.media,
@@ -205,6 +205,7 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                         reason,
                         category: category,
                         hidePost: hidePost == true,
+                        communityId: post.communityId,
                       ),
                   onShare: () => sharePost(context, widget.repository, post),
                 );

@@ -23,6 +23,7 @@ class CreatePostPage extends StatefulWidget {
     this.initialCategory,
     this.categories = const [],
     this.existingPost,
+    this.personalProfile = false,
   });
 
   final Community community;
@@ -30,10 +31,43 @@ class CreatePostPage extends StatefulWidget {
   final CommunityCategory? initialCategory;
   final List<CommunityCategory> categories;
   final CommunityPost? existingPost;
+  final bool personalProfile;
 
   @override
   State<CreatePostPage> createState() => _CreatePostPageState();
 }
+
+Community _personalDestination() => Community(
+  id: 'personal',
+  name: 'My profile',
+  description: '',
+  town: const Town(id: 'personal', name: 'Wicchu', countryCode: ''),
+  visibility: CommunityVisibility.public,
+  createdBy: '',
+  createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+  myRole: CommunityRole.owner,
+);
+
+const _personalCategory = CommunityCategory(
+  id: 'personal',
+  communityId: 'personal',
+  name: 'Personal publication',
+  icon: '✦',
+);
+
+Future<CommunityPost?> openPersonalPostComposer(
+  BuildContext context, {
+  required CommunityRepository repository,
+  CommunityPost? existingPost,
+}) => openPostComposer(
+  context,
+  community: _personalDestination(),
+  repository: repository,
+  categories: const [_personalCategory],
+  initialCategory: _personalCategory,
+  existingPost: existingPost,
+  personalProfile: true,
+);
 
 Future<CommunityPost?> openPostComposer(
   BuildContext context, {
@@ -42,6 +76,7 @@ Future<CommunityPost?> openPostComposer(
   CommunityCategory? initialCategory,
   List<CommunityCategory> categories = const [],
   CommunityPost? existingPost,
+  bool personalProfile = false,
 }) {
   final page = CreatePostPage(
     community: community,
@@ -49,6 +84,7 @@ Future<CommunityPost?> openPostComposer(
     initialCategory: initialCategory,
     categories: categories,
     existingPost: existingPost,
+    personalProfile: personalProfile,
   );
   if (MediaQuery.sizeOf(context).width < webDesktopBreakpoint) {
     return Navigator.push<CommunityPost>(
@@ -93,14 +129,20 @@ Future<CommunityPost?> openPostComposer(
 class _CreatePostPageState extends State<CreatePostPage> {
   late Community _community = widget.community;
   late List<CommunityCategory> _categories = widget.categories;
+  late bool _personalProfile = widget.personalProfile;
   bool _changingCommunity = false;
 
   Future<void> _changeCommunity() async {
+    if (widget.existingPost != null) return;
     if (_changingCommunity) return;
     setState(() => _changingCommunity = true);
     try {
       final groups = await widget.repository.listJoinedCommunities();
       if (!mounted) return;
+      final destinations = <Community>[
+        _personalDestination(),
+        ...groups.where((item) => item.canPublish),
+      ];
       final selected = await showModalBottomSheet<Community>(
         context: context,
         showDragHandle: true,
@@ -111,14 +153,22 @@ class _CreatePostPageState extends State<CreatePostPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
-              ListTile(title: Text(context.tr('Choose a community'))),
-              for (final group in groups.where(
-                (item) => !item.isPublicProfile && item.canPublish,
-              ))
+              ListTile(title: Text(context.tr('Choose where to publish'))),
+              for (final group in destinations)
                 ListTile(
                   title: Text(group.name),
-                  subtitle: Text(group.town.name),
-                  leading: const Icon(WicchuIcons.usersThree),
+                  subtitle: Text(
+                    group.id == 'personal'
+                        ? context.tr('Personal publication')
+                        : group.spaceTypeLabel,
+                  ),
+                  leading: Icon(
+                    group.id == 'personal'
+                        ? WicchuIcons.user
+                        : group.isPublicProfile
+                        ? WicchuIcons.storefront
+                        : WicchuIcons.usersThree,
+                  ),
                   trailing: group.id == _community.id
                       ? const Icon(WicchuIcons.check)
                       : null,
@@ -129,24 +179,40 @@ class _CreatePostPageState extends State<CreatePostPage> {
         ),
       );
       if (selected == null || selected.id == _community.id || !mounted) return;
+      if (selected.id == 'personal') {
+        setState(() {
+          _personalProfile = true;
+          _community = selected;
+          _categories = const [_personalCategory];
+          _category = _personalCategory;
+          _mentionedUserIds.clear();
+          _publishAnonymously = false;
+          _kind = _PostKind.text;
+        });
+        return;
+      }
       final categories = await widget.repository.listCategories(selected.id);
       if (!mounted) return;
-      final accepted = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PostRulesReviewPage(
-            community: selected,
-            repository: widget.repository,
-          ),
-        ),
-      );
+      final accepted = selected.isPublicProfile
+          ? true
+          : await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PostRulesReviewPage(
+                  community: selected,
+                  repository: widget.repository,
+                ),
+              ),
+            );
       if (accepted != true || !mounted) return;
       setState(() {
+        _personalProfile = false;
         _community = selected;
         _categories = categories;
         _category = categories.firstOrNull;
         _mentionedUserIds.clear();
         _publishAnonymously = false;
+        _kind = _PostKind.text;
       });
     } catch (error) {
       if (mounted) {
@@ -191,12 +257,15 @@ class _CreatePostPageState extends State<CreatePostPage> {
   CommunityPost? _publishedPost;
   bool get _isEditing => widget.existingPost != null;
   bool get _pollLocked => (widget.existingPost?.poll?.totalVotes ?? 0) > 0;
-  bool get _canPublishAsAdmin => const {
-    CommunityRole.owner,
-    CommunityRole.admin,
-    CommunityRole.moderator,
-  }.contains(_community.myRole);
-  bool get _canPublishAnonymously => _community.myRole != null;
+  bool get _canPublishAsAdmin =>
+      !_personalProfile &&
+      const {
+        CommunityRole.owner,
+        CommunityRole.admin,
+        CommunityRole.moderator,
+      }.contains(_community.myRole);
+  bool get _canPublishAnonymously =>
+      !_personalProfile && _community.myRole != null;
   bool get _canPublishTodayMenu =>
       _community.isPublicProfile &&
       _community.profileCategory == ProfileCategory.localBusiness &&
@@ -251,9 +320,25 @@ class _CreatePostPageState extends State<CreatePostPage> {
   };
 
   Future<void> _chooseMentions() async {
-    final members = (await widget.repository.listMembers(_community.id))
-        .where((member) => !member.isAnonymous && member.userId.isNotEmpty)
-        .toList(growable: false);
+    final members = _personalProfile
+        ? (await widget.repository.searchPeople(limit: 50)).people
+              .map(
+                (person) => CommunityMember(
+                  userId: person.id,
+                  communityId: '',
+                  role: CommunityRole.member,
+                  status: MembershipStatus.active,
+                  joinedAt: DateTime.fromMillisecondsSinceEpoch(0),
+                  name: person.name,
+                  avatarUrl: person.avatarUrl,
+                ),
+              )
+              .toList(growable: false)
+        : (await widget.repository.listMembers(_community.id))
+              .where(
+                (member) => !member.isAnonymous && member.userId.isNotEmpty,
+              )
+              .toList(growable: false);
     if (!mounted) return;
     final selected = {..._mentionedUserIds};
     final result = await showModalBottomSheet<Set<String>>(
@@ -753,7 +838,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
             key: const ValueKey('post-draft-preview'),
             category: _category?.name ?? 'General',
             icon: _category?.icon ?? '💬',
-            community: _community.name,
+            community: _personalProfile
+                ? context.tr('My profile')
+                : _community.name,
             author: author,
             authorAvatarUrl: _publishAnonymously
                 ? null
@@ -763,12 +850,15 @@ class _CreatePostPageState extends State<CreatePostPage> {
             text: _effectiveText,
             post: CommunityPost(
               id: 'draft',
-              communityId: _community.id,
+              communityId: _personalProfile ? '' : _community.id,
               categoryId: _category?.id ?? '',
               authorId: '',
               text: _effectiveText,
               status: PostStatus.published,
               createdAt: DateTime.now(),
+              destinationType: _personalProfile
+                  ? 'personal'
+                  : 'community',
               todayMenu: _buildTodayMenu(),
               businessFeature: _buildBusinessFeature(),
             ),
@@ -798,10 +888,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     clipBehavior: Clip.antiAlias,
     child: InkWell(
       onTap:
-          _step == 0 &&
-              widget.existingPost == null &&
-              !_community.isPublicProfile &&
-              !_changingCommunity
+          _step == 0 && !_isEditing && !_changingCommunity
           ? _changeCommunity
           : null,
       child: Padding(
@@ -809,7 +896,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
         child: Row(
           children: [
             Icon(
-              _isLocalBusiness
+              _personalProfile
+                  ? WicchuIcons.user
+                  : _isLocalBusiness
                   ? WicchuIcons.storefront
                   : WicchuIcons.usersThree,
             ),
@@ -819,13 +908,17 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _isLocalBusiness
+                    _personalProfile
+                        ? context.tr('Publishing to')
+                        : _isLocalBusiness
                         ? context.tr('Publishing as your business')
                         : context.tr('Posting to'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   Text(
-                    _isLocalBusiness
+                    _personalProfile
+                        ? context.tr('My profile')
+                        : _isLocalBusiness
                         ? '${_community.name} · ${_community.town.name}'
                         : _community.name,
                     style: const TextStyle(fontWeight: FontWeight.w700),
@@ -844,9 +937,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 ],
               ),
             ),
-            if (_step == 0 &&
-                widget.existingPost == null &&
-                !_community.isPublicProfile) ...[
+            if (_step == 0 && !_isEditing) ...[
               const SizedBox(width: 8),
               if (_changingCommunity)
                 const Icon(WicchuIcons.hourglass, size: 18)
@@ -1909,7 +2000,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
     setState(() => _saving = true);
     try {
-      final currentSpace = await widget.repository.getCommunity(_community.id);
+      final currentSpace = _personalProfile
+          ? _community
+          : await widget.repository.getCommunity(_community.id);
       if (!currentSpace.canPublish) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1937,6 +2030,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
       );
       final post = _isEditing
           ? await widget.repository.updatePost(widget.existingPost!.id, input)
+          : _personalProfile
+          ? await widget.repository.createPersonalPost(input)
           : await widget.repository.createPost(_community.id, input);
       if (!mounted) return;
       if (_isEditing) {
@@ -2074,6 +2169,13 @@ Future<CommunityPost?> openEditPost(
   CommunityPost post,
 ) async {
   try {
+    if (post.isPersonal) {
+      return await openPersonalPostComposer(
+        context,
+        repository: repository,
+        existingPost: post,
+      );
+    }
     final communities = await repository.listJoinedCommunities();
     final community = communities
         .where((item) => item.id == post.communityId)

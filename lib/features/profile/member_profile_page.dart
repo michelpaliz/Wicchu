@@ -44,6 +44,114 @@ class MemberProfilePage extends StatefulWidget {
   State<MemberProfilePage> createState() => _MemberProfilePageState();
 }
 
+class _UserFollowListPage extends StatefulWidget {
+  const _UserFollowListPage({
+    required this.repository,
+    required this.userId,
+    required this.followers,
+  });
+
+  final CommunityRepository repository;
+  final String userId;
+  final bool followers;
+
+  @override
+  State<_UserFollowListPage> createState() => _UserFollowListPageState();
+}
+
+class _UserFollowListPageState extends State<_UserFollowListPage> {
+  final _users = <UserFollowProfile>[];
+  String? _cursor;
+  bool _loading = true;
+  bool _hasMore = true;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (!_hasMore && _users.isNotEmpty) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final page = widget.followers
+          ? await widget.repository.listFollowers(
+              widget.userId,
+              cursor: _cursor,
+            )
+          : await widget.repository.listFollowingUsers(
+              widget.userId,
+              cursor: _cursor,
+            );
+      if (!mounted) return;
+      setState(() {
+        _users.addAll(
+          page.users.where((item) => !_users.any((old) => old.id == item.id)),
+        );
+        _cursor = page.nextCursor;
+        _hasMore = page.nextCursor != null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: Text(context.tr(widget.followers ? 'Followers' : 'Following')),
+    ),
+    body: _error != null && _users.isEmpty
+        ? Center(child: Text(context.trError(_error!)))
+        : _users.isEmpty && !_loading
+        ? Center(
+            child: Text(
+              context.tr(
+                widget.followers
+                    ? 'No followers yet'
+                    : 'Not following anyone yet',
+              ),
+            ),
+          )
+        : ListView.builder(
+            itemCount: _users.length + (_hasMore || _loading ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == _users.length) {
+                if (!_loading) _load();
+                return const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final user = _users[index];
+              return ListTile(
+                leading: UserAvatar(name: user.name, imageUrl: user.avatarUrl),
+                title: Text(user.name),
+                subtitle: user.userName.isEmpty
+                    ? null
+                    : Text('@${user.userName}'),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MemberProfilePage(
+                      userId: user.id,
+                      repository: widget.repository,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+  );
+}
+
 class _MemberProfilePageState extends State<MemberProfilePage>
     with BlockVisibilityListener<MemberProfilePage> {
   @override
@@ -55,6 +163,9 @@ class _MemberProfilePageState extends State<MemberProfilePage>
 
   bool _blocking = false;
   bool _reporting = false;
+  bool _followBusy = false;
+  bool? _following;
+  int? _followerCount;
   late final Future<WicchuProfile?> _viewer = widget.repository
       .getProfile()
       .then<WicchuProfile?>((profile) => profile)
@@ -92,12 +203,16 @@ class _MemberProfilePageState extends State<MemberProfilePage>
         _communityNames[community.id] = community.name;
       }
       await Future.wait(
-        posts.map((post) => post.communityId).toSet().map((id) async {
-          final categories = await widget.repository.listCategories(id);
-          for (final category in categories) {
-            _categories[category.id] = category;
-          }
-        }),
+        posts
+            .map((post) => post.communityId)
+            .where((id) => id.isNotEmpty)
+            .toSet()
+            .map((id) async {
+              final categories = await widget.repository.listCategories(id);
+              for (final category in categories) {
+                _categories[category.id] = category;
+              }
+            }),
       );
     } catch (_) {
       // A public post can remain visible even when its community metadata is private.
@@ -369,10 +484,13 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                       authorAvatarUrl: post.authorAvatarUrl,
                       onShare: () =>
                           sharePost(context, widget.repository, post),
-                      category:
-                          _categories[post.categoryId]?.name ?? 'Publication',
+                      category: post.isPersonal
+                          ? 'Personal publication'
+                          : _categories[post.categoryId]?.name ?? 'Publication',
                       icon: _categories[post.categoryId]?.icon ?? '💬',
-                      community: _communityNames[post.communityId] ?? 'Wicchu',
+                      community: post.isPersonal
+                          ? context.tr('Personal profile')
+                          : _communityNames[post.communityId] ?? 'Wicchu',
                       author: post.authorName,
                       onMentionTap: (userId) => Navigator.push(
                         context,
@@ -401,7 +519,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                               if (mounted) _reload();
                             }
                           : null,
-                      text: post.text,
+                      text: post.displayText,
                       likes: post.reactionCount,
                       comments: post.commentCount,
                       media: post.media,
@@ -434,6 +552,15 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                           showPostComments(context, widget.repository, post),
                       onSaved: (saved) =>
                           widget.repository.setPostSaved(post.id, saved: saved),
+                      onReport: post.ownedByMe
+                          ? null
+                          : (reason, category, {hidePost}) =>
+                                widget.repository.reportPost(
+                                  post.id,
+                                  reason,
+                                  category: category,
+                                  hidePost: hidePost == true,
+                                ),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -471,6 +598,8 @@ class _MemberProfilePageState extends State<MemberProfilePage>
       future: _viewer,
       builder: (context, viewer) {
         final own = viewer.data?.id == widget.userId;
+        _following ??= profile.followedByMe;
+        _followerCount ??= profile.followerCount ?? 0;
         final location =
             profile.location ?? (own ? viewer.data?.location : null);
         return Column(
@@ -634,18 +763,123 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                       )
                     else
                       stat(profile.communityCount, 'Communities'),
-                    if (profile.followerCount != null)
-                      stat(profile.followerCount!, 'Followers'),
-                    if (profile.followingCount != null)
-                      stat(profile.followingCount!, 'Following'),
+                    Semantics(
+                      button: true,
+                      child: InkWell(
+                        key: const ValueKey('profile-followers-count'),
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _openFollowList(followers: true),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: stat(_followerCount!, 'Followers'),
+                        ),
+                      ),
+                    ),
+                    Semantics(
+                      button: true,
+                      child: InkWell(
+                        key: const ValueKey('profile-following-count'),
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _openFollowList(followers: false),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: stat(profile.followingCount ?? 0, 'Following'),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
+              ),
+            ),
+            Center(
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10,
+                runSpacing: 4,
+                children: [
+                  if (!own)
+                    FilledButton.tonalIcon(
+                      key: const ValueKey('profile-follow-button'),
+                      onPressed: _followBusy ? null : _toggleFollow,
+                      icon: _followBusy
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              _following == true
+                                  ? WicchuIcons.check
+                                  : WicchuIcons.userPlus,
+                              size: 18,
+                            ),
+                      label: Text(
+                        context.tr(_following == true ? 'Following' : 'Follow'),
+                      ),
+                    ),
+                  if (own)
+                    FilledButton.tonalIcon(
+                      key: const ValueKey('profile-create-publication'),
+                      onPressed: _createPersonalPost,
+                      icon: const Icon(WicchuIcons.note, size: 18),
+                      label: Text(context.tr('Create publication')),
+                    ),
+                ],
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  Future<void> _toggleFollow() async {
+    if (_followBusy) return;
+    final previous = _following ?? false;
+    final previousCount = _followerCount ?? 0;
+    setState(() {
+      _followBusy = true;
+      _following = !previous;
+      _followerCount = (previousCount + (previous ? -1 : 1)).clamp(0, 1 << 30);
+    });
+    try {
+      final count = previous
+          ? await widget.repository.unfollowUser(widget.userId)
+          : await widget.repository.followUser(widget.userId);
+      if (mounted) setState(() => _followerCount = count);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _following = previous;
+        _followerCount = previousCount;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    } finally {
+      if (mounted) setState(() => _followBusy = false);
+    }
+  }
+
+  Future<void> _openFollowList({required bool followers}) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _UserFollowListPage(
+          repository: widget.repository,
+          userId: widget.userId,
+          followers: followers,
+        ),
+      ),
+    );
+    if (mounted) _reload();
+  }
+
+  Future<void> _createPersonalPost() async {
+    final post = await openPersonalPostComposer(
+      context,
+      repository: widget.repository,
+    );
+    if (post != null && mounted) _reload();
   }
 
   Future<void> _openSocialLinks(PublicMemberProfile profile) async {

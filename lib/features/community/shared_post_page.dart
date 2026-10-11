@@ -125,7 +125,7 @@ class _SharedPostPageState extends State<SharedPostPage>
               ),
               time: formatPostTime(context, post.createdAt),
               edited: post.editedAt != null,
-              text: post.text,
+              text: post.displayText,
               media: post.media,
               poll: post.poll,
               likes: post.reactionCount,
@@ -153,6 +153,7 @@ class _SharedPostPageState extends State<SharedPostPage>
                           reason,
                           category: category,
                           hidePost: hidePost == true,
+                          communityId: post.communityId,
                         ),
               onShare: () => sharePost(
                 context,

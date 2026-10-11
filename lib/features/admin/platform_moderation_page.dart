@@ -105,6 +105,9 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
             PlatformReportTargetType.community => 'Community',
             PlatformReportTargetType.communityAdmin => 'Community admin',
             PlatformReportTargetType.message => 'Direct message',
+            PlatformReportTargetType.post => 'Personal publication',
+            PlatformReportTargetType.comment => 'Comment',
+            PlatformReportTargetType.user => 'User',
           };
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
@@ -129,7 +132,7 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
-            if (report.targetType != PlatformReportTargetType.message)
+            if (report.communityId.isNotEmpty)
               Text('${context.tr('Community')}: ${report.communityName}'),
             Text('${context.tr('Reporter')}: ${report.reporterName}'),
             Text(
@@ -241,8 +244,37 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                       child: Text(context.tr('Suspend user')),
                     ),
                   ],
+                  if ({
+                    PlatformReportTargetType.post,
+                    PlatformReportTargetType.comment,
+                    PlatformReportTargetType.user,
+                  }.contains(report.targetType)) ...[
+                    OutlinedButton(
+                      onPressed: _saving.contains(report.id)
+                          ? null
+                          : () => _decide(report, 'warn'),
+                      child: Text(context.tr('Warn user')),
+                    ),
+                    if (report.targetType != PlatformReportTargetType.user)
+                      FilledButton.tonal(
+                        onPressed: _saving.contains(report.id)
+                            ? null
+                            : () => _decide(report, 'remove_content'),
+                        child: Text(context.tr('Remove content')),
+                      ),
+                    FilledButton(
+                      onPressed: _saving.contains(report.id)
+                          ? null
+                          : () => _decide(report, 'suspend_user'),
+                      child: Text(context.tr('Suspend user')),
+                    ),
+                  ],
                   if (!isBanAppeal &&
-                      report.targetType != PlatformReportTargetType.message)
+                      report.communityId.isNotEmpty &&
+                      {
+                        PlatformReportTargetType.community,
+                        PlatformReportTargetType.communityAdmin,
+                      }.contains(report.targetType))
                     FilledButton(
                       onPressed: _saving.contains(report.id)
                           ? null
@@ -321,6 +353,7 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
   String _actionLabel(String action) => switch (action) {
     'dismiss' => 'Dismiss report',
     'warn' => 'Warn user',
+    'remove_content' => 'Remove content',
     'remove_message' => 'Remove message',
     'restore_membership' => 'Restore membership',
     'close_request' => 'Resolve request',

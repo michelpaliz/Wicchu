@@ -578,7 +578,7 @@ class _CommunityPageState extends State<CommunityPage>
                                       if (mounted) setState(_reload);
                                     }
                                   : null,
-                              text: post.text,
+                              text: post.displayText,
                               likes: post.reactionCount,
                               comments: post.commentCount,
                               media: post.media,
@@ -612,6 +612,7 @@ class _CommunityPageState extends State<CommunityPage>
                                     reason,
                                     category: category,
                                     hidePost: hidePost == true,
+                                    communityId: post.communityId,
                                   ),
                               onShare: () => sharePost(
                                 context,

@@ -141,7 +141,7 @@ class _PostDetailPageState extends State<PostDetailPage>
                         if (context.mounted) Navigator.pop(context);
                       }
                     : null,
-                text: post.text,
+                text: post.displayText,
                 likes: post.reactionCount,
                 comments: post.commentCount,
                 media: post.media,
@@ -164,6 +164,7 @@ class _PostDetailPageState extends State<PostDetailPage>
                       reason,
                       category: category,
                       hidePost: hidePost == true,
+                      communityId: post.communityId,
                     ),
                 onShare: () => sharePost(
                   context,

@@ -62,6 +62,7 @@ enum ReportStatus { open, reviewing, resolved, dismissed }
 enum ModerationTargetType { post, comment, member }
 
 enum CommunityNotificationType {
+  userFollow,
   postReaction,
   commentReaction,
   postComment,
@@ -153,6 +154,7 @@ class PublicMemberProfile {
     this.location,
     this.followerCount,
     this.followingCount,
+    this.followedByMe = false,
     this.socialLinks = const SocialLinks(),
     this.isOnline = false,
     this.lastActiveAt,
@@ -167,12 +169,44 @@ class PublicMemberProfile {
   final String? location;
   final int? followerCount;
   final int? followingCount;
+  final bool followedByMe;
   final int postCount;
   final int communityCount;
   final SocialLinks socialLinks;
   final bool isOnline;
   final DateTime? lastActiveAt;
   final String accentColor;
+}
+
+class UserFollowProfile {
+  const UserFollowProfile({
+    required this.id,
+    required this.name,
+    required this.userName,
+    this.avatarUrl,
+  });
+  final String id;
+  final String name;
+  final String userName;
+  final String? avatarUrl;
+}
+
+class UserFollowPage {
+  const UserFollowPage({required this.users, this.nextCursor});
+  final List<UserFollowProfile> users;
+  final String? nextCursor;
+}
+
+class CommunityShareResult {
+  const CommunityShareResult({
+    required this.communityId,
+    required this.status,
+    this.message = '',
+  });
+  final String communityId;
+  final String status;
+  final String message;
+  bool get succeeded => status == 'published' || status == 'pending_approval';
 }
 
 class PeopleSearchResult {
@@ -764,6 +798,8 @@ class CommunityPost {
     this.isAnonymous = false,
     this.moderationReason = '',
     this.reviewedAt,
+    this.destinationType = 'community',
+    this.shareCaption = '',
   });
 
   final String id;
@@ -792,6 +828,11 @@ class CommunityPost {
   final bool isAnonymous;
   final String moderationReason;
   final DateTime? reviewedAt;
+  final String destinationType;
+  final String shareCaption;
+  bool get isPersonal => destinationType == 'personal';
+  String get displayText =>
+      shareCaption.trim().isEmpty ? text : '${shareCaption.trim()}\n\n$text';
 }
 
 enum PromotionStatus { pending, active, rejected, completed, cancelled }
@@ -968,7 +1009,14 @@ class CommunityReport {
   final int targetMediaCount;
 }
 
-enum PlatformReportTargetType { community, communityAdmin, message }
+enum PlatformReportTargetType {
+  community,
+  communityAdmin,
+  message,
+  post,
+  comment,
+  user,
+}
 
 class PlatformReport {
   const PlatformReport({

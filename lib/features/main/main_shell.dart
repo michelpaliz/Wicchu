@@ -1941,7 +1941,7 @@ class _HomeTabState extends State<_HomeTab>
                                     if (mounted) setState(_reload);
                                   }
                                 : null,
-                            text: post.text,
+                            text: post.displayText,
                             likes: post.reactionCount,
                             comments: post.commentCount,
                             media: post.media,
@@ -1979,6 +1979,7 @@ class _HomeTabState extends State<_HomeTab>
                                   reason,
                                   category: category,
                                   hidePost: hidePost == true,
+                                  communityId: post.communityId,
                                 ),
                             onShare: () => sharePost(
                               context,
@@ -3631,6 +3632,7 @@ class _ActivityTabState extends State<_ActivityTab> {
 
   Widget _notificationRow(CommunityNotification notification) {
     final icon = switch (notification.type) {
+      CommunityNotificationType.userFollow => WicchuIcons.userPlus,
       CommunityNotificationType.postReaction => WicchuIcons.heart,
       CommunityNotificationType.postMention => WicchuIcons.at,
       CommunityNotificationType.todayMenu => WicchuIcons.forkKnife,

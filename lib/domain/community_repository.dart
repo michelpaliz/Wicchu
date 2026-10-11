@@ -133,6 +133,10 @@ abstract interface class CommunityRepository {
     required String location,
   });
   Future<PublicMemberProfile> getMemberProfile(String userId);
+  Future<int> followUser(String userId);
+  Future<int> unfollowUser(String userId);
+  Future<UserFollowPage> listFollowers(String userId, {String? cursor});
+  Future<UserFollowPage> listFollowingUsers(String userId, {String? cursor});
   Future<PeopleSearchPage> searchPeople({
     String query = '',
     String? cursor,
@@ -355,6 +359,12 @@ abstract interface class CommunityRepository {
     required String action,
   });
   Future<CommunityPost> createPost(String communityId, CreatePostInput input);
+  Future<CommunityPost> createPersonalPost(CreatePostInput input);
+  Future<List<CommunityShareResult>> sharePersonalPostToCommunities(
+    String postId, {
+    required Map<String, String> categoryByCommunity,
+    String caption = '',
+  });
   Future<CommunityPost> updatePost(String postId, CreatePostInput input);
   Future<void> deletePost(String postId);
   Future<PostMedia> uploadPostMedia({
@@ -379,6 +389,7 @@ abstract interface class CommunityRepository {
     String reason, {
     String category = 'other',
     bool hidePost = false,
+    String? communityId,
   });
   Future<void> reportComment(
     String commentId,

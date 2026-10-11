@@ -47,6 +47,7 @@ class DemoCommunityRepository implements CommunityRepository {
   final List<PromotionCampaign> _promotions = [];
   final Map<String, List<Comment>> _comments = {};
   final Set<String> _savedPostIds = {};
+  final Set<String> _followedUserIds = {};
   final Map<String, CommunitySurveyResponse> _helpfulnessVotes = {};
   SocialLinks _socialLinks = const SocialLinks();
   EditableMemberProfile _editableProfile = const EditableMemberProfile(
@@ -97,9 +98,41 @@ class DemoCommunityRepository implements CommunityRepository {
         location: userId == 'current-user' ? _profileLocation : null,
         postCount: (await listMemberPosts(userId)).length,
         communityCount: 1,
+        followerCount: 0,
+        followingCount: userId == 'current-user' ? _followedUserIds.length : 0,
+        followedByMe: _followedUserIds.contains(userId),
         socialLinks: _socialLinks,
         accentColor: _editableProfile.accentColor,
       );
+
+  @override
+  Future<int> followUser(String userId) async {
+    _followedUserIds.add(userId);
+    return 1;
+  }
+
+  @override
+  Future<int> unfollowUser(String userId) async {
+    _followedUserIds.remove(userId);
+    return 0;
+  }
+
+  @override
+  Future<UserFollowPage> listFollowers(String userId, {String? cursor}) async =>
+      const UserFollowPage(users: []);
+
+  @override
+  Future<UserFollowPage> listFollowingUsers(
+    String userId, {
+    String? cursor,
+  }) async => UserFollowPage(
+    users: _followedUserIds
+        .map(
+          (id) =>
+              UserFollowProfile(id: id, name: 'Wicchu member', userName: ''),
+        )
+        .toList(),
+  );
 
   @override
   Future<PeopleSearchPage> searchPeople({
@@ -843,6 +876,34 @@ class DemoCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<CommunityPost> createPersonalPost(CreatePostInput input) async {
+    final post = CommunityPost(
+      id: 'personal-${DateTime.now().microsecondsSinceEpoch}',
+      communityId: '',
+      categoryId: '',
+      authorId: 'current-user',
+      authorName: _profileName,
+      text: input.text,
+      status: PostStatus.published,
+      createdAt: DateTime.now(),
+      media: input.media,
+      ownedByMe: true,
+      destinationType: 'personal',
+    );
+    _posts.putIfAbsent('personal', () => []).insert(0, post);
+    return post;
+  }
+
+  @override
+  Future<List<CommunityShareResult>> sharePersonalPostToCommunities(
+    String postId, {
+    required Map<String, String> categoryByCommunity,
+    String caption = '',
+  }) async => categoryByCommunity.keys
+      .map((id) => CommunityShareResult(communityId: id, status: 'published'))
+      .toList();
+
+  @override
   Future<CommunityPost> updatePost(String postId, CreatePostInput input) async {
     for (final entry in _posts.entries) {
       final index = entry.value.indexWhere((post) => post.id == postId);
@@ -992,6 +1053,7 @@ class DemoCommunityRepository implements CommunityRepository {
     String reason, {
     String category = 'other',
     bool hidePost = false,
+    String? communityId,
   }) async {}
 
   @override

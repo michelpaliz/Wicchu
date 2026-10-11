@@ -212,7 +212,7 @@ class _CategoryPageState extends State<CategoryPage>
                                 if (mounted) setState(_reload);
                               }
                             : null,
-                        text: post.text,
+                        text: post.displayText,
                         likes: post.reactionCount,
                         comments: post.commentCount,
                         media: post.media,
@@ -246,6 +246,7 @@ class _CategoryPageState extends State<CategoryPage>
                               reason,
                               category: category,
                               hidePost: hidePost == true,
+                              communityId: post.communityId,
                             ),
                         onShare: () => sharePost(
                           context,

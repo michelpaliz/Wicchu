@@ -29,7 +29,7 @@ Future<void> openCommunityPostMedia(
     authorAvatarUrl: post.authorAvatarUrl,
     isAnonymousAuthor: post.isAnonymous,
     time: formatPostTime(context, post.createdAt),
-    text: post.text,
+    text: post.displayText,
     media: post.media,
     edited: post.editedAt != null,
     likes: post.reactionCount,
@@ -49,6 +49,7 @@ Future<void> openCommunityPostMedia(
       reason,
       category: category,
       hidePost: hidePost == true,
+      communityId: post.communityId,
     ),
     onEdit: post.ownedByMe
         ? () => openEditPost(context, repository, post)

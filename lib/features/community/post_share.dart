@@ -12,6 +12,7 @@ import 'post_media_export.dart';
 import 'post_markdown.dart';
 
 enum PostShareDestination {
+  community,
   instagramStory,
   instagramFeed,
   whatsapp,
@@ -147,6 +148,10 @@ Future<void> sharePostTo(
 ) async {
   var progressOpen = false;
   try {
+    if (destination == PostShareDestination.community) {
+      await _shareToCommunities(context, repository, post);
+      return;
+    }
     if (destination == PostShareDestination.copyCaption) {
       await Clipboard.setData(ClipboardData(text: socialPostCaption(post)));
       if (context.mounted) {
@@ -187,6 +192,8 @@ Future<void> sharePostTo(
       progressOpen = false;
     }
     switch (destination) {
+      case PostShareDestination.community:
+        return;
       case PostShareDestination.copyCaption:
       case PostShareDestination.originalMedia:
         return;
@@ -248,6 +255,18 @@ Future<void> sharePost(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (post.isPersonal)
+              ListTile(
+                leading: const Icon(WicchuIcons.usersThree),
+                title: Text(sheetContext.tr('Share to Community')),
+                subtitle: Text(
+                  sheetContext.tr(
+                    'Publish this original publication in joined communities.',
+                  ),
+                ),
+                onTap: () =>
+                    Navigator.pop(sheetContext, PostShareDestination.community),
+              ),
             ListTile(
               leading: const Icon(WicchuIcons.sparkle),
               title: Text(sheetContext.tr('Instagram Story')),
@@ -324,4 +343,280 @@ Future<void> sharePost(
   );
   if (destination == null || !context.mounted) return;
   await sharePostTo(context, repository, post, destination);
+}
+
+Future<void> _shareToCommunities(
+  BuildContext context,
+  CommunityRepository repository,
+  CommunityPost post,
+) async {
+  final results = await showModalBottomSheet<List<CommunityShareResult>>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (_) => _CommunityShareSheet(repository: repository, post: post),
+  );
+  if (results == null || !context.mounted) return;
+  final published = results.where((item) => item.status == 'published').length;
+  final pending = results
+      .where((item) => item.status == 'pending_approval')
+      .length;
+  final failed = results.where((item) => !item.succeeded).toList();
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(dialogContext.tr('Sharing results')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (published > 0) Text(dialogContext.tr('$published published')),
+          if (pending > 0)
+            Text(dialogContext.tr('$pending awaiting community approval')),
+          for (final item in failed)
+            Text(
+              item.message.isEmpty
+                  ? dialogContext.tr('Sharing failed')
+                  : item.message,
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: Text(dialogContext.tr('Done')),
+        ),
+      ],
+    ),
+  );
+}
+
+class _CommunityShareSheet extends StatefulWidget {
+  const _CommunityShareSheet({required this.repository, required this.post});
+  final CommunityRepository repository;
+  final CommunityPost post;
+
+  @override
+  State<_CommunityShareSheet> createState() => _CommunityShareSheetState();
+}
+
+class _CommunityShareSheetState extends State<_CommunityShareSheet> {
+  final _caption = TextEditingController();
+  final _selected = <String, String>{};
+  final _joining = <String>{};
+  late Future<List<Community>> _communities = _load();
+  String _query = '';
+  bool _sharing = false;
+
+  Future<List<Community>> _load() async =>
+      (await widget.repository.listCommunities())
+          .where((item) => !item.isPublicProfile)
+          .toList(growable: false);
+
+  @override
+  void dispose() {
+    _caption.dispose();
+    super.dispose();
+  }
+
+  Future<void> _join(Community community) async {
+    setState(() => _joining.add(community.id));
+    try {
+      await widget.repository.joinCommunity(community.id);
+      if (mounted) setState(() => _communities = _load());
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _joining.remove(community.id));
+    }
+  }
+
+  Future<void> _toggle(Community community) async {
+    if (_selected.remove(community.id) != null) {
+      setState(() {});
+      return;
+    }
+    try {
+      final categories = await widget.repository.listCategories(community.id);
+      if (!mounted) return;
+      if (categories.isEmpty) {
+        throw StateError('This community has no available category');
+      }
+      var category = categories.first;
+      if (categories.length > 1) {
+        category =
+            await showModalBottomSheet<CommunityCategory>(
+              context: context,
+              showDragHandle: true,
+              builder: (sheetContext) => SafeArea(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ListTile(title: Text(sheetContext.tr('Choose a category'))),
+                    for (final item in categories)
+                      ListTile(
+                        leading: Text(item.icon),
+                        title: Text(sheetContext.tr(item.name)),
+                        onTap: () => Navigator.pop(sheetContext, item),
+                      ),
+                  ],
+                ),
+              ),
+            ) ??
+            category;
+      }
+      setState(() => _selected[community.id] = category.id);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_selected.isEmpty || _sharing) return;
+    setState(() => _sharing = true);
+    try {
+      final results = await widget.repository.sharePersonalPostToCommunities(
+        widget.post.id,
+        categoryByCommunity: _selected,
+        caption: _caption.text.trim(),
+      );
+      if (mounted) Navigator.pop(context, results);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _sharing = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FractionallySizedBox(
+    heightFactor: .9,
+    child: Column(
+      children: [
+        ListTile(
+          title: Text(
+            context.tr('Share to Community'),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          subtitle: Text(context.tr('${_selected.length} selected')),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            decoration: InputDecoration(
+              prefixIcon: const Icon(WicchuIcons.magnifyingGlass),
+              hintText: context.tr('Search communities'),
+            ),
+            onChanged: (value) =>
+                setState(() => _query = value.trim().toLowerCase()),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: FutureBuilder<List<Community>>(
+            future: _communities,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(child: Text(context.trError(snapshot.error!)));
+              }
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final communities = snapshot.data!
+                  .where(
+                    (item) =>
+                        _query.isEmpty ||
+                        item.name.toLowerCase().contains(_query),
+                  )
+                  .toList();
+              return ListView.builder(
+                itemCount: communities.length,
+                itemBuilder: (context, index) {
+                  final community = communities[index];
+                  final pending =
+                      community.membershipStatus == MembershipStatus.pending;
+                  final banned =
+                      community.membershipStatus == MembershipStatus.banned;
+                  return CheckboxListTile(
+                    value: _selected.containsKey(community.id),
+                    onChanged: community.canPublish
+                        ? (_) => _toggle(community)
+                        : null,
+                    title: Text(community.name),
+                    subtitle: Text(
+                      context.tr(
+                        banned
+                            ? 'Sharing unavailable'
+                            : pending
+                            ? 'Membership pending'
+                            : community.canPublish
+                            ? (community.approvalRequired
+                                  ? 'Publication approval required'
+                                  : 'Ready to publish')
+                            : 'Join to share',
+                      ),
+                    ),
+                    secondary: !community.isJoined && !pending && !banned
+                        ? TextButton(
+                            onPressed: _joining.contains(community.id)
+                                ? null
+                                : () => _join(community),
+                            child: _joining.contains(community.id)
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(context.tr('Join')),
+                          )
+                        : null,
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            children: [
+              TextField(
+                controller: _caption,
+                maxLength: 1000,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: context.tr('Optional sharing caption'),
+                ),
+              ),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _selected.isEmpty || _sharing ? null : _submit,
+                  child: Text(
+                    context.tr(
+                      _sharing
+                          ? 'Sharing…'
+                          : 'Share to ${_selected.length} communities',
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
