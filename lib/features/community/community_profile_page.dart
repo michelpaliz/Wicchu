@@ -23,6 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/wicchu_urls.dart';
+import '../../data/authenticated_api_client.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
@@ -712,8 +713,20 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         _confirmedSeenPostIds.addAll(postIds);
         _queuedSeenPostIds.removeAll(postIds);
         await _refreshCategoryActivity(animate: false);
-      } catch (_) {
-        failed = true; // Retain the batch until the server acknowledges it.
+      } catch (error) {
+        final statusCode = error is ApiException ? error.statusCode : null;
+        final permanentClientError =
+            statusCode != null &&
+            statusCode >= 400 &&
+            statusCode < 500 &&
+            statusCode != 408 &&
+            statusCode != 429;
+        if (permanentClientError) {
+          _queuedSeenPostIds.removeAll(postIds);
+          _confirmedSeenPostIds.addAll(postIds);
+        } else {
+          failed = true; // Retry transient network and server failures.
+        }
       } finally {
         _flushingSeen = false;
         if (mounted && _queuedSeenPostIds.isNotEmpty) {

@@ -3558,6 +3558,8 @@ class _ActivityTabState extends State<_ActivityTab> {
       CommunityNotificationType.userFollow => WicchuIcons.userPlus,
       CommunityNotificationType.postReaction => WicchuIcons.heart,
       CommunityNotificationType.postMention => WicchuIcons.at,
+      CommunityNotificationType.newPost => WicchuIcons.megaphone,
+      CommunityNotificationType.newPersonalPost => WicchuIcons.article,
       CommunityNotificationType.todayMenu => WicchuIcons.forkKnife,
       CommunityNotificationType.commentReaction => WicchuIcons.heart,
       CommunityNotificationType.postComment ||
@@ -3759,6 +3761,8 @@ class _ActivityTabState extends State<_ActivityTab> {
     final postCanOpen = {
       CommunityNotificationType.postReaction,
       CommunityNotificationType.postMention,
+      CommunityNotificationType.newPost,
+      CommunityNotificationType.newPersonalPost,
       CommunityNotificationType.todayMenu,
       CommunityNotificationType.commentReaction,
       CommunityNotificationType.postComment,

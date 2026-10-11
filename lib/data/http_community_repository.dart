@@ -2746,6 +2746,8 @@ class HttpCommunityRepository implements CommunityRepository {
     'comment_reaction' => CommunityNotificationType.commentReaction,
     'comment_reply' => CommunityNotificationType.commentReply,
     'post_mention' => CommunityNotificationType.postMention,
+    'new_post' => CommunityNotificationType.newPost,
+    'new_personal_post' => CommunityNotificationType.newPersonalPost,
     'today_menu' => CommunityNotificationType.todayMenu,
     'post_approved' => CommunityNotificationType.postApproved,
     'post_rejected' => CommunityNotificationType.postRejected,

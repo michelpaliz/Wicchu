@@ -87,6 +87,8 @@ enum CommunityNotificationType {
   postComment,
   commentReply,
   postMention,
+  newPost,
+  newPersonalPost,
   todayMenu,
   postApproved,
   postRejected,

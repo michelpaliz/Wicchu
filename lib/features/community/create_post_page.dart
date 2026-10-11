@@ -338,6 +338,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
         CommunityRole.admin,
         CommunityRole.moderator,
       }.contains(_community.myRole);
+  bool get _canPublishImportantAnnouncement =>
+      !_personalProfile &&
+      const {
+        CommunityRole.owner,
+        CommunityRole.admin,
+      }.contains(_community.myRole);
   bool get _canPublishAnonymously =>
       !_personalProfile && _community.myRole != null;
   bool get _canPublishTodayMenu =>
@@ -867,7 +873,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         const SizedBox(height: 16),
         _anonymousOption(context),
       ],
-      if (_canPublishAsAdmin) ...[
+      if (_canPublishImportantAnnouncement) ...[
         const SizedBox(height: 16),
         Card(
           child: SwitchListTile.adaptive(
@@ -2116,7 +2122,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
         anonymousAsMember: _publishAnonymously && !_canPublishAsAdmin,
         todayMenu: _buildTodayMenu(),
         businessFeature: _buildBusinessFeature(),
-        importantAnnouncement: _importantAnnouncement,
+        importantAnnouncement:
+            _canPublishImportantAnnouncement && _importantAnnouncement,
       );
       final post = _isEditing
           ? await widget.repository.updatePost(widget.existingPost!.id, input)

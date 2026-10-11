@@ -11,6 +11,30 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
+    if (path == '/api/community/v1/me/notifications') {
+      return {
+        'notifications': [
+          {
+            'id': 'notification-1',
+            'actor': {'name': 'Ana'},
+            'type': 'new_post',
+            'postId': 'post-1',
+            'communityId': 'community-1',
+            'message': 'published a new post',
+            'createdAt': '2026-10-11T10:00:00.000Z',
+          },
+          {
+            'id': 'notification-2',
+            'actor': {'name': 'Luis'},
+            'type': 'new_personal_post',
+            'postId': 'post-2',
+            'message': 'published a new personal post',
+            'createdAt': '2026-10-11T11:00:00.000Z',
+          },
+        ],
+        'unreadCount': 2,
+      };
+    }
     if (path == '/api/community/v1/me/profile') {
       return {
         'profile': {
@@ -1440,5 +1464,17 @@ void main() {
     expect(api.lastPath, '/api/community/v1/posts/post-1/comments');
     expect(comments.single.authorName, 'Michael Paliz');
     expect(comments.single.authorAvatarUrl, 'https://example.com/michael.jpg');
+  });
+
+  test('scoped post notifications retain their distinct types', () async {
+    final repository = HttpCommunityRepository(
+      apiClient: _RecordingApiClient(),
+    );
+
+    final feed = await repository.listNotifications();
+
+    expect(feed.unreadCount, 2);
+    expect(feed.items[0].type, CommunityNotificationType.newPost);
+    expect(feed.items[1].type, CommunityNotificationType.newPersonalPost);
   });
 }

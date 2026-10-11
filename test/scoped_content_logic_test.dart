@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wicchu/data/authenticated_api_client.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/domain/community_repository.dart';
@@ -9,6 +10,7 @@ import 'package:wicchu/widgets/visible_post_observer.dart';
 
 class _ActivityRepository extends DemoCommunityRepository {
   bool failFirstSeen = false;
+  int? seenFailureStatus;
   bool failPreferences = false;
   int preferenceWrites = 0;
   int seenRequests = 0;
@@ -54,6 +56,9 @@ class _ActivityRepository extends DemoCommunityRepository {
   @override
   Future<void> markCommunityPostsSeen(String id, List<String> postIds) async {
     seenRequests++;
+    if (seenFailureStatus case final status?) {
+      throw ApiException('Rejected', statusCode: status);
+    }
     if (failFirstSeen && seenRequests == 1) throw StateError('Offline');
     batches.add([...postIds]);
     await super.markCommunityPostsSeen(id, postIds);
@@ -183,4 +188,20 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets('community does not retry rejected read acknowledgements', (
+    tester,
+  ) async {
+    final repo = _ActivityRepository()..seenFailureStatus = 400;
+    final community = (await repo.listJoinedCommunities()).first;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityProfilePage(community: community, repository: repo),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 6));
+    expect(repo.seenRequests, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
