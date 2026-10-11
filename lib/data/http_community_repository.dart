@@ -67,6 +67,7 @@ class HttpCommunityRepository implements CommunityRepository {
       userName: json['userName']?.toString() ?? '',
       avatarUrl: json['avatarUrl'] as String?,
       coverImageUrl: json['coverImageUrl'] as String?,
+      shortDescription: json['shortDescription']?.toString() ?? '',
       bio: json['bio'] as String?,
       location: json['location'] is String ? json['location'] as String : null,
       followerCount: (json['followerCount'] as num?)?.toInt(),
@@ -474,6 +475,7 @@ class HttpCommunityRepository implements CommunityRepository {
       body: {
         'name': profile.name,
         'userName': profile.userName,
+        'shortDescription': profile.shortDescription,
         'bio': profile.bio,
         'location': profile.location,
         'accentColor': profile.accentColor,
@@ -492,6 +494,7 @@ class HttpCommunityRepository implements CommunityRepository {
   ) => EditableMemberProfile(
     name: json['name']?.toString() ?? '',
     userName: json['userName']?.toString() ?? '',
+    shortDescription: json['shortDescription']?.toString() ?? '',
     bio: json['bio']?.toString() ?? '',
     location: json['location']?.toString() ?? '',
     accentColor: json['accentColor']?.toString() ?? 'teal',

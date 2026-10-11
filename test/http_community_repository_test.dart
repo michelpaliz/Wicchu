@@ -16,6 +16,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
         'profile': {
           'name': 'Ana Rivera',
           'userName': 'ana',
+          'shortDescription': 'Connecting neighbors',
           'bio': 'Community volunteer',
           'location': 'Dénia',
           'accentColor': 'purple',
@@ -440,6 +441,7 @@ void main() {
 
       final profile = await repository.getEditableProfile();
       expect(profile.name, 'Ana Rivera');
+      expect(profile.shortDescription, 'Connecting neighbors');
       expect(profile.bio, 'Community volunteer');
       expect(profile.accentColor, 'purple');
       expect(await repository.isUsernameAvailable('available'), isTrue);
@@ -448,6 +450,7 @@ void main() {
       await repository.updateEditableProfile(profile);
       expect(api.lastPath, '/api/community/v1/me/profile');
       expect(api.lastBody?['name'], 'Ana Rivera');
+      expect(api.lastBody?['shortDescription'], 'Connecting neighbors');
       expect(api.lastBody?['accentColor'], 'purple');
       expect(api.lastBody?['socialLinks'], {
         'whatsapp': '+34600123456',

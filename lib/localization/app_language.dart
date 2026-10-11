@@ -1151,6 +1151,8 @@ const _spanish = <String, String>{
   'Basics': 'Datos básicos',
   'Community name': 'Nombre de la comunidad',
   'Short description': 'Descripción breve',
+  'Describe yourself in one short sentence…':
+      'Descríbete en una frase corta…',
   'A quick summary shown on your profile.':
       'Un resumen breve que se muestra en tu perfil.',
   'Tell people more about your community or page…':

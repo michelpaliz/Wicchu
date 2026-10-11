@@ -150,6 +150,7 @@ class PublicMemberProfile {
     required this.communityCount,
     this.avatarUrl,
     this.coverImageUrl,
+    this.shortDescription = '',
     this.bio,
     this.location,
     this.followerCount,
@@ -165,6 +166,7 @@ class PublicMemberProfile {
   final String userName;
   final String? avatarUrl;
   final String? coverImageUrl;
+  final String shortDescription;
   final String? bio;
   final String? location;
   final int? followerCount;
@@ -256,6 +258,7 @@ class EditableMemberProfile {
   const EditableMemberProfile({
     required this.name,
     required this.userName,
+    this.shortDescription = '',
     this.bio = '',
     this.location = '',
     this.socialLinks = const SocialLinks(),
@@ -264,6 +267,7 @@ class EditableMemberProfile {
 
   final String name;
   final String userName;
+  final String shortDescription;
   final String bio;
   final String location;
   final SocialLinks socialLinks;

@@ -77,10 +77,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('This field is required.'), findsOneWidget);
     await tester.enterText(name, 'Updated name');
+    await tester.enterText(
+      find.byKey(const ValueKey('profile-detail-2')),
+      'Local stories and community news',
+    );
     await tester.pump();
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
     expect((await repository.getEditableProfile()).name, 'Updated name');
+    expect(
+      (await repository.getEditableProfile()).shortDescription,
+      'Local stories and community news',
+    );
   });
 
   testWidgets('invalid contact prevents save and failed save retains input', (

@@ -32,7 +32,7 @@ class EditProfilePage extends StatefulWidget {
 class _EditProfilePageState extends State<EditProfilePage> {
   final _form = GlobalKey<FormState>();
   final _controllers = List.generate(3, (_) => TextEditingController());
-  final _details = List.generate(4, (_) => TextEditingController());
+  final _details = List.generate(5, (_) => TextEditingController());
   EditableMemberProfile? _initial;
   Timer? _usernameDelay;
   int _usernameGeneration = 0;
@@ -117,6 +117,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final values = [
       initial.name,
       initial.userName,
+      initial.shortDescription,
       initial.bio,
       initial.location,
       initial.socialLinks.whatsapp,
@@ -128,6 +129,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _normalizedUsername,
       _details[2].text.trim(),
       _details[3].text.trim(),
+      _details[4].text.trim(),
       ..._controllers.map((controller) => controller.text.trim()),
     ];
     return _accentColor != initial.accentColor ||
@@ -150,10 +152,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final details = [
         profile.name,
         profile.userName,
+        profile.shortDescription,
         profile.bio,
         profile.location,
       ];
-      for (var i = 0; i < 4; i++) {
+      for (var i = 0; i < _details.length; i++) {
         _details[i].text = details[i];
       }
       final values = [
@@ -267,8 +270,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
         EditableMemberProfile(
           name: _details[0].text.trim(),
           userName: _normalizedUsername,
-          bio: _details[2].text.trim(),
-          location: _details[3].text.trim(),
+          shortDescription: _details[2].text.trim(),
+          bio: _details[3].text.trim(),
+          location: _details[4].text.trim(),
           socialLinks: SocialLinks(
             whatsapp: values[0].replaceAll(RegExp(r'[ ()-]'), ''),
             facebook: values[1].replaceFirst(RegExp(r'^@'), ''),
@@ -550,12 +554,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    for (var i = 0; i < 4; i++) ...[
+                    for (var i = 0; i < _details.length; i++) ...[
                       Padding(
                         padding: const EdgeInsets.only(left: 10, bottom: 6),
                         child: Text(
                           context.tr(
-                            ['Name', 'Username', 'Bio', 'Location'][i],
+                            [
+                              'Name',
+                              'Username',
+                              'Short description',
+                              'Bio',
+                              'Location',
+                            ][i],
                           ),
                           style: const TextStyle(
                             fontSize: 13,
@@ -568,9 +578,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         key: ValueKey('profile-detail-$i'),
                         controller: _details[i],
                         enabled: !_saving,
-                        maxLength: [80, 30, 500, 120][i],
-                        minLines: i == 2 ? 3 : 1,
-                        maxLines: i == 2 ? 5 : 1,
+                        maxLength: [80, 30, 160, 500, 120][i],
+                        minLines: i == 3 ? 3 : 1,
+                        maxLines: i == 2 ? 2 : i == 3 ? 5 : 1,
                         textCapitalization: i == 1
                             ? TextCapitalization.none
                             : TextCapitalization.sentences,
@@ -608,14 +618,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             _decoration(
                               hint: i == 2
                                   ? context.tr(
-                                      'Tell us about yourself, your interests or what makes you unique…',
+                                      'Describe yourself in one short sentence…',
                                     )
                                   : i == 3
+                                  ? context.tr(
+                                      'Tell us about yourself, your interests or what makes you unique…',
+                                    )
+                                  : i == 4
                                   ? context.tr('Add your location')
                                   : null,
                               icon: [
                                 WicchuIcons.user,
                                 WicchuIcons.at,
+                                WicchuIcons.note,
                                 WicchuIcons.note,
                                 WicchuIcons.mapPin,
                               ][i],

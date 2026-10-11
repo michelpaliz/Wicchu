@@ -94,6 +94,9 @@ class DemoCommunityRepository implements CommunityRepository {
         id: userId,
         name: userId == 'current-user' ? _profileName : 'Wicchu member',
         userName: userId == 'current-user' ? _profileUserName : '',
+        shortDescription: userId == 'current-user'
+            ? _editableProfile.shortDescription
+            : '',
         bio: userId == 'current-user' ? _profileBio : null,
         location: userId == 'current-user' ? _profileLocation : null,
         postCount: (await listMemberPosts(userId)).length,
@@ -153,6 +156,7 @@ class DemoCommunityRepository implements CommunityRepository {
       EditableMemberProfile(
         name: _editableProfile.name,
         userName: _editableProfile.userName,
+        shortDescription: _editableProfile.shortDescription,
         bio: _editableProfile.bio,
         location: _editableProfile.location,
         socialLinks: _socialLinks,

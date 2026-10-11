@@ -679,6 +679,18 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                                 color: colors.onSurfaceVariant,
                               ),
                             ),
+                          if (profile.shortDescription.trim().isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              profile.shortDescription.trim(),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
                           if (profile.isOnline ||
                               profile.lastActiveAt != null) ...[
                             const SizedBox(height: 3),

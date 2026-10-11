@@ -53,6 +53,7 @@ class _Api extends AuthenticatedApiClient {
         'id': 'creator',
         'name': 'Creator',
         'userName': 'creator',
+        'shortDescription': 'Independent local journalist',
         'postCount': 1,
         'communityCount': 0,
         'followerCount': 4,
@@ -103,6 +104,7 @@ void main() {
 
     final profile = await repository.getMemberProfile('creator');
     expect(profile.followedByMe, isTrue);
+    expect(profile.shortDescription, 'Independent local journalist');
     expect(profile.followerCount, 4);
     expect(await repository.followUser('creator'), 5);
     expect(await repository.unfollowUser('creator'), 4);
