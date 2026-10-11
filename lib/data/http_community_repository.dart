@@ -80,6 +80,11 @@ class HttpCommunityRepository implements CommunityRepository {
       lastActiveAt: _optionalDate(json['lastActiveAt']),
       accentColor: json['accentColor']?.toString() ?? 'teal',
       neonBordersEnabled: json['neonBordersEnabled'] == true,
+      neonBorderAnimation: neonBorderAnimationFromApi(
+        json['neonBorderAnimation'],
+      ),
+      neonAnimationDurationSeconds:
+          (json['neonAnimationDurationSeconds'] as num?)?.toDouble() ?? 5,
     );
   }
 
@@ -490,6 +495,8 @@ class HttpCommunityRepository implements CommunityRepository {
         'location': profile.location,
         'accentColor': profile.accentColor,
         'neonBordersEnabled': profile.neonBordersEnabled,
+        'neonBorderAnimation': profile.neonBorderAnimation.apiValue,
+        'neonAnimationDurationSeconds': profile.neonAnimationDurationSeconds,
         'socialLinks': {
           'whatsapp': profile.socialLinks.whatsapp,
           'facebook': profile.socialLinks.facebook,
@@ -510,6 +517,11 @@ class HttpCommunityRepository implements CommunityRepository {
     location: json['location']?.toString() ?? '',
     accentColor: json['accentColor']?.toString() ?? 'teal',
     neonBordersEnabled: json['neonBordersEnabled'] == true,
+    neonBorderAnimation: neonBorderAnimationFromApi(
+      json['neonBorderAnimation'],
+    ),
+    neonAnimationDurationSeconds:
+        (json['neonAnimationDurationSeconds'] as num?)?.toDouble() ?? 5,
     socialLinks: _socialLinksFromJson(json['socialLinks']),
   );
 
@@ -1206,6 +1218,8 @@ class HttpCommunityRepository implements CommunityRepository {
     bool? published,
     String? accentColor,
     bool? neonBordersEnabled,
+    NeonBorderAnimation? neonBorderAnimation,
+    double? neonAnimationDurationSeconds,
   }) async {
     final body = await _api.patch(
       '/api/community/v1/communities/${community.id}',
@@ -1220,6 +1234,11 @@ class HttpCommunityRepository implements CommunityRepository {
         'accentColor': accentColor ?? community.accentColor,
         'neonBordersEnabled':
             neonBordersEnabled ?? community.neonBordersEnabled,
+        'neonBorderAnimation':
+            (neonBorderAnimation ?? community.neonBorderAnimation).apiValue,
+        'neonAnimationDurationSeconds':
+            neonAnimationDurationSeconds ??
+            community.neonAnimationDurationSeconds,
         'approvalRequired': approvalRequired,
         'showWeather': showWeather,
         if (community.isPublicProfile && profileCategory != null)
@@ -2273,6 +2292,11 @@ class HttpCommunityRepository implements CommunityRepository {
       published: json['published'] != false,
       accentColor: json['accentColor']?.toString() ?? 'teal',
       neonBordersEnabled: json['neonBordersEnabled'] == true,
+      neonBorderAnimation: neonBorderAnimationFromApi(
+        json['neonBorderAnimation'],
+      ),
+      neonAnimationDurationSeconds:
+          (json['neonAnimationDurationSeconds'] as num?)?.toDouble() ?? 5,
       approvalRequired: json['approvalRequired'] as bool? ?? false,
       showWeather: json['showWeather'] as bool? ?? false,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),

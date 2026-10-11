@@ -46,7 +46,7 @@ void main() {
       expect(find.text('Unsaved changes'), findsOneWidget);
       await tester.tap(find.text('Keep editing'));
       await tester.pumpAndSettle();
-      expect(find.text('Unsaved name'), findsOneWidget);
+      expect(find.text('Unsaved name'), findsNWidgets(2));
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text('Unsaved changes'), findsOneWidget);
@@ -69,7 +69,7 @@ void main() {
       MaterialApp(home: EditProfilePage(repository: repository)),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Michael P.'), findsOneWidget);
+    expect(find.text('Michael P.'), findsNWidgets(2));
     final name = find.byKey(const ValueKey('profile-detail-0'));
     await tester.enterText(name, '');
     await tester.pump();
@@ -153,11 +153,19 @@ void main() {
     final neonBorders = find.text('Neon borders');
     await tester.ensureVisible(neonBorders);
     await tester.tap(neonBorders);
+    await tester.pumpAndSettle();
+    final snake = find.byKey(const ValueKey('neon-animation-snake'));
+    await tester.ensureVisible(snake);
+    await tester.tap(snake);
     await tester.pump();
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
 
     expect((await repository.getEditableProfile()).accentColor, 'green');
     expect((await repository.getEditableProfile()).neonBordersEnabled, isTrue);
+    expect(
+      (await repository.getEditableProfile()).neonBorderAnimation,
+      NeonBorderAnimation.snake,
+    );
   });
 }

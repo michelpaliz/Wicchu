@@ -6,6 +6,25 @@ enum MembershipStatus { active, pending, banned }
 
 enum CommunityType { community, publicProfile }
 
+enum NeonBorderAnimation { staticGlow, snake, breathing, aurora }
+
+extension NeonBorderAnimationApi on NeonBorderAnimation {
+  String get apiValue => switch (this) {
+    NeonBorderAnimation.staticGlow => 'static',
+    NeonBorderAnimation.snake => 'snake',
+    NeonBorderAnimation.breathing => 'breathing',
+    NeonBorderAnimation.aurora => 'aurora',
+  };
+}
+
+NeonBorderAnimation neonBorderAnimationFromApi(Object? value) =>
+    switch (value?.toString()) {
+      'snake' => NeonBorderAnimation.snake,
+      'breathing' => NeonBorderAnimation.breathing,
+      'aurora' => NeonBorderAnimation.aurora,
+      _ => NeonBorderAnimation.staticGlow,
+    };
+
 enum ProfileCategory {
   localBusiness('local_business', 'Local business'),
   person('person', 'Person'),
@@ -161,6 +180,8 @@ class PublicMemberProfile {
     this.lastActiveAt,
     this.accentColor = 'teal',
     this.neonBordersEnabled = false,
+    this.neonBorderAnimation = NeonBorderAnimation.staticGlow,
+    this.neonAnimationDurationSeconds = 5,
   });
   final String id;
   final String name;
@@ -180,6 +201,8 @@ class PublicMemberProfile {
   final DateTime? lastActiveAt;
   final String accentColor;
   final bool neonBordersEnabled;
+  final NeonBorderAnimation neonBorderAnimation;
+  final double neonAnimationDurationSeconds;
 }
 
 class UserFollowProfile {
@@ -268,6 +291,8 @@ class EditableMemberProfile {
     this.socialLinks = const SocialLinks(),
     this.accentColor = 'teal',
     this.neonBordersEnabled = false,
+    this.neonBorderAnimation = NeonBorderAnimation.staticGlow,
+    this.neonAnimationDurationSeconds = 5,
   });
 
   final String name;
@@ -278,6 +303,8 @@ class EditableMemberProfile {
   final SocialLinks socialLinks;
   final String accentColor;
   final bool neonBordersEnabled;
+  final NeonBorderAnimation neonBorderAnimation;
+  final double neonAnimationDurationSeconds;
 }
 
 class CommunityNotification {
@@ -355,6 +382,8 @@ class Community {
     this.published = true,
     this.accentColor = 'teal',
     this.neonBordersEnabled = false,
+    this.neonBorderAnimation = NeonBorderAnimation.staticGlow,
+    this.neonAnimationDurationSeconds = 5,
   });
 
   final String id;
@@ -393,6 +422,8 @@ class Community {
   final bool published;
   final String accentColor;
   final bool neonBordersEnabled;
+  final NeonBorderAnimation neonBorderAnimation;
+  final double neonAnimationDurationSeconds;
 
   bool get isJoined => myRole != null;
   bool get isBanned => membershipStatus == MembershipStatus.banned;

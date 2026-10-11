@@ -21,6 +21,8 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'location': 'Dénia',
           'accentColor': 'purple',
           'neonBordersEnabled': false,
+          'neonBorderAnimation': 'breathing',
+          'neonAnimationDurationSeconds': 7.5,
           'socialLinks': {
             'whatsapp': '+34600123456',
             'facebook': 'ana',
@@ -503,6 +505,8 @@ void main() {
       expect(profile.shortDescription, 'Connecting neighbors');
       expect(profile.bio, 'Community volunteer');
       expect(profile.accentColor, 'purple');
+      expect(profile.neonBorderAnimation, NeonBorderAnimation.breathing);
+      expect(profile.neonAnimationDurationSeconds, 7.5);
       expect(await repository.isUsernameAvailable('available'), isTrue);
       expect(await repository.isUsernameAvailable('taken'), isFalse);
 
@@ -512,6 +516,8 @@ void main() {
       expect(api.lastBody?['shortDescription'], 'Connecting neighbors');
       expect(api.lastBody?['accentColor'], 'purple');
       expect(api.lastBody?['neonBordersEnabled'], isFalse);
+      expect(api.lastBody?['neonBorderAnimation'], 'breathing');
+      expect(api.lastBody?['neonAnimationDurationSeconds'], 7.5);
       expect(api.lastBody?['socialLinks'], {
         'whatsapp': '+34600123456',
         'facebook': 'ana',
@@ -917,6 +923,8 @@ void main() {
       bool? published,
       String? accentColor,
       bool? neonBordersEnabled,
+      NeonBorderAnimation? neonBorderAnimation,
+      double? neonAnimationDurationSeconds,
     }) => repository.updateCommunity(
       community,
       town: town,
@@ -933,6 +941,8 @@ void main() {
       published: published,
       accentColor: accentColor,
       neonBordersEnabled: neonBordersEnabled,
+      neonBorderAnimation: neonBorderAnimation,
+      neonAnimationDurationSeconds: neonAnimationDurationSeconds,
     );
 
     await update(
@@ -986,10 +996,14 @@ void main() {
       published: false,
       accentColor: 'rose',
       neonBordersEnabled: true,
+      neonBorderAnimation: NeonBorderAnimation.aurora,
+      neonAnimationDurationSeconds: 8.5,
     );
     expect(api.lastBody?['published'], isFalse);
     expect(api.lastBody?['accentColor'], 'rose');
     expect(api.lastBody?['neonBordersEnabled'], isTrue);
+    expect(api.lastBody?['neonBorderAnimation'], 'aurora');
+    expect(api.lastBody?['neonAnimationDurationSeconds'], 8.5);
 
     await update(
       Community(

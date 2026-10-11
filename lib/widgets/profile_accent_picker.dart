@@ -1,6 +1,10 @@
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
+import '../domain/community_models.dart';
+import '../localization/app_language.dart';
+import 'animated_neon_border.dart';
+
 const profileAccentKeys = <String>[
   'teal',
   'blue',
@@ -84,6 +88,182 @@ String profileAccentLabel(String value) => switch (value) {
   'neon_orange' => 'Neon orange',
   _ => 'Teal',
 };
+
+String neonBorderAnimationLabel(NeonBorderAnimation value) => switch (value) {
+  NeonBorderAnimation.staticGlow => 'Static',
+  NeonBorderAnimation.snake => 'Neon Snake',
+  NeonBorderAnimation.breathing => 'Breathing Glow',
+  NeonBorderAnimation.aurora => 'Aurora Flow',
+};
+
+class NeonBorderStudio extends StatelessWidget {
+  const NeonBorderStudio({
+    super.key,
+    required this.accentColor,
+    required this.enabled,
+    required this.animation,
+    required this.durationSeconds,
+    required this.previewTitle,
+    required this.previewSubtitle,
+    required this.onEnabledChanged,
+    required this.onAnimationChanged,
+    required this.onDurationChanged,
+  });
+
+  final String accentColor;
+  final bool enabled;
+  final NeonBorderAnimation animation;
+  final double durationSeconds;
+  final String previewTitle;
+  final String previewSubtitle;
+  final ValueChanged<bool>? onEnabledChanged;
+  final ValueChanged<NeonBorderAnimation>? onAnimationChanged;
+  final ValueChanged<double>? onDurationChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final reducedMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 14),
+        Text(
+          context.tr('Live preview'),
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Center(
+          child: AnimatedNeonBorder(
+            key: const ValueKey('neon-border-preview'),
+            color: profileAccentColor(accentColor),
+            enabled: enabled,
+            animation: animation,
+            durationSeconds: durationSeconds,
+            borderRadius: BorderRadius.circular(20),
+            padding: const EdgeInsets.all(4),
+            strokeWidth: 2.5,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(17),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    previewTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    previewSubtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SwitchListTile.adaptive(
+          key: const ValueKey('neon-borders-toggle'),
+          contentPadding: EdgeInsets.zero,
+          value: enabled,
+          onChanged: onEnabledChanged,
+          title: Text(context.tr('Neon borders')),
+          subtitle: Text(context.tr('Add a neon glow to profile borders.')),
+        ),
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 180),
+          crossFadeState: enabled
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          firstChild: const SizedBox(width: double.infinity),
+          secondChild: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 8),
+              Text(
+                context.tr('Animation type'),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final value in NeonBorderAnimation.values)
+                    ChoiceChip(
+                      key: ValueKey('neon-animation-${value.apiValue}'),
+                      label: Text(context.tr(neonBorderAnimationLabel(value))),
+                      selected: animation == value,
+                      onSelected: onAnimationChanged == null
+                          ? null
+                          : (_) => onAnimationChanged!(value),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.tr('Animation duration'),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    context.tr('seconds value', {
+                      'value': durationSeconds.toStringAsFixed(1),
+                    }),
+                  ),
+                ],
+              ),
+              Slider(
+                key: const ValueKey('neon-animation-duration'),
+                value: durationSeconds.clamp(2, 12),
+                min: 2,
+                max: 12,
+                divisions: 20,
+                label: durationSeconds.toStringAsFixed(1),
+                onChanged: animation == NeonBorderAnimation.staticGlow
+                    ? null
+                    : onDurationChanged,
+              ),
+              if (reducedMotion)
+                Text(
+                  context.tr(
+                    'Animations are shown as static because reduced motion is enabled.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class ProfileAccentPicker extends StatelessWidget {
   const ProfileAccentPicker({

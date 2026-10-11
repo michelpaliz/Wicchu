@@ -55,6 +55,8 @@ class _Api extends AuthenticatedApiClient {
         'userName': 'creator',
         'shortDescription': 'Independent local journalist',
         'neonBordersEnabled': true,
+        'neonBorderAnimation': 'aurora',
+        'neonAnimationDurationSeconds': 8,
         'postCount': 1,
         'communityCount': 0,
         'followerCount': 4,
@@ -107,6 +109,8 @@ void main() {
     expect(profile.followedByMe, isTrue);
     expect(profile.shortDescription, 'Independent local journalist');
     expect(profile.neonBordersEnabled, isTrue);
+    expect(profile.neonBorderAnimation, NeonBorderAnimation.aurora);
+    expect(profile.neonAnimationDurationSeconds, 8);
     expect(profile.followerCount, 4);
     expect(await repository.followUser('creator'), 5);
     expect(await repository.unfollowUser('creator'), 4);

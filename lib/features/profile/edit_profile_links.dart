@@ -45,6 +45,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _confirmingLeave = false;
   String _accentColor = 'teal';
   bool _neonBordersEnabled = false;
+  NeonBorderAnimation _neonBorderAnimation = NeonBorderAnimation.staticGlow;
+  double _neonAnimationDurationSeconds = 5;
 
   @override
   void initState() {
@@ -135,6 +137,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     ];
     return _accentColor != initial.accentColor ||
         _neonBordersEnabled != initial.neonBordersEnabled ||
+        _neonBorderAnimation != initial.neonBorderAnimation ||
+        _neonAnimationDurationSeconds != initial.neonAnimationDurationSeconds ||
         List.generate(
           values.length,
           (i) => current[i] != values[i],
@@ -152,6 +156,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _initial = profile;
       _accentColor = profile.accentColor;
       _neonBordersEnabled = profile.neonBordersEnabled;
+      _neonBorderAnimation = profile.neonBorderAnimation;
+      _neonAnimationDurationSeconds = profile.neonAnimationDurationSeconds;
       final details = [
         profile.name,
         profile.userName,
@@ -285,6 +291,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           accentColor: _accentColor,
           neonBordersEnabled: _neonBordersEnabled,
+          neonBorderAnimation: _neonBorderAnimation,
+          neonAnimationDurationSeconds: _neonAnimationDurationSeconds,
         ),
       );
       if (!mounted) return;
@@ -695,17 +703,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             }),
                     ),
                     const SizedBox(height: 12),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      value: _neonBordersEnabled,
-                      onChanged: _saving
+                    NeonBorderStudio(
+                      accentColor: _accentColor,
+                      enabled: _neonBordersEnabled,
+                      animation: _neonBorderAnimation,
+                      durationSeconds: _neonAnimationDurationSeconds,
+                      previewTitle: _details[0].text.trim().isEmpty
+                          ? 'Wicchu'
+                          : _details[0].text.trim(),
+                      previewSubtitle: _details[2].text.trim().isEmpty
+                          ? context.tr('Your profile, your community')
+                          : _details[2].text.trim(),
+                      onEnabledChanged: _saving
                           ? null
                           : (value) =>
                                 setState(() => _neonBordersEnabled = value),
-                      title: Text(context.tr('Neon borders')),
-                      subtitle: Text(
-                        context.tr('Add a neon glow to profile borders.'),
-                      ),
+                      onAnimationChanged: _saving
+                          ? null
+                          : (value) =>
+                                setState(() => _neonBorderAnimation = value),
+                      onDurationChanged: _saving
+                          ? null
+                          : (value) => setState(
+                              () => _neonAnimationDurationSeconds = value,
+                            ),
                     ),
                     const Divider(height: 32),
                     Text(

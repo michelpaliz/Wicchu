@@ -1661,6 +1661,10 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   late bool _published = widget.community.published;
   late String _accentColor = widget.community.accentColor;
   late bool _neonBordersEnabled = widget.community.neonBordersEnabled;
+  late NeonBorderAnimation _neonBorderAnimation =
+      widget.community.neonBorderAnimation;
+  late double _neonAnimationDurationSeconds =
+      widget.community.neonAnimationDurationSeconds;
   late Town _town = widget.community.town;
 
   late ProfileCategory? _profileCategory = widget.community.profileCategory;
@@ -1710,6 +1714,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     _published,
     _accentColor,
     _neonBordersEnabled,
+    _neonBorderAnimation.apiValue,
+    _neonAnimationDurationSeconds,
     _town.id,
     _profileCategory?.name,
     _businessServices.map((value) => value.name).toList()..sort(),
@@ -2133,14 +2139,31 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                         _accentColor = value;
                       }),
               ),
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                value: _neonBordersEnabled,
-                onChanged: _saving
+              NeonBorderStudio(
+                accentColor: _accentColor,
+                enabled: _neonBordersEnabled,
+                animation: _neonBorderAnimation,
+                durationSeconds: _neonAnimationDurationSeconds,
+                previewTitle: _name.text.trim().isEmpty
+                    ? 'Wicchu'
+                    : _name.text.trim(),
+                previewSubtitle: _shortDescription.text.trim().isEmpty
+                    ? context.tr(
+                        widget.community.isPublicProfile
+                            ? 'Public profile'
+                            : 'Community',
+                      )
+                    : _shortDescription.text.trim(),
+                onEnabledChanged: _saving
                     ? null
                     : (value) => setState(() => _neonBordersEnabled = value),
-                title: Text(context.tr('Neon borders')),
-                subtitle: Text(context.tr('Add a neon glow to page borders.')),
+                onAnimationChanged: _saving
+                    ? null
+                    : (value) => setState(() => _neonBorderAnimation = value),
+                onDurationChanged: _saving
+                    ? null
+                    : (value) =>
+                          setState(() => _neonAnimationDurationSeconds = value),
               ),
             ]),
             const SizedBox(height: 12),
@@ -2499,6 +2522,8 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         published: widget.community.isPublicProfile ? _published : null,
         accentColor: _accentColor,
         neonBordersEnabled: _neonBordersEnabled,
+        neonBorderAnimation: _neonBorderAnimation,
+        neonAnimationDurationSeconds: _neonAnimationDurationSeconds,
       );
       if (!mounted) return;
       if (widget.community.isPublicProfile &&

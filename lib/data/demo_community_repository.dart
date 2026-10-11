@@ -108,6 +108,9 @@ class DemoCommunityRepository implements CommunityRepository {
         socialLinks: _socialLinks,
         accentColor: _editableProfile.accentColor,
         neonBordersEnabled: _editableProfile.neonBordersEnabled,
+        neonBorderAnimation: _editableProfile.neonBorderAnimation,
+        neonAnimationDurationSeconds:
+            _editableProfile.neonAnimationDurationSeconds,
       );
 
   @override
@@ -168,6 +171,9 @@ class DemoCommunityRepository implements CommunityRepository {
         socialLinks: _socialLinks,
         accentColor: _editableProfile.accentColor,
         neonBordersEnabled: _editableProfile.neonBordersEnabled,
+        neonBorderAnimation: _editableProfile.neonBorderAnimation,
+        neonAnimationDurationSeconds:
+            _editableProfile.neonAnimationDurationSeconds,
       );
 
   @override
@@ -696,6 +702,8 @@ class DemoCommunityRepository implements CommunityRepository {
     bool? published,
     String? accentColor,
     bool? neonBordersEnabled,
+    NeonBorderAnimation? neonBorderAnimation,
+    double? neonAnimationDurationSeconds,
   }) async {
     final updated = Community(
       id: community.id,
@@ -728,6 +736,10 @@ class DemoCommunityRepository implements CommunityRepository {
       published: published ?? community.published,
       accentColor: accentColor ?? community.accentColor,
       neonBordersEnabled: neonBordersEnabled ?? community.neonBordersEnabled,
+      neonBorderAnimation: neonBorderAnimation ?? community.neonBorderAnimation,
+      neonAnimationDurationSeconds:
+          neonAnimationDurationSeconds ??
+          community.neonAnimationDurationSeconds,
     );
     final index = _communities.indexWhere((item) => item.id == community.id);
     if (index >= 0) _communities[index] = updated;

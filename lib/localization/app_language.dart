@@ -227,6 +227,16 @@ const _spanish = <String, String>{
   'Neon violet': 'Violeta neón',
   'Neon orange': 'Naranja neón',
   'Neon borders': 'Bordes neón',
+  'Live preview': 'Vista previa en vivo',
+  'Animation type': 'Tipo de animación',
+  'Animation duration': 'Duración de la animación',
+  'Static': 'Estático',
+  'Neon Snake': 'Serpiente neón',
+  'Breathing Glow': 'Resplandor respirante',
+  'Aurora Flow': 'Flujo aurora',
+  'seconds value': '{value} segundos',
+  'Animations are shown as static because reduced motion is enabled.':
+      'Las animaciones se muestran estáticas porque está activado reducir movimiento.',
   'Add a neon glow to profile borders.':
       'Añade un resplandor neón a los bordes del perfil.',
   'Add a neon glow to page borders.':

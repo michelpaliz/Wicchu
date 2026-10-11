@@ -10,6 +10,7 @@ import '../../widgets/profile_post_grid.dart';
 import '../../widgets/profile_link_button.dart';
 import '../../widgets/block_visibility_listener.dart';
 import '../../widgets/profile_accent_picker.dart';
+import '../../widgets/animated_neon_border.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../widgets/feed_filter_bar.dart';
@@ -795,15 +796,12 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                       label: profile.name,
                       child: Stack(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(3),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: accent, width: 2),
-                              boxShadow: profile.neonBordersEnabled
-                                  ? profileNeonGlow(profile.accentColor)
-                                  : null,
-                            ),
+                          AnimatedNeonBorder(
+                            color: accent,
+                            enabled: profile.neonBordersEnabled,
+                            animation: profile.neonBorderAnimation,
+                            durationSeconds:
+                                profile.neonAnimationDurationSeconds,
                             child: UserAvatar(
                               name: profile.name,
                               imageUrl: profile.avatarUrl,

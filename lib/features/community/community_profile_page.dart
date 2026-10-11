@@ -8,6 +8,7 @@ import '../../widgets/profile_post_grid.dart';
 import '../../widgets/wicchu_network_image.dart';
 import '../../widgets/block_visibility_listener.dart';
 import '../../widgets/profile_accent_picker.dart';
+import '../../widgets/animated_neon_border.dart';
 import 'business_service_icon.dart';
 import 'post_rules_review_page.dart';
 import 'user_avatar.dart';
@@ -562,6 +563,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           published: _community.published,
           accentColor: _community.accentColor,
           neonBordersEnabled: _community.neonBordersEnabled,
+          neonBorderAnimation: _community.neonBorderAnimation,
+          neonAnimationDurationSeconds: _community.neonAnimationDurationSeconds,
         );
         _reload();
       });
@@ -2066,32 +2069,36 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   Positioned(
                     left: roundedAvatar ? 0 : 16,
                     bottom: roundedAvatar ? 0 : 4,
-                    child: Container(
+                    child: AnimatedNeonBorder(
                       key: const ValueKey('community-avatar-backing'),
+                      color: accent,
+                      enabled: _community.neonBordersEnabled,
+                      animation: _community.neonBorderAnimation,
+                      durationSeconds: _community.neonAnimationDurationSeconds,
                       padding: EdgeInsets.all(roundedAvatar ? 5 : 0),
-                      decoration: BoxDecoration(
-                        color: roundedAvatar
-                            ? Theme.of(context).scaffoldBackgroundColor
-                            : null,
-                        shape: roundedAvatar
-                            ? BoxShape.rectangle
-                            : BoxShape.circle,
-                        borderRadius: roundedAvatar
-                            ? const BorderRadius.only(
-                                topLeft: Radius.circular(39),
-                                topRight: Radius.circular(39),
-                                bottomRight: Radius.circular(39),
-                              )
-                            : null,
-                        boxShadow: _community.neonBordersEnabled
-                            ? profileNeonGlow(_community.accentColor)
-                            : null,
-                      ),
+                      borderRadius: roundedAvatar
+                          ? const BorderRadius.only(
+                              topLeft: Radius.circular(39),
+                              topRight: Radius.circular(39),
+                              bottomRight: Radius.circular(39),
+                            )
+                          : BorderRadius.circular(999),
                       child: Container(
                         padding: EdgeInsets.all(roundedAvatar ? 2 : 3),
                         decoration: BoxDecoration(
-                          color: accent,
-                          shape: BoxShape.circle,
+                          color: roundedAvatar
+                              ? Theme.of(context).scaffoldBackgroundColor
+                              : accent,
+                          borderRadius: roundedAvatar
+                              ? const BorderRadius.only(
+                                  topLeft: Radius.circular(34),
+                                  topRight: Radius.circular(34),
+                                  bottomRight: Radius.circular(34),
+                                )
+                              : null,
+                          shape: roundedAvatar
+                              ? BoxShape.rectangle
+                              : BoxShape.circle,
                         ),
                         child: Semantics(
                           button: true,
