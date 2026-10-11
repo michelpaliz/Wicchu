@@ -109,6 +109,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   CategoryActivity _categoryActivity = const CategoryActivity();
   final Set<String> _pulsingCategoryTokens = {};
   final Set<String> _queuedSeenPostIds = {};
+  final Set<String> _seenPostIds = {};
   Timer? _categoryActivityTimer;
   Timer? _categoryPulseTimer;
   Timer? _seenPostsTimer;
@@ -659,7 +660,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   void _queuePostSeen(CommunityPost post) {
-    if (!_joined || _queuedSeenPostIds.contains(post.id)) return;
+    if (!_joined ||
+        _seenPostIds.contains(post.id) ||
+        _queuedSeenPostIds.contains(post.id)) {
+      return;
+    }
+    _seenPostIds.add(post.id);
     _queuedSeenPostIds.add(post.id);
     _scheduleSeenFlush();
   }
@@ -673,7 +679,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         await widget.repository.markCommunityPostsSeen(_community.id, postIds);
         await _refreshCategoryActivity(animate: false);
       } catch (_) {
-        _queuedSeenPostIds.removeAll(postIds);
+        _seenPostIds.removeAll(postIds);
       }
       if (_queuedSeenPostIds.isNotEmpty && mounted) {
         _scheduleSeenFlush();
