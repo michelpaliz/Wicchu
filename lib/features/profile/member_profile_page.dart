@@ -305,6 +305,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   bool _blocking = false;
   bool _reporting = false;
   bool _followBusy = false;
+  bool _notificationBusy = false;
   bool? _following;
   int? _followerCount;
   late final Future<WicchuProfile?> _viewer = widget.repository
@@ -991,36 +992,60 @@ class _MemberProfilePageState extends State<MemberProfilePage>
             if (!own)
               Padding(
                 padding: const EdgeInsets.only(top: 4, bottom: 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.tonalIcon(
-                    key: const ValueKey('profile-follow-button'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 44),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      textStyle: theme.textTheme.labelSmall?.copyWith(
-                        fontSize: 12,
-                      ),
-                    ),
-                    onPressed: _followBusy ? null : _toggleFollow,
-                    icon: _followBusy
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            _following == true
-                                ? WicchuIcons.check
-                                : WicchuIcons.userPlus,
-                            size: 18,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        key: const ValueKey('profile-follow-button'),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                    label: Text(
-                      context.tr(_following == true ? 'Following' : 'Follow'),
+                          textStyle: theme.textTheme.labelSmall?.copyWith(
+                            fontSize: 12,
+                          ),
+                        ),
+                        onPressed: _followBusy ? null : _toggleFollow,
+                        icon: _followBusy
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(
+                                _following == true
+                                    ? WicchuIcons.check
+                                    : WicchuIcons.userPlus,
+                                size: 18,
+                              ),
+                        label: Text(
+                          context.tr(
+                            _following == true ? 'Following' : 'Follow',
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    if (_following == true) ...[
+                      const SizedBox(width: 8),
+                      IconButton.filledTonal(
+                        tooltip: context.tr('Post notifications'),
+                        onPressed: _notificationBusy
+                            ? null
+                            : _openPersonNotificationPreferences,
+                        icon: _notificationBusy
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(WicchuIcons.bell),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             if (profile.bio?.trim().isNotEmpty == true)
@@ -1072,6 +1097,89 @@ class _MemberProfilePageState extends State<MemberProfilePage>
       ).showSnackBar(SnackBar(content: Text(context.trError(error))));
     } finally {
       if (mounted) setState(() => _followBusy = false);
+    }
+  }
+
+  Future<void> _openPersonNotificationPreferences() async {
+    setState(() => _notificationBusy = true);
+    try {
+      final current = await widget.repository
+          .getPersonContentNotificationPreferences(widget.userId);
+      if (!mounted) return;
+      var notify = current.mode == ContentNotificationMode.all;
+      var pushEnabled = current.pushEnabled;
+      final result = await showModalBottomSheet<ScopedNotificationPreferences>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (context, setSheetState) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: Text(context.tr('Post notifications')),
+                    subtitle: Text(
+                      context.tr('Choose alerts from this person'),
+                    ),
+                  ),
+                  SwitchListTile(
+                    value: notify,
+                    title: Text(context.tr('New public posts')),
+                    onChanged: (value) => setSheetState(() => notify = value),
+                  ),
+                  SwitchListTile(
+                    value: pushEnabled,
+                    title: Text(context.tr('Push notifications')),
+                    subtitle: Text(context.tr('Receive alerts on your device')),
+                    onChanged: notify
+                        ? (value) => setSheetState(() => pushEnabled = value)
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(
+                        sheetContext,
+                        current.copyWith(
+                          mode: notify
+                              ? ContentNotificationMode.all
+                              : ContentNotificationMode.muted,
+                          pushEnabled: pushEnabled,
+                        ),
+                      ),
+                      child: Text(context.tr('Save')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      if (result != null) {
+        await widget.repository.updatePersonContentNotificationPreferences(
+          widget.userId,
+          result,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.tr('Notification preferences saved.')),
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _notificationBusy = false);
     }
   }
 

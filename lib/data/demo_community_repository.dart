@@ -57,6 +57,7 @@ class DemoCommunityRepository implements CommunityRepository {
   );
   NotificationPreferences _notificationPreferences =
       const NotificationPreferences();
+  final Map<String, ScopedNotificationPreferences> _scopedPreferences = {};
 
   static const _towns = [Town(id: 'town-1', name: 'Town X', countryCode: 'EC')];
 
@@ -235,6 +236,43 @@ class DemoCommunityRepository implements CommunityRepository {
         communityActivity ?? _notificationPreferences.communityActivity,
     promotions: promotions ?? _notificationPreferences.promotions,
   );
+
+  @override
+  Future<CategoryActivity> getCategoryActivity(String communityId) async =>
+      const CategoryActivity();
+
+  @override
+  Future<void> markCommunityPostsSeen(
+    String communityId,
+    List<String> postIds,
+  ) async {}
+
+  @override
+  Future<ScopedNotificationPreferences>
+  getCommunityContentNotificationPreferences(String communityId) async =>
+      _scopedPreferences['community:$communityId'] ??
+      const ScopedNotificationPreferences();
+
+  @override
+  Future<ScopedNotificationPreferences>
+  updateCommunityContentNotificationPreferences(
+    String communityId,
+    ScopedNotificationPreferences preferences,
+  ) async => _scopedPreferences['community:$communityId'] = preferences;
+
+  @override
+  Future<ScopedNotificationPreferences> getPersonContentNotificationPreferences(
+    String userId,
+  ) async =>
+      _scopedPreferences['person:$userId'] ??
+      const ScopedNotificationPreferences();
+
+  @override
+  Future<ScopedNotificationPreferences>
+  updatePersonContentNotificationPreferences(
+    String userId,
+    ScopedNotificationPreferences preferences,
+  ) async => _scopedPreferences['person:$userId'] = preferences;
 
   @override
   Future<void> registerDeviceToken(

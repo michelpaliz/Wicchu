@@ -14,6 +14,8 @@ class FeedFilterBar extends StatefulWidget {
     this.style = FeedNavigationStyle.pills,
     this.height = 48,
     this.compact = false,
+    this.unreadCounts = const [],
+    this.pulsingIndexes = const {},
   });
 
   final bool compact;
@@ -22,6 +24,8 @@ class FeedFilterBar extends StatefulWidget {
   final List<String> labels;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final List<int> unreadCounts;
+  final Set<int> pulsingIndexes;
 
   @override
   State<FeedFilterBar> createState() => _FeedFilterBarState();
@@ -129,6 +133,10 @@ class _FeedFilterBarState extends State<FeedFilterBar> {
                         label: widget.labels[index],
                         selected: widget.selectedIndex == index,
                         onSelected: () => widget.onSelected(index),
+                        unreadCount: index < widget.unreadCounts.length
+                            ? widget.unreadCounts[index]
+                            : 0,
+                        pulse: widget.pulsingIndexes.contains(index),
                       ),
               ),
           ],

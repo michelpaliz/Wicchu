@@ -597,6 +597,77 @@ class HttpCommunityRepository implements CommunityRepository {
   );
 
   @override
+  Future<CategoryActivity> getCategoryActivity(String communityId) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/category-activity',
+    );
+    final counts = <String, int>{};
+    for (final item in _list(body, 'activity')) {
+      final id = item['categoryId']?.toString();
+      if (id != null) counts[id] = (item['unreadCount'] as num?)?.toInt() ?? 0;
+    }
+    return CategoryActivity(
+      totalUnreadCount: (body['totalUnreadCount'] as num?)?.toInt() ?? 0,
+      unreadByCategory: counts,
+    );
+  }
+
+  @override
+  Future<void> markCommunityPostsSeen(
+    String communityId,
+    List<String> postIds,
+  ) async {
+    if (postIds.isEmpty) return;
+    await _api.post(
+      '/api/community/v1/communities/$communityId/posts/seen',
+      body: {'postIds': postIds},
+    );
+  }
+
+  @override
+  Future<ScopedNotificationPreferences>
+  getCommunityContentNotificationPreferences(
+    String communityId,
+  ) async => _scopedPreferencesFromJson(
+    await _api.get(
+      '/api/community/v1/communities/$communityId/content-notification-preferences',
+    ),
+  );
+
+  @override
+  Future<ScopedNotificationPreferences>
+  updateCommunityContentNotificationPreferences(
+    String communityId,
+    ScopedNotificationPreferences preferences,
+  ) async => _scopedPreferencesFromJson(
+    await _api.put(
+      '/api/community/v1/communities/$communityId/content-notification-preferences',
+      body: _scopedPreferencesToJson(preferences),
+    ),
+  );
+
+  @override
+  Future<ScopedNotificationPreferences> getPersonContentNotificationPreferences(
+    String userId,
+  ) async => _scopedPreferencesFromJson(
+    await _api.get(
+      '/api/community/v1/users/$userId/content-notification-preferences',
+    ),
+  );
+
+  @override
+  Future<ScopedNotificationPreferences>
+  updatePersonContentNotificationPreferences(
+    String userId,
+    ScopedNotificationPreferences preferences,
+  ) async => _scopedPreferencesFromJson(
+    await _api.put(
+      '/api/community/v1/users/$userId/content-notification-preferences',
+      body: _scopedPreferencesToJson(preferences),
+    ),
+  );
+
+  @override
   Future<void> registerDeviceToken(
     String token, {
     required String platform,
@@ -1486,6 +1557,7 @@ class HttpCommunityRepository implements CommunityRepository {
         'mentionedUserIds': input.mentionedUserIds,
         'anonymousAsAdmin': input.anonymousAsAdmin,
         'anonymousAsMember': input.anonymousAsMember,
+        'importantAnnouncement': input.importantAnnouncement,
         if (input.todayMenu case final menu?)
           'businessFeature': {
             'type': 'today_menu',
@@ -1604,6 +1676,7 @@ class HttpCommunityRepository implements CommunityRepository {
         'mentionedUserIds': input.mentionedUserIds,
         'anonymousAsAdmin': input.anonymousAsAdmin,
         'anonymousAsMember': input.anonymousAsMember,
+        'importantAnnouncement': input.importantAnnouncement,
         if (input.todayMenu case final menu?)
           'businessFeature': {
             'type': 'today_menu',
@@ -2473,6 +2546,7 @@ class HttpCommunityRepository implements CommunityRepository {
               ?.toString() ??
           json['shareCaption']?.toString() ??
           '',
+      importantAnnouncement: json['importantAnnouncement'] as bool? ?? false,
     );
   }
 
@@ -2629,6 +2703,35 @@ class HttpCommunityRepository implements CommunityRepository {
       promotions: json['promotions'] as bool? ?? true,
     );
   }
+
+  static ScopedNotificationPreferences _scopedPreferencesFromJson(
+    Map<String, dynamic> body,
+  ) {
+    final value = body['preferences'];
+    final json = value is Map<String, dynamic> ? value : body;
+    return ScopedNotificationPreferences(
+      mode: ContentNotificationMode.values.firstWhere(
+        (mode) => mode.name == json['mode'],
+        orElse: () => ContentNotificationMode.important,
+      ),
+      selectedCategoryIds: (json['selectedCategoryIds'] as List? ?? const [])
+          .map((value) => value.toString())
+          .toList(growable: false),
+      contentTypes: (json['contentTypes'] as List? ?? const ['posts'])
+          .map((value) => value.toString())
+          .toList(growable: false),
+      pushEnabled: json['pushEnabled'] as bool? ?? true,
+    );
+  }
+
+  static Map<String, dynamic> _scopedPreferencesToJson(
+    ScopedNotificationPreferences preferences,
+  ) => {
+    'mode': preferences.mode.name,
+    'selectedCategoryIds': preferences.selectedCategoryIds,
+    'contentTypes': preferences.contentTypes,
+    'pushEnabled': preferences.pushEnabled,
+  };
 
   static CommunityNotificationType _notificationType(
     String? value,

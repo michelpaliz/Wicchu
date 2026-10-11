@@ -21,6 +21,7 @@ abstract final class WicchuIcons {
   static const baby = PhosphorIconsRegular.baby;
   static const bed = PhosphorIconsRegular.bed;
   static const bell = PhosphorIconsRegular.bell;
+  static const bellFill = PhosphorIconsFill.bell;
   static const bookmark = PhosphorIconsRegular.bookmark;
   static const bookmarkFill = PhosphorIconsFill.bookmark;
   static const briefcase = PhosphorIconsRegular.briefcase;

@@ -106,6 +106,7 @@ class CreatePostInput {
     this.anonymousAsMember = false,
     this.todayMenu,
     this.businessFeature,
+    this.importantAnnouncement = false,
   });
 
   final String categoryId;
@@ -117,6 +118,7 @@ class CreatePostInput {
   final bool anonymousAsMember;
   final TodayMenu? todayMenu;
   final BusinessPostFeature? businessFeature;
+  final bool importantAnnouncement;
 }
 
 abstract interface class CommunityRepository {
@@ -197,6 +199,23 @@ abstract interface class CommunityRepository {
     bool? communityActivity,
     bool? promotions,
   });
+  Future<CategoryActivity> getCategoryActivity(String communityId);
+  Future<void> markCommunityPostsSeen(String communityId, List<String> postIds);
+  Future<ScopedNotificationPreferences>
+  getCommunityContentNotificationPreferences(String communityId);
+  Future<ScopedNotificationPreferences>
+  updateCommunityContentNotificationPreferences(
+    String communityId,
+    ScopedNotificationPreferences preferences,
+  );
+  Future<ScopedNotificationPreferences> getPersonContentNotificationPreferences(
+    String userId,
+  );
+  Future<ScopedNotificationPreferences>
+  updatePersonContentNotificationPreferences(
+    String userId,
+    ScopedNotificationPreferences preferences,
+  );
   Future<void> registerDeviceToken(
     String token, {
     required String platform,

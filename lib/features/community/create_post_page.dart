@@ -309,6 +309,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
   };
   bool _hasPoll = false;
   late bool _publishAnonymously = widget.existingPost?.isAnonymous ?? false;
+  late bool _importantAnnouncement =
+      widget.existingPost?.importantAnnouncement ?? false;
   final _pollControllers = [TextEditingController(), TextEditingController()];
   final _menuDishes = [_MenuDishDraft()];
   late final Set<BusinessFulfillmentOption> _menuFulfillment = {
@@ -864,6 +866,24 @@ class _CreatePostPageState extends State<CreatePostPage> {
       if (_canPublishAnonymously) ...[
         const SizedBox(height: 16),
         _anonymousOption(context),
+      ],
+      if (_canPublishAsAdmin) ...[
+        const SizedBox(height: 16),
+        Card(
+          child: SwitchListTile.adaptive(
+            value: _importantAnnouncement,
+            onChanged: _saving
+                ? null
+                : (value) => setState(() => _importantAnnouncement = value),
+            secondary: const Icon(WicchuIcons.bell),
+            title: Text(context.tr('Important announcement')),
+            subtitle: Text(
+              context.tr(
+                'Notify members who selected important announcements.',
+              ),
+            ),
+          ),
+        ),
       ],
       const SizedBox(height: 16),
       Card(
@@ -2096,6 +2116,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         anonymousAsMember: _publishAnonymously && !_canPublishAsAdmin,
         todayMenu: _buildTodayMenu(),
         businessFeature: _buildBusinessFeature(),
+        importantAnnouncement: _importantAnnouncement,
       );
       final post = _isEditing
           ? await widget.repository.updatePost(widget.existingPost!.id, input)

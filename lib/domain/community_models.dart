@@ -122,6 +122,44 @@ class NotificationPreferences {
   final bool promotions;
 }
 
+enum ContentNotificationMode { important, all, selected, muted }
+
+class ScopedNotificationPreferences {
+  const ScopedNotificationPreferences({
+    this.mode = ContentNotificationMode.important,
+    this.selectedCategoryIds = const [],
+    this.contentTypes = const ['posts'],
+    this.pushEnabled = true,
+  });
+
+  final ContentNotificationMode mode;
+  final List<String> selectedCategoryIds;
+  final List<String> contentTypes;
+  final bool pushEnabled;
+
+  ScopedNotificationPreferences copyWith({
+    ContentNotificationMode? mode,
+    List<String>? selectedCategoryIds,
+    List<String>? contentTypes,
+    bool? pushEnabled,
+  }) => ScopedNotificationPreferences(
+    mode: mode ?? this.mode,
+    selectedCategoryIds: selectedCategoryIds ?? this.selectedCategoryIds,
+    contentTypes: contentTypes ?? this.contentTypes,
+    pushEnabled: pushEnabled ?? this.pushEnabled,
+  );
+}
+
+class CategoryActivity {
+  const CategoryActivity({
+    this.totalUnreadCount = 0,
+    this.unreadByCategory = const {},
+  });
+
+  final int totalUnreadCount;
+  final Map<String, int> unreadByCategory;
+}
+
 class WicchuUser {
   const WicchuUser({
     required this.id,
@@ -843,6 +881,7 @@ class CommunityPost {
     this.reviewedAt,
     this.destinationType = 'community',
     this.shareCaption = '',
+    this.importantAnnouncement = false,
   });
 
   final String id;
@@ -873,6 +912,7 @@ class CommunityPost {
   final DateTime? reviewedAt;
   final String destinationType;
   final String shareCaption;
+  final bool importantAnnouncement;
   bool get isPersonal => destinationType == 'personal';
   String get displayText =>
       shareCaption.trim().isEmpty ? text : '${shareCaption.trim()}\n\n$text';

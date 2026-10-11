@@ -106,6 +106,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   Timer? _searchDebounce;
   bool _searchingPosts = false;
   bool _savingCategoryOrder = false;
+  CategoryActivity _categoryActivity = const CategoryActivity();
+  final Set<String> _pulsingCategoryTokens = {};
+  final Set<String> _queuedSeenPostIds = {};
+  Timer? _categoryActivityTimer;
+  Timer? _categoryPulseTimer;
+  Timer? _seenPostsTimer;
 
   bool get _canManage =>
       _community.myRole == CommunityRole.owner ||
@@ -173,6 +179,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     widget.postRequest?.addListener(_createPost);
     _reload();
     _refreshCommunity();
+    _categoryActivityTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refreshCategoryActivity(animate: true),
+    );
   }
 
   Future<void> _refreshCommunity() async {
@@ -247,6 +257,20 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                           ? context.tr('All')
                           : context.tr(entry.category!.name),
                   ],
+                  unreadCounts: [
+                    for (final entry in entries)
+                      entry.category == null
+                          ? _categoryActivity.totalUnreadCount
+                          : _categoryActivity.unreadByCategory[entry
+                                    .category!
+                                    .id] ??
+                                0,
+                  ],
+                  pulsingIndexes: {
+                    for (var index = 0; index < entries.length; index++)
+                      if (_pulsingCategoryTokens.contains(entries[index].token))
+                        index,
+                  },
                   selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
                   onSelected: (index) =>
                       setState(() => _categoryId = entries[index].category?.id),
@@ -258,7 +282,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 child: IconButton(
                   key: const ValueKey('customize-category-order'),
                   tooltip: context.tr('Customize categories'),
-                  onPressed: _savingCategoryOrder
+                  onPressed: _savingCategoryOrder || !_joined
                       ? null
                       : _openCategoryCustomization,
                   icon: _savingCategoryOrder
@@ -278,109 +302,257 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   Future<void> _openCategoryCustomization() async {
     final data = await _categoryView;
     if (!mounted) return;
+    ScopedNotificationPreferences initialPreferences;
+    try {
+      initialPreferences = await widget.repository
+          .getCommunityContentNotificationPreferences(_community.id);
+    } catch (_) {
+      initialPreferences = const ScopedNotificationPreferences();
+    }
+    if (!mounted) return;
     final initial = _orderedCategoryEntries(data.categories, data.order);
-    final result = await showModalBottomSheet<List<String>>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        var entries = [...initial];
-        return StatefulBuilder(
-          builder: (context, setSheetState) => SafeArea(
-            child: SizedBox(
-              height: MediaQuery.sizeOf(context).height * .72,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                    child: Text(
-                      context.tr('Your category order'),
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: Text(
-                      context.tr(
-                        'Drag categories to arrange them. Changes only affect your view.',
+    final result =
+        await showModalBottomSheet<
+          ({List<String> order, ScopedNotificationPreferences preferences})
+        >(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (sheetContext) {
+            var entries = [...initial];
+            var preferences = initialPreferences;
+            var selectedCategories = {...preferences.selectedCategoryIds};
+            return StatefulBuilder(
+              builder: (context, setSheetState) => SafeArea(
+                child: SizedBox(
+                  height: MediaQuery.sizeOf(context).height * .72,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                        child: Text(
+                          context.tr('Your category order'),
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    child: ReorderableListView.builder(
-                      buildDefaultDragHandles: false,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: entries.length,
-                      onReorderItem: (oldIndex, newIndex) {
-                        setSheetState(() {
-                          final item = entries.removeAt(oldIndex);
-                          entries.insert(newIndex, item);
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        final entry = entries[index];
-                        return ListTile(
-                          key: ValueKey('category-order-${entry.token}'),
-                          leading: Text(
-                            entry.category?.icon ?? '✦',
-                            style: const TextStyle(fontSize: 21),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: DropdownButtonFormField<ContentNotificationMode>(
+                          initialValue: preferences.mode,
+                          decoration: InputDecoration(
+                            labelText: context.tr('Notifications'),
+                            prefixIcon: const Icon(WicchuIcons.bell),
                           ),
-                          title: Text(
-                            entry.category == null
-                                ? context.tr('All')
-                                : context.tr(entry.category!.name),
-                          ),
-                          trailing: ReorderableDragStartListener(
-                            index: index,
-                            child: const Padding(
-                              padding: EdgeInsets.all(10),
-                              child: Icon(WicchuIcons.arrowsDownUp),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextButton.icon(
-                            onPressed: () =>
-                                Navigator.pop(sheetContext, const <String>[]),
-                            icon: const Icon(WicchuIcons.arrowArcLeft),
-                            label: Text(context.tr('Restore default order')),
+                          items: [
+                            for (final mode in ContentNotificationMode.values)
+                              DropdownMenuItem(
+                                value: mode,
+                                child: Text(
+                                  context.tr(switch (mode) {
+                                    ContentNotificationMode.important =>
+                                      'Important announcements only',
+                                    ContentNotificationMode.all =>
+                                      'All new posts',
+                                    ContentNotificationMode.selected =>
+                                      'Selected categories',
+                                    ContentNotificationMode.muted =>
+                                      'Mute this community',
+                                  }),
+                                ),
+                              ),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              setSheetState(
+                                () => preferences = preferences.copyWith(
+                                  mode: value,
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                      SwitchListTile(
+                        value: preferences.pushEnabled,
+                        title: Text(context.tr('Push notifications')),
+                        subtitle: Text(
+                          context.tr('Receive alerts on your device'),
+                        ),
+                        onChanged: (value) => setSheetState(
+                          () => preferences = preferences.copyWith(
+                            pushEnabled: value,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () => Navigator.pop(
-                              sheetContext,
-                              entries.map((entry) => entry.token).toList(),
-                            ),
-                            child: Text(context.tr('Save order')),
+                      ),
+                      if (_usesBusinessCategories)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: Wrap(
+                            spacing: 8,
+                            children: [
+                              for (final type in const [
+                                'posts',
+                                'offers',
+                                'events',
+                              ])
+                                FilterChip(
+                                  label: Text(
+                                    context.tr(switch (type) {
+                                      'offers' => 'Offers',
+                                      'events' => 'Events',
+                                      _ => 'Posts',
+                                    }),
+                                  ),
+                                  selected: preferences.contentTypes.contains(
+                                    type,
+                                  ),
+                                  onSelected: (selected) => setSheetState(() {
+                                    final values = {
+                                      ...preferences.contentTypes,
+                                    };
+                                    selected
+                                        ? values.add(type)
+                                        : values.remove(type);
+                                    preferences = preferences.copyWith(
+                                      contentTypes: values.toList(),
+                                    );
+                                  }),
+                                ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                        child: Text(
+                          context.tr(
+                            'Drag categories to arrange them. Changes only affect your view.',
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ReorderableListView.builder(
+                          buildDefaultDragHandles: false,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          itemCount: entries.length,
+                          onReorderItem: (oldIndex, newIndex) {
+                            setSheetState(() {
+                              final item = entries.removeAt(oldIndex);
+                              entries.insert(newIndex, item);
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            final entry = entries[index];
+                            return ListTile(
+                              key: ValueKey('category-order-${entry.token}'),
+                              leading: Text(
+                                entry.category?.icon ?? '✦',
+                                style: const TextStyle(fontSize: 21),
+                              ),
+                              title: Text(
+                                entry.category == null
+                                    ? context.tr('All')
+                                    : context.tr(entry.category!.name),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (entry.category != null)
+                                    IconButton(
+                                      tooltip: context.tr(
+                                        'Notify me about this category',
+                                      ),
+                                      onPressed: () => setSheetState(() {
+                                        final id = entry.category!.id;
+                                        selectedCategories.contains(id)
+                                            ? selectedCategories.remove(id)
+                                            : selectedCategories.add(id);
+                                        preferences = preferences.copyWith(
+                                          mode:
+                                              ContentNotificationMode.selected,
+                                          selectedCategoryIds:
+                                              selectedCategories.toList(),
+                                        );
+                                      }),
+                                      icon: Icon(
+                                        selectedCategories.contains(
+                                              entry.category!.id,
+                                            )
+                                            ? WicchuIcons.bellFill
+                                            : WicchuIcons.bell,
+                                      ),
+                                    ),
+                                  ReorderableDragStartListener(
+                                    index: index,
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(10),
+                                      child: Icon(WicchuIcons.arrowsDownUp),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextButton.icon(
+                                onPressed: () => Navigator.pop(sheetContext, (
+                                  order: const <String>[],
+                                  preferences: preferences.copyWith(
+                                    selectedCategoryIds: selectedCategories
+                                        .toList(),
+                                  ),
+                                )),
+                                icon: const Icon(WicchuIcons.arrowArcLeft),
+                                label: Text(
+                                  context.tr('Restore default order'),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () => Navigator.pop(sheetContext, (
+                                  order: entries
+                                      .map((entry) => entry.token)
+                                      .toList(),
+                                  preferences: preferences.copyWith(
+                                    selectedCategoryIds: selectedCategories
+                                        .toList(),
+                                  ),
+                                )),
+                                child: Text(context.tr('Save order')),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
-      },
-    );
     if (!mounted || result == null) return;
     setState(() => _savingCategoryOrder = true);
     try {
-      final order = result.isEmpty
+      final order = result.order.isEmpty
           ? await widget.repository.resetCategoryOrder(_community.id)
-          : await widget.repository.updateCategoryOrder(_community.id, result);
+          : await widget.repository.updateCategoryOrder(
+              _community.id,
+              result.order,
+            );
+      await widget.repository.updateCommunityContentNotificationPreferences(
+        _community.id,
+        result.preferences,
+      );
       if (!mounted) return;
       setState(() {
         _categoryView = Future.value((
@@ -403,6 +575,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   void _reload() {
+    if (_joined) {
+      _refreshCategoryActivity(animate: false);
+    } else {
+      _categoryActivity = const CategoryActivity();
+      _pulsingCategoryTokens.clear();
+    }
     _helpfulness = widget.repository.getCommunityHelpfulness(_community.id);
     _weather = _community.showWeather
         ? widget.repository.getCommunityWeather(_community.id)
@@ -448,6 +626,61 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         : Future.value(const <CommunityMember>[]);
   }
 
+  Future<void> _refreshCategoryActivity({required bool animate}) async {
+    if (!_joined) return;
+    try {
+      final next = await widget.repository.getCategoryActivity(_community.id);
+      if (!mounted) return;
+      final increased = <String>{};
+      if (animate) {
+        if (next.totalUnreadCount > _categoryActivity.totalUnreadCount) {
+          increased.add('all');
+        }
+        for (final entry in next.unreadByCategory.entries) {
+          if (entry.value >
+              (_categoryActivity.unreadByCategory[entry.key] ?? 0)) {
+            increased.add(entry.key);
+          }
+        }
+      }
+      setState(() {
+        _categoryActivity = next;
+        _pulsingCategoryTokens.addAll(increased);
+      });
+      if (increased.isNotEmpty) {
+        _categoryPulseTimer?.cancel();
+        _categoryPulseTimer = Timer(const Duration(milliseconds: 1300), () {
+          if (mounted) setState(_pulsingCategoryTokens.clear);
+        });
+      }
+    } catch (_) {
+      // Unread indicators should not block the community feed.
+    }
+  }
+
+  void _queuePostSeen(CommunityPost post) {
+    if (!_joined || _queuedSeenPostIds.contains(post.id)) return;
+    _queuedSeenPostIds.add(post.id);
+    _scheduleSeenFlush();
+  }
+
+  void _scheduleSeenFlush() {
+    _seenPostsTimer?.cancel();
+    _seenPostsTimer = Timer(const Duration(milliseconds: 250), () async {
+      final postIds = _queuedSeenPostIds.take(50).toList(growable: false);
+      _queuedSeenPostIds.removeAll(postIds);
+      try {
+        await widget.repository.markCommunityPostsSeen(_community.id, postIds);
+        await _refreshCategoryActivity(animate: false);
+      } catch (_) {
+        _queuedSeenPostIds.removeAll(postIds);
+      }
+      if (_queuedSeenPostIds.isNotEmpty && mounted) {
+        _scheduleSeenFlush();
+      }
+    });
+  }
+
   Future<void> _openCommunitySurvey(
     CommunityHelpfulness feedback, {
     bool? initialHelpful,
@@ -491,6 +724,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   void dispose() {
     widget.postRequest?.removeListener(_createPost);
     _searchDebounce?.cancel();
+    _categoryActivityTimer?.cancel();
+    _categoryPulseTimer?.cancel();
+    _seenPostsTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -2632,6 +2868,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         itemCount: posts.length,
                         itemBuilder: (context, index) {
                           final post = posts[index];
+                          _queuePostSeen(post);
                           final category = categories
                               .where((c) => c.id == post.categoryId)
                               .firstOrNull;
@@ -2711,6 +2948,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       itemCount: posts.length,
                       itemBuilder: (context, index) {
                         final post = posts[index];
+                        _queuePostSeen(post);
                         final category = categories
                             .where((c) => c.id == post.categoryId)
                             .firstOrNull;

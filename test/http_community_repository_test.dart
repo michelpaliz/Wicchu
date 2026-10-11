@@ -62,6 +62,25 @@ class _RecordingApiClient extends AuthenticatedApiClient {
         'order': ['category-1', 'all'],
       };
     }
+    if (path == '/api/community/v1/communities/community-1/category-activity') {
+      return {
+        'totalUnreadCount': 4,
+        'activity': [
+          {'categoryId': 'category-1', 'unreadCount': 3},
+          {'categoryId': 'category-2', 'unreadCount': 1},
+        ],
+      };
+    }
+    if (path.endsWith('/content-notification-preferences')) {
+      return {
+        'preferences': {
+          'mode': 'selected',
+          'selectedCategoryIds': ['category-1'],
+          'contentTypes': ['posts'],
+          'pushEnabled': true,
+        },
+      };
+    }
     if (path.contains('/api/community/v1/messages/conversations') &&
         path.contains('pageId=page-1')) {
       return {
@@ -423,6 +442,9 @@ class _RecordingApiClient extends AuthenticatedApiClient {
     if (path == '/api/community/v1/communities/community-1/category-order') {
       return {'order': body?['order'] ?? const <String>[]};
     }
+    if (path.endsWith('/content-notification-preferences')) {
+      return {'preferences': body};
+    }
     return <String, dynamic>{};
   }
 
@@ -439,6 +461,39 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 }
 
 void main() {
+  test(
+    'category activity and scoped notification preferences use dedicated endpoints',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+
+      final activity = await repository.getCategoryActivity('community-1');
+      expect(activity.totalUnreadCount, 4);
+      expect(activity.unreadByCategory['category-1'], 3);
+
+      const preferences = ScopedNotificationPreferences(
+        mode: ContentNotificationMode.selected,
+        selectedCategoryIds: ['category-1'],
+        contentTypes: ['posts'],
+        pushEnabled: false,
+      );
+      final saved = await repository
+          .updateCommunityContentNotificationPreferences(
+            'community-1',
+            preferences,
+          );
+      expect(
+        api.lastPath,
+        '/api/community/v1/communities/community-1/content-notification-preferences',
+      );
+      expect(api.lastBody?['mode'], 'selected');
+      expect(saved.pushEnabled, isFalse);
+
+      await repository.markCommunityPostsSeen('community-1', ['post-1']);
+      expect(api.lastBody?['postIds'], ['post-1']);
+    },
+  );
+
   test('category order is loaded, saved and reset per community', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);
