@@ -36,8 +36,6 @@ const _profileAccentColors = <String, Color>{
 Color profileAccentColor(String value) =>
     _profileAccentColors[value] ?? _profileAccentColors['teal']!;
 
-bool isNeonAccent(String value) => value.startsWith('neon_');
-
 List<BoxShadow> profileNeonGlow(String value) {
   final color = profileAccentColor(value);
   return [

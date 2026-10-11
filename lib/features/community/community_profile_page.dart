@@ -561,6 +561,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           businessContact: _community.businessContact,
           published: _community.published,
           accentColor: _community.accentColor,
+          neonBordersEnabled: _community.neonBordersEnabled,
         );
         _reload();
       });
@@ -2082,9 +2083,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                 bottomRight: Radius.circular(39),
                               )
                             : null,
-                        boxShadow:
-                            _community.neonBordersEnabled &&
-                                isNeonAccent(_community.accentColor)
+                        boxShadow: _community.neonBordersEnabled
                             ? profileNeonGlow(_community.accentColor)
                             : null,
                       ),

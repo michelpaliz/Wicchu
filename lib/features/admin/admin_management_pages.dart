@@ -2131,25 +2131,16 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                     ? null
                     : (value) => setState(() {
                         _accentColor = value;
-                        if (!isNeonAccent(value)) {
-                          _neonBordersEnabled = false;
-                        }
                       }),
               ),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 value: _neonBordersEnabled,
-                onChanged: _saving || !isNeonAccent(_accentColor)
+                onChanged: _saving
                     ? null
                     : (value) => setState(() => _neonBordersEnabled = value),
                 title: Text(context.tr('Neon borders')),
-                subtitle: Text(
-                  context.tr(
-                    isNeonAccent(_accentColor)
-                        ? 'Add a neon glow to page borders.'
-                        : 'Choose a neon color to enable this effect.',
-                  ),
-                ),
+                subtitle: Text(context.tr('Add a neon glow to page borders.')),
               ),
             ]),
             const SizedBox(height: 12),
