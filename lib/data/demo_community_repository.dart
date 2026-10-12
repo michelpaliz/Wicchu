@@ -1280,6 +1280,53 @@ class DemoCommunityRepository implements CommunityRepository {
       );
 
   @override
+  Future<void> removePost(
+    String communityId,
+    String postId, {
+    required String reason,
+  }) async {
+    final posts = _posts[communityId];
+    if (posts == null) return;
+    final index = posts.indexWhere((post) => post.id == postId);
+    if (index < 0) return;
+    final post = posts[index];
+    posts[index] = CommunityPost(
+      id: post.id,
+      communityId: post.communityId,
+      categoryId: post.categoryId,
+      authorId: post.authorId,
+      text: post.text,
+      status: PostStatus.removed,
+      createdAt: post.createdAt,
+      media: post.media,
+      authorName: post.authorName,
+      authorAvatarUrl: post.authorAvatarUrl,
+      reactionCount: post.reactionCount,
+      commentCount: post.commentCount,
+      reactedByMe: post.reactedByMe,
+      savedByMe: post.savedByMe,
+      ownedByMe: post.ownedByMe,
+      canInteract: post.canInteract,
+      canShareToCommunities: post.canShareToCommunities,
+      editedAt: post.editedAt,
+      promotion: post.promotion,
+      poll: post.poll,
+      todayMenu: post.todayMenu,
+      businessFeature: post.businessFeature,
+      businessViewCount: post.businessViewCount,
+      businessContactCount: post.businessContactCount,
+      mentionedUserIds: post.mentionedUserIds,
+      isAnonymous: post.isAnonymous,
+      moderationReason: reason,
+      reviewedAt: DateTime.now(),
+      destinationType: post.destinationType,
+      shareCaption: post.shareCaption,
+      isCommunityShare: post.isCommunityShare,
+      importantAnnouncement: post.importantAnnouncement,
+    );
+  }
+
+  @override
   Future<void> restorePost(
     String communityId,
     String postId, {

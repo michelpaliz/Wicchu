@@ -1486,6 +1486,15 @@ const _spanish = <String, String>{
   'Explain why the moderation decision is being reversed.':
       'Explica por qué se revierte la decisión de moderación.',
   'Removal reason': 'Motivo de eliminación',
+  'Remove from community': 'Eliminar de la comunidad',
+  'Remove from community?': '¿Eliminar de la comunidad?',
+  'The original stays on its source page':
+      'El original permanece en su página de origen',
+  'This removes the post from this community. The original remains available on its source page.':
+      'Esto elimina la publicación de esta comunidad. El original permanece disponible en su página de origen.',
+  'Explain why this post is being removed':
+      'Explica por qué se elimina esta publicación',
+  'Post removed from community': 'Publicación eliminada de la comunidad',
   '{count} media item': '{count} elemento multimedia',
   '{count} media items': '{count} elementos multimedia',
   'This member can request to join the community again.':

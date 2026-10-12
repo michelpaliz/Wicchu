@@ -2877,6 +2877,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                       communityNames: {
                                         _community.id: _community.name,
                                       },
+                                      onModerationRemove: _canManage
+                                          ? (post, reason) =>
+                                                widget.repository.removePost(
+                                                  _community.id,
+                                                  post.id,
+                                                  reason: reason,
+                                                )
+                                          : null,
                                       loadPosts: () async {
                                         final refreshed = await widget
                                             .repository
@@ -2972,6 +2980,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                       communityNames: {
                                         _community.id: _community.name,
                                       },
+                                      onModerationRemove: _canManage
+                                          ? (post, reason) =>
+                                                widget.repository.removePost(
+                                                  _community.id,
+                                                  post.id,
+                                                  reason: reason,
+                                                )
+                                          : null,
                                     ),
                                   ),
                                 ).then((_) {
@@ -3018,6 +3034,18 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                   ? () async {
                                       await widget.repository.deletePost(
                                         post.id,
+                                      );
+                                      if (mounted) setState(_reload);
+                                    }
+                                  : null,
+                              onModerationRemove:
+                                  _canManage &&
+                                      (post.isCommunityShare || !post.ownedByMe)
+                                  ? (reason) async {
+                                      await widget.repository.removePost(
+                                        _community.id,
+                                        post.id,
+                                        reason: reason,
                                       );
                                       if (mounted) setState(_reload);
                                     }

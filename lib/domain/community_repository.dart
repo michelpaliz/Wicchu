@@ -467,6 +467,11 @@ abstract interface class CommunityRepository {
   });
   Future<List<CommunityPost>> listPendingPosts(String communityId);
   Future<List<CommunityPost>> listRemovedPosts(String communityId);
+  Future<void> removePost(
+    String communityId,
+    String postId, {
+    required String reason,
+  });
   Future<void> restorePost(
     String communityId,
     String postId, {

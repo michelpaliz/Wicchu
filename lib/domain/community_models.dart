@@ -887,6 +887,7 @@ class CommunityPost {
     this.reviewedAt,
     this.destinationType = 'community',
     this.shareCaption = '',
+    this.isCommunityShare = false,
     this.importantAnnouncement = false,
   });
 
@@ -920,6 +921,7 @@ class CommunityPost {
   final DateTime? reviewedAt;
   final String destinationType;
   final String shareCaption;
+  final bool isCommunityShare;
   final bool importantAnnouncement;
   bool get isPersonal => destinationType == 'personal';
   String get displayText =>

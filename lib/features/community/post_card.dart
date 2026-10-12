@@ -70,6 +70,7 @@ class PostCard extends StatefulWidget {
     this.edited = false,
     this.onEdit,
     this.onDelete,
+    this.onModerationRemove,
     this.onMentionTap,
     this.repository,
     this.post,
@@ -117,6 +118,7 @@ class PostCard extends StatefulWidget {
   final bool edited;
   final VoidCallback? onEdit;
   final Future<void> Function()? onDelete;
+  final Future<void> Function(String reason)? onModerationRemove;
   final ValueChanged<String>? onMentionTap;
 
   Future<
@@ -231,6 +233,12 @@ class PostCard extends StatefulWidget {
                     await onDelete!();
                     if (viewerContext.mounted) Navigator.pop(viewerContext);
                   },
+            onModerationRemove: onModerationRemove == null
+                ? null
+                : (reason) async {
+                    await onModerationRemove!(reason);
+                    if (viewerContext.mounted) Navigator.pop(viewerContext);
+                  },
             poll: latestPoll,
             onPollVote: onPollVote == null
                 ? null
@@ -280,6 +288,7 @@ class _PostCardState extends State<PostCard> {
   bool _savingVote = false;
   bool _hidden = false;
   bool _deleting = false;
+  bool _moderating = false;
   bool _businessViewSent = false;
 
   Future<void> _deletePost() async {
@@ -318,6 +327,76 @@ class _PostCardState extends State<PostCard> {
       }
     } finally {
       if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  Future<void> _removeFromCommunity() async {
+    if (widget.onModerationRemove == null || _moderating) return;
+    var draftReason = '';
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          icon: const Icon(WicchuIcons.trash),
+          title: Text(dialogContext.tr('Remove from community?')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                dialogContext.tr(
+                  'This removes the post from this community. The original remains available on its source page.',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                autofocus: true,
+                maxLength: 1000,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: dialogContext.tr('Removal reason'),
+                  hintText: dialogContext.tr(
+                    'Explain why this post is being removed',
+                  ),
+                ),
+                onChanged: (value) => setDialogState(() {
+                  draftReason = value;
+                }),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(dialogContext.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: draftReason.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(dialogContext, draftReason.trim()),
+              child: Text(dialogContext.tr('Remove')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (reason == null || !mounted) return;
+    setState(() => _moderating = true);
+    try {
+      await widget.onModerationRemove!(reason);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('Post removed from community'))),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _moderating = false);
     }
   }
 
@@ -585,11 +664,14 @@ class _PostCardState extends State<PostCard> {
         (widget.onEdit != null || widget.onDelete != null),
     onShare: widget.onShare,
     saved: _saved,
-    saving: _savingPost || _deleting,
+    saving: _savingPost || _deleting || _moderating,
     onSave: widget.onSaved == null ? null : _toggleSaved,
     onReport: widget.onReport == null ? null : _report,
     onEdit: widget.onEdit,
     onDelete: widget.onDelete == null ? null : _deletePost,
+    onModerationRemove: widget.onModerationRemove == null
+        ? null
+        : _removeFromCommunity,
   );
 
   Widget _businessFooter() {
@@ -1130,6 +1212,7 @@ class _PostMenu extends StatelessWidget {
     this.onReport,
     this.onEdit,
     this.onDelete,
+    this.onModerationRemove,
   });
 
   final List<PostMedia> media;
@@ -1143,6 +1226,7 @@ class _PostMenu extends StatelessWidget {
   final VoidCallback? onReport;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onModerationRemove;
 
   Future<void> _open(BuildContext context) async {
     final action = await showModalBottomSheet<_PostMenuAction>(
@@ -1336,8 +1420,18 @@ class _PostMenu extends StatelessWidget {
                     tint: const Color(0xff1769aa),
                   ),
                 if ((ownedByMe && onDelete != null) ||
+                    onModerationRemove != null ||
                     (!ownedByMe && onReport != null))
                   const Divider(height: 24),
+                if (onModerationRemove != null)
+                  option(
+                    _PostMenuAction.moderationRemove,
+                    WicchuIcons.trash,
+                    'Remove from community',
+                    'The original stays on its source page',
+                    tint: colors.error,
+                    destructive: true,
+                  ),
                 if (ownedByMe && onDelete != null)
                   option(
                     _PostMenuAction.delete,
@@ -1373,6 +1467,8 @@ class _PostMenu extends StatelessWidget {
         onEdit?.call();
       case _PostMenuAction.delete:
         onDelete?.call();
+      case _PostMenuAction.moderationRemove:
+        onModerationRemove?.call();
       case null:
         break;
     }
@@ -1391,4 +1487,4 @@ class _PostMenu extends StatelessWidget {
   );
 }
 
-enum _PostMenuAction { save, share, edit, delete, report }
+enum _PostMenuAction { save, share, edit, delete, report, moderationRemove }

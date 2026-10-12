@@ -23,6 +23,7 @@ class PostCollectionPage extends StatefulWidget {
     this.initialPosts,
     this.categories = const {},
     this.communityNames = const {},
+    this.onModerationRemove,
   });
 
   final String? initialPostId;
@@ -34,6 +35,8 @@ class PostCollectionPage extends StatefulWidget {
   final String title;
   final CommunityRepository repository;
   final Future<List<CommunityPost>> Function() loadPosts;
+  final Future<void> Function(CommunityPost post, String reason)?
+  onModerationRemove;
 
   @override
   State<PostCollectionPage> createState() => _PostCollectionPageState();
@@ -121,6 +124,7 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                                       widget.profilePresentation,
                                   categories: widget.categories,
                                   communityNames: widget.communityNames,
+                                  onModerationRemove: widget.onModerationRemove,
                                 ),
                               ),
                             ).then((_) {
@@ -167,6 +171,14 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                           if (mounted) await _refresh();
                         }
                       : null,
+                  onModerationRemove:
+                      widget.onModerationRemove == null ||
+                          (!post.isCommunityShare && post.ownedByMe)
+                      ? null
+                      : (reason) async {
+                          await widget.onModerationRemove!(post, reason);
+                          if (mounted) await _refresh();
+                        },
                   text: post.displayText,
                   likes: post.reactionCount,
                   comments: post.commentCount,

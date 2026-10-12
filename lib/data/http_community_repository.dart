@@ -2091,6 +2091,18 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<void> removePost(
+    String communityId,
+    String postId, {
+    required String reason,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/communities/$communityId/admin/posts/$postId/remove',
+      body: {'reason': reason},
+    );
+  }
+
+  @override
   Future<void> restorePost(
     String communityId,
     String postId, {
@@ -2553,6 +2565,9 @@ class HttpCommunityRepository implements CommunityRepository {
               ?.toString() ??
           json['shareCaption']?.toString() ??
           '',
+      isCommunityShare:
+          json['isCommunityShare'] == true ||
+          json['communityShare'] is Map<String, dynamic>,
       importantAnnouncement: json['importantAnnouncement'] as bool? ?? false,
     );
   }

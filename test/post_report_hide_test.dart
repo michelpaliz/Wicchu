@@ -82,4 +82,53 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('moderator removes a community post only after giving a reason', (
+    tester,
+  ) async {
+    String? removalReason;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PostCard(
+            category: 'Offers',
+            icon: '🏷️',
+            community: 'Test community',
+            author: 'Local business',
+            time: 'Now',
+            text: 'Shared business offer',
+            onModerationRemove: (reason) async {
+              removalReason = reason;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove from community'));
+    await tester.pumpAndSettle();
+
+    var removeButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Remove'),
+    );
+    expect(removeButton.onPressed, isNull);
+
+    await tester.enterText(
+      find.byType(TextField),
+      'Offer violates local rules',
+    );
+    await tester.pump();
+    removeButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Remove'),
+    );
+    expect(removeButton.onPressed, isNotNull);
+    await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+    await tester.pumpAndSettle();
+
+    expect(removalReason, 'Offer violates local rules');
+    expect(find.text('Post removed from community'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

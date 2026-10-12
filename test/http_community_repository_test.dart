@@ -72,6 +72,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
             'author': {'id': 'user-2', 'name': 'Ana'},
             'text': 'Removed update',
             'status': 'removed',
+            'communityShare': {'caption': 'Shared by the business'},
             'createdAt': '2026-10-01T10:00:00.000Z',
             'moderation': {
               'reason': 'Rules violation',
@@ -562,6 +563,19 @@ void main() {
     expect(posts.single.status, PostStatus.removed);
     expect(posts.single.moderationReason, 'Rules violation');
     expect(posts.single.reviewedAt, DateTime.utc(2026, 10, 2, 10));
+    expect(posts.single.isCommunityShare, isTrue);
+    expect(posts.single.shareCaption, 'Shared by the business');
+
+    await repository.removePost(
+      'community-1',
+      'post-removed',
+      reason: 'Not relevant to this community',
+    );
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/admin/posts/post-removed/remove',
+    );
+    expect(api.lastBody, {'reason': 'Not relevant to this community'});
 
     await repository.restorePost(
       'community-1',
