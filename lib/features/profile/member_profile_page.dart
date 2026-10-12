@@ -686,14 +686,24 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                           ).then((_) {
                             if (mounted) _reload();
                           }),
-                      onReaction: (reacted) => widget.repository
-                          .setPostReaction(post.id, reacted: reacted),
-                      onPollVote: (optionId) =>
-                          widget.repository.voteOnPost(post.id, optionId),
+                      onReaction: post.canInteract
+                          ? (reacted) => widget.repository.setPostReaction(
+                              post.id,
+                              reacted: reacted,
+                            )
+                          : null,
+                      onPollVote: post.canInteract
+                          ? (optionId) =>
+                                widget.repository.voteOnPost(post.id, optionId)
+                          : null,
                       onComments: () =>
                           showPostComments(context, widget.repository, post),
-                      onSaved: (saved) =>
-                          widget.repository.setPostSaved(post.id, saved: saved),
+                      onSaved: post.canInteract
+                          ? (saved) => widget.repository.setPostSaved(
+                              post.id,
+                              saved: saved,
+                            )
+                          : null,
                       onReport: post.ownedByMe
                           ? null
                           : (reason, category, {hidePost}) =>

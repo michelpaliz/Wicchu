@@ -1858,6 +1858,8 @@ const _spanish = <String, String>{
   'Require post approval': 'Requerir aprobación de publicaciones',
   'Post approval': 'Aprobación de publicaciones',
   'Open comments': 'Abrir comentarios',
+  'Join or follow this page to interact.':
+      'Únete o sigue esta página para interactuar.',
   'Required': 'Obligatoria',
   'Automatic': 'Automática',
   'public': 'Pública',

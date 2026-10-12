@@ -37,11 +37,16 @@ Future<void> openCommunityPostMedia(
     reacted: post.reactedByMe,
     saved: post.savedByMe,
     poll: post.poll,
-    onPollVote: (optionId) => repository.voteOnPost(post.id, optionId),
-    onReaction: (reacted) =>
-        repository.setPostReaction(post.id, reacted: reacted),
+    onPollVote: post.canInteract
+        ? (optionId) => repository.voteOnPost(post.id, optionId)
+        : null,
+    onReaction: post.canInteract
+        ? (reacted) => repository.setPostReaction(post.id, reacted: reacted)
+        : null,
     onComments: () => showPostComments(context, repository, post),
-    onSaved: (saved) => repository.setPostSaved(post.id, saved: saved),
+    onSaved: post.canInteract
+        ? (saved) => repository.setPostSaved(post.id, saved: saved)
+        : null,
     onShare: () =>
         sharePost(context, repository, post, communityName: communityName),
     onReport: (reason, category, {hidePost}) => repository.reportPost(

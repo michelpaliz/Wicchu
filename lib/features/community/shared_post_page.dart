@@ -132,29 +132,26 @@ class _SharedPostPageState extends State<SharedPostPage>
               comments: post.commentCount,
               reacted: post.reactedByMe,
               saved: post.savedByMe,
-              onReaction: !_joined
+              onReaction: !_joined || !post.canInteract
                   ? null
                   : (reacted) => widget.repository.setPostReaction(
                       post.id,
                       reacted: reacted,
                     ),
-              onComments: !_joined
-                  ? null
-                  : () => showPostComments(context, widget.repository, post),
-              onSaved: !_joined
+              onComments: () =>
+                  showPostComments(context, widget.repository, post),
+              onSaved: !_joined || !post.canInteract
                   ? null
                   : (saved) =>
                         widget.repository.setPostSaved(post.id, saved: saved),
-              onReport: !_joined
-                  ? null
-                  : (reason, category, {hidePost}) =>
-                        widget.repository.reportPost(
-                          post.id,
-                          reason,
-                          category: category,
-                          hidePost: hidePost == true,
-                          communityId: post.communityId,
-                        ),
+              onReport: (reason, category, {hidePost}) =>
+                  widget.repository.reportPost(
+                    post.id,
+                    reason,
+                    category: category,
+                    hidePost: hidePost == true,
+                    communityId: post.communityId,
+                  ),
               onShare: () => sharePost(
                 context,
                 widget.repository,

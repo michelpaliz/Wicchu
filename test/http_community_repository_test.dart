@@ -314,6 +314,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'categoryId': 'category-1',
           'text': 'Community meeting',
           'status': 'pendingApproval',
+          'canInteract': false,
           'author': {
             'id': 'user-1',
             'name': 'Michael Paliz',
@@ -1437,6 +1438,7 @@ void main() {
     expect(api.lastPath, '/api/community/v1/posts/post-1');
     expect(post.status, PostStatus.pendingApproval);
     expect(post.authorAvatarUrl, 'https://example.com/michael.jpg');
+    expect(post.canInteract, isFalse);
   });
 
   test(

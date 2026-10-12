@@ -172,8 +172,10 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                   comments: post.commentCount,
                   media: post.media,
                   poll: post.poll,
-                  onPollVote: (optionId) =>
-                      widget.repository.voteOnPost(post.id, optionId),
+                  onPollVote: post.canInteract
+                      ? (optionId) =>
+                            widget.repository.voteOnPost(post.id, optionId)
+                      : null,
                   promotion: post.promotion,
                   onPromotionImpression: post.promotion == null
                       ? null
@@ -187,18 +189,27 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                         ),
                   reacted: post.reactedByMe,
                   saved: post.savedByMe,
-                  onReaction: (reacted) => widget.repository.setPostReaction(
-                    post.id,
-                    reacted: reacted,
-                  ),
+                  onReaction: post.canInteract
+                      ? (reacted) => widget.repository.setPostReaction(
+                          post.id,
+                          reacted: reacted,
+                        )
+                      : null,
                   onComments: () =>
                       showPostComments(context, widget.repository, post),
-                  onSaved: (saved) async {
-                    await widget.repository.setPostSaved(post.id, saved: saved);
-                    if (!saved && widget.title == 'Saved posts' && mounted) {
-                      setState(() => _posts = widget.loadPosts());
-                    }
-                  },
+                  onSaved: post.canInteract
+                      ? (saved) async {
+                          await widget.repository.setPostSaved(
+                            post.id,
+                            saved: saved,
+                          );
+                          if (!saved &&
+                              widget.title == 'Saved posts' &&
+                              mounted) {
+                            setState(() => _posts = widget.loadPosts());
+                          }
+                        }
+                      : null,
                   onReport: (reason, category, {hidePost}) =>
                       widget.repository.reportPost(
                         post.id,

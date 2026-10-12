@@ -3027,8 +3027,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                               comments: post.commentCount,
                               media: post.media,
                               poll: post.poll,
-                              onPollVote: (optionId) => widget.repository
-                                  .voteOnPost(post.id, optionId),
+                              onPollVote: post.canInteract
+                                  ? (optionId) => widget.repository.voteOnPost(
+                                      post.id,
+                                      optionId,
+                                    )
+                                  : null,
                               promotion: post.promotion,
                               onPromotionImpression: post.promotion == null
                                   ? null
@@ -3043,16 +3047,25 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                           post.promotion!.id,
                                         ),
                               reacted: post.reactedByMe,
-                              onReaction: (reacted) => widget.repository
-                                  .setPostReaction(post.id, reacted: reacted),
+                              onReaction: post.canInteract
+                                  ? (reacted) =>
+                                        widget.repository.setPostReaction(
+                                          post.id,
+                                          reacted: reacted,
+                                        )
+                                  : null,
                               onComments: () => showPostComments(
                                 context,
                                 widget.repository,
                                 post,
                               ),
                               saved: post.savedByMe,
-                              onSaved: (saved) => widget.repository
-                                  .setPostSaved(post.id, saved: saved),
+                              onSaved: post.canInteract
+                                  ? (saved) => widget.repository.setPostSaved(
+                                      post.id,
+                                      saved: saved,
+                                    )
+                                  : null,
                               onReport: (reason, category, {hidePost}) =>
                                   widget.repository.reportPost(
                                     post.id,

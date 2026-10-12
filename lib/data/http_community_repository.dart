@@ -2510,6 +2510,7 @@ class HttpCommunityRepository implements CommunityRepository {
       reactedByMe: json['reactedByMe'] as bool? ?? false,
       savedByMe: json['savedByMe'] as bool? ?? false,
       ownedByMe: json['ownedByMe'] as bool? ?? false,
+      canInteract: json['canInteract'] as bool? ?? true,
       businessViewCount: (json['businessViewCount'] as num?)?.toInt() ?? 0,
       businessContactCount:
           (json['businessContactCount'] as num?)?.toInt() ?? 0,

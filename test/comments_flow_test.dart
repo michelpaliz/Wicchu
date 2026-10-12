@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
+import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/domain/community_repository.dart';
 import 'package:wicchu/features/community/comments_sheet.dart';
 
@@ -101,5 +102,50 @@ void main() {
     await tester.pump();
     expect(tester.widget<IconButton>(send).onPressed, isNotNull);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('public visitors can read comments without interacting', (
+    tester,
+  ) async {
+    final repository = DemoCommunityRepository();
+    final community = (await repository.listJoinedCommunities()).first;
+    final category = (await repository.listCategories(community.id)).first;
+    final created = await repository.createPost(
+      community.id,
+      CreatePostInput(categoryId: category.id, text: 'Public update'),
+    );
+    await repository.createComment(created.id, 'Visible comment');
+    final readOnlyPost = CommunityPost(
+      id: created.id,
+      communityId: created.communityId,
+      categoryId: created.categoryId,
+      authorId: created.authorId,
+      text: created.text,
+      status: created.status,
+      createdAt: created.createdAt,
+      commentCount: 1,
+      canInteract: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () =>
+                  showPostComments(context, repository, readOnlyPost),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Visible comment'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('Reply'), findsNothing);
+    expect(find.text('Join or follow this page to interact.'), findsOneWidget);
   });
 }

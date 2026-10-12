@@ -872,6 +872,7 @@ class CommunityPost {
     this.reactedByMe = false,
     this.savedByMe = false,
     this.ownedByMe = false,
+    this.canInteract = true,
     this.editedAt,
     this.promotion,
     this.poll,
@@ -903,6 +904,7 @@ class CommunityPost {
   final bool reactedByMe;
   final bool savedByMe;
   final bool ownedByMe;
+  final bool canInteract;
   final DateTime? editedAt;
   final PostPromotion? promotion;
   final PostPoll? poll;

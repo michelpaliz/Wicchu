@@ -217,10 +217,14 @@ class _PostCommentsState extends State<PostComments> {
                         children: [
                           _CommentItem(
                             comment: root,
-                            canReply: true,
+                            canReply: widget.post.canInteract,
                             savingReaction: _savingReactions.contains(root.id),
-                            onReaction: () => _toggleReaction(root),
-                            onReply: () => _startReply(root),
+                            onReaction: widget.post.canInteract
+                                ? () => _toggleReaction(root)
+                                : null,
+                            onReply: widget.post.canInteract
+                                ? () => _startReply(root)
+                                : null,
                             onReport: () => _reportComment(root),
                           ),
                           if (replies.isNotEmpty)
@@ -293,12 +297,15 @@ class _PostCommentsState extends State<PostComments> {
                                       child: _CommentItem(
                                         comment: reply,
                                         compact: true,
-                                        canReply: true,
+                                        canReply: widget.post.canInteract,
                                         savingReaction: _savingReactions
                                             .contains(reply.id),
-                                        onReaction: () =>
-                                            _toggleReaction(reply),
-                                        onReply: () => _startReply(reply),
+                                        onReaction: widget.post.canInteract
+                                            ? () => _toggleReaction(reply)
+                                            : null,
+                                        onReply: widget.post.canInteract
+                                            ? () => _startReply(reply)
+                                            : null,
                                         onReport: () => _reportComment(reply),
                                       ),
                                     ),
@@ -312,126 +319,144 @@ class _PostCommentsState extends State<PostComments> {
                 },
               ),
             ),
-            Divider(
-              height: 1,
-              color: theme.colorScheme.onSurface.withValues(alpha: .08),
-            ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  _replyingTo == null ? 12 : 6,
-                  16,
-                  12,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_replyingTo != null)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.only(left: 12),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer.withValues(
-                            alpha: .55,
+            if (widget.post.canInteract)
+              Divider(
+                height: 1,
+                color: theme.colorScheme.onSurface.withValues(alpha: .08),
+              ),
+            if (widget.post.canInteract)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    _replyingTo == null ? 12 : 6,
+                    16,
+                    12,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_replyingTo != null)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.only(left: 12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer
+                                .withValues(alpha: .55),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(WicchuIcons.arrowBendUpLeft, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                context.tr('Replying to {name}', {
-                                  'name': _replyingTo!.authorName,
-                                }),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelLarge,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: MaterialLocalizations.of(
-                                context,
-                              ).closeButtonTooltip,
-                              onPressed: () =>
-                                  setState(() => _replyingTo = null),
-                              icon: const Icon(WicchuIcons.x, size: 18),
-                            ),
-                          ],
-                        ),
-                      ),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10, bottom: 6),
-                          child: FutureBuilder<WicchuProfile?>(
-                            future: _viewer,
-                            builder: (context, snapshot) => UserAvatar(
-                              name: snapshot.data?.name ?? context.tr('You'),
-                              imageUrl: snapshot.data?.avatarUrl,
-                              radius: 18,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            style: const TextStyle(fontSize: 16),
-                            focusNode: _inputFocus,
-                            onChanged: (_) => setState(() {}),
-                            enabled: !_saving,
-                            minLines: 1,
-                            maxLines: 4,
-                            maxLength: 5000,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration: InputDecoration(
-                              hintText: context.tr(
-                                _replyingTo == null
-                                    ? 'Write a comment'
-                                    : 'Write a reply',
-                              ),
-                              counterText: '',
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(22),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: .12,
-                                  ),
+                          child: Row(
+                            children: [
+                              const Icon(WicchuIcons.arrowBendUpLeft, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  context.tr('Replying to {name}', {
+                                    'name': _replyingTo!.authorName,
+                                  }),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelLarge,
                                 ),
                               ),
-                              filled: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
+                              IconButton(
+                                tooltip: MaterialLocalizations.of(
+                                  context,
+                                ).closeButtonTooltip,
+                                onPressed: () =>
+                                    setState(() => _replyingTo = null),
+                                icon: const Icon(WicchuIcons.x, size: 18),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              right: 10,
+                              bottom: 6,
+                            ),
+                            child: FutureBuilder<WicchuProfile?>(
+                              future: _viewer,
+                              builder: (context, snapshot) => UserAvatar(
+                                name: snapshot.data?.name ?? context.tr('You'),
+                                imageUrl: snapshot.data?.avatarUrl,
+                                radius: 18,
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        IconButton.filled(
-                          tooltip: context.tr('Send comment'),
-                          onPressed: _saving || _controller.text.trim().isEmpty
-                              ? null
-                              : _submit,
-                          icon: _saving
-                              ? const SizedBox.square(
-                                  dimension: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                          Expanded(
+                            child: TextField(
+                              controller: _controller,
+                              style: const TextStyle(fontSize: 16),
+                              focusNode: _inputFocus,
+                              onChanged: (_) => setState(() {}),
+                              enabled: !_saving,
+                              minLines: 1,
+                              maxLines: 4,
+                              maxLength: 5000,
+                              textCapitalization: TextCapitalization.sentences,
+                              decoration: InputDecoration(
+                                hintText: context.tr(
+                                  _replyingTo == null
+                                      ? 'Write a comment'
+                                      : 'Write a reply',
+                                ),
+                                counterText: '',
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(22),
+                                  borderSide: BorderSide(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: .12),
                                   ),
-                                )
-                              : const Icon(WicchuIcons.paperPlaneTilt),
-                        ),
-                      ],
+                                ),
+                                filled: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          IconButton.filled(
+                            tooltip: context.tr('Send comment'),
+                            onPressed:
+                                _saving || _controller.text.trim().isEmpty
+                                ? null
+                                : _submit,
+                            icon: _saving
+                                ? const SizedBox.square(
+                                    dimension: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(WicchuIcons.paperPlaneTilt),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+                  child: Text(
+                    context.tr('Join or follow this page to interact.'),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -591,7 +616,7 @@ class _CommentItem extends StatelessWidget {
   final bool compact;
   final Comment comment;
   final bool savingReaction;
-  final VoidCallback onReaction;
+  final VoidCallback? onReaction;
   final bool canReply;
   final VoidCallback? onReply;
   final VoidCallback? onReport;

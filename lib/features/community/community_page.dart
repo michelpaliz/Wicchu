@@ -583,8 +583,10 @@ class _CommunityPageState extends State<CommunityPage>
                               comments: post.commentCount,
                               media: post.media,
                               poll: post.poll,
-                              onPollVote: (optionId) =>
-                                  repository.voteOnPost(post.id, optionId),
+                              onPollVote: post.canInteract
+                                  ? (optionId) =>
+                                        repository.voteOnPost(post.id, optionId)
+                                  : null,
                               promotion: post.promotion,
                               onPromotionImpression: post.promotion == null
                                   ? null
@@ -597,15 +599,21 @@ class _CommunityPageState extends State<CommunityPage>
                                       post.promotion!.id,
                                     ),
                               reacted: post.reactedByMe,
-                              onReaction: (reacted) => repository
-                                  .setPostReaction(post.id, reacted: reacted),
+                              onReaction: post.canInteract
+                                  ? (reacted) => repository.setPostReaction(
+                                      post.id,
+                                      reacted: reacted,
+                                    )
+                                  : null,
                               onComments: () =>
                                   showPostComments(context, repository, post),
                               saved: post.savedByMe,
-                              onSaved: (saved) => repository.setPostSaved(
-                                post.id,
-                                saved: saved,
-                              ),
+                              onSaved: post.canInteract
+                                  ? (saved) => repository.setPostSaved(
+                                      post.id,
+                                      saved: saved,
+                                    )
+                                  : null,
                               onReport: (reason, category, {hidePost}) =>
                                   repository.reportPost(
                                     post.id,
