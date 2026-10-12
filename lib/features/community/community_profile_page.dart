@@ -278,8 +278,13 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         index,
                   },
                   selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
-                  onSelected: (index) =>
-                      setState(() => _categoryId = entries[index].category?.id),
+                  onSelected: (index) => setState(() {
+                    _categoryId = entries[index].category?.id;
+                    _posts = widget.repository.listPosts(
+                      _community.id,
+                      query: _searchController.text,
+                    );
+                  }),
                 ),
               ),
               SizedBox(
@@ -688,8 +693,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     }
   }
 
-  void _queuePostSeen(CommunityPost post) {
-    if (!_joined || _confirmedSeenPostIds.contains(post.id)) return;
+  void _queuePostSeen(CommunityPost post, {bool opened = false}) {
+    if (!_joined ||
+        (!opened && _categoryId != post.categoryId) ||
+        _confirmedSeenPostIds.contains(post.id)) {
+      return;
+    }
     _queuedSeenPostIds.add(post.id);
     _scheduleSeenFlush();
   }
@@ -2822,12 +2831,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                               .where((c) => c.id == post.categoryId)
                               .firstOrNull;
                           return VisiblePostObserver(
-                            key: ValueKey('seen-${post.id}'),
+                            key: ValueKey(
+                              'seen-${_categoryId ?? 'all'}-${post.id}',
+                            ),
                             onSeen: () => _queuePostSeen(post),
                             child: ProfilePostTile(
                               post: post,
                               categoryIcon: category?.icon ?? '💬',
                               onTap: () async {
+                                _queuePostSeen(post, opened: true);
                                 if (post.media.isNotEmpty) {
                                   await openCommunityPostMedia(
                                     context,
@@ -2906,7 +2918,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                             .where((c) => c.id == post.categoryId)
                             .firstOrNull;
                         return VisiblePostObserver(
-                          key: ValueKey('seen-${post.id}'),
+                          key: ValueKey(
+                            'seen-${_categoryId ?? 'all'}-${post.id}',
+                          ),
                           onSeen: () => _queuePostSeen(post),
                           child: Padding(
                             padding: const EdgeInsets.only(bottom: 12),
@@ -2918,51 +2932,52 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                               mediaFirst: _community.isPublicProfile,
                               compact: _community.isPublicProfile,
                               showCommunity: false,
-                              onTap: () =>
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => PostCollectionPage(
-                                        title: _community.name,
-                                        profilePresentation:
-                                            _community.isPublicProfile,
-                                        initialPostId: post.id,
-                                        initialPosts: posts,
-                                        repository: widget.repository,
-                                        loadPosts: () async {
-                                          final refreshed = await widget
-                                              .repository
-                                              .listPosts(
-                                                _community.id,
-                                                query: _searchController.text,
-                                              );
-                                          return refreshed
-                                              .where(
-                                                (p) =>
-                                                    (_categoryId == null ||
-                                                        p.categoryId ==
-                                                            _categoryId) &&
-                                                    (!_community
-                                                            .isPublicProfile ||
-                                                        _activeProfileKind ==
-                                                            0 ||
-                                                        (_activeProfileKind == 1
-                                                            ? p.media.isNotEmpty
-                                                            : p.poll != null)),
-                                              )
-                                              .toList();
-                                        },
-                                        categories: {
-                                          for (final c in categories) c.id: c,
-                                        },
-                                        communityNames: {
-                                          _community.id: _community.name,
-                                        },
-                                      ),
+                              onTap: () {
+                                _queuePostSeen(post, opened: true);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PostCollectionPage(
+                                      title: _community.name,
+                                      profilePresentation:
+                                          _community.isPublicProfile,
+                                      initialPostId: post.id,
+                                      initialPosts: posts,
+                                      repository: widget.repository,
+                                      loadPosts: () async {
+                                        final refreshed = await widget
+                                            .repository
+                                            .listPosts(
+                                              _community.id,
+                                              query: _searchController.text,
+                                            );
+                                        return refreshed
+                                            .where(
+                                              (p) =>
+                                                  (_categoryId == null ||
+                                                      p.categoryId ==
+                                                          _categoryId) &&
+                                                  (!_community
+                                                          .isPublicProfile ||
+                                                      _activeProfileKind == 0 ||
+                                                      (_activeProfileKind == 1
+                                                          ? p.media.isNotEmpty
+                                                          : p.poll != null)),
+                                            )
+                                            .toList();
+                                      },
+                                      categories: {
+                                        for (final c in categories) c.id: c,
+                                      },
+                                      communityNames: {
+                                        _community.id: _community.name,
+                                      },
                                     ),
-                                  ).then((_) {
-                                    if (mounted) setState(_reload);
-                                  }),
+                                  ),
+                                ).then((_) {
+                                  if (mounted) setState(_reload);
+                                });
+                              },
                               category: category?.name ?? 'General',
                               icon: category?.icon ?? '💬',
                               community: _community.name,

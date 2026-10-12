@@ -175,6 +175,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(repo.seenRequests, 0);
+      await tester.tap(find.text('News').first);
+      await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 1));
       expect(repo.seenRequests, 1);
       expect(repo.batches, isEmpty);
@@ -199,6 +202,9 @@ void main() {
         home: CommunityProfilePage(community: community, repository: repo),
       ),
     );
+    await tester.pumpAndSettle();
+    expect(repo.seenRequests, 0);
+    await tester.tap(find.text('News').first);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 6));
     expect(repo.seenRequests, 1);
