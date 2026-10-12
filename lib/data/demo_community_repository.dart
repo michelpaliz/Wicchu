@@ -1018,6 +1018,7 @@ class DemoCommunityRepository implements CommunityRepository {
       createdAt: DateTime.now(),
       media: input.media,
       ownedByMe: true,
+      canShareToCommunities: true,
       destinationType: 'personal',
     );
     _posts.putIfAbsent('personal', () => []).insert(0, post);
@@ -1060,6 +1061,8 @@ class DemoCommunityRepository implements CommunityRepository {
         createdAt: current.createdAt,
         editedAt: DateTime.now(),
         ownedByMe: true,
+        canInteract: current.canInteract,
+        canShareToCommunities: current.canShareToCommunities,
         media: input.media,
         reactionCount: current.reactionCount,
         commentCount: current.commentCount,
@@ -1303,6 +1306,8 @@ class DemoCommunityRepository implements CommunityRepository {
       reactedByMe: post.reactedByMe,
       savedByMe: post.savedByMe,
       ownedByMe: post.ownedByMe,
+      canInteract: post.canInteract,
+      canShareToCommunities: post.canShareToCommunities,
       editedAt: post.editedAt,
       promotion: post.promotion,
       poll: post.poll,

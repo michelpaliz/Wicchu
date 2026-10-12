@@ -2511,6 +2511,7 @@ class HttpCommunityRepository implements CommunityRepository {
       savedByMe: json['savedByMe'] as bool? ?? false,
       ownedByMe: json['ownedByMe'] as bool? ?? false,
       canInteract: json['canInteract'] as bool? ?? true,
+      canShareToCommunities: json['canShareToCommunities'] as bool? ?? false,
       businessViewCount: (json['businessViewCount'] as num?)?.toInt() ?? 0,
       businessContactCount:
           (json['businessContactCount'] as num?)?.toInt() ?? 0,

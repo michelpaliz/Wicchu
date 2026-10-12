@@ -1126,6 +1126,10 @@ const _spanish = <String, String>{
       'Tu publicación ya está visible. ¿Quieres compartirla también fuera de la comunidad?',
   'Not now': 'Ahora no',
   'Share post': 'Compartir publicación',
+  'Publish this original publication in joined communities.':
+      'Publica esta publicación original en las comunidades a las que perteneces.',
+  'Publish this business post in communities you have joined.':
+      'Publica esta publicación del negocio en las comunidades a las que perteneces.',
   'Share to Instagram or Facebook': 'Compartir en Instagram o Facebook',
   'Create an Instagram or Facebook post':
       'Crear una publicación en Instagram o Facebook',

@@ -255,13 +255,15 @@ Future<void> sharePost(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (post.isPersonal)
+            if (post.canShareToCommunities)
               ListTile(
                 leading: const Icon(WicchuIcons.usersThree),
                 title: Text(sheetContext.tr('Share to Community')),
                 subtitle: Text(
                   sheetContext.tr(
-                    'Publish this original publication in joined communities.',
+                    post.isPersonal
+                        ? 'Publish this original publication in joined communities.'
+                        : 'Publish this business post in communities you have joined.',
                   ),
                 ),
                 onTap: () =>

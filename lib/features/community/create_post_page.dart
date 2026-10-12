@@ -1907,6 +1907,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   ),
                 ),
                 const SizedBox(height: 10),
+                if (post.canShareToCommunities)
+                  _shareAction(
+                    context,
+                    post,
+                    icon: WicchuIcons.usersThree,
+                    label: 'Share to Community',
+                    destination: PostShareDestination.community,
+                  ),
                 if (post.text.trim().isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),

@@ -13,6 +13,7 @@ import 'package:wicchu/features/community/post_media_export.dart';
 CommunityPost _post({
   List<PostMedia> media = const [],
   String text = 'Original caption',
+  bool canShareToCommunities = false,
 }) => CommunityPost(
   id: 'post-1',
   communityId: 'community-1',
@@ -22,6 +23,7 @@ CommunityPost _post({
   status: PostStatus.published,
   createdAt: DateTime.utc(2026, 10, 5),
   media: media,
+  canShareToCommunities: canShareToCommunities,
 );
 
 void main() {
@@ -85,6 +87,7 @@ void main() {
   ) async {
     final repository = DemoCommunityRepository();
     final post = _post(
+      canShareToCommunities: true,
       media: const [
         PostMedia(url: 'https://example.com/photo.jpg', type: 'image'),
       ],
@@ -106,6 +109,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Instagram Story'), findsOneWidget);
+    expect(find.text('Share to Community'), findsOneWidget);
+    expect(
+      find.text('Publish this business post in communities you have joined.'),
+      findsOneWidget,
+    );
     expect(find.text('Share a Wicchu-designed 9:16 image.'), findsOneWidget);
     expect(find.text('Instagram Post'), findsOneWidget);
     expect(find.text('WhatsApp'), findsOneWidget);

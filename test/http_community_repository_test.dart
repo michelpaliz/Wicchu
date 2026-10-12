@@ -315,6 +315,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'text': 'Community meeting',
           'status': 'pendingApproval',
           'canInteract': false,
+          'canShareToCommunities': true,
           'author': {
             'id': 'user-1',
             'name': 'Michael Paliz',
@@ -1439,6 +1440,7 @@ void main() {
     expect(post.status, PostStatus.pendingApproval);
     expect(post.authorAvatarUrl, 'https://example.com/michael.jpg');
     expect(post.canInteract, isFalse);
+    expect(post.canShareToCommunities, isTrue);
   });
 
   test(
