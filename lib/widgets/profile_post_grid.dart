@@ -1,4 +1,4 @@
-import 'category_symbol.dart';
+import '../features/community/post_markdown.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'wicchu_network_image.dart';
@@ -36,7 +36,14 @@ class ProfileViewSwitch extends StatelessWidget {
   );
 }
 
-/// Used by both personal profiles and public pages; communities retain a feed.
+const profilePostGridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
+  crossAxisCount: 3,
+  childAspectRatio: 1,
+  crossAxisSpacing: 4,
+  mainAxisSpacing: 4,
+);
+
+/// Shared thumbnail for personal profiles, communities, and public pages.
 class ProfilePostTile extends StatelessWidget {
   const ProfilePostTile({
     super.key,
@@ -51,7 +58,9 @@ class ProfilePostTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final photo = post.media.where((m) => m.type == 'image').firstOrNull;
+    final photo =
+        post.media.where((m) => m.type == 'image').firstOrNull ??
+        post.media.where((m) => m.thumbnailUrl?.isNotEmpty == true).firstOrNull;
     final video = post.media.any((m) => m.type == 'video');
     final marker = video
         ? WicchuIcons.playCircle
@@ -59,28 +68,28 @@ class ProfilePostTile extends StatelessWidget {
         ? WicchuIcons.images
         : null;
     final fallback = Padding(
-      padding: const EdgeInsets.all(10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CategorySymbol(categoryIcon, size: 22),
-          const SizedBox(height: 4),
-          Expanded(
-            child: Text(
-              post.text,
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
+      padding: const EdgeInsets.all(8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final lineHeight = MediaQuery.textScalerOf(context).scale(13) * 1.4;
+          return Text(
+            postPlainText(post.displayText),
+            maxLines: (constraints.maxHeight / lineHeight).floor().clamp(1, 8),
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontSize: 13,
+              height: 1.4,
+              color: colors.onSurface,
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
     return Semantics(
       button: true,
       label: '${context.tr('Posts')}: ${post.text}',
       child: Material(
-        color: colors.surfaceContainerHighest,
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(8),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -93,7 +102,7 @@ class ProfilePostTile extends StatelessWidget {
                   url: photo.previewUrl,
                   cacheKey: photo.previewCacheKey,
                   fit: BoxFit.cover,
-                  decodeWidth: 720,
+                  decodeWidth: 360,
                   errorBuilder: (_) => fallback,
                 )
               else
@@ -107,47 +116,12 @@ class ProfilePostTile extends StatelessWidget {
                       color: colors.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Padding(
-                      padding: EdgeInsets.all(5),
+                    child: Padding(
+                      padding: const EdgeInsets.all(5),
                       child: Icon(
                         WicchuIcons.pushPinFill,
                         size: 14,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              if (post.reactionCount > 0)
-                Positioned(
-                  left: 5,
-                  bottom: 5,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 3,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            WicchuIcons.heartFill,
-                            size: 13,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${post.reactionCount}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
+                        color: colors.onPrimary,
                       ),
                     ),
                   ),

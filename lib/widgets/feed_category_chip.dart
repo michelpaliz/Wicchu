@@ -37,25 +37,38 @@ class FeedCategoryChip extends StatelessWidget {
               Text(label),
               if (unreadCount > 0) ...[
                 const SizedBox(width: 6),
-                Container(
-                  constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
-                  padding: unreadCount > 1
-                      ? const EdgeInsets.symmetric(horizontal: 5, vertical: 1)
-                      : EdgeInsets.zero,
-                  decoration: BoxDecoration(
-                    color: selected ? scheme.onPrimary : scheme.error,
-                    borderRadius: BorderRadius.circular(10),
+                Center(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: Container(
+                    key: const ValueKey('category-unread-badge'),
+                    width: unreadCount == 1 ? 6 : null,
+                    height: unreadCount == 1 ? 6 : null,
+                    constraints: unreadCount > 1
+                        ? const BoxConstraints(minWidth: 18, minHeight: 18)
+                        : null,
+                    padding: unreadCount > 1
+                        ? const EdgeInsets.symmetric(horizontal: 5, vertical: 2)
+                        : EdgeInsets.zero,
+                    decoration: BoxDecoration(
+                      color: selected ? scheme.onPrimary : scheme.primary,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: unreadCount > 1
+                        ? Text(
+                            unreadCount > 99 ? '99+' : '$unreadCount',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: selected
+                                  ? scheme.primary
+                                  : scheme.onPrimary,
+                              fontSize: 10,
+                              height: 1.2,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        : null,
                   ),
-                  child: unreadCount > 1
-                      ? Text(
-                          unreadCount > 99 ? '99+' : '$unreadCount',
-                          style: TextStyle(
-                            color: selected ? scheme.primary : scheme.onError,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        )
-                      : null,
                 ),
               ],
             ],
@@ -67,9 +80,7 @@ class FeedCategoryChip extends StatelessWidget {
                   color: scheme.primary.withValues(alpha: .75 * glow),
                   width: 2,
                 )
-              : selected
-              ? BorderSide.none
-              : BorderSide(color: scheme.onSurface.withValues(alpha: 0.06)),
+              : BorderSide.none,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),

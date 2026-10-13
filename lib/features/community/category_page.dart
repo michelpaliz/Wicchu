@@ -265,7 +265,7 @@ class _CategoryPageState extends State<CategoryPage>
                           communityName: widget.community.name,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const PostFeedSeparator(),
                     ],
                   ],
                 );

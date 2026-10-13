@@ -301,7 +301,7 @@ class DemoCommunityRepository implements CommunityRepository {
   Future<ScopedNotificationPreferences>
   getCommunityContentNotificationPreferences(String communityId) async =>
       _scopedPreferences['community:$communityId'] ??
-      const ScopedNotificationPreferences();
+      const ScopedNotificationPreferences.communityDefaults();
 
   @override
   Future<ScopedNotificationPreferences>

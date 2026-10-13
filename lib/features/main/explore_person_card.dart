@@ -1,5 +1,4 @@
-import 'package:wicchu/theme/wicchu_icons.dart';
-import '../../widgets/explore_result_card.dart';
+import '../../widgets/wicchu_list_tile.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -19,112 +18,49 @@ class ExplorePersonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return ExploreResultCard(
-      child: Semantics(
-        button: true,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(13),
-            child: Row(
-              children: [
-                ExcludeSemantics(
-                  child: UserAvatar(
-                    userId: person.id,
-                    name: person.name,
-                    imageUrl: person.avatarUrl,
-                    radius: 23,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        person.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (person.userName.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          '@${person.userName.replaceFirst(RegExp(r'^@'), '')}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 13,
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                      if (person.distanceKm != null) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              WicchuIcons.mapPin,
-                              size: 15,
-                              color: colors.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              context.tr('{distance} km away', {
-                                'distance': person.distanceKm! < 10
-                                    ? person.distanceKm!.toStringAsFixed(1)
-                                    : person.distanceKm!.round().toString(),
-                              }),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontSize: 12,
-                                color: colors.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      if (person.sharedCommunityCount > 0) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              WicchuIcons.users,
-                              size: 15,
-                              color: colors.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                context.trCount(
-                                  person.sharedCommunityCount,
-                                  singular: '{count} shared community',
-                                  plural: '{count} shared communities',
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontSize: 12,
-                                  color: colors.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+    final metadata = <String>[
+      if (person.sharedCommunityCount > 0)
+        context.trCount(
+          person.sharedCommunityCount,
+          singular: '{count} shared community',
+          plural: '{count} shared communities',
         ),
+      if (person.distanceKm != null)
+        context.tr('{distance} km away', {
+          'distance': person.distanceKm! < 10
+              ? person.distanceKm!.toStringAsFixed(1)
+              : person.distanceKm!.round().toString(),
+        }),
+    ];
+    return WicchuListTile(
+      variant: WicchuListVariant.person,
+      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+      leading: UserAvatar(
+        userId: person.id,
+        name: person.name,
+        imageUrl: person.avatarUrl,
+        radius: 22,
       ),
+      title: Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (person.userName.isNotEmpty)
+            Text(
+              '@${person.userName.replaceFirst(RegExp(r'^@'), '')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          if (metadata.isNotEmpty)
+            Text(
+              metadata.join(' · '),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+        ],
+      ),
+      onTap: onTap,
     );
   }
 }

@@ -211,7 +211,12 @@ push delivery have not been verified in this client-only checkout.
   Return stored preferences directly or inside `preferences`. Modes are
   `important`, `all`, `selected`, and `muted`; business content types are `posts`,
   `offers`, and `events`. Validate category IDs against the target community.
-  Missing settings default to important, no selected categories, posts, push on.
+  Missing community/page settings default to `all` (every category enabled),
+  no selected categories, posts, push on. Apply this default on the server for
+  viewers without saved preferences; preserve explicit saved modes, including
+  important, selected, and muted. Personal-follow defaults remain unchanged.
+  The client cannot distinguish a stored important-only choice from the server
+  returning important as its legacy default; the server must resolve this.
   Failed writes must return an error rather than acknowledge an ignored update.
 - Preserve per-viewer category order through the existing category-order
   endpoints for communities and compatible public pages.
@@ -237,3 +242,41 @@ and access to delivery logs for the existing Firebase device registration flow.
 Verify preference read-back after sign-in, cross-device unread persistence,
 publish/approval delivery, muted and push-disabled behavior, and notification
 tap routing. Simulator/client tests alone do not establish real push delivery.
+
+## Public page feed access — reported non-member failure
+
+A user reports a generic error when opening a business feed without following
+it. Verify the same behavior for public communities and every public-profile
+category (business, person, creator, organization).
+
+The Flutter client already requests public posts without requiring membership:
+`GET /api/community/v1/communities/{communityId}/posts`. Categories use
+`GET /api/community/v1/communities/{communityId}/categories`. Both retain the
+normal authenticated session; public visibility is independent of membership.
+
+Server requirements:
+
+- A signed-in non-member/non-follower may read published posts and categories
+  from an active public page. Do not require a membership record for reads or
+  dereference missing membership while computing permissions or unread state.
+- Keep private, banned, unpublished, pending and removed content protected.
+  Read access must not grant commenting, posting, moderation or notifications.
+- Successful feeds keep the existing `{ "posts": [...] }` contract, including
+  an empty list for pages with no published posts. Categories keep
+  `{ "categories": [...] }`. Expected access errors must return structured
+  errors and the correct HTTP status, rather than a server exception.
+- Verify public read/search/category filtering with non-member and member
+  accounts, plus a private page and a banned account as negative cases.
+
+Investigation: the simulator's current account belongs to all four discovered
+pages. Both business and both community feeds/categories initially succeeded
+with that account. A subsequent simulator request reproduced an API rejection:
+`GET /api/community/v1/communities/6ab651622d911fae7c0332e2/posts` returned
+HTTP 403 (`ApiException`). Inspect that page’s visibility and the requesting
+account’s membership/banned state alongside the server authorization handler.
+Flutter regression tests cover rendered non-member public content across all
+page types. Debug builds now log the failed posts endpoint, HTTP status (when
+available), and exception type without tokens or response content. Capture that
+failure with the matching non-member account on the server to identify the
+rejected access rule. The observed failure is API rejection, not a JSON parsing
+exception. The server source is not in this repo.

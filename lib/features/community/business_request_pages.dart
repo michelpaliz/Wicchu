@@ -1,3 +1,5 @@
+import 'business_dialog.dart';
+import '../../services/post_image_preparation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -36,7 +38,12 @@ class _BusinessTransactionsPageState extends State<BusinessTransactionsPage> {
     await widget.repository.listManagedBusinessRequests(widget.businessId),
   );
 
-  void _reload() => setState(() => _transactions = _load());
+  void _reload() {
+    if (!mounted) return;
+    setState(() {
+      _transactions = _load();
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -424,7 +431,7 @@ class _BusinessRequestComposerPageState
           ? TimeOfDay.now()
           : TimeOfDay.fromDateTime(_preferredAt!),
     );
-    if (time == null) return;
+    if (time == null || !mounted) return;
     setState(
       () => _preferredAt = DateTime(
         day.year,
@@ -437,32 +444,39 @@ class _BusinessRequestComposerPageState
   }
 
   Future<void> _addPhoto() async {
-    final files = await ImagePicker().pickMultiImage(
-      maxWidth: 1800,
-      imageQuality: 88,
-      limit: 5 - _photos.length,
-    );
-    if (files.isEmpty) return;
+    if (_sending || _photos.length >= 5) return;
     setState(() => _sending = true);
     try {
-      for (final file in files.take(5 - _photos.length)) {
-        final extension = file.name.split('.').last.toLowerCase();
-        final media = await widget.repository.uploadPostMedia(
-          bytes: await file.readAsBytes(),
-          filename: file.name,
-          mimeType: extension == 'png' ? 'image/png' : 'image/jpeg',
-        );
-        _photos.add(media);
-      }
-      if (mounted) setState(() => _sending = false);
-    } catch (error) {
+      final files = await ImagePicker().pickMultiImage(
+        maxWidth: 4096,
+        maxHeight: 4096,
+        requestFullMetadata: false,
+        limit: 5 - _photos.length,
+      );
       if (!mounted) return;
-      setState(() => _sending = false);
-      _showError(error);
+      for (final file in files.take(5 - _photos.length)) {
+        final prepared = await preparePostImage(
+          await file.readAsBytes(),
+          file.name,
+        );
+        if (!mounted) return;
+        final media = await widget.repository.uploadPostMedia(
+          bytes: prepared.bytes,
+          filename: prepared.filename,
+          mimeType: prepared.mimeType,
+        );
+        if (!mounted) return;
+        setState(() => _photos.add(media));
+      }
+    } catch (error) {
+      if (mounted) _showError(error);
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
   }
 
   Future<void> _submit() async {
+    if (_sending) return;
     final type = _type!;
     if (_service.text.trim().isEmpty ||
         (type == BusinessRequestType.taxi &&
@@ -495,7 +509,7 @@ class _BusinessRequestComposerPageState
       );
       if (!mounted) return;
       setState(() => _sending = false);
-      await showDialog<void>(
+      await showBusinessDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
           icon: const Icon(WicchuIcons.checkCircle),
@@ -539,7 +553,12 @@ class _MyBusinessRequestsPageState extends State<MyBusinessRequestsPage> {
   late Future<List<BusinessRequest>> _requests = _load();
   Future<List<BusinessRequest>> _load() =>
       widget.repository.listMyBusinessRequests();
-  void _reload() => setState(() => _requests = _load());
+  void _reload() {
+    if (!mounted) return;
+    setState(() {
+      _requests = _load();
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -613,7 +632,12 @@ class _BusinessRequestManagementPageState
   late Future<List<BusinessRequest>> _requests = _load();
   Future<List<BusinessRequest>> _load() =>
       widget.repository.listManagedBusinessRequests(widget.businessId);
-  void _reload() => setState(() => _requests = _load());
+  void _reload() {
+    if (!mounted) return;
+    setState(() {
+      _requests = _load();
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -752,11 +776,11 @@ class _BusinessRequestSettingsPageState
           appBar: AppBar(),
           body: _RequestError(
             error: snapshot.error,
-            onRetry: () => setState(
-              () => _settings = widget.repository.getBusinessRequestSettings(
+            onRetry: () => setState(() {
+              _settings = widget.repository.getBusinessRequestSettings(
                 widget.businessId,
-              ),
-            ),
+              );
+            }),
           ),
         );
       }
@@ -1030,7 +1054,7 @@ Future<String?> _requestTextDialog(
   bool number = false,
 }) async {
   final controller = TextEditingController();
-  final result = await showDialog<String>(
+  final result = await showBusinessDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),

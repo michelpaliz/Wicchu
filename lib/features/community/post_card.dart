@@ -13,6 +13,8 @@ import '../../domain/community_repository.dart';
 import 'post_markdown.dart';
 import 'user_avatar.dart';
 import 'report_dialog.dart';
+import 'community_profile_page.dart';
+import 'category_page.dart';
 
 String formatPostTime(BuildContext context, DateTime createdAt) {
   final difference = DateTime.now().difference(createdAt.toLocal());
@@ -30,6 +32,28 @@ String formatPostTime(BuildContext context, DateTime createdAt) {
   return MaterialLocalizations.of(context).formatShortDate(createdAt.toLocal());
 }
 
+/// Adds 4dp per side to PostCard's 8dp padding for 12dp around the line.
+/// Feed containers provide the shared 16dp horizontal content inset.
+class PostFeedSeparator extends StatelessWidget {
+  const PostFeedSeparator({super.key});
+
+  @override
+  Widget build(BuildContext context) => Divider(
+    height: 8,
+    thickness: .5,
+    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .12),
+  );
+}
+
+class PostFeedItem extends StatelessWidget {
+  const PostFeedItem({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      Column(children: [child, const PostFeedSeparator()]);
+}
+
 class PostCard extends StatefulWidget {
   const PostCard({
     super.key,
@@ -42,13 +66,13 @@ class PostCard extends StatefulWidget {
     required this.time,
     required this.text,
     this.price,
-    this.collapseText = false,
-    this.mediaFirst = false,
+    this.collapseText = true,
     this.compact = false,
     this.showCommunity = true,
     this.communityFirst = false,
     this.onCommunityTap,
     this.showActions = true,
+    this.showMenu = true,
     this.likes = 0,
     this.comments = 0,
     this.showImage = false,
@@ -91,12 +115,12 @@ class PostCard extends StatefulWidget {
   final String text;
   final String? price;
   final bool collapseText;
-  final bool mediaFirst;
   final bool compact;
   final bool showCommunity;
   final bool communityFirst;
   final VoidCallback? onCommunityTap;
   final bool showActions;
+  final bool showMenu;
   final int likes;
   final int comments;
   final bool showImage;
@@ -160,110 +184,135 @@ class PostCard extends StatefulWidget {
         icon: const Icon(WicchuIcons.dotsThree),
         onPressed: () => cardKey.currentState?._menu()._open(viewerContext),
       ),
-      contentBuilder: (viewerContext) => Column(
-        children: [
-          PostCard(
-            key: cardKey,
-            viewerContent: true,
-            category: category,
-            icon: icon,
-            community: community,
-            author: author,
-            authorAvatarUrl: authorAvatarUrl,
-            isAnonymousAuthor: isAnonymousAuthor,
-            time: time,
-            text: text,
-            price: price,
-            promotion: promotion,
-            edited: edited,
-            collapseText: true,
-            compact: true,
-            showCommunity: showCommunity,
-            showActions: showActions,
-            likes: count,
-            comments: commentCount,
-            reacted: liked,
-            saved: isSaved,
-            onAuthorTap: onAuthorTap,
-            onCommunityTap: onCommunityTap,
-            onMentionTap: onMentionTap,
-            post: post,
-            onReaction: onReaction == null
-                ? null
-                : (next) async {
-                    count = await onReaction!(next);
-                    liked = next;
-                    return count;
-                  },
-            onSaved: onSaved == null
-                ? null
-                : (next) async {
-                    await onSaved!(next);
-                    isSaved = next;
-                  },
-            onComments: onComments == null
-                ? null
-                : () async {
-                    if (commentsKey.currentContext != null) {
-                      await Scrollable.ensureVisible(
-                        commentsKey.currentContext!,
-                        duration: const Duration(milliseconds: 250),
-                      );
-                      return commentCount;
-                    }
-                    return onComments!();
-                  },
-            onShare: onShare,
-            onReport: onReport == null
-                ? null
-                : (reason, category, {hidePost}) async {
-                    await onReport!(reason, category, hidePost: hidePost);
-                    if (hidePost == true) {
-                      hidden = true;
-                      if (viewerContext.mounted) Navigator.pop(viewerContext);
-                    }
-                  },
-            onEdit: onEdit == null
-                ? null
-                : () {
-                    Navigator.pop(viewerContext);
-                    onEdit!();
-                  },
-            onDelete: onDelete == null
-                ? null
-                : () async {
-                    await onDelete!();
+      detailBuilder: (viewerContext, mediaWidget, scroll, physics, immersive) {
+        final card = PostCard(
+          key: cardKey,
+          viewerContent: true,
+          category: category,
+          icon: icon,
+          community: community,
+          author: author,
+          authorAvatarUrl: authorAvatarUrl,
+          isAnonymousAuthor: isAnonymousAuthor,
+          time: time,
+          text: text,
+          price: price,
+          promotion: promotion,
+          edited: edited,
+          collapseText: false,
+          compact: true,
+          showCommunity: showCommunity,
+          showActions: showActions,
+          likes: count,
+          comments: commentCount,
+          reacted: liked,
+          saved: isSaved,
+          onAuthorTap: onAuthorTap,
+          onCommunityTap: onCommunityTap,
+          onMentionTap: onMentionTap,
+          post: post,
+          onReaction: onReaction == null
+              ? null
+              : (next) async {
+                  count = await onReaction!(next);
+                  liked = next;
+                  return count;
+                },
+          onSaved: onSaved == null
+              ? null
+              : (next) async {
+                  await onSaved!(next);
+                  isSaved = next;
+                },
+          onComments: onComments == null
+              ? null
+              : () async {
+                  if (commentsKey.currentContext != null) {
+                    await Scrollable.ensureVisible(
+                      commentsKey.currentContext!,
+                      duration: const Duration(milliseconds: 250),
+                    );
+                    return commentCount;
+                  }
+                  return onComments!();
+                },
+          onShare: onShare,
+          onReport: onReport == null
+              ? null
+              : (reason, category, {hidePost}) async {
+                  await onReport!(reason, category, hidePost: hidePost);
+                  if (hidePost == true) {
+                    hidden = true;
                     if (viewerContext.mounted) Navigator.pop(viewerContext);
-                  },
-            onPinnedChanged: onPinnedChanged,
-            onModerationRemove: onModerationRemove == null
-                ? null
-                : (reason) async {
-                    await onModerationRemove!(reason);
-                    if (viewerContext.mounted) Navigator.pop(viewerContext);
-                  },
-            poll: latestPoll,
-            onPollVote: onPollVote == null
-                ? null
-                : (optionId) async {
-                    latestPoll = await onPollVote!(optionId);
-                    return latestPoll!;
-                  },
-          ),
-          if (repository != null && post != null && onComments != null)
-            PostComments(
-              key: commentsKey,
-              repository: repository!,
-              post: post!,
-              inline: true,
-              onCountChanged: (value) {
-                commentCount = value;
-                final state = cardKey.currentState;
-                state?._updateCommentCount(value);
-              },
+                  }
+                },
+          onEdit: onEdit == null
+              ? null
+              : () {
+                  Navigator.pop(viewerContext);
+                  onEdit!();
+                },
+          onDelete: onDelete == null
+              ? null
+              : () async {
+                  await onDelete!();
+                  if (viewerContext.mounted) Navigator.pop(viewerContext);
+                },
+          onPinnedChanged: onPinnedChanged,
+          onModerationRemove: onModerationRemove == null
+              ? null
+              : (reason) async {
+                  await onModerationRemove!(reason);
+                  if (viewerContext.mounted) Navigator.pop(viewerContext);
+                },
+          poll: latestPoll,
+          onPollVote: onPollVote == null
+              ? null
+              : (optionId) async {
+                  latestPoll = await onPollVote!(optionId);
+                  return latestPoll!;
+                },
+        );
+        Widget layout(Widget comments, Widget composer) => Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scroll,
+                physics: physics,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Column(
+                  children: [
+                    mediaWidget,
+                    Offstage(
+                      offstage: immersive,
+                      child: Column(children: [card, comments]),
+                    ),
+                  ],
+                ),
+              ),
             ),
-        ],
-      ),
+            Offstage(offstage: immersive, child: composer),
+          ],
+        );
+        if (repository != null && post != null && onComments != null) {
+          return PostComments(
+            repository: repository!,
+            post: post!,
+            inline: true,
+            layoutBuilder: (comments, composer) => layout(
+              KeyedSubtree(key: commentsKey, child: comments),
+              composer,
+            ),
+            onCountChanged: (value) {
+              commentCount = value;
+              final state = cardKey.currentState;
+              state?._updateCommentCount(value);
+            },
+          );
+        }
+        return layout(const SizedBox.shrink(), const SizedBox.shrink());
+      },
     );
     return (
       likes: count,
@@ -294,6 +343,66 @@ class _PostCardState extends State<PostCard> {
   bool _deleting = false;
   bool _moderating = false;
   bool _businessViewSent = false;
+
+  Future<Community?>? _sourceProfile;
+
+  void _loadSourceProfile() {
+    final id = widget.post?.sourceCommunityId;
+    _sourceProfile =
+        !widget.isAnonymousAuthor &&
+            widget.post?.isAnonymous != true &&
+            id != null &&
+            id.isNotEmpty &&
+            widget.repository != null
+        ? widget.repository!
+              .getCommunity(id)
+              .then<Community?>((value) => value)
+              .catchError((Object _) => null)
+        : null;
+  }
+
+  Future<void> _openSharedCategory() async {
+    final post = widget.post;
+    final repository = widget.repository;
+    if (post == null || repository == null) return;
+    try {
+      final community = await repository.getCommunity(post.communityId);
+      final categories = await repository.listCategories(post.communityId);
+      final matches = categories.where(
+        (category) => category.id == post.categoryId,
+      );
+      if (!mounted || matches.isEmpty) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CategoryPage(
+            community: community,
+            category: matches.first,
+            repository: repository,
+            canPost: community.canPublish,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
+
+  void _openSourceProfile(Community profile) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CommunityProfilePage(
+          community: profile,
+          repository: widget.repository!,
+        ),
+      ),
+    );
+  }
 
   Future<void> _deletePost() async {
     if (widget.onDelete == null || _deleting) return;
@@ -428,6 +537,7 @@ class _PostCardState extends State<PostCard> {
   @override
   void initState() {
     super.initState();
+    _loadSourceProfile();
     _recordImpression();
     _recordBusinessView();
   }
@@ -435,6 +545,12 @@ class _PostCardState extends State<PostCard> {
   @override
   void didUpdateWidget(covariant PostCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.post?.sourceCommunityId != widget.post?.sourceCommunityId ||
+        oldWidget.post?.isAnonymous != widget.post?.isAnonymous ||
+        oldWidget.isAnonymousAuthor != widget.isAnonymousAuthor ||
+        oldWidget.repository != widget.repository) {
+      _loadSourceProfile();
+    }
     if (oldWidget.likes != widget.likes) _likes = widget.likes;
     if (oldWidget.comments != widget.comments) _comments = widget.comments;
     if (oldWidget.reacted != widget.reacted) _reacted = widget.reacted;
@@ -496,17 +612,36 @@ class _PostCardState extends State<PostCard> {
     if (_hidden) return const SizedBox.shrink();
     final accent = categoryColor(widget.category, context);
     final theme = Theme.of(context);
-    final communityFirst = widget.communityFirst && widget.showCommunity;
-    final authorTap = widget.isAnonymousAuthor ? null : widget.onAuthorTap;
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: widget.viewerContent
-            ? const BorderRadius.vertical(top: Radius.circular(24))
-            : BorderRadius.circular(18),
-        side: widget.viewerContent
-            ? BorderSide.none
-            : BorderSide(color: theme.dividerColor.withValues(alpha: .55)),
-      ),
+    final anonymous =
+        widget.isAnonymousAuthor || widget.post?.isAnonymous == true;
+    final communityFirst =
+        !anonymous && widget.communityFirst && widget.showCommunity;
+    final authorTap = anonymous ? null : widget.onAuthorTap;
+    final authorName = anonymous
+        ? context.tr('Anonymous Member')
+        : context.tr(widget.author);
+    final interactive =
+        _poll != null ||
+        widget.post?.todayMenu != null ||
+        widget.post?.businessFeature != null;
+    final mediaLayout = widget.media.isNotEmpty && !interactive;
+    final textOnly = widget.media.isEmpty && !interactive;
+    final categoryLabel = context.tr(widget.category).trim();
+    final showCategory =
+        categoryLabel.isNotEmpty &&
+        !{
+          'posts',
+          'publicaciones',
+          'publishing',
+          'general',
+        }.contains(categoryLabel.toLowerCase());
+    return Material(
+      color: widget.viewerContent
+          ? theme.colorScheme.surface
+          : Colors.transparent,
+      borderRadius: widget.viewerContent
+          ? const BorderRadius.vertical(top: Radius.circular(24))
+          : BorderRadius.zero,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: widget.onTap == null
@@ -518,7 +653,12 @@ class _PostCardState extends State<PostCard> {
                 widget.onTap!();
               },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: EdgeInsets.fromLTRB(
+            widget.viewerContent ? 16 : 0,
+            textOnly ? 4 : 8,
+            widget.viewerContent ? 16 : 0,
+            8,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -562,147 +702,209 @@ class _PostCardState extends State<PostCard> {
                 ),
                 const SizedBox(height: 10),
               ],
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  InkWell(
-                    onTap: widget.isAnonymousAuthor ? null : widget.onAuthorTap,
-                    customBorder: const CircleBorder(),
-                    child: UserAvatar(
-                      name: context.tr(widget.author),
-                      imageUrl: widget.authorAvatarUrl,
-                      radius: widget.compact ? 18 : 21,
-                      backgroundColor: accent.withValues(alpha: .14),
-                      foregroundColor: accent,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        InkWell(
-                          onTap: communityFirst
-                              ? widget.onCommunityTap
-                              : authorTap,
-                          child: Text(
-                            communityFirst
-                                ? widget.community
-                                : context.tr(widget.author),
-                            maxLines: communityFirst ? 2 : 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+              FutureBuilder<Community?>(
+                key: ValueKey('${widget.post?.sourceCommunityId}:$anonymous'),
+                future: _sourceProfile,
+                builder: (context, snapshot) {
+                  final source = anonymous ? null : snapshot.data;
+                  final primaryTap = source != null
+                      ? () => _openSourceProfile(source)
+                      : (communityFirst ? widget.onCommunityTap : authorTap);
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      InkWell(
+                        onTap: source != null ? primaryTap : authorTap,
+                        customBorder: const CircleBorder(),
+                        child: UserAvatar(
+                          name: source?.name ?? authorName,
+                          imageUrl: anonymous
+                              ? null
+                              : (source?.imageUrl ??
+                                    (source == null
+                                        ? widget.authorAvatarUrl
+                                        : null)),
+                          radius: 18,
+                          backgroundColor: accent.withValues(alpha: .14),
+                          foregroundColor: accent,
                         ),
-                        const SizedBox(height: 2),
-                        InkWell(
-                          onTap: communityFirst ? authorTap : null,
-                          child: Text(
-                            '${communityFirst ? '${context.tr(widget.author)} · ' : ''}${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}${widget.showCommunity && !communityFirst ? ' · ${widget.community}' : ''}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 13,
-                              color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            InkWell(
+                              onTap: primaryTap,
+                              child: Text(
+                                source?.name ??
+                                    (communityFirst
+                                        ? widget.community
+                                        : authorName),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: WicchuPostTypography.author(context),
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 2),
+                            if (source != null)
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  InkWell(
+                                    onTap: authorTap,
+                                    child: Text(
+                                      authorName,
+                                      style: WicchuPostTypography.metadata(
+                                        context,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    ' · ${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}',
+                                    style: WicchuPostTypography.metadata(
+                                      context,
+                                    ),
+                                  ),
+                                  if (showCategory)
+                                    InkWell(
+                                      onTap: _openSharedCategory,
+                                      child: Text(
+                                        ' · $categoryLabel',
+                                        style: WicchuPostTypography.metadata(
+                                          context,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              )
+                            else
+                              InkWell(
+                                onTap: source != null || communityFirst
+                                    ? authorTap
+                                    : null,
+                                child: Text(
+                                  '${source != null || communityFirst ? '$authorName · ' : ''}${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}${source == null && widget.showCommunity && !communityFirst && !anonymous ? ' · ${widget.community}' : ''}${showCategory ? ' · $categoryLabel' : ''}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: WicchuPostTypography.metadata(context),
+                                ),
+                              ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  if (!widget.viewerContent) _menu(),
-                ],
+                      ),
+                      if (!widget.viewerContent && widget.showMenu) _menu(),
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 8),
-              if (widget.mediaFirst && widget.media.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              if (mediaLayout) ...[
                 PostMediaGallery(media: widget.media, onOpen: _openMedia),
-                const SizedBox(height: 8),
-              ],
-              if (widget.post?.todayMenu case final menu?)
-                _TodayMenuView(menu: menu)
-              else if (widget.post?.businessFeature case final feature?)
-                _BusinessFeatureView(feature: feature)
-              else
-                PostMarkdown(
-                  data: widget.text,
-                  collapsible: widget.collapseText,
-                  compact: widget.compact,
-                  previewLines: widget.compact ? 3 : 5,
-                  onUserTap: widget.onMentionTap,
-                ),
-              if (widget.post?.todayMenu != null ||
-                  widget.post?.businessFeature != null)
-                _businessFooter(),
-              if (widget.price != null) ...[
+                if (widget.showActions) _engagementActions(),
                 const SizedBox(height: 6),
-                Text(
-                  widget.price!,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ],
-              if (!widget.mediaFirst && widget.media.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                PostMediaGallery(media: widget.media, onOpen: _openMedia),
-              ] else if (widget.showImage && widget.media.isEmpty) ...[
-                const SizedBox(height: 8),
-                Container(
-                  height: 170,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    color: Theme.of(context).colorScheme.primaryContainer,
+                _postContent(),
+              ] else ...[
+                _postContent(),
+                if (widget.media.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  PostMediaGallery(media: widget.media, onOpen: _openMedia),
+                ],
+                if (_poll != null) ...[
+                  const SizedBox(height: 8),
+                  DefaultTextStyle.merge(
+                    style: WicchuPostTypography.body(context),
+                    child: _PollView(
+                      poll: _poll!,
+                      enabled: widget.onPollVote != null,
+                      saving: _savingVote,
+                      onSelected: _vote,
+                    ),
                   ),
-                  child: Icon(WicchuIcons.image, size: 54, color: accent),
-                ),
+                ],
+                if (widget.showActions)
+                  _engagementActions(compact: textOnly || _poll != null),
               ],
-              if (_poll != null) ...[
-                const SizedBox(height: 8),
-                _PollView(
-                  poll: _poll!,
-                  enabled: widget.onPollVote != null && !_savingVote,
-                  onSelected: _vote,
-                ),
-              ],
-              if (widget.showActions) const SizedBox(height: 2),
-              if (widget.showActions)
-                Row(
-                  children: [
-                    _PostAction(
-                      icon: _reacted
-                          ? WicchuIcons.heartFill
-                          : WicchuIcons.heart,
-                      value: '$_likes',
-                      tooltip: context.tr(_reacted ? 'Unlike' : 'Like'),
-                      color: _reacted ? const Color(0xFFE53945) : null,
-                      onTap: widget.onReaction == null || _savingReaction
-                          ? null
-                          : _toggleReaction,
-                    ),
-                    const SizedBox(width: 12),
-                    _PostAction(
-                      icon: WicchuIcons.chatCircle,
-                      value: '$_comments',
-                      tooltip: context.tr('Comments'),
-                      onTap: widget.onComments == null ? null : _openComments,
-                    ),
-                    const SizedBox(width: 12),
-                    _PostAction(
-                      icon: WicchuIcons.shareNetwork,
-                      tooltip: context.tr('Share'),
-                      value: widget.viewerContent ? context.tr('Share') : null,
-                      onTap: widget.onShare,
-                    ),
-                  ],
-                ),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _postContent() => DefaultTextStyle.merge(
+    style: WicchuPostTypography.body(context),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.post?.todayMenu case final menu?)
+          _TodayMenuView(menu: menu)
+        else if (widget.post?.businessFeature case final feature?)
+          _BusinessFeatureView(feature: feature)
+        else if (widget.text.isNotEmpty)
+          PostMarkdown(
+            data: widget.text,
+            bodyStyle: _poll == null
+                ? null
+                : Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 19 / 15,
+                  ),
+            collapsible: widget.collapseText,
+            compact: true,
+            previewLines: 3,
+            onUserTap: widget.onMentionTap,
+          ),
+        if (widget.post?.todayMenu != null ||
+            widget.post?.businessFeature != null)
+          _businessFooter(),
+        if (widget.price != null) ...[
+          const SizedBox(height: 4),
+          Text(widget.price!, style: WicchuPostTypography.title(context)),
+        ],
+      ],
+    ),
+  );
+
+  Widget _engagementActions({bool compact = false}) => Row(
+    children: [
+      _PostAction(
+        compact: compact,
+        icon: _reacted ? WicchuIcons.heartFill : WicchuIcons.heart,
+        value: '$_likes',
+        tooltip: context.tr(_reacted ? 'Unlike' : 'Like'),
+        color: _reacted ? const Color(0xFFE53945) : null,
+        onTap: widget.onReaction == null || _savingReaction
+            ? null
+            : _toggleReaction,
+      ),
+      const SizedBox(width: 12),
+      _PostAction(
+        compact: compact,
+        icon: WicchuIcons.chatCircle,
+        value: '$_comments',
+        tooltip: context.tr('Comments'),
+        onTap: widget.onComments == null ? null : _openComments,
+      ),
+      const SizedBox(width: 12),
+      _PostAction(
+        compact: compact,
+        icon: WicchuIcons.shareNetwork,
+        tooltip: context.tr('Share'),
+        value: null,
+        onTap: widget.onShare,
+      ),
+      const Spacer(),
+      if (widget.onSaved != null)
+        _PostAction(
+          compact: compact,
+          icon: _saved ? WicchuIcons.bookmarkFill : WicchuIcons.bookmark,
+          tooltip: context.tr(_saved ? 'Unsave post' : 'Save'),
+          onTap: _savingPost ? null : _toggleSaved,
+        ),
+    ],
+  );
 
   _PostMenu _menu() => _PostMenu(
     category: widget.category,
@@ -920,7 +1122,7 @@ class _TodayMenuView extends StatelessWidget {
               Expanded(
                 child: Text(
                   context.tr("Today's menu"),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: WicchuPostTypography.title(context),
                 ),
               ),
               Text(
@@ -1054,14 +1256,11 @@ class _BusinessFeatureView extends StatelessWidget {
               Expanded(
                 child: Text(
                   context.tr(_featureTitle),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: WicchuPostTypography.title(context),
                 ),
               ),
               if (feature.price.isNotEmpty)
-                Text(
-                  feature.price,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
+                Text(feature.price, style: WicchuPostTypography.title(context)),
             ],
           ),
           const SizedBox(height: 10),
@@ -1130,65 +1329,166 @@ class _BusinessFeatureView extends StatelessWidget {
   };
 }
 
-class _PollView extends StatelessWidget {
+class _PollView extends StatefulWidget {
   const _PollView({
     required this.poll,
     required this.enabled,
+    required this.saving,
     required this.onSelected,
   });
   final PostPoll poll;
   final bool enabled;
+  final bool saving;
   final ValueChanged<String> onSelected;
 
   @override
+  State<_PollView> createState() => _PollViewState();
+}
+
+class _PollViewState extends State<_PollView> {
+  String? _selection;
+  bool _previewResults = false;
+
+  @override
+  void didUpdateWidget(covariant _PollView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.poll.options.any((option) => option.id == _selection)) {
+      _selection = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final poll = widget.poll;
     final total = poll.totalVotes;
+    final voted = poll.selectedOptionId != null;
+    final results = voted || _previewResults;
+    final canSelect = widget.enabled && !widget.saving && !results;
+    final selected = voted ? poll.selectedOptionId : _selection;
+    final colors = Theme.of(context).colorScheme;
     return RadioGroup<String>(
-      groupValue: poll.selectedOptionId,
+      groupValue: selected,
       onChanged: (value) {
-        if (enabled && value != null) onSelected(value);
+        if (canSelect) setState(() => _selection = value);
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final option in poll.options) ...[
-            InkWell(
-              onTap: enabled ? () => onSelected(option.id) : null,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  children: [
-                    Radio<String>(value: option.id, enabled: enabled),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(child: Text(option.text)),
-                              Text(
-                                total == 0
-                                    ? '0%'
-                                    : '${(option.voteCount * 100 / total).round()}%',
-                              ),
-                            ],
+          for (final option in poll.options)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Material(
+                color: selected == option.id
+                    ? colors.primary.withValues(alpha: 0.08)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  onTap: canSelect
+                      ? () => setState(() => _selection = option.id)
+                      : null,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Row(
+                      children: [
+                        Radio<String>(
+                          value: option.id,
+                          enabled: canSelect,
+                          activeColor: colors.primary,
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(child: Text(option.text)),
+                                    if (results) ...[
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        total == 0
+                                            ? '0%'
+                                            : '${(option.voteCount * 100 / total).round()}%',
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                if (results && total > 0) ...[
+                                  const SizedBox(height: 6),
+                                  LinearProgressIndicator(
+                                    value: option.voteCount / total,
+                                    minHeight: 3,
+                                    color: colors.primary,
+                                    backgroundColor:
+                                        colors.surfaceContainerHighest,
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 4),
-                          LinearProgressIndicator(
-                            value: total == 0 ? 0 : option.voteCount / total,
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ],
-          Text(
-            context.tr('{count} votes', {'count': '$total'}),
-            style: Theme.of(context).textTheme.bodySmall,
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      context.tr(
+                        total == 1 ? '{count} vote' : '{count} votes',
+                        {'count': '$total'},
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (!voted) ...[
+                      const Text('·'),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          textStyle: const TextStyle(fontSize: 12),
+                          minimumSize: const Size(0, 40),
+                        ),
+                        onPressed: widget.saving
+                            ? null
+                            : () => setState(
+                                () => _previewResults = !_previewResults,
+                              ),
+                        child: Text(
+                          context.tr(results ? 'Back' : 'View results'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (!voted && widget.enabled && !results) ...[
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(64, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onPressed: _selection == null || widget.saving
+                      ? null
+                      : () => widget.onSelected(_selection!),
+                  child: Text(context.tr(widget.saving ? 'Voting…' : 'Vote')),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -1200,11 +1500,13 @@ class _PostAction extends StatelessWidget {
   const _PostAction({
     required this.icon,
     this.value,
+    this.compact = false,
     required this.tooltip,
     this.color,
     this.onTap,
   });
   final IconData icon;
+  final bool compact;
   final String? value;
   final String tooltip;
   final Color? color;
@@ -1222,12 +1524,15 @@ class _PostAction extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+          constraints: BoxConstraints(
+            minHeight: compact ? 44 : 48,
+            minWidth: 48,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 19, color: color),
+              Icon(icon, size: 22, color: color),
               if (value != null) ...[
                 const SizedBox(width: 5),
                 Flexible(
@@ -1235,11 +1540,9 @@ class _PostAction extends StatelessWidget {
                     value!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                    ),
+                    style: WicchuPostTypography.metadata(
+                      context,
+                    ).copyWith(color: Theme.of(context).colorScheme.onSurface),
                   ),
                 ),
               ],

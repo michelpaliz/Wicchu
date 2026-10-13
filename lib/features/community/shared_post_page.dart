@@ -97,6 +97,7 @@ class _SharedPostPageState extends State<SharedPostPage>
             ),
             const SizedBox(height: 12),
             PostCard(
+              collapseText: false,
               repository: widget.repository,
               post: post,
               category: preview.categoryName,

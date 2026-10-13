@@ -75,7 +75,7 @@ void main() {
       expect(find.text('0 shared communities'), findsNothing);
       expect(find.byIcon(WicchuIcons.users), findsNothing);
       expect(find.text('1.3 km away'), findsOneWidget);
-      expect(find.byIcon(WicchuIcons.mapPin), findsOneWidget);
+      expect(find.byIcon(WicchuIcons.mapPin), findsNothing);
       expect(find.text('@'), findsNothing);
       expect(tester.takeException(), isNull);
     },

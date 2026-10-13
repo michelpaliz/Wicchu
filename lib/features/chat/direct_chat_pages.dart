@@ -1,4 +1,5 @@
-import '../../widgets/explore_result_card.dart';
+import '../../widgets/feed_filter_bar.dart';
+import '../../widgets/wicchu_list_tile.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
@@ -287,11 +288,12 @@ class _ConversationListPageState extends State<ConversationListPage> {
   Widget _conversationCard(DirectConversation conversation) {
     final scheme = Theme.of(context).colorScheme;
     final unread = conversation.unreadCount > 0;
-    return ExploreResultCard(
+    return WicchuListTile.custom(
+      variant: WicchuListVariant.conversation,
       child: InkWell(
         onTap: () => _openConversation(conversation),
         child: Padding(
-          padding: const EdgeInsets.all(13),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
             children: [
               UserAvatar(
@@ -309,6 +311,7 @@ class _ConversationListPageState extends State<ConversationListPage> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontSize: 15,
                         fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
                       ),
                     ),
@@ -336,7 +339,15 @@ class _ConversationListPageState extends State<ConversationListPage> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: scheme.onSurfaceVariant),
+                                ?.copyWith(
+                                  fontSize: 13,
+                                  color: unread
+                                      ? scheme.onSurface
+                                      : scheme.onSurfaceVariant,
+                                  fontWeight: unread
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                ),
                           ),
                         ),
                       ],
@@ -352,12 +363,27 @@ class _ConversationListPageState extends State<ConversationListPage> {
                     Text(
                       _shortTime(context, conversation.lastMessageAt!),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                        color: unread
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
                       ),
                     ),
                   if (unread) ...[
                     const SizedBox(height: 5),
-                    Badge(label: Text('${conversation.unreadCount}')),
+                    Semantics(
+                      label: context.tr('Unread'),
+                      child: Container(
+                        key: ValueKey('unread-${conversation.id}'),
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: scheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -440,9 +466,9 @@ class _ConversationListPageState extends State<ConversationListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 48,
         title: Text(context.tr(_showRequests ? 'Requests' : 'Messages')),
         leading: _showRequests
             ? BackButton(onPressed: () => _selectList(false))
@@ -486,89 +512,27 @@ class _ConversationListPageState extends State<ConversationListPage> {
               ],
             ),
         ],
-        backgroundColor: Color.alphaBlend(
-          scheme.primary.withValues(alpha: .07),
-          scheme.surface,
-        ),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         surfaceTintColor: Colors.transparent,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(68),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-            child: FutureBuilder<List<Community>>(
-              future: _pageIdentities,
-              builder: (context, snapshot) {
-                final pages = snapshot.data ?? const <Community>[];
-                final identities = <String?, String>{
-                  null: context.tr('Personal'),
-                  for (final page in pages) page.id: page.name,
-                };
-                Widget tab(MapEntry<String?, String> entry) => Semantics(
-                  selected: entry.key == _selectedPageId,
-                  button: true,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: () => _selectIdentity(entry.key),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      constraints: const BoxConstraints(minHeight: 44),
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        color: entry.key == _selectedPageId
-                            ? scheme.primary
-                            : Colors.transparent,
-                      ),
-                      child: Text(
-                        entry.value,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: entry.key == _selectedPageId
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: entry.key == _selectedPageId
-                              ? scheme.onPrimary
-                              : scheme.onSurface,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-                return Container(
-                  key: const ValueKey('inbox-identity-tabs'),
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Color.alphaBlend(
-                      scheme.primary.withValues(alpha: .05),
-                      scheme.surface,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: identities.length <= 3
-                      ? Row(
-                          children: [
-                            for (final entry in identities.entries)
-                              Expanded(child: tab(entry)),
-                          ],
-                        )
-                      : SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              for (final entry in identities.entries)
-                                SizedBox(width: 160, child: tab(entry)),
-                            ],
-                          ),
-                        ),
-                );
-              },
-            ),
+          preferredSize: const Size.fromHeight(48),
+          child: FutureBuilder<List<Community>>(
+            future: _pageIdentities,
+            builder: (context, snapshot) {
+              final pages = snapshot.data ?? const <Community>[];
+              final identities = <String?, String>{
+                null: context.tr('Personal'),
+                for (final page in pages) page.id: page.name,
+              };
+              final ids = identities.keys.toList();
+              return FeedFilterBar(
+                key: const ValueKey('inbox-identity-tabs'),
+                style: FeedNavigationStyle.underline,
+                labels: identities.values.toList(),
+                selectedIndex: ids.indexOf(_selectedPageId),
+                onSelected: (index) => _selectIdentity(ids[index]),
+              );
+            },
           ),
         ),
       ),
@@ -605,6 +569,17 @@ class _ConversationListPageState extends State<ConversationListPage> {
                 : allConversations
                       .where((item) => item.label == _selectedLabel)
                       .toList(growable: false);
+            final sentRequests = conversations
+                .where(
+                  (item) =>
+                      item.requestStatus == MessageRequestStatus.pending &&
+                      item.requestedByMe,
+                )
+                .toList();
+            final visible = [
+              ...conversations.where((item) => !sentRequests.contains(item)),
+              ...sentRequests,
+            ];
             return CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -614,15 +589,31 @@ class _ConversationListPageState extends State<ConversationListPage> {
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(
                       16,
-                      _showRequests && _showRequestInfo ? 0 : 14,
+                      _showRequests && _showRequestInfo ? 0 : 4,
                       16,
                       8,
                     ),
                     sliver: SliverList.separated(
                       itemCount: conversations.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 9),
-                      itemBuilder: (context, index) =>
-                          _conversationCard(conversations[index]),
+                      separatorBuilder: (_, _) => const SizedBox.shrink(),
+                      itemBuilder: (context, index) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (sentRequests.isNotEmpty &&
+                              index == visible.length - sentRequests.length)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 12,
+                                bottom: 4,
+                              ),
+                              child: Text(
+                                context.tr('Sent requests'),
+                                style: Theme.of(context).textTheme.labelMedium,
+                              ),
+                            ),
+                          _conversationCard(visible[index]),
+                        ],
+                      ),
                     ),
                   ),
                 if (conversations.isEmpty || _showRequests)
@@ -1740,14 +1731,16 @@ class _ChatWallpaper extends CustomPainter {
 String _shortTime(BuildContext context, DateTime value) {
   final local = value.toLocal();
   final now = DateTime.now();
-  if (local.year == now.year &&
-      local.month == now.month &&
-      local.day == now.day) {
-    return MaterialLocalizations.of(
-      context,
-    ).formatTimeOfDay(TimeOfDay.fromDateTime(local));
+  final today = DateTime(now.year, now.month, now.day);
+  final date = DateTime(local.year, local.month, local.day);
+  if (date == today) return context.tr('Today');
+  if (date == DateTime(now.year, now.month, now.day - 1)) {
+    return context.tr('Yesterday');
   }
-  return MaterialLocalizations.of(context).formatShortDate(local);
+  final localization = MaterialLocalizations.of(context);
+  return local.year == now.year
+      ? localization.formatShortMonthDay(local)
+      : localization.formatShortDate(local);
 }
 
 String _labelText(ConversationLabel label) => switch (label) {

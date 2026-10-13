@@ -3,7 +3,7 @@ import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import '../../theme/wicchu_icons.dart';
-import '../../widgets/explore_result_card.dart';
+import '../../widgets/wicchu_list_tile.dart';
 import '../community/community_avatar.dart';
 import '../community/community_profile_page.dart';
 
@@ -76,11 +76,14 @@ class _ProfileCommunitiesPageState extends State<ProfileCommunitiesPage> {
                 );
               }
               final community = communities[index];
-              return ExploreResultCard(
+              return WicchuListTile.custom(
+                variant: community.isPublicProfile
+                    ? WicchuListVariant.business
+                    : WicchuListVariant.community,
                 margin: const EdgeInsets.only(bottom: 9),
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 13,
+                    horizontal: 0,
                     vertical: 6,
                   ),
                   leading: CommunityAvatar(community: community, radius: 23),
@@ -89,7 +92,7 @@ class _ProfileCommunitiesPageState extends State<ProfileCommunitiesPage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

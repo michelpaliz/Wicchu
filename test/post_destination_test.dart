@@ -41,6 +41,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Change'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Another group'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Another group'));
     await tester.pumpAndSettle();
     expect(find.byType(PostRulesReviewPage), findsOneWidget);
@@ -48,6 +50,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Original group'), findsOneWidget);
     await tester.tap(find.text('Change'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Another group'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Another group'));
     await tester.pumpAndSettle();

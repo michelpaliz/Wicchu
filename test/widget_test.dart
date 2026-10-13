@@ -1,6 +1,6 @@
 import 'package:wicchu/features/community/post_collection_page.dart';
 import 'package:wicchu/features/profile/profile_communities_page.dart';
-import 'package:wicchu/widgets/explore_result_card.dart';
+import 'package:wicchu/widgets/wicchu_list_tile.dart';
 import 'package:wicchu/data/authenticated_api_client.dart';
 import 'package:wicchu/features/auth/login_page.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
@@ -11,6 +11,7 @@ import 'package:wicchu/features/community/post_rich_text_editor.dart';
 import 'package:wicchu/features/community/category_page.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:wicchu/features/auth/email_auth_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -230,7 +231,50 @@ class _ExpiredSessionRepository extends DemoCommunityRepository {
 }
 
 void main() {
-  testWidgets('own profile communities count opens joined cards', (
+  testWidgets('root navigator supports Spanish editor link dialog', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'language': 'es',
+      'onboarding_preferences_completed': true,
+    });
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: DemoCommunityRepository(),
+        authGateway: _FakeAuthGateway(signedIn: false),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final controller = PostTextController('');
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    app.navigatorKey!.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            Scaffold(body: PostRichTextEditor(controller: controller)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(quill.QuillToolbarLinkStyleButton));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Texto'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField).first, 'Wicchu');
+    await tester.enterText(
+      find.byType(TextFormField).last,
+      'https://wicchu.com',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Ok'));
+    await tester.pumpAndSettle();
+    expect(controller.text, '[Wicchu](https://wicchu.com)');
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
+  testWidgets('own profile communities count opens flat space rows', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -245,10 +289,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('profile-communities')));
     await tester.pumpAndSettle();
     expect(find.byType(ProfileCommunitiesPage), findsOneWidget);
-    expect(find.byType(ExploreResultCard), findsWidgets);
+    expect(find.byType(WicchuListTile), findsWidgets);
     await tester.tap(
       find.descendant(
-        of: find.byType(ExploreResultCard).first,
+        of: find.byType(WicchuListTile).first,
         matching: find.byType(ListTile),
       ),
     );
@@ -341,7 +385,11 @@ void main() {
     expect(find.textContaining('Connection failed'), findsOneWidget);
   });
 
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(
+    () => SharedPreferences.setMockInitialValues({
+      'onboarding_preferences_completed': true,
+    }),
+  );
 
   testWidgets('Home combines local discovery and keeps Following restricted', (
     tester,
@@ -677,7 +725,10 @@ void main() {
   testWidgets('home uses the central post action across multiple towns', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({'language': 'es'});
+    SharedPreferences.setMockInitialValues({
+      'language': 'es',
+      'onboarding_preferences_completed': true,
+    });
     final repository = DemoCommunityRepository();
     final community = await repository.createCommunity(
       const CreateCommunityInput(
@@ -743,7 +794,10 @@ void main() {
   testWidgets('personal profile editing is accessed through the account menu', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({'language': 'es'});
+    SharedPreferences.setMockInitialValues({
+      'language': 'es',
+      'onboarding_preferences_completed': true,
+    });
     final repository = DemoCommunityRepository();
     await tester.pumpWidget(
       WicchuApp(
@@ -903,16 +957,12 @@ void main() {
     expect(find.byTooltip('Customize categories'), findsOneWidget);
     await tester.tap(find.byTooltip('Customize categories'));
     await tester.pumpAndSettle();
-    expect(find.text('Your category order'), findsOneWidget);
-    expect(
-      find.text(
-        'Drag categories to arrange them. Changes only affect your view.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Restore default order'), findsOneWidget);
-    expect(find.text('Save'), findsOneWidget);
-    await tester.tap(find.text('Restore default order'));
+    expect(find.text('Category notifications'), findsOneWidget);
+    expect(find.text('Or choose specific categories'), findsOneWidget);
+    await tester.tap(find.text('Reset selection'));
+    await tester.pumpAndSettle();
+    expect(find.text('Category notifications'), findsOneWidget);
+    await tester.tap(find.text('Save changes'));
     await tester.pumpAndSettle();
     expect(find.byType(FloatingActionButton), findsNothing);
     await tester.tap(find.byKey(const ValueKey('community-composer-entry')));
@@ -1526,7 +1576,9 @@ void main() {
   testWidgets('offers verified email registration when Facebook has no email', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'onboarding_preferences_completed': true,
+    });
     await tester.pumpWidget(
       WicchuApp(
         repository: DemoCommunityRepository(),
@@ -1553,7 +1605,9 @@ void main() {
   testWidgets('existing Facebook email directs user to email sign-in', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'onboarding_preferences_completed': true,
+    });
     await tester.pumpWidget(
       WicchuApp(
         repository: DemoCommunityRepository(),
@@ -1582,7 +1636,9 @@ void main() {
   testWidgets('existing Facebook email can open password recovery', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'onboarding_preferences_completed': true,
+    });
     await tester.pumpWidget(
       WicchuApp(
         repository: DemoCommunityRepository(),
@@ -1609,7 +1665,9 @@ void main() {
   testWidgets('Facebook conflict directs an existing Google user correctly', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'onboarding_preferences_completed': true,
+    });
     await tester.pumpWidget(
       WicchuApp(
         repository: DemoCommunityRepository(),
@@ -1736,7 +1794,10 @@ void main() {
   });
 
   testWidgets('translates the admin review queue', (tester) async {
-    SharedPreferences.setMockInitialValues({'language': 'es'});
+    SharedPreferences.setMockInitialValues({
+      'language': 'es',
+      'onboarding_preferences_completed': true,
+    });
     await tester.pumpWidget(
       WicchuApp(
         repository: DemoCommunityRepository(),

@@ -25,6 +25,31 @@ abstract final class WicchuColors {
   static const borderDark = Color(0xFF343B37);
 }
 
+/// Typography shared by feed posts, previews, and post details.
+abstract final class WicchuPostTypography {
+  static TextStyle body(BuildContext context) => Theme.of(context)
+      .textTheme
+      .bodyMedium!
+      .copyWith(fontSize: 14, height: 1.4, fontWeight: FontWeight.w400);
+  static TextStyle title(BuildContext context) => Theme.of(context)
+      .textTheme
+      .titleSmall!
+      .copyWith(fontSize: 14, height: 19 / 14, fontWeight: FontWeight.w600);
+  static TextStyle author(BuildContext context) =>
+      title(context).copyWith(height: 1.3);
+  static TextStyle metadata(BuildContext context) => body(context).copyWith(
+    fontSize: 12,
+    color: Theme.of(context).colorScheme.onSurfaceVariant,
+  );
+  static TextStyle category(BuildContext context) =>
+      metadata(context).copyWith(fontSize: 11, fontWeight: FontWeight.w500);
+  static TextStyle action(BuildContext context) => body(context).copyWith(
+    fontSize: 13,
+    color: Theme.of(context).colorScheme.primary,
+    fontWeight: FontWeight.w600,
+  );
+}
+
 abstract final class WicchuTheme {
   static ThemeData get light => _build(Brightness.light);
   static ThemeData get dark => _build(Brightness.dark);

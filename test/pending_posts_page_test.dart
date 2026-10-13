@@ -13,6 +13,7 @@ class ReviewRepository extends DemoCommunityRepository {
       categoryId: 'category-0',
       authorId: 'author',
       authorName: 'Reviewer test',
+      shareCaption: 'Shared introduction $index',
       text:
           'Request $index\n\n${List.filled(30, 'A paragraph to review.').join('\n\n')}',
       status: PostStatus.pendingApproval,
@@ -50,6 +51,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('1 of 2 posts'), findsOneWidget);
+      expect(
+        find.textContaining('Shared introduction 0', findRichText: true),
+        findsWidgets,
+      );
       expect(find.text('Approve').hitTestable(), findsOneWidget);
       await tester.tap(find.byTooltip('Next post'));
       await tester.pumpAndSettle();

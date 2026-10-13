@@ -157,6 +157,7 @@ abstract final class WicchuIcons {
   static const star = PhosphorIconsRegular.star;
   static const starFill = PhosphorIconsFill.star;
   static const storefront = PhosphorIconsRegular.storefront;
+  static const deviceMobile = PhosphorIconsRegular.deviceMobile;
   static const sun = PhosphorIconsRegular.sun;
   static const sunDim = PhosphorIconsRegular.sunDim;
   static const swimmingPool = PhosphorIconsRegular.swimmingPool;

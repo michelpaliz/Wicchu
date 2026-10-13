@@ -254,6 +254,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                                     ? null
                                     : matching.first;
                                 return PostCard(
+                                  collapseText: false,
                                   repository: widget.repository,
                                   post: post,
                                   key: ValueKey('preview-${post.id}'),
@@ -264,7 +265,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                                   authorAvatarUrl: post.authorAvatarUrl,
                                   isAnonymousAuthor: post.isAnonymous,
                                   time: formatPostTime(context, post.createdAt),
-                                  text: post.text.replaceAll(
+                                  text: post.displayText.replaceAll(
                                     RegExp(r'\n[ \t]*\n+'),
                                     '\n\n',
                                   ),

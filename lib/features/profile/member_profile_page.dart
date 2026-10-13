@@ -1,6 +1,7 @@
+import '../../widgets/compact_profile_description.dart';
 import 'profile_communities_page.dart';
 import 'profile_empty_state.dart';
-import '../../widgets/explore_result_card.dart';
+import '../../widgets/wicchu_list_tile.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
@@ -192,12 +193,12 @@ class _UserFollowListPageState extends State<_UserFollowListPage> {
                   itemCount: _users.length,
                   itemBuilder: (context, index) {
                     final user = _users[index];
-                    return ExploreResultCard(
+                    return WicchuListTile.custom(
                       key: ValueKey(user.id),
                       margin: const EdgeInsets.only(bottom: 10),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
+                          horizontal: 0,
                           vertical: 8,
                         ),
                         leading: UserAvatar(
@@ -365,7 +366,8 @@ class _FollowRequestsPageState extends State<_FollowRequestsPage> {
             )
           else
             for (final user in _users)
-              Card(
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
                 child: ListTile(
                   leading: UserAvatar(
                     name: user.name,
@@ -463,11 +465,15 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   final Map<String, String> _communityNames = {};
 
   Future<List<CommunityPost>> _loadPosts() async {
-    final posts = await widget.repository.listMemberPosts(
+    final profile = await _profile;
+    final loadedPosts = await widget.repository.listMemberPosts(
       widget.userId,
       kind: _kind,
       sort: _sort,
     );
+    final posts = profile.canViewPersonalPosts
+        ? loadedPosts
+        : loadedPosts.where((post) => !post.isPersonal).toList();
     try {
       final communities = await widget.repository.listJoinedCommunities();
       for (final community in communities) {
@@ -502,6 +508,106 @@ class _MemberProfilePageState extends State<MemberProfilePage>
     _posts = _loadPosts();
   });
 
+  Future<void> _openAccountMenu() async {
+    await widget.onAccountMenu?.call();
+    if (mounted) _reload();
+  }
+
+  Future<void> _showProfileOptions(
+    PublicMemberProfile profile, {
+    required bool own,
+    required bool canModerate,
+  }) async {
+    final value = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      builder: (sheetContext) {
+        Widget option(
+          String value,
+          String label,
+          IconData icon, {
+          bool destructive = false,
+        }) => ListTile(
+          dense: true,
+          minTileHeight: 52,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          leading: Icon(
+            icon,
+            color: destructive
+                ? Theme.of(sheetContext).colorScheme.error
+                : Theme.of(sheetContext).colorScheme.primary,
+          ),
+          title: Text(
+            context.tr(label),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: destructive
+                  ? Theme.of(sheetContext).colorScheme.error
+                  : null,
+            ),
+          ),
+          onTap: () => Navigator.pop(sheetContext, value),
+        );
+        return SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (own && widget.onAccountMenu != null)
+                    option('account', 'You', WicchuIcons.user),
+                  option('share', 'Share profile', WicchuIcons.export),
+                  if (!profile.socialLinks.isEmpty)
+                    option('links', 'Social links', WicchuIcons.linkSimple),
+                  if (own)
+                    option('find', 'Find people', WicchuIcons.magnifyingGlass),
+                  if (canModerate) ...[
+                    option(
+                      'block',
+                      'Block user',
+                      WicchuIcons.prohibit,
+                      destructive: true,
+                    ),
+                    option(
+                      'report',
+                      'Report profile',
+                      WicchuIcons.flag,
+                      destructive: true,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted) return;
+    switch (value) {
+      case 'account':
+        await _openAccountMenu();
+      case 'share':
+        _shareProfile(profile);
+      case 'links':
+        _openSocialLinks(profile);
+      case 'find':
+        _findPeople();
+      case 'block':
+        _blockUser();
+      case 'report':
+        _reportMember();
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -514,19 +620,18 @@ class _MemberProfilePageState extends State<MemberProfilePage>
           FutureBuilder<PublicMemberProfile>(
             future: _profile,
             builder: (context, snapshot) {
-              final profile = snapshot.data;
+              final username = snapshot.data?.userName
+                  .replaceFirst(RegExp(r'^@'), '')
+                  .trim();
               return Text(
-                profile == null
-                    ? ''
-                    : profile.userName.isNotEmpty
-                    ? '@${profile.userName}'
-                    : profile.name,
+                username == null || username.isEmpty
+                    ? context.tr('Profile')
+                    : '@$username',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               );
             },
           ),
@@ -549,23 +654,18 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                         onPressed: _openChat,
                         icon: const Icon(WicchuIcons.chatCircle, size: 22),
                       ),
-                    if (!profile.socialLinks.isEmpty)
-                      IconButton(
-                        tooltip: context.tr('Social links'),
-                        onPressed: () => _openSocialLinks(profile),
-                        icon: const Icon(WicchuIcons.linkSimple, size: 22),
-                      ),
                     IconButton(
-                      tooltip: context.tr('Share profile'),
-                      onPressed: () => _shareProfile(profile),
-                      icon: const Icon(WicchuIcons.export, size: 22),
+                      key: const ValueKey('personal-profile-options'),
+                      tooltip: context.tr('More options'),
+                      icon: const Icon(WicchuIcons.dotsThree, size: 22),
+                      onPressed: _blocking || _reporting
+                          ? null
+                          : () => _showProfileOptions(
+                              profile,
+                              own: own,
+                              canModerate: viewer.hasData && !own,
+                            ),
                     ),
-                    if (own)
-                      IconButton(
-                        tooltip: context.tr('Find people'),
-                        onPressed: _findPeople,
-                        icon: const Icon(WicchuIcons.userPlus, size: 22),
-                      ),
                     if (own && profile.followRequestCount > 0)
                       Badge.count(
                         count: profile.followRequestCount,
@@ -575,41 +675,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                           icon: const Icon(WicchuIcons.users, size: 22),
                         ),
                       ),
-                    if (viewer.hasData && !own)
-                      PopupMenuButton<String>(
-                        tooltip: context.tr('More options'),
-                        enabled: !_blocking && !_reporting,
-                        icon: const Icon(WicchuIcons.dotsThree, size: 22),
-                        onSelected: (value) {
-                          if (value == 'block') {
-                            _blockUser();
-                          } else {
-                            _reportMember();
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: 'block',
-                            child: Row(
-                              children: [
-                                const Icon(WicchuIcons.prohibit, size: 20),
-                                const SizedBox(width: 12),
-                                Text(context.tr('Block user')),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'report',
-                            child: Row(
-                              children: [
-                                const Icon(WicchuIcons.flag, size: 20),
-                                const SizedBox(width: 12),
-                                Text(context.tr('Report profile')),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+
                     const SizedBox(width: 4),
                   ],
                 );
@@ -742,11 +808,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                 return GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 4,
-                    mainAxisSpacing: 4,
-                  ),
+                  gridDelegate: profilePostGridDelegate,
                   itemCount: posts.length,
                   itemBuilder: (context, index) {
                     final post = posts[index];
@@ -805,7 +867,6 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                       post: post,
                       key: ValueKey(post.id),
                       collapseText: true,
-                      mediaFirst: true,
                       compact: true,
                       authorAvatarUrl: post.authorAvatarUrl,
                       onShare: () =>
@@ -907,7 +968,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                                   hidePost: hidePost == true,
                                 ),
                     ),
-                    const SizedBox(height: 12),
+                    const PostFeedSeparator(),
                   ],
                 ],
               );
@@ -922,24 +983,51 @@ class _MemberProfilePageState extends State<MemberProfilePage>
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final accent = profileAccentColor(profile.accentColor);
-    Widget stat(int count, String label) => Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: '$count ',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: colors.onSurface,
-            ),
+    Widget stat(int count, String label) {
+      final description = switch (label) {
+        'Communities' => context.trCount(
+          count,
+          singular: '{count} community',
+          plural: '{count} communities',
+        ),
+        'Followers' => context.trCount(
+          count,
+          singular: '{count} follower',
+          plural: '{count} followers',
+        ),
+        _ => context.tr('{count} following', {'count': '$count'}),
+      };
+      final icon = switch (label) {
+        'Communities' => WicchuIcons.usersThree,
+        'Followers' => WicchuIcons.users,
+        _ => WicchuIcons.userCheck,
+      };
+      return Tooltip(
+        message: description,
+        triggerMode: TooltipTriggerMode.longPress,
+        excludeFromSemantics: true,
+        child: Semantics(
+          label: description,
+          excludeSemantics: true,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: colors.onSurfaceVariant),
+              const SizedBox(width: 5),
+              Text(
+                '$count',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: colors.onSurface,
+                ),
+              ),
+            ],
           ),
-          TextSpan(text: context.tr(label)),
-        ],
-      ),
-      style: theme.textTheme.bodySmall?.copyWith(
-        fontSize: 11,
-        color: colors.onSurfaceVariant,
-      ),
-    );
+        ),
+      );
+    }
+
     return FutureBuilder<WicchuProfile?>(
       future: _viewer,
       builder: (context, viewer) {
@@ -957,10 +1045,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                   : profile.name,
               child: InkWell(
                 onTap: own && widget.onAccountMenu != null
-                    ? () async {
-                        await widget.onAccountMenu!();
-                        if (mounted) _reload();
-                      }
+                    ? _openAccountMenu
                     : profile.socialLinks.isEmpty
                     ? null
                     : () => _openSocialLinks(profile),
@@ -982,7 +1067,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                             child: UserAvatar(
                               name: profile.name,
                               imageUrl: profile.avatarUrl,
-                              radius: 30,
+                              radius: 28,
                             ),
                           ),
                           if (profile.isOnline)
@@ -1019,6 +1104,17 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                               fontWeight: FontWeight.w700,
                             ),
                           ),
+                          if (!profile.isOnline &&
+                              profile.lastActiveAt != null) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              context.tr('Active recently'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 12,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                           Padding(
                             padding: const EdgeInsets.only(top: 6, bottom: 4),
                             child: Align(
@@ -1026,7 +1122,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                               child: Wrap(
                                 alignment: WrapAlignment.start,
                                 crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 16,
+                                spacing: 28,
                                 runSpacing: 0,
                                 children:
                                     [
@@ -1136,17 +1232,6 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                               ),
                             ),
                           ),
-                          if (!profile.isOnline &&
-                              profile.lastActiveAt != null) ...[
-                            const SizedBox(height: 3),
-                            Text(
-                              context.tr('Active recently'),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontSize: 12,
-                                color: colors.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -1156,13 +1241,10 @@ class _MemberProfilePageState extends State<MemberProfilePage>
             ),
             if (profile.shortDescription.trim().isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 8),
-                child: Text(
+                padding: const EdgeInsets.only(top: 8, bottom: 8),
+                child: compactProfileDescription(
+                  context,
                   profile.shortDescription.trim(),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    height: 1.3,
-                  ),
                 ),
               ),
             if (!own)
@@ -1283,6 +1365,8 @@ class _MemberProfilePageState extends State<MemberProfilePage>
         setState(() {
           _followStatus = result.status;
           _followerCount = result.followerCount;
+          _profile = widget.repository.getMemberProfile(widget.userId);
+          _posts = _loadPosts();
         });
         if (result.status == UserFollowStatus.pending) {
           ScaffoldMessenger.of(context).showSnackBar(

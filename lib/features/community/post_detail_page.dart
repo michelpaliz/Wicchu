@@ -92,6 +92,7 @@ class _PostDetailPageState extends State<PostDetailPage>
             padding: const EdgeInsets.all(16),
             children: [
               PostCard(
+                collapseText: false,
                 repository: widget.repository,
                 post: post,
                 category: widget.category,

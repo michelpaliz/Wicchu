@@ -1,3 +1,7 @@
+import 'post_rules_review_page.dart';
+import 'community_avatar.dart';
+import '../../data/authenticated_api_client.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +39,66 @@ Rect? _shareOrigin(BuildContext context) {
   return box.localToGlobal(Offset.zero) & box.size;
 }
 
+/// Confirm the clipboard write before the native sheet obscures Wicchu.
+Future<bool> confirmCopiedShareCaption(
+  BuildContext context,
+  String caption,
+) async {
+  await Clipboard.setData(ClipboardData(text: caption));
+  if (!context.mounted) return false;
+  return await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          scrollable: true,
+          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          title: Row(
+            children: [
+              Icon(
+                WicchuIcons.checkCircleFill,
+                size: 22,
+                color: Theme.of(dialogContext).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  dialogContext.tr('Description copied'),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            dialogContext.tr(
+              'We copied the text and Wicchu link. Paste them into your Instagram caption.',
+            ),
+            style: const TextStyle(fontSize: 14, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(dialogContext.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(
+                dialogContext.tr('Share on Instagram'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
+
 Future<void> _shareGeneratedImage(
   BuildContext context,
   PostShareKit kit,
@@ -45,18 +109,13 @@ Future<void> _shareGeneratedImage(
     throw StateError('The social image is not available.');
   }
   final shareOrigin = _shareOrigin(context);
-  final copiedMessage = context.tr(
-    'Description and Wicchu link copied. Paste them into your social post.',
-  );
-  await Clipboard.setData(ClipboardData(text: kit.message));
   final prepared = await preparePostMedia([
     MediaExportItem(url: imageUrl, type: 'image'),
   ]);
   try {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(copiedMessage)));
+    if (!await confirmCopiedShareCaption(context, kit.message)) return;
+    if (!context.mounted) return;
     await SharePlus.instance.share(
       ShareParams(
         title: title,
@@ -91,21 +150,15 @@ Future<void> _shareMedia(BuildContext context, CommunityPost post) async {
       for (final media in post.media)
         MediaExportItem(url: media.url, type: media.type),
     ]);
-    await Clipboard.setData(ClipboardData(text: socialPostCaption(post)));
     if (context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
       progressOpen = false;
     }
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          context.tr(
-            'Description and Wicchu link copied. Paste them into your social post.',
-          ),
-        ),
-      ),
-    );
+    if (!await confirmCopiedShareCaption(context, socialPostCaption(post))) {
+      return;
+    }
+    if (!context.mounted) return;
     await SharePlus.instance.share(
       ShareParams(
         title: context.tr('Create an Instagram or Facebook post'),
@@ -260,105 +313,205 @@ Future<void> sharePost(
   final destination = await showModalBottomSheet<PostShareDestination>(
     context: context,
     showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (post.canShareToCommunities)
-              ListTile(
-                leading: const Icon(WicchuIcons.usersThree),
-                title: Text(sheetContext.tr('Share to Community')),
-                subtitle: Text(
-                  sheetContext.tr(
-                    post.isPersonal
-                        ? 'Publish this original publication in joined communities.'
-                        : 'Publish this business post in communities you have joined.',
-                  ),
-                ),
-                onTap: () =>
-                    Navigator.pop(sheetContext, PostShareDestination.community),
-              ),
-            ListTile(
-              leading: const Icon(WicchuIcons.sparkle),
-              title: Text(sheetContext.tr('Instagram Story')),
-              subtitle: Text(
-                sheetContext.tr('Share a Wicchu-designed 9:16 image.'),
-              ),
-              onTap: () => Navigator.pop(
-                sheetContext,
-                PostShareDestination.instagramStory,
-              ),
-            ),
-            ListTile(
-              leading: const Icon(WicchuIcons.image),
-              title: Text(sheetContext.tr('Instagram Post')),
-              subtitle: Text(
-                sheetContext.tr(
-                  post.media.isEmpty
-                      ? 'Share a Wicchu-designed 4:5 image.'
-                      : 'Share the original photos or videos without cropping.',
-                ),
-              ),
-              onTap: () => Navigator.pop(
-                sheetContext,
-                PostShareDestination.instagramFeed,
-              ),
-            ),
-            ListTile(
-              leading: const Icon(WicchuIcons.chatCircle),
-              title: const Text('WhatsApp'),
-              onTap: () =>
-                  Navigator.pop(sheetContext, PostShareDestination.whatsapp),
-            ),
-            ListTile(
-              leading: const Icon(WicchuIcons.facebookLogo),
-              title: const Text('Facebook'),
-              onTap: () =>
-                  Navigator.pop(sheetContext, PostShareDestination.facebook),
-            ),
-            ListTile(
-              leading: const Icon(WicchuIcons.export),
-              title: Text(sheetContext.tr('More sharing options')),
-              onTap: () =>
-                  Navigator.pop(sheetContext, PostShareDestination.system),
-            ),
-            if (post.media.isNotEmpty)
-              ListTile(
-                leading: const Icon(WicchuIcons.images),
-                title: Text(
-                  sheetContext.tr('Create an Instagram or Facebook post'),
-                ),
-                subtitle: Text(
-                  sheetContext.tr(
-                    'Copies the description and Wicchu link automatically. Choose your social app, then paste them into your post.',
-                  ),
-                ),
-                onTap: () => Navigator.pop(
-                  sheetContext,
-                  PostShareDestination.originalMedia,
-                ),
-              ),
-            ListTile(
-              leading: const Icon(WicchuIcons.copy),
-              title: Text(sheetContext.tr('Copy description and link')),
-              onTap: () =>
-                  Navigator.pop(sheetContext, PostShareDestination.copyCaption),
-            ),
-            ListTile(
-              leading: const Icon(WicchuIcons.linkSimple),
-              title: Text(sheetContext.tr('Copy link')),
-              onTap: () =>
-                  Navigator.pop(sheetContext, PostShareDestination.copyLink),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (sheetContext) => WicchuShareSheet(
+      canShareToCommunities: post.canShareToCommunities,
+      hasMedia: post.media.isNotEmpty,
+      onSelected: (destination) => Navigator.pop(sheetContext, destination),
     ),
   );
   if (destination == null || !context.mounted) return;
   await sharePostTo(context, repository, post, destination);
+}
+
+/// Shared destination chooser for every post surface. Export actions prepare
+/// files for the system share flow; they never publish to a social account.
+class WicchuShareSheet extends StatelessWidget {
+  const WicchuShareSheet({
+    super.key,
+    required this.canShareToCommunities,
+    required this.hasMedia,
+    required this.onSelected,
+  });
+
+  final bool canShareToCommunities;
+  final bool hasMedia;
+  final ValueChanged<PostShareDestination> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final titleStyle = theme.textTheme.bodyMedium?.copyWith(fontSize: 14);
+    final subtitleStyle = theme.textTheme.bodySmall?.copyWith(fontSize: 12);
+
+    Widget quickAction(
+      String label,
+      IconData icon,
+      PostShareDestination target,
+    ) => SizedBox(
+      width: 80,
+      child: InkWell(
+        onTap: () => onSelected(target),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: colors.primaryContainer,
+                foregroundColor: colors.onPrimaryContainer,
+                child: Icon(icon, size: 22),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.tr(label),
+                textAlign: TextAlign.center,
+                style: subtitleStyle,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    Widget option(
+      String label,
+      IconData icon,
+      PostShareDestination target, {
+      String? subtitle,
+    }) => ListTile(
+      contentPadding: EdgeInsets.zero,
+      minTileHeight: subtitle == null ? 48 : 56,
+      minVerticalPadding: 4,
+      leading: Icon(icon, size: 22, color: colors.primary),
+      title: Text(context.tr(label), style: titleStyle),
+      subtitle: subtitle == null
+          ? null
+          : Text(context.tr(subtitle), style: subtitleStyle),
+      trailing: const Icon(WicchuIcons.caretRight, size: 18),
+      onTap: () => onSelected(target),
+    );
+
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .8,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.tr('Share post'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: context.tr('Close'),
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(WicchuIcons.x, size: 20),
+                  ),
+                ],
+              ),
+              Text(context.tr('Choose where to share.'), style: subtitleStyle),
+              const SizedBox(height: 8),
+              Wrap(
+                alignment: WrapAlignment.spaceAround,
+                children: [
+                  if (canShareToCommunities)
+                    quickAction(
+                      'Community',
+                      WicchuIcons.usersThree,
+                      PostShareDestination.community,
+                    ),
+                  quickAction(
+                    'WhatsApp',
+                    WicchuIcons.chatCircle,
+                    PostShareDestination.whatsapp,
+                  ),
+                  quickAction(
+                    'Facebook',
+                    WicchuIcons.facebookLogo,
+                    PostShareDestination.facebook,
+                  ),
+                  quickAction(
+                    'More',
+                    WicchuIcons.export,
+                    PostShareDestination.system,
+                  ),
+                ],
+              ),
+              const Divider(height: 20),
+              Text(
+                context.tr('Share on Instagram'),
+                style: titleStyle?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                context.tr('Prepare an image, then choose where to share it.'),
+                style: subtitleStyle,
+              ),
+              option(
+                'Instagram Story',
+                WicchuIcons.sparkle,
+                PostShareDestination.instagramStory,
+                subtitle: 'Vertical image · 9:16',
+              ),
+              option(
+                'Instagram Post',
+                WicchuIcons.image,
+                PostShareDestination.instagramFeed,
+                subtitle: hasMedia
+                    ? 'Share the original photos or videos without cropping.'
+                    : 'Vertical image · 4:5',
+              ),
+              const Divider(height: 16),
+              option(
+                'Copy link',
+                WicchuIcons.linkSimple,
+                PostShareDestination.copyLink,
+              ),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                shape: const Border(),
+                collapsedShape: const Border(),
+                title: Text(
+                  context.tr('More sharing options'),
+                  style: titleStyle,
+                ),
+                children: [
+                  if (hasMedia)
+                    option(
+                      'Share original media',
+                      WicchuIcons.images,
+                      PostShareDestination.originalMedia,
+                    ),
+                  option(
+                    'Copy description and link',
+                    WicchuIcons.copy,
+                    PostShareDestination.copyCaption,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _shareToCommunities(
@@ -371,7 +524,12 @@ Future<void> _shareToCommunities(
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    builder: (_) => _CommunityShareSheet(repository: repository, post: post),
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+      ),
+      child: _CommunityShareSheet(repository: repository, post: post),
+    ),
   );
   if (results == null || !context.mounted) return;
   final published = results.where((item) => item.status == 'published').length;
@@ -387,14 +545,21 @@ Future<void> _shareToCommunities(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (published > 0) Text(dialogContext.tr('$published published')),
+          if (published > 0)
+            Text(
+              dialogContext.tr('{count} published', {'count': '$published'}),
+            ),
           if (pending > 0)
-            Text(dialogContext.tr('$pending awaiting community approval')),
+            Text(
+              dialogContext.tr('{count} awaiting community approval', {
+                'count': '$pending',
+              }),
+            ),
           for (final item in failed)
             Text(
               item.message.isEmpty
                   ? dialogContext.tr('Sharing failed')
-                  : item.message,
+                  : dialogContext.tr(item.message),
             ),
         ],
       ),
@@ -419,19 +584,28 @@ class _CommunityShareSheet extends StatefulWidget {
 
 class _CommunityShareSheetState extends State<_CommunityShareSheet> {
   final _caption = TextEditingController();
+  final _captionFocus = FocusNode();
   final _selected = <String, String>{};
   final _joining = <String>{};
+  final _choosing = <String>{};
+  final _categoryNames = <String, String>{};
   late Future<List<Community>> _communities = _load();
   String _query = '';
+  int _communityCount = 0;
   bool _sharing = false;
+  Object? _shareError;
 
-  Future<List<Community>> _load() async =>
-      (await widget.repository.listCommunities())
-          .where((item) => !item.isPublicProfile)
-          .toList(growable: false);
+  Future<List<Community>> _load() async {
+    final communities = (await widget.repository.listCommunities())
+        .where((item) => !item.isPublicProfile)
+        .toList(growable: false);
+    if (mounted) setState(() => _communityCount = communities.length);
+    return communities;
+  }
 
   @override
   void dispose() {
+    _captionFocus.dispose();
     _caption.dispose();
     super.dispose();
   }
@@ -443,20 +617,23 @@ class _CommunityShareSheetState extends State<_CommunityShareSheet> {
       if (mounted) setState(() => _communities = _load());
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+        setState(() => _shareError = error);
       }
     } finally {
       if (mounted) setState(() => _joining.remove(community.id));
     }
   }
 
-  Future<void> _toggle(Community community) async {
-    if (_selected.remove(community.id) != null) {
+  Future<void> _toggle(
+    Community community, {
+    bool changeCategory = false,
+  }) async {
+    if (_sharing || _choosing.contains(community.id)) return;
+    if (!changeCategory && _selected.remove(community.id) != null) {
       setState(() {});
       return;
     }
+    setState(() => _choosing.add(community.id));
     try {
       final categories = await widget.repository.listCategories(community.id);
       if (!mounted) return;
@@ -465,41 +642,66 @@ class _CommunityShareSheetState extends State<_CommunityShareSheet> {
       }
       var category = categories.first;
       if (categories.length > 1) {
-        category =
-            await showModalBottomSheet<CommunityCategory>(
-              context: context,
-              showDragHandle: true,
-              builder: (sheetContext) => SafeArea(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    ListTile(title: Text(sheetContext.tr('Choose a category'))),
-                    for (final item in categories)
-                      ListTile(
-                        leading: Text(item.icon),
-                        title: Text(sheetContext.tr(item.name)),
-                        onTap: () => Navigator.pop(sheetContext, item),
-                      ),
-                  ],
-                ),
-              ),
-            ) ??
-            category;
+        final chosen = await showModalBottomSheet<CommunityCategory>(
+          context: context,
+          showDragHandle: true,
+          builder: (sheetContext) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                ListTile(title: Text(sheetContext.tr('Choose a category'))),
+                for (final item in categories)
+                  ListTile(
+                    leading: Text(item.icon),
+                    title: Text(sheetContext.tr(item.name)),
+                    onTap: () => Navigator.pop(sheetContext, item),
+                  ),
+              ],
+            ),
+          ),
+        );
+        if (!mounted || chosen == null) return;
+        category = chosen;
       }
-      setState(() => _selected[community.id] = category.id);
+      setState(() {
+        _selected[community.id] = category.id;
+        _categoryNames[community.id] = category.name;
+        _shareError = null;
+      });
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+        setState(() => _shareError = error);
       }
+    } finally {
+      if (mounted) setState(() => _choosing.remove(community.id));
     }
   }
 
   Future<void> _submit() async {
     if (_selected.isEmpty || _sharing) return;
-    setState(() => _sharing = true);
+    setState(() {
+      _sharing = true;
+      _shareError = null;
+    });
     try {
+      final communities = await _communities;
+      for (final id in _selected.keys.toList()) {
+        final rules = await widget.repository.listRules(id);
+        if (!mounted) return;
+        if (rules.acceptanceRequired) {
+          final community = communities.firstWhere((item) => item.id == id);
+          final agreed = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PostRulesReviewPage(
+                community: community,
+                repository: widget.repository,
+              ),
+            ),
+          );
+          if (!mounted || agreed != true) return;
+        }
+      }
       final results = await widget.repository.sharePersonalPostToCommunities(
         widget.post.id,
         categoryByCommunity: _selected,
@@ -508,131 +710,262 @@ class _CommunityShareSheetState extends State<_CommunityShareSheet> {
       if (mounted) Navigator.pop(context, results);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _sharing = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      setState(() {
+        _sharing = false;
+        _shareError = error;
+      });
+      if (kDebugMode) {
+        debugPrint(
+          'Community share failed: type=${error.runtimeType}; '
+          'status=${error is ApiException ? error.statusCode : null}; $error',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sharing = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) => FractionallySizedBox(
-    heightFactor: .9,
-    child: Column(
-      children: [
-        ListTile(
-          title: Text(
-            context.tr('Share to Community'),
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          subtitle: Text(context.tr('${_selected.length} selected')),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: TextField(
-            decoration: InputDecoration(
-              prefixIcon: const Icon(WicchuIcons.magnifyingGlass),
-              hintText: context.tr('Search communities'),
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight:
+            (MediaQuery.sizeOf(context).height -
+                    MediaQuery.viewInsetsOf(context).bottom -
+                    MediaQuery.paddingOf(context).top -
+                    40)
+                .clamp(0, double.infinity) *
+            (MediaQuery.viewInsetsOf(context).bottom > 0
+                ? .98
+                : (_communityCount > 4 ? .9 : .7)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: Text(
+              context.tr('Share to Community'),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            onChanged: (value) =>
-                setState(() => _query = value.trim().toLowerCase()),
+            subtitle: Text(
+              context.tr(
+                'Choose a community and category. Rules and approval still apply.',
+              ),
+              style: const TextStyle(fontSize: 12),
+            ),
+            trailing: IconButton(
+              tooltip: context.tr('Close'),
+              onPressed: _sharing ? null : () => Navigator.pop(context),
+              icon: const Icon(WicchuIcons.x),
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: FutureBuilder<List<Community>>(
-            future: _communities,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Center(child: Text(context.trError(snapshot.error!)));
-              }
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final communities = snapshot.data!
-                  .where(
-                    (item) =>
-                        _query.isEmpty ||
-                        item.name.toLowerCase().contains(_query),
-                  )
-                  .toList();
-              return ListView.builder(
-                itemCount: communities.length,
-                itemBuilder: (context, index) {
-                  final community = communities[index];
-                  final pending =
-                      community.membershipStatus == MembershipStatus.pending;
-                  final banned =
-                      community.membershipStatus == MembershipStatus.banned;
-                  return CheckboxListTile(
-                    value: _selected.containsKey(community.id),
-                    onChanged: community.canPublish
-                        ? (_) => _toggle(community)
-                        : null,
-                    title: Text(community.name),
-                    subtitle: Text(
-                      context.tr(
-                        banned
-                            ? 'Sharing unavailable'
-                            : pending
-                            ? 'Membership pending'
-                            : community.canPublish
-                            ? (community.approvalRequired
-                                  ? 'Publication approval required'
-                                  : 'Ready to publish')
-                            : 'Join to share',
-                      ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              decoration: InputDecoration(
+                prefixIcon: const Icon(WicchuIcons.magnifyingGlass),
+                hintText: context.tr('Search communities'),
+              ),
+              onChanged: (value) =>
+                  setState(() => _query = value.trim().toLowerCase()),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            child: FutureBuilder<List<Community>>(
+              future: _communities,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(context.trError(snapshot.error!)),
+                        TextButton(
+                          onPressed: () =>
+                              setState(() => _communities = _load()),
+                          child: Text(context.tr('Retry')),
+                        ),
+                      ],
                     ),
-                    secondary: !community.isJoined && !pending && !banned
-                        ? TextButton(
-                            onPressed: _joining.contains(community.id)
-                                ? null
-                                : () => _join(community),
-                            child: _joining.contains(community.id)
-                                ? const SizedBox.square(
-                                    dimension: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final communities = snapshot.data!
+                    .where(
+                      (item) =>
+                          _query.isEmpty ||
+                          item.name.toLowerCase().contains(_query),
+                    )
+                    .toList();
+                if (communities.isEmpty) {
+                  return Center(
+                    child: Text(context.tr('No communities found')),
+                  );
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: communities.length,
+                  itemBuilder: (context, index) {
+                    final community = communities[index];
+                    final pending =
+                        community.membershipStatus == MembershipStatus.pending;
+                    final banned =
+                        community.membershipStatus == MembershipStatus.banned;
+                    return CheckboxListTile(
+                      value: _selected.containsKey(community.id),
+                      onChanged:
+                          community.canPublish &&
+                              !pending &&
+                              !banned &&
+                              !_sharing &&
+                              !_choosing.contains(community.id)
+                          ? (_) => _toggle(community)
+                          : null,
+                      title: Text(
+                        community.name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.tr(
+                              banned
+                                  ? 'Sharing unavailable'
+                                  : pending
+                                  ? 'Membership pending'
+                                  : community.canPublish
+                                  ? (community.approvalRequired
+                                        ? 'Publication approval required'
+                                        : 'Ready to publish')
+                                  : community.isJoined
+                                  ? 'Sharing unavailable'
+                                  : 'Join to share',
+                            ),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          if (_selected.containsKey(community.id))
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                alignment: Alignment.centerLeft,
+                              ),
+                              onPressed: _sharing
+                                  ? null
+                                  : () => _toggle(
+                                      community,
+                                      changeCategory: true,
                                     ),
-                                  )
-                                : Text(context.tr('Join')),
+                              child: Text(
+                                '${context.tr(_categoryNames[community.id] ?? '')} · ${context.tr('Change category')}',
+                              ),
+                            ),
+                        ],
+                      ),
+                      secondary: !community.isJoined && !pending && !banned
+                          ? TextButton(
+                              onPressed:
+                                  _sharing || _joining.contains(community.id)
+                                  ? null
+                                  : () => _join(community),
+                              child: _joining.contains(community.id)
+                                  ? const SizedBox.square(
+                                      dimension: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(context.tr('Join')),
+                            )
+                          : CommunityAvatar(community: community, radius: 20),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              children: [
+                ListenableBuilder(
+                  listenable: Listenable.merge([_captionFocus, _caption]),
+                  builder: (context, _) => TextField(
+                    controller: _caption,
+                    focusNode: _captionFocus,
+                    style: const TextStyle(fontSize: 14),
+                    maxLength: 1000,
+                    minLines: 1,
+                    maxLines: _captionFocus.hasFocus || _caption.text.isNotEmpty
+                        ? 3
+                        : 1,
+                    buildCounter:
+                        (
+                          context, {
+                          required currentLength,
+                          required isFocused,
+                          required maxLength,
+                        }) => isFocused || currentLength > 0
+                        ? Text(
+                            '$currentLength/$maxLength',
+                            style: Theme.of(context).textTheme.bodySmall,
                           )
                         : null,
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            children: [
-              TextField(
-                controller: _caption,
-                maxLength: 1000,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: context.tr('Optional sharing caption'),
-                ),
-              ),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _selected.isEmpty || _sharing ? null : _submit,
-                  child: Text(
-                    context.tr(
-                      _sharing
-                          ? 'Sharing…'
-                          : 'Share to ${_selected.length} communities',
+                    enabled: !_sharing,
+                    decoration: InputDecoration(
+                      labelText: context.tr('Optional sharing caption'),
+                      isDense: true,
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                if (_shareError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        context.trError(_shareError!),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed:
+                        _selected.isEmpty || _sharing || _choosing.isNotEmpty
+                        ? null
+                        : _submit,
+                    child: Text(
+                      context.tr(
+                        _sharing
+                            ? 'Sharing…'
+                            : _selected.length == 1
+                            ? 'Share to 1 community'
+                            : 'Share to {count} communities',
+                        {'count': '${_selected.length}'},
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

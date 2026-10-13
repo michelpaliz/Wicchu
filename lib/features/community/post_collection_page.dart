@@ -104,7 +104,6 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                   post: post,
                   key: ValueKey(post.id),
                   collapseText: true,
-                  mediaFirst: widget.profilePresentation,
                   compact: widget.profilePresentation,
                   showCommunity:
                       widget.communityNames[post.communityId] != widget.title,
@@ -245,7 +244,7 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(16),
                         itemCount: posts.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        separatorBuilder: (_, _) => const PostFeedSeparator(),
                         itemBuilder: buildPost,
                       )
                     : CustomScrollView(
@@ -258,8 +257,7 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             sliver: SliverList.builder(
                               itemCount: anchorIndex,
-                              itemBuilder: (context, index) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
+                              itemBuilder: (context, index) => PostFeedItem(
                                 child: buildPost(
                                   context,
                                   anchorIndex - index - 1,
@@ -272,8 +270,7 @@ class _PostCollectionPageState extends State<PostCollectionPage>
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                             sliver: SliverList.builder(
                               itemCount: posts.length - anchorIndex,
-                              itemBuilder: (context, index) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
+                              itemBuilder: (context, index) => PostFeedItem(
                                 child: buildPost(context, anchorIndex + index),
                               ),
                             ),

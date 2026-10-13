@@ -5,6 +5,13 @@ import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
 import 'package:wicchu/features/community/community_invitations_page.dart';
 
+class _InviteRepository extends DemoCommunityRepository {
+  Community? current;
+  @override
+  Future<Community> getCommunity(String id) async =>
+      current ?? await super.getCommunity(id);
+}
+
 void main() {
   for (final scenario in [
     (CommunityVisibility.public, CommunityRole.member, true),
@@ -15,7 +22,7 @@ void main() {
     testWidgets('invite visibility for ${scenario.$1} ${scenario.$2}', (
       tester,
     ) async {
-      final repository = DemoCommunityRepository();
+      final repository = _InviteRepository();
       final original = (await repository.listJoinedCommunities()).first;
       final community = Community(
         id: original.id,
@@ -27,6 +34,7 @@ void main() {
         createdAt: original.createdAt,
         myRole: scenario.$2,
       );
+      repository.current = community;
       await tester.pumpWidget(
         MaterialApp(
           home: CommunityProfilePage(
@@ -38,9 +46,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('community-profile-menu')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('community-header-invite')),
         findsNothing,
       );
-      final invite = find.byKey(const ValueKey('community-header-invite'));
+      await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
+      await tester.pumpAndSettle();
+      expect(find.text('Share'), findsOneWidget);
+      final invite = find.text('Invite people');
       expect(invite, scenario.$3 ? findsOneWidget : findsNothing);
       if (scenario.$2 == CommunityRole.admin) {
         await tester.tap(invite);

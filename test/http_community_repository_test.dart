@@ -4,6 +4,15 @@ import 'package:wicchu/data/http_community_repository.dart';
 import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/domain/community_repository.dart';
 
+class _PreferenceDefaultsApiClient extends AuthenticatedApiClient {
+  Map<String, dynamic> preferences = {};
+
+  @override
+  Future<Map<String, dynamic>> get(String path) async => {
+    'preferences': preferences,
+  };
+}
+
 class _RecordingApiClient extends AuthenticatedApiClient {
   String? lastPath;
   String? lastMethod;
@@ -620,6 +629,38 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 }
 
 void main() {
+  test(
+    'missing community preferences enable all categories without replacing saved choices',
+    () async {
+      final api = _PreferenceDefaultsApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+      expect(
+        (await repository.getCommunityContentNotificationPreferences(
+          'community-1',
+        )).mode,
+        ContentNotificationMode.all,
+      );
+      for (final mode in ContentNotificationMode.values) {
+        api.preferences = {
+          'mode': mode.name,
+          'selectedCategoryIds': ['news'],
+          'pushEnabled': false,
+        };
+        final saved = await repository
+            .getCommunityContentNotificationPreferences('community-1');
+        expect(saved.mode, mode);
+        expect(saved.selectedCategoryIds, ['news']);
+        expect(saved.pushEnabled, isFalse);
+      }
+      api.preferences = {};
+      expect(
+        (await repository.getPersonContentNotificationPreferences(
+          'person-1',
+        )).mode,
+        ContentNotificationMode.important,
+      );
+    },
+  );
   test(
     'category activity and scoped notification preferences use dedicated endpoints',
     () async {

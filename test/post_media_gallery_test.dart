@@ -49,15 +49,26 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const ValueKey('post-media-carousel')),
+        const Offset(-700, 0),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('open-post-media-1')));
       await tester.pumpAndSettle();
       expect(find.text('2 / 2'), findsOneWidget);
       expect(find.byType(PostComments), findsOneWidget);
+      final headerY = tester.getTopLeft(find.byType(AppBar)).dy;
+      final inputY = tester.getTopLeft(find.byType(TextField)).dy;
       final page = find.byType(PageView);
+      expect(
+        tester.getTopLeft(page).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(find.byType(AppBar)).dy),
+      );
       await tester.tapAt(tester.getTopLeft(page) + const Offset(40, 120));
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('Close'), findsNothing);
+      expect(find.byTooltip('Back'), findsNothing);
       expect(find.text('A shared caption'), findsNothing);
       await tester.tapAt(tester.getTopLeft(page) + const Offset(40, 120));
       await tester.pump(const Duration(milliseconds: 350));
@@ -71,6 +82,8 @@ void main() {
       await tester.ensureVisible(find.text('An existing comment'));
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(page).dy, lessThan(0));
+      expect(tester.getTopLeft(find.byType(AppBar)).dy, headerY);
+      expect(tester.getTopLeft(find.byType(TextField)).dy, inputY);
       await tester.ensureVisible(find.byType(TextField));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'A new comment');
@@ -78,7 +91,7 @@ void main() {
       await tester.tap(find.byTooltip('Send comment'));
       await tester.pumpAndSettle();
       expect((await repository.listComments(post.id)).length, 2);
-      await tester.tap(find.byTooltip('Close'));
+      await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
       expect(find.byType(PostMediaViewer), findsNothing);
       expect(find.byTooltip('Unlike'), findsOneWidget);
@@ -100,7 +113,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('+1'), findsOneWidget);
+    expect(find.text('1 / 3'), findsOneWidget);
+    await tester.drag(
+      find.byKey(const ValueKey('post-media-carousel')),
+      const Offset(-700, 0),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('open-post-media-1')));
     await tester.pumpAndSettle();
     expect(find.byType(PostMediaViewer), findsOneWidget);
@@ -132,7 +150,7 @@ void main() {
       tester.widget<PageView>(find.byType(PageView)).physics,
       isA<NeverScrollableScrollPhysics>(),
     );
-    await tester.tap(find.byTooltip('Close'));
+    await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     expect(find.byType(PostMediaViewer), findsNothing);
     expect(find.byType(PostMediaGallery), findsOneWidget);

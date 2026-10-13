@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/widgets/feed_category_chip.dart';
+import 'package:wicchu/widgets/feed_filter_bar.dart';
 
 Widget subject({required int unreadCount, bool pulse = false}) => MaterialApp(
   home: Scaffold(
@@ -15,6 +16,39 @@ Widget subject({required int unreadCount, bool pulse = false}) => MaterialApp(
 );
 
 void main() {
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'unread badges stay compact inside the scrolling bar in $brightness',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(brightness: brightness),
+            home: Scaffold(
+              body: SizedBox(
+                width: 320,
+                child: FeedFilterBar(
+                  labels: const ['All', 'Market', 'General', 'News'],
+                  unreadCounts: const [1, 3, 0, 120],
+                  selectedIndex: 2,
+                  onSelected: (_) {},
+                ),
+              ),
+            ),
+          ),
+        );
+        final badges = find.byKey(const ValueKey('category-unread-badge'));
+        expect(tester.getSize(badges.at(0)), const Size(6, 6));
+        expect(tester.getSize(badges.at(1)).height, lessThanOrEqualTo(20));
+        final chips = find.byType(ChoiceChip);
+        final heights = List.generate(
+          4,
+          (index) => tester.getSize(chips.at(index)).height,
+        );
+        expect(heights.toSet(), hasLength(1));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets('shows a dot for one unread post', (tester) async {
     await tester.pumpWidget(subject(unreadCount: 1));
     expect(find.text('News'), findsOneWidget);

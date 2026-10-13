@@ -686,6 +686,7 @@ class HttpCommunityRepository implements CommunityRepository {
     await _api.get(
       '/api/community/v1/communities/$communityId/content-notification-preferences',
     ),
+    defaults: const ScopedNotificationPreferences.communityDefaults(),
   );
 
   @override
@@ -698,6 +699,7 @@ class HttpCommunityRepository implements CommunityRepository {
       '/api/community/v1/communities/$communityId/content-notification-preferences',
       body: _scopedPreferencesToJson(preferences),
     ),
+    defaults: const ScopedNotificationPreferences.communityDefaults(),
   );
 
   @override
@@ -1460,8 +1462,20 @@ class HttpCommunityRepository implements CommunityRepository {
       path: '/api/community/v1/communities/$communityId/posts',
       queryParameters: parameters.isEmpty ? null : parameters,
     );
-    final body = await _api.get(uri.toString());
-    return _list(body, 'posts').map(_postFromJson).toList(growable: false);
+    try {
+      final body = await _api.get(uri.toString());
+      return _list(body, 'posts').map(_postFromJson).toList(growable: false);
+    } catch (error) {
+      if (kDebugMode) {
+        // Record the failure category without credentials or response contents.
+        debugPrint(
+          'Page feed load failed: ${uri.path}; '
+          'type=${error.runtimeType}; '
+          'status=${error is ApiException ? error.statusCode : null}',
+        );
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -3080,6 +3094,7 @@ class HttpCommunityRepository implements CommunityRepository {
         (json['moderation'] as Map<String, dynamic>?)?['reviewedAt'],
       ),
       destinationType: json['destinationType']?.toString() ?? 'community',
+      sourceCommunityId: json['sourceCommunityId']?.toString(),
       shareCaption:
           (json['communityShare'] as Map<String, dynamic>?)?['caption']
               ?.toString() ??
@@ -3251,14 +3266,16 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   static ScopedNotificationPreferences _scopedPreferencesFromJson(
-    Map<String, dynamic> body,
-  ) {
+    Map<String, dynamic> body, {
+    ScopedNotificationPreferences defaults =
+        const ScopedNotificationPreferences(),
+  }) {
     final value = body['preferences'];
     final json = value is Map<String, dynamic> ? value : body;
     return ScopedNotificationPreferences(
       mode: ContentNotificationMode.values.firstWhere(
         (mode) => mode.name == json['mode'],
-        orElse: () => ContentNotificationMode.important,
+        orElse: () => defaults.mode,
       ),
       selectedCategoryIds: (json['selectedCategoryIds'] as List? ?? const [])
           .map((value) => value.toString())

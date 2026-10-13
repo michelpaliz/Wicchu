@@ -1,3 +1,5 @@
+import '../onboarding/preferences_page.dart';
+import '../../widgets/wicchu_list_tile.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import '../../widgets/block_visibility_listener.dart';
 import 'package:flutter/material.dart';
@@ -118,6 +120,16 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         : ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(WicchuIcons.globe),
+                title: Text(context.tr('Language and appearance')),
+                trailing: const Icon(WicchuIcons.caretRight),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PreferencesPage()),
+                ),
+              ),
               _settingsCard([
                 _sectionHeader(
                   WicchuIcons.bell,
@@ -512,31 +524,9 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         ),
       );
 
-  Widget _settingsCard(List<Widget> children) => Material(
-    color: Theme.of(context).colorScheme.surface,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20),
-      side: BorderSide(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
-      ),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: ListTileTheme(
-        data: ListTileTheme.of(context).copyWith(
-          titleTextStyle: Theme.of(
-            context,
-          ).textTheme.bodyLarge?.copyWith(fontSize: 14, height: 1.3),
-          subtitleTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontSize: 12,
-            height: 1.35,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        child: Column(children: children),
-      ),
-    ),
+  Widget _settingsCard(List<Widget> children) => WicchuListTile.custom(
+    variant: WicchuListVariant.settings,
+    child: Column(children: children),
   );
 
   Future<void> _setLocationDiscovery(bool value) async {

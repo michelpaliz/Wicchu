@@ -1,5 +1,5 @@
 import 'package:wicchu/theme/wicchu_icons.dart';
-import '../../widgets/explore_result_card.dart';
+import '../../widgets/wicchu_list_tile.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -134,31 +134,32 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
                 selected: _selected(item),
-                side: BorderSide(
-                  color: _selected(item)
-                      ? colors.primary
-                      : colors.outlineVariant.withValues(alpha: .3),
-                ),
+                side: BorderSide.none,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+                visualDensity: const VisualDensity(vertical: -2),
+                materialTapTargetSize: MaterialTapTargetSize.padded,
                 shape: const StadiumBorder(),
-                backgroundColor: colors.surface,
+                backgroundColor: Colors.transparent,
                 selectedColor: colors.primary,
                 showCheckmark: false,
                 avatar: item == _DiscoveryCategory.all
                     ? Icon(
                         WicchuIcons.squaresFour,
-                        size: 18,
+                        size: 16,
                         color: _selected(item)
                             ? colors.onPrimary
                             : colors.primary,
                       )
                     : Icon(
                         _categoryIcon(item),
-                        size: 18,
+                        size: 16,
                         color: _selected(item)
                             ? colors.onPrimary
                             : colors.primary,
                       ),
                 labelStyle: TextStyle(
+                  fontSize: 13,
                   color: _selected(item) ? colors.onPrimary : colors.onSurface,
                 ),
                 label: Text(context.tr(_categoryLabel(item))),
@@ -769,7 +770,7 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
     final filtered = businesses.where(_matchesBusinessFilters).toList();
     return [
       Padding(
-        padding: const EdgeInsets.fromLTRB(0, 4, 0, 10),
+        padding: EdgeInsets.zero,
         child: Row(
           children: [
             Expanded(
@@ -1465,117 +1466,42 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
       color: colors.primary.withValues(alpha: .09),
       child: Icon(WicchuIcons.storefront, color: colors.primary, size: 30),
     );
-    return ExploreResultCard(
-      margin: const EdgeInsets.only(bottom: 9),
-      child: InkWell(
-        onTap: () => openResponsiveSidePanel<void>(
-          context,
-          builder: (_) => CommunityProfilePage(
-            community: business,
-            repository: widget.repository,
-          ),
+    return WicchuListTile(
+      variant: WicchuListVariant.business,
+      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox.square(
+          dimension: 48,
+          child: image.isEmpty
+              ? fallback()
+              : WicchuNetworkImage(
+                  url: image,
+                  fit: BoxFit.cover,
+                  decodeWidth: 144,
+                  errorBuilder: (_) => fallback(),
+                ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: 68,
-                  height: 76,
-                  child: image.isEmpty
-                      ? fallback()
-                      : WicchuNetworkImage(
-                          url: image,
-                          fit: BoxFit.cover,
-                          decodeWidth: 240,
-                          errorBuilder: (_) => fallback(),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      business.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    if (business.businessHours.isNotEmpty &&
-                        _isOpenNow(business)) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        '● ${context.tr('Open now')}',
-                        style: TextStyle(fontSize: 12, color: colors.primary),
-                      ),
-                    ],
-                    if (business.shortDescription.trim().isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        business.shortDescription.trim(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                    if (business.businessFulfillmentOptions.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: [
-                          for (final option
-                              in business.businessFulfillmentOptions)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors.primary.withValues(alpha: .06),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                context.tr(option.label),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: colors.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(top: 4, left: 4),
-                child: Icon(WicchuIcons.caretRight, size: 20),
-              ),
-            ],
-          ),
+      ),
+      title: Text(business.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+          if (business.businessHours.isNotEmpty && _isOpenNow(business))
+            Text(
+              '● ${context.tr('Open now')}',
+              style: TextStyle(color: colors.primary),
+            ),
+        ],
+      ),
+      trailing: const Icon(WicchuIcons.caretRight, size: 18),
+      onTap: () => openResponsiveSidePanel<void>(
+        context,
+        builder: (_) => CommunityProfilePage(
+          community: business,
+          repository: widget.repository,
         ),
       ),
     );

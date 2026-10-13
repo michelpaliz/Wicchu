@@ -19,6 +19,15 @@ void main() {
           ),
         ),
       );
+      await show('es', 'shared a personal publication for review');
+      await tester.pumpAndSettle();
+      expect(
+        find.text('compartió una publicación para revisión'),
+        findsOneWidget,
+      );
+      await show('en', 'shared a business publication for review');
+      await tester.pumpAndSettle();
+      expect(find.text('shared a publication for review'), findsOneWidget);
       await show('es', message);
       await tester.pumpAndSettle();
       expect(

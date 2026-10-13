@@ -36,6 +36,13 @@ extension AppTranslation on BuildContext {
   }
 
   String trNotification(String english) {
+    // Older servers use "personal" even for business shares.
+    if (english == 'shared a personal publication for review' ||
+        english == 'shared a business publication for review') {
+      return isSpanish
+          ? 'compartió una publicación para revisión'
+          : 'shared a publication for review';
+    }
     if (!isSpanish) return english;
     final exact = _spanish[english];
     if (exact != null) return exact;
@@ -121,6 +128,44 @@ class LanguageMenu extends StatelessWidget {
 }
 
 const _spanish = <String, String>{
+  'We copied the text and Wicchu link. Paste them into your Instagram caption.':
+      'Hemos copiado el texto y enlace de Wicchu. Pégalos en la descripción de Instagram.',
+  'More': 'Más',
+  'Choose where to share.': 'Elige dónde quieres compartir.',
+  'Share on Instagram': 'Compartir en Instagram',
+  'Prepare an image, then choose where to share it.':
+      'Prepara una imagen y elige dónde compartirla.',
+  'Vertical image · 9:16': 'Imagen vertical · 9:16',
+  'Vertical image · 4:5': 'Imagen vertical · 4:5',
+  'Share original media': 'Compartir archivos originales',
+
+  "Choose a community and category. Rules and approval still apply.":
+      "Elige comunidad y categoría. Se aplican sus normas y aprobación.",
+  "{count} awaiting community approval": "{count} pendiente(s) de aprobación",
+  "{count} published": "{count} publicada(s)",
+  "Share to {count} communities": "Compartir en {count} comunidades",
+  "Share to 1 community": "Compartir en 1 comunidad",
+  "Change category": "Cambiar categoría",
+  "Join to share": "Únete para compartir",
+  "Membership pending": "Solicitud de ingreso pendiente",
+  "Sharing unavailable": "No se puede compartir",
+  "Sharing…": "Compartiendo…",
+  "Sharing failed": "No se pudo compartir",
+  "Sharing results": "Resultado de la publicación",
+  "Optional sharing caption": "Añade un comentario (opcional)",
+  "Publication approval required": "Requiere aprobación de la comunidad",
+  "Ready to publish": "Lista para publicar",
+  "Choose a category": "Elige una categoría",
+  "Share to Community": "Compartir en comunidad",
+  'Accept the latest community rules before contributing':
+      'Acepta las últimas normas de la comunidad antes de publicar.',
+  'Choose the language for Wicchu.': 'Elige el idioma de Wicchu.',
+  'Personalize how the app looks.': 'Personaliza cómo se ve la aplicación.',
+  'Changes apply automatically.': 'Los cambios se aplican automáticamente.',
+  'Language and appearance': 'Idioma y apariencia',
+  'Automatic (system)': 'Automático (sistema)',
+  'Personalize your experience. You can change these options anytime.':
+      'Personaliza tu experiencia. Puedes cambiar estas opciones cuando quieras.',
   'Show results': 'Mostrar resultados',
   'Search towns': 'Buscar ciudad',
   'Location filtering for people is not available yet.':
@@ -139,6 +184,7 @@ const _spanish = <String, String>{
   'Business messages': 'Mensajes del negocio',
   'Community messages': 'Mensajes de la comunidad',
   'Request sent': 'Solicitud enviada',
+  'Join this community to comment.': 'Únete a esta comunidad para comentar.',
   'Personal': 'Personal',
   'Replying as {page}': 'Respondiendo como {page}',
   'Page conversation': 'Conversación con la página',
@@ -287,6 +333,21 @@ const _spanish = <String, String>{
   'Choose a neon color to enable this effect.':
       'Elige un color neón para activar este efecto.',
   'Customize categories': 'Personalizar categorías',
+  'Category notifications': 'Notificaciones por categoría',
+  'Choose the content you want to hear about.':
+      'Elige qué tipos de contenido quieres recibir.',
+  'Receive posts from every category.':
+      'Recibe avisos de todas las categorías.',
+  'Or choose specific categories': 'O selecciona solo algunas categorías',
+  'Turn on the categories that interest you.':
+      'Activa las categorías que te interesan. Puedes cambiarlas cuando quieras.',
+  'More notification options': 'Más opciones de notificaciones',
+  'Reset selection': 'Restablecer selección',
+  'Tap a bell to choose category alerts. Drag the arrows to reorder your tabs.':
+      'Toca una campana para elegir los avisos. Arrastra las flechas para ordenar tus pestañas.',
+  'Turn off alerts for this category': 'Desactivar avisos de esta categoría',
+  'These settings only affect your notifications.':
+      'Estos ajustes solo afectan a tus notificaciones.',
   'Your category order': 'Tu orden de categorías',
   'Drag categories to arrange them. Changes only affect your view.':
       'Arrastra las categorías para ordenarlas. Los cambios solo afectan a tu vista.',
@@ -549,6 +610,9 @@ const _spanish = <String, String>{
       'Aquí encontrarás personas de tus comunidades.',
   'Find people on Wicchu here.': 'Aquí encontrarás personas en Wicchu.',
   'Search people': 'Buscar personas',
+  'Search people…': 'Buscar personas…',
+  'Search businesses…': 'Buscar negocios…',
+  'Search communities…': 'Buscar comunidades…',
   'Find people': 'Encontrar personas',
   'No people found.': 'No se encontraron personas.',
   'Try another name or username.':
@@ -845,6 +909,9 @@ const _spanish = <String, String>{
   'Done': 'Listo',
   'A post supports up to 10 files.':
       'Una publicación admite hasta 10 archivos.',
+  'Preparing and uploading media…': 'Preparando y subiendo archivo…',
+  'This image could not be read. Try downloading the original as PNG or JPEG.':
+      'No se pudo leer esta imagen. Prueba a descargar el original en PNG o JPEG.',
   'The file must be under 25 MB.': 'El archivo debe ocupar menos de 25 MB.',
   'No posts need approval': 'No hay publicaciones pendientes de aprobación',
   'Approve': 'Aprobar',
@@ -891,6 +958,7 @@ const _spanish = <String, String>{
   'Private conversation': 'Conversación privada',
   'Request to join': 'Solicitar',
   'Requested': 'Solicitado',
+  'Sent requests': 'Solicitudes enviadas',
   'Today': 'Hoy',
   'Yesterday': 'Ayer',
   'María replied to your post': 'María respondió a tu publicación',
@@ -1551,6 +1619,10 @@ const _spanish = <String, String>{
   'Option {number}': 'Opción {number}',
   'Add at least two unique poll options.':
       'Añade al menos dos opciones únicas para la votación.',
+  'Vote': 'Votar',
+  'Voting…': 'Votando…',
+  'View results': 'Ver resultados',
+  '{count} vote': '{count} voto',
   '{count} votes': '{count} votos',
   'Member profile': 'Perfil del miembro',
   'All posts': 'Todas las publicaciones',
@@ -2237,6 +2309,19 @@ const _spanish = <String, String>{
   'The menu is being prepared': 'El menú se está preparando',
   'This business has not published products yet.':
       'Este negocio todavía no ha publicado productos.',
+  'Sell products and accept orders': 'Vender productos y aceptar pedidos',
+  'Catalog categories': 'Categorías del catálogo',
+  'Product variants (optional)': 'Variantes (opcional)',
+  'Add size or color option': 'Añadir talla o color',
+  'Stock (optional)': 'Stock (opcional)',
+  'Add product option': 'Añadir variante',
+  'Edit option': 'Editar variante',
+  'Option name': 'Nombre de la variante',
+  'Size (optional)': 'Talla (opcional)',
+  'Color (optional)': 'Color (opcional)',
+  'SKU (optional)': 'SKU (opcional)',
+  'Variant price (optional)': 'Precio (opcional)',
+  'Leave empty to use the product price.': 'Vacío: usa el precio del producto.',
   'Review order': 'Revisar pedido',
   'Review your order': 'Revisa tu pedido',
   'Delivery address': 'Dirección de entrega',
@@ -2336,6 +2421,7 @@ const _spanish = <String, String>{
   'Saturday': 'Sábado',
   'Sunday': 'Domingo',
   'Following': 'Siguiendo',
+  '{count} following': '{count} siguiendo',
   'Unfollow': 'Dejar de seguir',
   'Profile information': 'Información del perfil',
   'Profile type': 'Tipo de perfil',

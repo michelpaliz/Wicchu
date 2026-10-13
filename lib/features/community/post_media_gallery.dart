@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -13,6 +14,8 @@ Future<void> openPostMediaViewer(
   List<PostMedia> media, {
   int initialIndex = 0,
   WidgetBuilder? contentBuilder,
+  Widget Function(BuildContext, Widget, ScrollController, ScrollPhysics?, bool)?
+  detailBuilder,
   WidgetBuilder? actionsBuilder,
   String? author,
 }) async {
@@ -25,6 +28,7 @@ Future<void> openPostMediaViewer(
         media: media,
         initialIndex: initialIndex,
         contentBuilder: contentBuilder,
+        detailBuilder: detailBuilder,
         actionsBuilder: actionsBuilder,
         author: author,
       ),
@@ -32,97 +36,200 @@ Future<void> openPostMediaViewer(
   );
 }
 
-/// Equal-width previews; the viewer always receives the complete media list.
-class PostMediaGallery extends StatelessWidget {
+/// A lazy, swipeable feed preview that keeps the existing fullscreen viewer.
+class PostMediaGallery extends StatefulWidget {
   const PostMediaGallery({super.key, required this.media, this.onOpen});
   final List<PostMedia> media;
   final ValueChanged<int>? onOpen;
+  @override
+  State<PostMediaGallery> createState() => _PostMediaGalleryState();
+}
+
+class _PostMediaGalleryState extends State<PostMediaGallery> {
+  final _controller = PageController();
+  final _ratios = <String, double>{};
+  int _index = 0;
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+  String? _resolvingUrl;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolveRatio();
+  }
+
+  @override
+  void didUpdateWidget(covariant PostMediaGallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.media.isEmpty) {
+      _detach();
+      _index = 0;
+      return;
+    }
+    if (_index >= widget.media.length ||
+        (oldWidget.media.isNotEmpty &&
+            oldWidget.media.first.url != widget.media.first.url)) {
+      _index = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _controller.hasClients) _controller.jumpToPage(0);
+      });
+    }
+    _resolveRatio();
+  }
+
+  void _detach() {
+    if (_listener != null) _stream?.removeListener(_listener!);
+    _listener = null;
+    _stream = null;
+    _resolvingUrl = null;
+  }
+
+  void _resolveRatio() {
+    if (widget.media.isEmpty) return;
+    final item = widget.media[_index];
+    if (_resolvingUrl == item.previewUrl) return;
+    _detach();
+    if (item.type == 'video' || _ratios.containsKey(item.previewUrl)) return;
+    _resolvingUrl = item.previewUrl;
+    final url = item.previewUrl;
+    _stream = ResizeImage.resizeIfNeeded(
+      1200,
+      null,
+      CachedNetworkImageProvider(
+        url,
+        cacheKey: stableImageCacheKey(url, cacheKey: item.previewCacheKey),
+      ),
+    ).resolve(createLocalImageConfiguration(context));
+    _listener = ImageStreamListener((info, _) {
+      final ratio = info.image.width / info.image.height;
+      info.dispose();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _ratios[url] != ratio) {
+          setState(() => _ratios[url] = ratio);
+        }
+      });
+    }, onError: (Object _, StackTrace? _) {});
+    _stream!.addListener(_listener!);
+  }
+
+  @override
+  void dispose() {
+    _detach();
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (media.isEmpty) return const SizedBox.shrink();
-    final count = media.length > 2 ? 2 : media.length;
-    return SizedBox(
-      height: 180,
-      child: Row(
-        children: [
-          for (var index = 0; index < count; index++) ...[
-            if (index > 0) const SizedBox(width: 6),
-            Expanded(
-              child: Semantics(
-                button: true,
-                label: context.tr('Open media {number} of {total}', {
-                  'number': '${index + 1}',
-                  'total': '${media.length}',
-                }),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (media[index].type == 'video')
-                        _MediaVideo(
-                          key: ValueKey(media[index].url),
-                          url: media[index].url,
-                          preview: true,
-                        )
-                      else
-                        _MediaImage(
-                          url: media[index].previewUrl,
-                          cacheKey: media[index].previewCacheKey,
-                          fit: BoxFit.cover,
-                          decodeWidth: 1200,
-                        ),
-                      if (media[index].type == 'video')
-                        const Center(
-                          child: CircleAvatar(
-                            backgroundColor: Colors.black54,
-                            foregroundColor: Colors.white,
-                            child: Icon(WicchuIcons.playFill),
-                          ),
-                        ),
-                      if (index == 1 && media.length > 2)
-                        Positioned(
-                          right: 8,
-                          bottom: 8,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(8),
+    if (widget.media.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final ratio = (_ratios[widget.media[_index].previewUrl] ?? 4 / 3).clamp(
+          .8,
+          1.91,
+        );
+        final height = math.min(
+          constraints.maxWidth / ratio,
+          math.min(520.0, MediaQuery.sizeOf(context).height * .65),
+        );
+        return SizedBox(
+          height: height,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                ),
+                PageView.builder(
+                  key: const ValueKey('post-media-carousel'),
+                  controller: _controller,
+                  itemCount: widget.media.length,
+                  onPageChanged: (index) {
+                    setState(() => _index = index);
+                    _resolveRatio();
+                  },
+                  itemBuilder: (context, index) {
+                    final item = widget.media[index];
+                    return Semantics(
+                      button: true,
+                      label: context.tr('Open media {number} of {total}', {
+                        'number': '${index + 1}',
+                        'total': '${widget.media.length}',
+                      }),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (item.type == 'video')
+                            _MediaVideo(
+                              key: ValueKey(item.url),
+                              url: item.url,
+                              preview: true,
+                            )
+                          else
+                            _MediaImage(
+                              url: item.previewUrl,
+                              cacheKey: item.previewCacheKey,
+                              fit: BoxFit.contain,
+                              decodeWidth: 1200,
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Text(
-                                '+${media.length - 2}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                          if (item.type == 'video')
+                            const Center(
+                              child: CircleAvatar(
+                                backgroundColor: Colors.black54,
+                                foregroundColor: Colors.white,
+                                child: Icon(WicchuIcons.playFill),
                               ),
                             ),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              key: ValueKey('open-post-media-$index'),
+                              onTap: () => widget.onOpen != null
+                                  ? widget.onOpen!(index)
+                                  : openPostMediaViewer(
+                                      context,
+                                      widget.media,
+                                      initialIndex: index,
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                if (widget.media.length > 1)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: IgnorePointer(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${_index + 1} / ${widget.media.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
                           ),
                         ),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          key: ValueKey('open-post-media-$index'),
-                          onTap: () => onOpen != null
-                              ? onOpen!(index)
-                              : openPostMediaViewer(
-                                  context,
-                                  media,
-                                  initialIndex: index,
-                                ),
-                        ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+              ],
             ),
-          ],
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -133,12 +240,21 @@ class PostMediaViewer extends StatefulWidget {
     required this.media,
     this.initialIndex = 0,
     this.contentBuilder,
+    this.detailBuilder,
     this.actionsBuilder,
     this.author,
   });
   final List<PostMedia> media;
   final int initialIndex;
   final WidgetBuilder? contentBuilder;
+  final Widget Function(
+    BuildContext,
+    Widget,
+    ScrollController,
+    ScrollPhysics?,
+    bool,
+  )?
+  detailBuilder;
   final WidgetBuilder? actionsBuilder;
   final String? author;
 
@@ -270,6 +386,35 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
         child: Builder(
           builder: (context) => Scaffold(
             backgroundColor: Colors.black,
+            appBar: _immersive
+                ? null
+                : AppBar(
+                    backgroundColor: const Color(0xFF151A1A),
+                    foregroundColor: Colors.white,
+                    surfaceTintColor: Colors.transparent,
+                    leading: IconButton(
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).backButtonTooltip,
+                      icon: const Icon(WicchuIcons.arrowLeft),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    title: Text(
+                      widget.author ?? '',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    actions: [
+                      if (widget.media.length > 1)
+                        Center(
+                          child: Text('${_index + 1} / ${widget.media.length}'),
+                        ),
+                      if (widget.actionsBuilder != null)
+                        widget.actionsBuilder!(context),
+                    ],
+                  ),
             body: SafeArea(
               top: !_immersive,
               bottom: !_immersive,
@@ -277,7 +422,10 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
                 builder: (context, constraints) {
                   final height = constraints.maxHeight;
                   final ratio = _imageRatios[widget.media[_index].url];
-                  _mediaHeight = _immersive || widget.contentBuilder == null
+                  _mediaHeight =
+                      _immersive ||
+                          (widget.contentBuilder == null &&
+                              widget.detailBuilder == null)
                       ? height
                       : ratio == null
                       ? height * .74
@@ -285,103 +433,80 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
                           56.0,
                           height * .74,
                         );
+                  final media = SizedBox(
+                    height: _mediaHeight,
+                    child: PageView.builder(
+                      controller: _pages,
+                      physics: _zoomed
+                          ? const NeverScrollableScrollPhysics()
+                          : null,
+                      itemCount: widget.media.length,
+                      onPageChanged: (index) => setState(() {
+                        _index = index;
+                        _zoomed = false;
+                        _resolveImageSize();
+                      }),
+                      itemBuilder: (context, index) {
+                        final item = widget.media[index];
+                        return item.type == 'video'
+                            ? _MediaVideo(
+                                key: ValueKey('video-$index-${item.url}'),
+                                url: item.url,
+                                active: index == _index && _mediaVisible,
+                                immersive: _immersive,
+                                onTap: _toggleChrome,
+                              )
+                            : _ZoomableImage(
+                                key: ValueKey('image-$index-${item.url}'),
+                                url: item.url,
+                                cacheKey: item.blobName,
+                                active: index == _index,
+                                onTap: _toggleChrome,
+                                onZoomChanged: (zoomed) {
+                                  if (mounted &&
+                                      index == _index &&
+                                      zoomed != _zoomed) {
+                                    setState(() => _zoomed = zoomed);
+                                  }
+                                },
+                              );
+                      },
+                    ),
+                  );
                   return Stack(
                     children: [
-                      SingleChildScrollView(
-                        controller: _scroll,
-                        physics: _immersive || _zoomed
-                            ? const NeverScrollableScrollPhysics()
-                            : null,
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        child: Column(
-                          children: [
-                            SizedBox(
-                              height: _mediaHeight,
-                              child: PageView.builder(
-                                controller: _pages,
-                                physics: _zoomed
-                                    ? const NeverScrollableScrollPhysics()
-                                    : null,
-                                itemCount: widget.media.length,
-                                onPageChanged: (index) => setState(() {
-                                  _index = index;
-                                  _zoomed = false;
-                                  _resolveImageSize();
-                                }),
-                                itemBuilder: (context, index) {
-                                  final item = widget.media[index];
-                                  return item.type == 'video'
-                                      ? _MediaVideo(
-                                          key: ValueKey(
-                                            'video-$index-${item.url}',
-                                          ),
-                                          url: item.url,
-                                          active:
-                                              index == _index && _mediaVisible,
-                                          immersive: _immersive,
-                                          onTap: _toggleChrome,
-                                        )
-                                      : _ZoomableImage(
-                                          key: ValueKey(
-                                            'image-$index-${item.url}',
-                                          ),
-                                          url: item.url,
-                                          cacheKey: item.blobName,
-                                          active: index == _index,
-                                          onTap: _toggleChrome,
-                                          onZoomChanged: (zoomed) {
-                                            if (mounted &&
-                                                index == _index &&
-                                                zoomed != _zoomed) {
-                                              setState(() => _zoomed = zoomed);
-                                            }
-                                          },
-                                        );
-                                },
-                              ),
-                            ),
-                            if (widget.contentBuilder != null)
-                              Offstage(
-                                offstage: _immersive,
-                                child: widget.contentBuilder!(context),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (!_immersive)
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          child: ColoredBox(
-                            color: Colors.black54,
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  tooltip: MaterialLocalizations.of(
-                                    context,
-                                  ).closeButtonTooltip,
-                                  onPressed: () => Navigator.pop(context),
-                                  icon: const Icon(WicchuIcons.arrowLeft),
+                      if (widget.detailBuilder != null)
+                        widget.detailBuilder!(
+                          context,
+                          media,
+                          _scroll,
+                          _immersive || _zoomed
+                              ? const NeverScrollableScrollPhysics()
+                              : null,
+                          _immersive,
+                        )
+                      else
+                        SingleChildScrollView(
+                          controller: _scroll,
+                          physics: _immersive || _zoomed
+                              ? const NeverScrollableScrollPhysics()
+                              : null,
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          child: Column(
+                            children: [
+                              media,
+                              if (widget.contentBuilder != null)
+                                Offstage(
+                                  offstage: _immersive,
+                                  child: widget.contentBuilder!(context),
                                 ),
-                                Expanded(
-                                  child: Text(
-                                    widget.author ?? '',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Text('${_index + 1} / ${widget.media.length}'),
-                                if (widget.actionsBuilder != null)
-                                  widget.actionsBuilder!(context)
-                                else
-                                  const SizedBox(width: 16),
-                              ],
-                            ),
+                            ],
                           ),
                         ),
-                      if (!_immersive && widget.contentBuilder == null)
+                      if (!_immersive &&
+                          (widget.contentBuilder == null &&
+                              widget.detailBuilder == null))
                         Positioned(
                           bottom: 0,
                           left: 0,
@@ -648,7 +773,7 @@ class _MediaVideoState extends State<_MediaVideo> with WidgetsBindingObserver {
               fit: StackFit.expand,
               children: [
                 FittedBox(
-                  fit: BoxFit.cover,
+                  fit: BoxFit.contain,
                   clipBehavior: Clip.hardEdge,
                   child: SizedBox(
                     width: value.size.width,

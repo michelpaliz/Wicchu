@@ -15,6 +15,11 @@ class _ActivityRepository extends DemoCommunityRepository {
   int preferenceWrites = 0;
   int seenRequests = 0;
   final batches = <List<String>>[];
+  Community? communityOverride;
+
+  @override
+  Future<Community> getCommunity(String id) async =>
+      communityOverride ?? await super.getCommunity(id);
 
   @override
   Future<ScopedNotificationPreferences>
@@ -66,6 +71,80 @@ class _ActivityRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  for (final role in [
+    CommunityRole.member,
+    CommunityRole.admin,
+    CommunityRole.owner,
+  ]) {
+    testWidgets(
+      '$role can configure and reopen personal category notifications from membership menu',
+      (tester) async {
+        tester.view.physicalSize = const Size(430, 932);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final repo = _ActivityRepository();
+        final original = (await repo.listJoinedCommunities()).first;
+        final community = Community(
+          id: original.id,
+          name: original.name,
+          description: original.description,
+          town: original.town,
+          visibility: original.visibility,
+          createdBy: original.createdBy,
+          createdAt: original.createdAt,
+          myRole: role,
+        );
+        repo.communityOverride = community;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CommunityProfilePage(community: community, repository: repo),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('community-role-badge')));
+        await tester.pumpAndSettle();
+        expect(find.text('Category notifications'), findsOneWidget);
+        await tester.tap(find.text('Category notifications'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Choose the content you want to hear about.'),
+          findsOneWidget,
+        );
+        final categorySwitch = find.byKey(
+          const ValueKey('category-notification-category-0'),
+        );
+        await tester.ensureVisible(categorySwitch);
+        await tester.pumpAndSettle();
+        expect(tester.widget<SwitchListTile>(categorySwitch).value, isTrue);
+        await tester.tap(categorySwitch);
+        await tester.pumpAndSettle();
+        expect(tester.widget<SwitchListTile>(categorySwitch).value, isFalse);
+        expect(repo.preferenceWrites, 0);
+        await tester.tap(find.text('Save changes'));
+        await tester.pumpAndSettle();
+        final saved = await repo.getCommunityContentNotificationPreferences(
+          community.id,
+        );
+        expect(saved.mode, ContentNotificationMode.selected);
+        expect(
+          saved.selectedCategoryIds,
+          hasLength((await repo.listCategories(community.id)).length - 1),
+        );
+        expect(saved.selectedCategoryIds, isNot(contains('category-0')));
+        expect(repo.preferenceWrites, 1);
+        await tester.tap(find.byKey(const ValueKey('community-role-badge')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Category notifications'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(categorySwitch);
+        await tester.pumpAndSettle();
+        expect(tester.widget<SwitchListTile>(categorySwitch).value, isFalse);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
   testWidgets(
     'failed preferences load never opens an editor with default settings',
     (tester) async {

@@ -150,8 +150,24 @@ class AuthenticatedApiClient {
       final message = decoded is Map<String, dynamic>
           ? decoded['message'] as String?
           : null;
+      final shareResults =
+          path.endsWith('/community-shares') && decoded is Map<String, dynamic>
+          ? decoded['results']
+          : null;
+      final shareErrors = shareResults is List
+          ? shareResults
+                .whereType<Map<String, dynamic>>()
+                .map((item) => item['message'])
+                .whereType<String>()
+                .where((message) => message.trim().isNotEmpty)
+                .toSet()
+                .join('\n')
+          : '';
       throw ApiException(
-        message ?? 'The server could not complete the request.',
+        message ??
+            (shareErrors.isNotEmpty
+                ? shareErrors
+                : 'The server could not complete the request.'),
         statusCode: response.statusCode,
       );
     }

@@ -1,10 +1,12 @@
+import 'features/onboarding/preferences_page.dart';
 import 'widgets/wicchu_viewport.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart'
+    show FlutterQuillLocalizations;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -61,7 +63,9 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
   bool _pendingPromotions = false;
   String? _pendingChatSenderId;
   late Future<bool> _hasSession;
-  String _languageCode = kIsWeb ? 'es' : 'en';
+  String _languageCode = 'en';
+  bool _preferencesLoaded = false;
+  bool _preferencesCompleted = false;
   bool _languageChangedByUser = false;
   ThemeMode _themeMode = ThemeMode.system;
   bool _themeChangedByUser = false;
@@ -74,6 +78,12 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _languageCode =
+        WidgetsBinding.instance.platformDispatcher.locales
+            .map((locale) => locale.languageCode)
+            .where((code) => code == 'es' || code == 'en')
+            .firstOrNull ??
+        'en';
     _hasSession = widget.authGateway.hasSession();
     _loadPreferences();
     _listenForLinks();
@@ -94,7 +104,12 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
   }
 
   Future<void> _checkForAppUpdate() async {
-    if (_checkingForUpdate || _updateDialogVisible || !mounted) return;
+    if (!_preferencesCompleted ||
+        _checkingForUpdate ||
+        _updateDialogVisible ||
+        !mounted) {
+      return;
+    }
     _checkingForUpdate = true;
     try {
       final update = await _appUpdateService.check(languageCode: _languageCode);
@@ -362,6 +377,7 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
   }
 
   void _openPendingPost() {
+    if (!_preferencesCompleted) return;
     final chatSenderId = _pendingChatSenderId;
     if (chatSenderId != null) {
       _pendingChatSenderId = null;
@@ -467,6 +483,8 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
       final savedTheme = preferences.getString('themeMode');
       if (!mounted) return;
       setState(() {
+        _preferencesCompleted =
+            preferences.getBool('onboarding_preferences_completed') ?? false;
         if (!_languageChangedByUser &&
             (savedLanguage == 'en' || savedLanguage == 'es')) {
           _languageCode = savedLanguage!;
@@ -482,23 +500,51 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
     } catch (_) {
       // Keep the current choices when local preferences are unavailable.
     } finally {
+      if (mounted) setState(() => _preferencesLoaded = true);
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkForAppUpdate());
     }
+  }
+
+  Future<void> _completePreferences() async {
+    final preferences = await SharedPreferences.getInstance();
+    final languageSaved = await preferences.setString(
+      'language',
+      _languageCode,
+    );
+    final themeSaved = await preferences.setString(
+      'themeMode',
+      _themeMode.name,
+    );
+    if (!languageSaved || !themeSaved) {
+      throw StateError('Preferences not saved');
+    }
+    final completed = await preferences.setBool(
+      'onboarding_preferences_completed',
+      true,
+    );
+    if (!completed) throw StateError('Preferences not saved');
+    if (!mounted) return;
+    setState(() => _preferencesCompleted = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForAppUpdate());
   }
 
   Future<void> _setLanguage(String code) async {
     if (code != 'en' && code != 'es') return;
     _languageChangedByUser = true;
     setState(() => _languageCode = code);
-    await PushNotificationService.instance.updateLanguage(
-      widget.repository,
-      code,
-    );
     try {
       final preferences = await SharedPreferences.getInstance();
       await preferences.setString('language', code);
     } catch (_) {
       // The selected language still applies for this session.
+    }
+    try {
+      await PushNotificationService.instance.updateLanguage(
+        widget.repository,
+        code,
+      );
+    } catch (_) {
+      // Local preferences remain available when device registration is offline.
     }
   }
 
@@ -534,6 +580,7 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
           locale: Locale(_languageCode),
           supportedLocales: const [Locale('en'), Locale('es')],
           localizationsDelegates: const [
+            FlutterQuillLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
@@ -541,6 +588,14 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
           home: FutureBuilder<bool>(
             future: _hasSession,
             builder: (context, snapshot) {
+              if (!_preferencesLoaded) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (!_preferencesCompleted) {
+                return PreferencesPage(onContinue: _completePreferences);
+              }
               if (!snapshot.hasData) {
                 return const Scaffold(
                   body: Center(child: CircularProgressIndicator()),

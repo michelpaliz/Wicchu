@@ -112,9 +112,9 @@ class _PostRichTextEditorState extends State<PostRichTextEditor> {
               focusNode: _focusNode,
               scrollController: _scrollController,
               config: quill.QuillEditorConfig(
-                minHeight: 190,
+                minHeight: 130,
                 maxHeight: 320,
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(12),
                 placeholder: context.tr('What would you like to share?'),
                 customStyleBuilder: (attribute) {
                   if (attribute.key == 'link' &&

@@ -1,3 +1,5 @@
+import 'package:flutter/gestures.dart';
+import '../../theme/wicchu_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:markdown/markdown.dart' as md;
 import '../../localization/app_language.dart';
@@ -60,11 +62,13 @@ class PostMarkdown extends StatefulWidget {
     required this.data,
     this.collapsible = false,
     this.compact = false,
-    this.previewLines = 5,
+    this.previewLines = 3,
     this.onUserTap,
+    this.bodyStyle,
   });
 
   final String data;
+  final TextStyle? bodyStyle;
   final bool collapsible;
   final bool compact;
   final int previewLines;
@@ -76,6 +80,89 @@ class PostMarkdown extends StatefulWidget {
 
 class _PostMarkdownState extends State<PostMarkdown> {
   bool _expanded = false;
+  final _linkRecognizers = <TapGestureRecognizer>[];
+
+  void _clearRecognizers() {
+    for (final recognizer in _linkRecognizers) {
+      recognizer.dispose();
+    }
+    _linkRecognizers.clear();
+  }
+
+  @override
+  void dispose() {
+    _clearRecognizers();
+    super.dispose();
+  }
+
+  Future<void> _openLink(String? href) async {
+    final uri = Uri.tryParse(href ?? '');
+    if (uri == null) return;
+    if (uri.scheme == 'wicchu' &&
+        uri.host == 'user' &&
+        uri.pathSegments.isNotEmpty) {
+      widget.onUserTap?.call(uri.pathSegments.first);
+    } else if ({'http', 'https'}.contains(uri.scheme)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  TextSpan _previewSpan(BuildContext context) {
+    final document = md.Document(
+      encodeHtml: false,
+      extensionSet: md.ExtensionSet.gitHubFlavored,
+    );
+    InlineSpan render(md.Node node, {TapGestureRecognizer? link}) {
+      if (node is md.Text) return TextSpan(text: node.text, recognizer: link);
+      if (node is! md.Element) return TextSpan(text: node.textContent);
+      if (node.tag == 'br') return const TextSpan(text: '\n');
+      if (node.tag == 'img') {
+        return TextSpan(text: node.attributes['alt'] ?? '');
+      }
+      final heading = RegExp(r'^h[1-6]$').hasMatch(node.tag);
+      final block =
+          heading || {'p', 'li', 'blockquote', 'pre'}.contains(node.tag);
+      TapGestureRecognizer? recognizer;
+      if (node.tag == 'a') {
+        recognizer = TapGestureRecognizer()
+          ..onTap = () => _openLink(node.attributes['href']);
+        _linkRecognizers.add(recognizer);
+      }
+      return TextSpan(
+        style: heading
+            ? WicchuPostTypography.title(context)
+            : switch (node.tag) {
+                'strong' => const TextStyle(fontWeight: FontWeight.w700),
+                'em' => const TextStyle(fontStyle: FontStyle.italic),
+                'del' => const TextStyle(
+                  decoration: TextDecoration.lineThrough,
+                ),
+                'code' => const TextStyle(fontFamily: 'monospace'),
+                'a' => TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  decoration: TextDecoration.underline,
+                ),
+                _ => null,
+              },
+        // Recognizers must live on leaf spans for inline links to remain tappable.
+        children: [
+          if (node.tag == 'li') const TextSpan(text: '• '),
+          ...(node.children ?? []).map(
+            (child) => render(child, link: recognizer ?? link),
+          ),
+          if (block) const TextSpan(text: '\n'),
+        ],
+      );
+    }
+
+    return TextSpan(
+      style: (widget.bodyStyle ?? WicchuPostTypography.body(context)),
+      children: document
+          .parseLines(_displayMarkdown.split('\n'))
+          .map(render)
+          .toList(),
+    );
+  }
 
   @override
   void didUpdateWidget(covariant PostMarkdown oldWidget) {
@@ -85,125 +172,109 @@ class _PostMarkdownState extends State<PostMarkdown> {
 
   @override
   Widget build(BuildContext context) {
+    _clearRecognizers();
     if (!widget.collapsible) return _markdown(context);
-    final style = Theme.of(context).textTheme.bodyLarge!.copyWith(
-      fontSize: 14,
-      fontWeight: FontWeight.w400,
-      height: 1.3,
-    );
-    final preview = postPlainText(widget.data);
-    final firstParagraph = widget.data.trim().split(RegExp(r'\n\s*\n')).first;
-    final hasHeadline =
-        widget.data.trim().contains(RegExp(r'\n\s*\n')) &&
-        firstParagraph.length <= 120 &&
-        !firstParagraph.contains('\n');
+    final span = _previewSpan(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final actionStyle = style.copyWith(
-          fontSize: 14,
-          color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.w600,
-        );
-        TextSpan spanFor(String text, {bool more = false}) {
-          final lines = text.split('\n');
-          final announcement =
-              preview.startsWith('📢') || preview.startsWith('📣');
-          return TextSpan(
-            style: style,
-            children: [
-              for (var i = 0; i < lines.length; i++)
-                TextSpan(
-                  text: '${i == 0 ? '' : '\n'}${lines[i]}',
-                  style: announcement && i == 0
-                      ? style.copyWith(
-                          fontSize: 13,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        )
-                      : (announcement && i == 1) || (hasHeadline && i == 0)
-                      ? style.copyWith(
-                          fontSize: 15,
-                          height: 1.25,
-                          fontWeight: FontWeight.w700,
-                        )
-                      : null,
-                ),
-              if (more)
-                TextSpan(
-                  text: '… ${context.tr('See more')}',
-                  style: actionStyle,
-                ),
-            ],
-          );
-        }
-
-        bool fits(TextSpan span) {
-          final painter = TextPainter(
-            text: span,
-            maxLines: widget.previewLines,
-            textDirection: Directionality.of(context),
-            textScaler: MediaQuery.textScalerOf(context),
-          )..layout(maxWidth: constraints.maxWidth);
-          final result = !painter.didExceedMaxLines;
-          painter.dispose();
-          return result;
-        }
-
-        if (fits(spanFor(preview))) return _markdown(context);
-        if (_expanded) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _markdown(context),
-              TextButton(
-                onPressed: () => setState(() => _expanded = false),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(48, 32),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: style.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  alignment: Alignment.centerLeft,
-                ),
-                child: Text(context.tr('See less')),
-              ),
-            ],
-          );
-        }
-        final characters = preview.characters.toList();
-        var low = 0;
-        var high = characters.length;
-        while (low < high) {
-          final middle = (low + high + 1) ~/ 2;
-          if (fits(
-            spanFor(characters.take(middle).join().trimRight(), more: true),
-          )) {
-            low = middle;
-          } else {
-            high = middle - 1;
-          }
-        }
-        var excerpt = characters.take(low).join().trimRight();
-        final lastSpace = excerpt.lastIndexOf(' ');
-        if (lastSpace > excerpt.length - 20 && lastSpace >= 0) {
-          excerpt = excerpt.substring(0, lastSpace);
-        }
-        return Semantics(
-          button: true,
-          label: '$excerpt… ${context.tr('See more')}',
-          excludeSemantics: true,
-          child: InkWell(
+        final painter = TextPainter(
+          text: span,
+          maxLines: widget.previewLines,
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout(maxWidth: constraints.maxWidth);
+        final overflows = painter.didExceedMaxLines;
+        painter.dispose();
+        if (!overflows) return _markdown(context);
+        if (!_expanded) {
+          final preview = _inlinePreview(context, span, constraints.maxWidth);
+          return InkWell(
             key: const ValueKey('expand-post'),
             onTap: () => setState(() => _expanded = true),
-            child: Text.rich(
-              spanFor(excerpt, more: true),
-              maxLines: widget.previewLines,
+            child: Text.rich(preview),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _markdown(context),
+            TextButton(
+              onPressed: () => setState(() => _expanded = false),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(48, 32),
+                tapTargetSize: MaterialTapTargetSize.padded,
+                alignment: Alignment.centerLeft,
+                textStyle: WicchuPostTypography.action(context),
+              ),
+              child: Text(context.tr('See less')),
             ),
-          ),
+          ],
         );
       },
     );
+  }
+
+  // Fit the action into the last preview line without flattening styled links
+  // or splitting an emoji, combining character, or surrogate pair.
+  TextSpan _inlinePreview(BuildContext context, TextSpan source, double width) {
+    final text = source.toPlainText();
+    final offsets = <int>[0];
+    for (final character in text.characters) {
+      offsets.add(offsets.last + character.length);
+    }
+    TextSpan prefix(int length) {
+      var remaining = length;
+      TextSpan take(TextSpan span) {
+        final value = span.text ?? '';
+        final count = remaining.clamp(0, value.length);
+        remaining -= count;
+        return TextSpan(
+          text: value.substring(0, count),
+          style: span.style,
+          recognizer: span.recognizer,
+          children: [
+            for (final child in span.children ?? <InlineSpan>[])
+              if (remaining > 0 && child is TextSpan) take(child),
+          ],
+        );
+      }
+
+      // Trim trailing block breaks before placing the inline action.
+      final trimmedLength = text.substring(0, length).trimRight().length;
+      remaining = trimmedLength;
+      return TextSpan(
+        style: source.style,
+        children: [
+          take(source),
+          const TextSpan(text: '… '),
+          TextSpan(
+            text: context.tr('See more'),
+            style: WicchuPostTypography.action(context),
+          ),
+        ],
+      );
+    }
+
+    final painter = TextPainter(
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: widget.previewLines,
+    );
+    var low = 0;
+    var high = offsets.length - 1;
+    while (low < high) {
+      final middle = (low + high + 1) ~/ 2;
+      painter.text = prefix(offsets[middle]);
+      painter.layout(maxWidth: width);
+      if (painter.didExceedMaxLines) {
+        high = middle - 1;
+      } else {
+        low = middle;
+      }
+    }
+    painter.dispose();
+    return prefix(offsets[low]);
   }
 
   // Present a short standalone opening paragraph as a headline without
@@ -226,43 +297,19 @@ class _PostMarkdownState extends State<PostMarkdown> {
       selectable: true,
       softLineBreak: true,
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-        p: theme.textTheme.bodyLarge?.copyWith(
-          fontSize: 14,
-          height: 1.3,
-          fontWeight: FontWeight.w400,
-        ),
+        p: (widget.bodyStyle ?? WicchuPostTypography.body(context)),
         strong: const TextStyle(fontWeight: FontWeight.w700),
-        h1: theme.textTheme.titleMedium?.copyWith(
-          fontSize: 15,
-          height: 1.25,
-          fontWeight: FontWeight.w700,
-        ),
-        h2: theme.textTheme.titleMedium?.copyWith(
-          fontSize: 15,
-          height: 1.25,
-          fontWeight: FontWeight.w700,
-        ),
-        h3: theme.textTheme.titleMedium?.copyWith(
-          fontSize: 15,
-          height: 1.25,
-          fontWeight: FontWeight.w700,
-        ),
+        h1: WicchuPostTypography.title(context),
+        h2: WicchuPostTypography.title(context),
+        h3: WicchuPostTypography.title(context),
+        h4: WicchuPostTypography.title(context),
+        h5: WicchuPostTypography.title(context),
+        h6: WicchuPostTypography.title(context),
         blockSpacing: widget.compact ? 3 : 4,
         listIndent: 24,
       ),
       imageBuilder: (uri, title, alt) => Text(alt ?? '[image]'),
-      onTapLink: (_, href, _) async {
-        final uri = Uri.tryParse(href ?? '');
-        if (uri == null) return;
-        if (uri.scheme == 'wicchu' &&
-            uri.host == 'user' &&
-            uri.pathSegments.isNotEmpty) {
-          widget.onUserTap?.call(uri.pathSegments.first);
-          return;
-        }
-        if (!{'http', 'https'}.contains(uri.scheme)) return;
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      },
+      onTapLink: (_, href, _) => _openLink(href),
     );
   }
 }

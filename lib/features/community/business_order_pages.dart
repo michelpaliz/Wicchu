@@ -1,3 +1,4 @@
+import 'business_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -47,11 +48,17 @@ class BusinessMenuPage extends StatefulWidget {
 class _BusinessMenuPageState extends State<BusinessMenuPage> {
   late Future<BusinessCatalog> _catalog = _load();
   final Map<String, _CartLine> _cart = {};
+  bool _placingOrder = false;
 
   Future<BusinessCatalog> _load() =>
       widget.repository.getBusinessCatalog(widget.businessId);
 
-  void _reload() => setState(() => _catalog = _load());
+  void _reload() {
+    if (!mounted) return;
+    setState(() {
+      _catalog = _load();
+    });
+  }
 
   void _changeQuantity(
     BusinessProduct product,
@@ -117,7 +124,10 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
             ? SafeArea(
                 minimum: const EdgeInsets.all(16),
                 child: FilledButton.icon(
-                  onPressed: catalog.acceptingOrders
+                  onPressed:
+                      !_placingOrder &&
+                          catalog.acceptingOrders &&
+                          catalog.fulfillmentOptions.isNotEmpty
                       ? () => _checkout(catalog)
                       : null,
                   icon: const Icon(WicchuIcons.receipt),
@@ -204,8 +214,8 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
     final notes = TextEditingController();
     var method = catalog.fulfillmentOptions.first;
     var saving = false;
-    await showModalBottomSheet<void>(
-      context: context,
+    var addressMissing = false;
+    final route = ModalBottomSheetRoute<void>(
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) => StatefulBuilder(
@@ -223,10 +233,31 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
               children: [
                 Text(
                   context.tr('Review your order'),
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                const SizedBox(height: 12),
+                for (final line in _cart.values)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${line.quantity} × ${line.product.name}${line.variant == null ? '' : ' · ${line.variant!.name}'}',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          _money(line.unitPriceCents * line.quantity),
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 14),
                 Wrap(
                   spacing: 8,
@@ -235,7 +266,9 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
                       ChoiceChip(
                         label: Text(context.tr(option.label)),
                         selected: method == option,
-                        onSelected: (_) => setSheetState(() => method = option),
+                        onSelected: saving
+                            ? null
+                            : (_) => setSheetState(() => method = option),
                       ),
                   ],
                 ),
@@ -243,9 +276,17 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: address,
+                    onChanged: (_) {
+                      if (addressMissing) {
+                        setSheetState(() => addressMissing = false);
+                      }
+                    },
                     maxLength: 500,
                     decoration: InputDecoration(
                       labelText: context.tr('Delivery address'),
+                      errorText: addressMissing
+                          ? context.tr('Enter a delivery address.')
+                          : null,
                       prefixIcon: const Icon(WicchuIcons.mapPin),
                     ),
                   ),
@@ -282,16 +323,11 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
                       : () async {
                           if (method == BusinessFulfillmentOption.delivery &&
                               address.text.trim().isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  context.tr('Enter a delivery address.'),
-                                ),
-                              ),
-                            );
+                            setSheetState(() => addressMissing = true);
                             return;
                           }
                           setSheetState(() => saving = true);
+                          setState(() => _placingOrder = true);
                           try {
                             final order = await widget.repository
                                 .createBusinessOrder(
@@ -312,11 +348,16 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
                                     notes: notes.text.trim(),
                                   ),
                                 );
-                            if (!mounted || !sheetContext.mounted) return;
-                            Navigator.pop(sheetContext);
-                            setState(_cart.clear);
+                            if (!mounted) return;
+                            if (sheetContext.mounted) {
+                              Navigator.pop(sheetContext);
+                            }
+                            setState(() {
+                              _cart.clear();
+                              _placingOrder = false;
+                            });
                             _reload();
-                            await showDialog<void>(
+                            await showBusinessDialog<void>(
                               context: this.context,
                               builder: (context) => AlertDialog(
                                 icon: const Icon(WicchuIcons.checkCircle),
@@ -337,7 +378,10 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
                             );
                           } catch (error) {
                             if (!mounted) return;
-                            setSheetState(() => saving = false);
+                            setState(() => _placingOrder = false);
+                            if (sheetContext.mounted) {
+                              setSheetState(() => saving = false);
+                            }
                             ScaffoldMessenger.of(this.context).showSnackBar(
                               SnackBar(
                                 content: Text(this.context.trError(error)),
@@ -352,7 +396,7 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
                 if (catalog.whatsapp.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
-                    onPressed: () => _orderOnWhatsApp(catalog),
+                    onPressed: saving ? null : () => _orderOnWhatsApp(catalog),
                     icon: const Icon(WicchuIcons.chatCircle),
                     label: Text(context.tr('Order through WhatsApp')),
                   ),
@@ -363,6 +407,8 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
         ),
       ),
     );
+    await Navigator.of(context).push(route);
+    await route.completed;
     address.dispose();
     phone.dispose();
     notes.dispose();
@@ -563,8 +609,12 @@ class _MyBusinessOrdersPageState extends State<MyBusinessOrdersPage> {
   late Future<List<BusinessOrder>> _orders = widget.repository
       .listMyBusinessOrders();
 
-  void _reload() =>
-      setState(() => _orders = widget.repository.listMyBusinessOrders());
+  void _reload() {
+    if (!mounted) return;
+    setState(() {
+      _orders = widget.repository.listMyBusinessOrders();
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -595,10 +645,20 @@ class _MyBusinessOrdersPageState extends State<MyBusinessOrdersPage> {
               order: orders[index],
               onStatus: orders[index].status == BusinessOrderStatus.pending
                   ? (status) async {
-                      await widget.repository.cancelBusinessOrder(
-                        orders[index].id,
-                      );
-                      _reload();
+                      try {
+                        await widget.repository.cancelBusinessOrder(
+                          orders[index].id,
+                        );
+                        if (mounted) _reload();
+                      } catch (error) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(
+                              content: Text(this.context.trError(error)),
+                            ),
+                          );
+                        }
+                      }
                     }
                   : null,
               customerView: true,
@@ -632,7 +692,12 @@ class _BusinessOrderManagementPageState
   late Future<List<BusinessOrder>> _orders = _load();
   Future<List<BusinessOrder>> _load() =>
       widget.repository.listManagedBusinessOrders(widget.businessId);
-  void _reload() => setState(() => _orders = _load());
+  void _reload() {
+    if (!mounted) return;
+    setState(() {
+      _orders = _load();
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -772,7 +837,7 @@ class _OrderCard extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  if (next != null)
+                  if (!customerView && next != null)
                     Expanded(
                       child: FilledButton(
                         onPressed: () => onStatus!(next),
@@ -828,7 +893,12 @@ class _BusinessCatalogManagementPageState
   late Future<BusinessCatalog> _catalog = _load();
   Future<BusinessCatalog> _load() =>
       widget.repository.getBusinessCatalog(widget.businessId, manage: true);
-  void _reload() => setState(() => _catalog = _load());
+  void _reload() {
+    if (!mounted) return;
+    setState(() {
+      _catalog = _load();
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1041,7 +1111,7 @@ class _BusinessCatalogManagementPageState
     var available = product?.available ?? true;
     PostMedia? image;
     var saving = false;
-    await showDialog<void>(
+    await showBusinessDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
@@ -1114,7 +1184,7 @@ class _BusinessCatalogManagementPageState
                       controller: quantity,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: context.tr('Quantity available (optional)'),
+                        labelText: context.tr('Stock (optional)'),
                       ),
                     ),
                   const SizedBox(height: 8),
@@ -1279,7 +1349,9 @@ class _BusinessCatalogManagementPageState
                         Navigator.pop(dialogContext);
                         _reload();
                       } catch (error) {
-                        setDialogState(() => saving = false);
+                        if (dialogContext.mounted) {
+                          setDialogState(() => saving = false);
+                        }
                         _showError(error);
                       }
                     },
@@ -1313,7 +1385,7 @@ class _BusinessCatalogManagementPageState
       text: current?.attributes['Color'] ?? '',
     );
     var available = current?.available ?? true;
-    final result = await showDialog<BusinessProductVariantInput>(
+    final result = await showBusinessDialog<BusinessProductVariantInput>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
@@ -1363,6 +1435,7 @@ class _BusinessCatalogManagementPageState
                     helperText: context.tr(
                       'Leave empty to use the product price.',
                     ),
+                    helperMaxLines: 2,
                     prefixText: r'$ ',
                   ),
                 ),
@@ -1370,7 +1443,7 @@ class _BusinessCatalogManagementPageState
                   controller: quantity,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: context.tr('Quantity available (optional)'),
+                    labelText: context.tr('Stock (optional)'),
                   ),
                 ),
                 SwitchListTile.adaptive(
@@ -1511,7 +1584,7 @@ Future<String?> _textDialog(
   required String label,
 }) async {
   final controller = TextEditingController();
-  final value = await showDialog<String>(
+  final value = await showBusinessDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
+import 'package:wicchu/features/chat/direct_chat_pages.dart';
 
 class _PageMessagingRepository extends DemoCommunityRepository {
   String? contactedPage;
@@ -21,6 +22,39 @@ class _FreshProfileRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets('business owner without contact details opens the page inbox', (
+    tester,
+  ) async {
+    final page = Community(
+      id: 'owner-business',
+      name: 'Owner business',
+      description: '',
+      town: const Town(id: 'town', name: 'Town', countryCode: 'EC'),
+      visibility: CommunityVisibility.public,
+      createdBy: 'current-user',
+      createdAt: DateTime(2026),
+      type: CommunityType.publicProfile,
+      profileCategory: ProfileCategory.localBusiness,
+      myRole: CommunityRole.owner,
+    );
+    final repository = _FreshProfileRepository()..current = page;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityProfilePage(community: page, repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('local-business-contact')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConversationListPage), findsOneWidget);
+    expect(
+      tester
+          .widget<ConversationListPage>(find.byType(ConversationListPage))
+          .initialPageId,
+      page.id,
+    );
+  });
+
   testWidgets('profile refreshes a stale business snapshot on opening', (
     tester,
   ) async {
@@ -118,7 +152,7 @@ void main() {
   });
 
   for (final category in [null, ...ProfileCategory.values]) {
-    testWidgets('header location and expandable description for $category', (
+    testWidgets('header location and full description for $category', (
       tester,
     ) async {
       await tester.binding.setSurfaceSize(const Size(390, 900));
@@ -169,7 +203,7 @@ void main() {
             .data,
         contains(
           category == null
-              ? 'Echeandía, Ecuador'
+              ? 'Echeandía'
               : category == ProfileCategory.localBusiness
               ? 'Echeandía'
               : 'Echeandía, EC',
@@ -181,7 +215,7 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('0 members'), findsOneWidget);
-        expect(find.text('Public'), findsOneWidget);
+        expect(find.text('Public'), findsNothing);
         expect(find.text('Public community'), findsNothing);
         expect(find.byKey(const ValueKey('page-header-share')), findsNothing);
       } else {
@@ -224,39 +258,13 @@ void main() {
       final toggle = find.byKey(
         const ValueKey('page-header-description-toggle'),
       );
-      if (category == ProfileCategory.localBusiness) {
-        expect(tester.widget<Text>(description).maxLines, 1);
-        expect(tester.widget<Text>(description).data, 'Local updates');
-        expect(toggle, findsNothing);
-        expect(find.text(descriptionText), findsNothing);
-        expect(tester.takeException(), isNull);
-        return;
-      }
-      expect(tester.widget<Text>(description).maxLines, 2);
-      expect(
-        tester.widget<Text>(description).data,
-        startsWith('Local updates\nNews and stories'),
-      );
-      expect(tester.widget<Text>(description).data, isNot(contains('\n\n')));
-      await tester.ensureVisible(toggle);
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
       expect(tester.widget<Text>(description).maxLines, isNull);
-      expect(tester.widget<Text>(description).data, shortDescription);
-      await tester.ensureVisible(toggle);
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      tester
-          .state<NestedScrollViewState>(find.byType(NestedScrollView))
-          .outerController
-          .jumpTo(0);
-      await tester.pumpAndSettle();
-      expect(tester.widget<Text>(description).maxLines, 2);
       expect(
-        tester.widget<Text>(description).data,
-        startsWith('Local updates\nNews and stories'),
+        tester.widget<Text>(description).textSpan?.toPlainText(),
+        shortDescription,
       );
-      expect(tester.widget<Text>(description).data, isNot(contains('\n\n')));
+      expect(tester.widget<Text>(description).style?.fontSize, 13);
+      expect(toggle, findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -310,7 +318,8 @@ void main() {
     expect(
       tester
           .widget<Text>(find.byKey(const ValueKey('page-header-description')))
-          .data,
+          .textSpan
+          ?.toPlainText(),
       '¡Bienvenidos a nuestro rincón del sabor!',
     );
   });

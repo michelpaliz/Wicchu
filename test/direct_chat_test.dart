@@ -125,6 +125,41 @@ class _ChatRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets('inbox uses relative dates and unread dots', (tester) async {
+    final now = DateTime.now();
+    final repository = _ChatRepository()
+      ..chats = [
+        DirectConversation(
+          id: 'today',
+          otherUser: const WicchuUser(id: 'today-user', name: 'Today user'),
+          unreadCount: 2,
+          lastMessagePreview: 'New message',
+          lastMessageAt: now,
+        ),
+        DirectConversation(
+          id: 'yesterday',
+          otherUser: const WicchuUser(
+            id: 'yesterday-user',
+            name: 'Yesterday user',
+          ),
+          unreadCount: 0,
+          lastMessageAt: DateTime(now.year, now.month, now.day - 1, 12),
+        ),
+      ];
+    await tester.pumpWidget(
+      MaterialApp(home: ConversationListPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Yesterday'), findsOneWidget);
+    expect(find.byKey(const ValueKey('unread-today')), findsOneWidget);
+    expect(find.byKey(const ValueKey('unread-yesterday')), findsNothing);
+    expect(
+      tester.widget<Text>(find.text('New message')).style?.fontWeight,
+      FontWeight.w600,
+    );
+  });
+
   testWidgets('page inbox clearly shows the active reply identity', (
     tester,
   ) async {
@@ -196,6 +231,7 @@ void main() {
     expect(find.text('Incoming'), findsNothing);
     expect(find.text('Outgoing'), findsOneWidget);
     expect(find.text('Request sent'), findsOneWidget);
+    expect(find.text('Sent requests'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('message-requests-button')));
     await tester.pumpAndSettle();
     expect(find.text('Incoming'), findsOneWidget);

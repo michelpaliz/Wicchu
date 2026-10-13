@@ -7,11 +7,13 @@ import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/community/create_post_page.dart';
 import 'package:wicchu/features/community/post_rich_text_editor.dart';
 import 'package:wicchu/features/community/post_card.dart';
+import 'package:wicchu/features/community/post_share.dart';
 
 class _WizardRepository extends DemoCommunityRepository {
   _WizardRepository(this.community);
 
-  final Community community;
+  Community community;
+  PostStatus resultStatus = PostStatus.published;
   CreatePostInput? createdInput;
 
   @override
@@ -29,7 +31,7 @@ class _WizardRepository extends DemoCommunityRepository {
       categoryId: input.categoryId,
       authorId: 'current-user',
       text: input.text,
-      status: PostStatus.published,
+      status: resultStatus,
       createdAt: DateTime.utc(2026, 10, 6),
     );
   }
@@ -52,7 +54,139 @@ Community space(
   myRole: role,
 );
 
+Future<void> _openPreview(
+  WidgetTester tester,
+  _WizardRepository repository,
+) async {
+  final category = CommunityCategory(
+    id: 'general',
+    communityId: 'space',
+    name: 'General',
+    icon: '💬',
+  );
+  await tester.pumpWidget(
+    MaterialApp(
+      home: CreatePostPage(
+        community: repository.community,
+        repository: repository,
+        initialCategory: category,
+        categories: [category],
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('next-post-step')));
+  await tester.pumpAndSettle();
+  tester
+      .widget<PostRichTextEditor>(find.byType(PostRichTextEditor))
+      .controller
+      .replaceText(
+        0,
+        0,
+        'Test publication',
+        const TextSelection.collapsed(offset: 16),
+      );
+  await tester.pump();
+  await tester.tap(find.byKey(const ValueKey('next-post-step')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('next-post-step')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  testWidgets(
+    'new draft clears important announcement and preview is read only',
+    (tester) async {
+      final repository = _WizardRepository(
+        space(CommunityType.community, CommunityRole.owner),
+      );
+      await _openPreview(tester, repository);
+      final preview = tester.widget<PostCard>(find.byType(PostCard));
+      expect(preview.showActions, isFalse);
+      expect(preview.showMenu, isFalse);
+      await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+      final toggle = find.widgetWithText(
+        SwitchListTile,
+        'Important announcement',
+      );
+      await tester.ensureVisible(toggle);
+      await tester.pumpAndSettle();
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('next-post-step')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('publish-post')));
+      await tester.pumpAndSettle();
+      expect(repository.createdInput!.importantAnnouncement, isTrue);
+      await tester.ensureVisible(find.text('Create another post'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Create another post'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('next-post-step')));
+      await tester.pumpAndSettle();
+      final controller = tester
+          .widget<PostRichTextEditor>(find.byType(PostRichTextEditor))
+          .controller;
+      expect(controller.text, isEmpty);
+      controller.replaceText(
+        0,
+        0,
+        'Second post',
+        const TextSelection.collapsed(offset: 11),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('next-post-step')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    },
+  );
+
+  testWidgets('permission change releases publish state and allows retry', (
+    tester,
+  ) async {
+    final allowed = space(
+      CommunityType.publicProfile,
+      CommunityRole.owner,
+      ProfileCategory.localBusiness,
+    );
+    final repository = _WizardRepository(allowed);
+    await _openPreview(tester, repository);
+    repository.community = space(
+      CommunityType.publicProfile,
+      CommunityRole.member,
+      ProfileCategory.localBusiness,
+    );
+    await tester.tap(find.byKey(const ValueKey('publish-post')));
+    await tester.pumpAndSettle();
+    expect(repository.createdInput, isNull);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const ValueKey('publish-post')))
+          .onPressed,
+      isNotNull,
+    );
+    repository.community = allowed;
+    await tester.tap(find.byKey(const ValueKey('publish-post')));
+    await tester.pumpAndSettle();
+    expect(find.text('Post published'), findsOneWidget);
+  });
+
+  testWidgets('pending posts cannot be shared from the success screen', (
+    tester,
+  ) async {
+    final repository = _WizardRepository(
+      space(CommunityType.community, CommunityRole.member),
+    )..resultStatus = PostStatus.pendingApproval;
+    await _openPreview(tester, repository);
+    await tester.tap(find.byKey(const ValueKey('publish-post')));
+    await tester.pumpAndSettle();
+    expect(find.text('Post submitted for approval'), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
+    expect(find.text('View post'), findsNothing);
+    expect(find.byKey(const ValueKey('share-published-post')), findsNothing);
+  });
+
   testWidgets('new post uses four steps and finishes on a success screen', (
     tester,
   ) async {
@@ -97,7 +231,7 @@ void main() {
     await tester.tap(find.text('Category'));
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
-    await tester.tap(find.text('General'));
+    await tester.tap(find.text('General').last);
     await tester.pumpAndSettle();
     expect(find.text('Post options'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('next-post-step')));
@@ -116,6 +250,17 @@ void main() {
     expect(find.text('View post'), findsOneWidget);
     expect(find.text('Create another post'), findsOneWidget);
     expect(find.text('Copy description'), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('share-published-post')),
+    );
+    await tester.tap(find.byKey(const ValueKey('share-published-post')));
+    await tester.pumpAndSettle();
+    expect(find.byType(WicchuShareSheet), findsOneWidget);
+    expect(find.text('Instagram Story'), findsOneWidget);
+    expect(find.text('Copy link'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Post published'), findsOneWidget);
   });
 
   testWidgets('anonymous poll preview uses the feed card without publishing', (

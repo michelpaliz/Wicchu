@@ -60,6 +60,56 @@ class _PrivateProfileRepository extends DemoCommunityRepository {
   }) async => const [];
 }
 
+class _PrivateAccessRepository extends DemoCommunityRepository {
+  bool following = true;
+  int postLoads = 0;
+  @override
+  Future<PublicMemberProfile> getMemberProfile(String userId) async =>
+      PublicMemberProfile(
+        id: 'private-user',
+        name: 'Private member',
+        userName: 'private.member',
+        postCount: 1,
+        communityCount: 0,
+        isPrivate: true,
+        canViewPersonalPosts: following,
+        followedByMe: following,
+        followStatus: following
+            ? UserFollowStatus.accepted
+            : UserFollowStatus.none,
+      );
+  @override
+  Future<UserFollowActionResult> unfollowUser(String userId) async {
+    following = false;
+    return const UserFollowActionResult(
+      status: UserFollowStatus.none,
+      followerCount: 0,
+    );
+  }
+
+  @override
+  Future<List<CommunityPost>> listMemberPosts(
+    String userId, {
+    String kind = 'all',
+    String sort = 'newest',
+  }) async {
+    postLoads++;
+    // Simulate a cached response: the permission flag must still be respected.
+    return [
+      CommunityPost(
+        id: 'private-post',
+        communityId: '',
+        categoryId: '',
+        authorId: userId,
+        text: 'Private personal content',
+        destinationType: 'personal',
+        status: PostStatus.published,
+        createdAt: DateTime(2026),
+      ),
+    ];
+  }
+}
+
 class _FollowRequestRepository extends DemoCommunityRepository {
   bool? accepted;
 
@@ -97,6 +147,27 @@ class _FollowRequestRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets('unfollowing refreshes and removes private personal posts', (
+    tester,
+  ) async {
+    final repository = _PrivateAccessRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemberProfilePage(userId: 'private-user', repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Private personal content'), findsOneWidget);
+    final loads = repository.postLoads;
+    await tester.ensureVisible(find.text('Following'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Following'));
+    await tester.pumpAndSettle();
+    expect(repository.postLoads, greaterThan(loads));
+    expect(find.text('Private personal content'), findsNothing);
+    expect(find.text('This profile is private'), findsOneWidget);
+  });
+
   testWidgets(
     'returning from account settings refreshes the short description',
     (tester) async {
@@ -121,7 +192,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('A new short description'), findsNothing);
-      await tester.tap(find.byTooltip('Account menu'));
+      await tester.tap(find.byKey(const ValueKey('personal-profile-options')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('You'));
       await tester.pumpAndSettle();
       expect(find.text('A new short description'), findsOneWidget);
     },

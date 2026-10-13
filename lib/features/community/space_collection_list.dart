@@ -1,3 +1,4 @@
+import '../../widgets/wicchu_list_tile.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
@@ -164,26 +165,18 @@ class _SpaceCollectionListState extends State<SpaceCollectionList> {
                     ),
                   ),
                 for (final space in visible)
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    elevation: 0,
-                    color: colors.surface,
-                    surfaceTintColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                      side: BorderSide(
-                        color: colors.outlineVariant.withValues(alpha: .4),
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
+                  WicchuListTile.custom(
+                    variant: space.isPublicProfile
+                        ? WicchuListVariant.business
+                        : WicchuListVariant.community,
                     child: InkWell(
                       onTap: () => widget.onOpen(space),
                       child: Padding(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CommunityAvatar(community: space, radius: 26),
+                            CommunityAvatar(community: space, radius: 24),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -194,7 +187,10 @@ class _SpaceCollectionListState extends State<SpaceCollectionList> {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                        ?.copyWith(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                   ),
                                   const SizedBox(height: 4),
                                   Wrap(

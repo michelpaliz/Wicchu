@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../services/post_image_preparation.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
@@ -260,6 +261,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
           _mentionedUserIds.clear();
           _publishAnonymously = false;
           _kind = _PostKind.text;
+          _hasPoll = false;
+          _importantAnnouncement = false;
         });
         return;
       }
@@ -285,6 +288,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
         _mentionedUserIds.clear();
         _publishAnonymously = false;
         _kind = _PostKind.text;
+        _hasPoll = false;
+        _importantAnnouncement = false;
       });
     } catch (error) {
       if (mounted) {
@@ -837,9 +842,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
         _mediaEditor(context),
       ],
       const SizedBox(height: 10),
-      OutlinedButton.icon(
+      TextButton.icon(
         onPressed: _saving ? null : _chooseMentions,
-        style: OutlinedButton.styleFrom(
+        style: TextButton.styleFrom(
           alignment: Alignment.centerLeft,
           minimumSize: const Size.fromHeight(48),
         ),
@@ -934,6 +939,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
               : snapshot.data?.name ?? context.tr('You');
           return PostCard(
             key: const ValueKey('post-draft-preview'),
+            showActions: false,
+            showMenu: false,
+            communityFirst: !_personalProfile && _community.isPublicProfile,
             category: _category?.name ?? 'General',
             icon: _category?.icon ?? '💬',
             community: _personalProfile
@@ -942,7 +950,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
             author: author,
             authorAvatarUrl: _publishAnonymously
                 ? null
-                : snapshot.data?.avatarUrl,
+                : (!_personalProfile && _community.isPublicProfile
+                      ? _community.imageUrl
+                      : snapshot.data?.avatarUrl),
             isAnonymousAuthor: _publishAnonymously,
             time: context.tr('Now'),
             text: _effectiveText,
@@ -987,7 +997,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ? _changeCommunity
           : null,
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Row(
           children: [
             Icon(
@@ -1576,9 +1586,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
     final colors = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: colors.primaryContainer.withValues(alpha: .24),
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.primary.withValues(alpha: .22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1592,7 +1601,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   ? null
                   : _chooseMedia,
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
                     Icon(WicchuIcons.imageSquare, color: colors.primary),
@@ -1609,26 +1618,29 @@ class _CreatePostPageState extends State<CreatePostPage> {
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            context.tr(
-                              'Share images or videos with your community.',
-                            ),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: colors.onSurfaceVariant),
-                          ),
                         ],
                       ),
                     ),
-                    Text('${_attachments.length}/10'),
+                    Text(
+                      '${_attachments.length}/10',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),
             ),
           ),
-          if (_uploading) const LinearProgressIndicator(),
+          if (_uploading) ...[
+            const LinearProgressIndicator(),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                context.tr('Preparing and uploading media…'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ],
           if (_attachments.isNotEmpty) ...[
-            const Divider(height: 1),
             SizedBox(
               height: 112,
               child: ListView.separated(
@@ -1641,10 +1653,29 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   if (index == _attachments.length) {
                     return SizedBox(
                       width: 88,
-                      child: OutlinedButton.icon(
+                      child: OutlinedButton(
+                        key: const ValueKey('post-add-media-thumbnail'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.all(4),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: colors.outlineVariant),
+                        ),
                         onPressed: _saving || _uploading ? null : _chooseMedia,
-                        icon: const Icon(WicchuIcons.plus),
-                        label: Text(context.tr('Add')),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(WicchuIcons.plus, size: 24),
+                            const SizedBox(height: 4),
+                            Text(
+                              context.tr('Add'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }
@@ -1887,7 +1918,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => Navigator.pop(context, post),
-                  child: Text(context.tr('View post')),
+                  child: Text(context.tr(pending ? 'Done' : 'View post')),
                 ),
               ),
               const SizedBox(height: 10),
@@ -1899,69 +1930,23 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 ),
               ),
               if (!pending) ...[
-                const SizedBox(height: 28),
-                Text(
-                  context.tr('Share with your customers'),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('share-published-post'),
+                    onPressed: () =>
+                        sharePost(context, widget.repository, post),
+                    icon: const Icon(WicchuIcons.shareNetwork),
+                    label: Text(context.tr('Share post')),
                   ),
                 ),
-                const SizedBox(height: 10),
-                if (post.canShareToCommunities)
-                  _shareAction(
-                    context,
-                    post,
-                    icon: WicchuIcons.usersThree,
-                    label: 'Share to Community',
-                    destination: PostShareDestination.community,
-                  ),
                 if (post.text.trim().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _copyDescription(post.text.trim()),
-                        icon: const Icon(WicchuIcons.copy),
-                        label: Text(context.tr('Copy description')),
-                      ),
-                    ),
+                  TextButton.icon(
+                    onPressed: () => _copyDescription(post.text.trim()),
+                    icon: const Icon(WicchuIcons.copy),
+                    label: Text(context.tr('Copy description')),
                   ),
-                _shareAction(
-                  context,
-                  post,
-                  icon: WicchuIcons.sparkle,
-                  label: 'Instagram Story',
-                  destination: PostShareDestination.instagramStory,
-                ),
-                _shareAction(
-                  context,
-                  post,
-                  icon: WicchuIcons.image,
-                  label: 'Instagram Post',
-                  destination: PostShareDestination.instagramFeed,
-                ),
-                _shareAction(
-                  context,
-                  post,
-                  icon: WicchuIcons.chatCircle,
-                  label: 'WhatsApp',
-                  destination: PostShareDestination.whatsapp,
-                ),
-                _shareAction(
-                  context,
-                  post,
-                  icon: WicchuIcons.facebookLogo,
-                  label: 'Facebook',
-                  destination: PostShareDestination.facebook,
-                ),
-                _shareAction(
-                  context,
-                  post,
-                  icon: WicchuIcons.linkSimple,
-                  label: 'Copy link',
-                  destination: PostShareDestination.copyLink,
-                ),
               ],
             ],
           ),
@@ -1969,25 +1954,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
       ),
     );
   }
-
-  Widget _shareAction(
-    BuildContext context,
-    CommunityPost post, {
-    required IconData icon,
-    required String label,
-    required PostShareDestination destination,
-  }) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () =>
-            sharePostTo(context, widget.repository, post, destination),
-        icon: Icon(icon),
-        label: Text(context.tr(label)),
-      ),
-    ),
-  );
 
   Future<void> _copyDescription(String description) async {
     await Clipboard.setData(ClipboardData(text: description));
@@ -2002,6 +1968,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     _attachments.clear();
     _mentionedUserIds.clear();
     _publishAnonymously = false;
+    _importantAnnouncement = false;
     _hasPoll = false;
     _kind = _PostKind.text;
     for (final dish in _menuDishes) {
@@ -2033,8 +2000,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
     });
   }
 
-  // Retained temporarily while the structured editor replaces the old editor.
-  // ignore: unused_element
   Future<void> _chooseMedia() async {
     if (_uploading || _saving) return;
     FocusManager.instance.primaryFocus?.unfocus();
@@ -2153,6 +2118,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -2171,7 +2138,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ? await picker.pickVideo(source: ImageSource.gallery)
           : await picker.pickImage(
               source: ImageSource.gallery,
-              imageQuality: 90,
+              maxWidth: 4096,
+              maxHeight: 4096,
               requestFullMetadata: false,
             );
       if (file == null || !mounted) return;
@@ -2185,12 +2153,29 @@ class _CreatePostPageState extends State<CreatePostPage> {
         }
         return;
       }
-      final bytes = await file.readAsBytes();
+      var bytes = await file.readAsBytes();
+      var filename = file.name;
+      var mimeType = file.mimeType ?? _mimeTypeFor(filename, video: video);
+      if (!video) {
+        try {
+          final prepared = await preparePostImage(bytes, filename);
+          bytes = prepared.bytes;
+          filename = prepared.filename;
+          mimeType = prepared.mimeType;
+        } catch (_) {
+          throw const FormatException(
+            'This image could not be read. Try downloading the original as PNG or JPEG.',
+          );
+        }
+      }
+      if (bytes.length > 25 * 1024 * 1024) {
+        throw const FormatException('The file must be under 25 MB.');
+      }
       if (!mounted) return;
       final media = await widget.repository.uploadPostMedia(
         bytes: bytes,
-        filename: file.name,
-        mimeType: file.mimeType ?? _mimeTypeFor(file.name, video: video),
+        filename: filename,
+        mimeType: mimeType,
       );
       if (mounted) {
         setState(() => _attachments.add(_PostAttachment(media, bytes)));
@@ -2210,6 +2195,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   ? context.tr(
                       'Allow photo access for Wicchu in iPhone Settings, then try again.',
                     )
+                  : error is FormatException
+                  ? context.tr(error.message)
                   : context.trError(error),
             ),
           ),

@@ -7,6 +7,11 @@ import 'package:wicchu/widgets/feed_filter_bar.dart';
 
 class _PreviewRepository extends DemoCommunityRepository {
   int postReads = 0;
+  Community? previewCommunity;
+  @override
+  Future<Community> getCommunity(String id) async =>
+      previewCommunity ?? await super.getCommunity(id);
+
   @override
   Future<List<CommunityPost>> listPosts(
     String id, {
@@ -150,6 +155,7 @@ void main() {
         createdBy: original.createdBy,
         createdAt: original.createdAt,
       );
+      repository.previewCommunity = community;
       await tester.pumpWidget(
         MaterialApp(
           home: CommunityProfilePage(
@@ -166,7 +172,7 @@ void main() {
       if (visibility == CommunityVisibility.public) {
         expect(
           find.text('Community preview. Join to take part.'),
-          findsOneWidget,
+          findsNothing,
         );
       } else {
         expect(find.text('Join to view community posts.'), findsOneWidget);

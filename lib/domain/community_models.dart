@@ -129,6 +129,9 @@ class NotificationPreferences {
 enum ContentNotificationMode { important, all, selected, muted }
 
 class ScopedNotificationPreferences {
+  const ScopedNotificationPreferences.communityDefaults()
+    : this(mode: ContentNotificationMode.all);
+
   const ScopedNotificationPreferences({
     this.mode = ContentNotificationMode.important,
     this.selectedCategoryIds = const [],
@@ -1195,6 +1198,7 @@ class CommunityPost {
     this.destinationType = 'community',
     this.shareCaption = '',
     this.isCommunityShare = false,
+    this.sourceCommunityId,
     this.importantAnnouncement = false,
     this.pinned = false,
     this.canPin = false,
@@ -1231,6 +1235,10 @@ class CommunityPost {
   final String destinationType;
   final String shareCaption;
   final bool isCommunityShare;
+
+  /// Original page identity supplied by shared-post responses. communityId
+  /// remains the destination, so category and moderation actions stay local.
+  final String? sourceCommunityId;
   final bool importantAnnouncement;
   final bool pinned;
   final bool canPin;

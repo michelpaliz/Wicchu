@@ -26,7 +26,172 @@ CommunityPost _post({
   canShareToCommunities: canShareToCommunities,
 );
 
+class _ShareKitRepository extends DemoCommunityRepository {
+  bool fail = false;
+  @override
+  Future<PostShareKit> getPostShareKit(String postId) async {
+    if (fail) throw Exception('Share unavailable');
+    return const PostShareKit(
+      canonicalUrl: 'https://wicchu.com/posts/post-1',
+      message: 'Caption',
+      whatsappUrl: 'https://wa.me/',
+      facebookUrl: 'https://facebook.com/',
+      instagramFeedImageUrl: 'https://wicchu.com/feed.png',
+      instagramStoryImageUrl: 'https://wicchu.com/story.png',
+    );
+  }
+}
+
 void main() {
+  testWidgets(
+    'caption is copied before sharing confirmation and supports cancel',
+    (tester) async {
+      String? copied;
+      bool? proceed;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  proceed = await confirmCopiedShareCaption(
+                    context,
+                    'Caption and link',
+                  );
+                },
+                child: const Text('Start'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Start'));
+      await tester.pumpAndSettle();
+      expect(copied, 'Caption and link');
+      expect(proceed, isNull);
+      expect(find.text('Description copied'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(proceed, isFalse);
+      await tester.tap(find.text('Start'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Share on Instagram'));
+      await tester.pumpAndSettle();
+      expect(proceed, isTrue);
+    },
+  );
+
+  testWidgets(
+    'copy link uses share kit and failed preparation returns to page',
+    (tester) async {
+      final repository = _ShareKitRepository();
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Column(
+                children: [
+                  TextButton(
+                    onPressed: () => sharePostTo(
+                      context,
+                      repository,
+                      _post(),
+                      PostShareDestination.copyLink,
+                    ),
+                    child: const Text('Copy'),
+                  ),
+                  TextButton(
+                    onPressed: () => sharePostTo(
+                      context,
+                      repository,
+                      _post(),
+                      PostShareDestination.instagramStory,
+                    ),
+                    child: const Text('Export'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Copy'));
+      await tester.pumpAndSettle();
+      expect(copied, 'https://wicchu.com/posts/post-1');
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      repository.fail = true;
+      await tester.tap(find.text('Export'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.textContaining('Share unavailable'), findsOneWidget);
+      expect(find.text('Export'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'compact sheet scrolls with large text and respects permissions',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 568));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      PostShareDestination? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MediaQuery(
+              data: const MediaQueryData(
+                size: Size(320, 568),
+                textScaler: TextScaler.linear(2),
+              ),
+              child: WicchuShareSheet(
+                canShareToCommunities: false,
+                hasMedia: false,
+                onSelected: (value) => selected = value,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Community'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('Copy link'));
+      await tester.tap(find.text('Copy link'));
+      expect(selected, PostShareDestination.copyLink);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test(
     'copied captions remove markdown escapes and formatting but preserve URLs',
     () {
@@ -109,12 +274,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Instagram Story'), findsOneWidget);
-    expect(find.text('Share to Community'), findsOneWidget);
-    expect(
-      find.text('Publish this business post in communities you have joined.'),
-      findsOneWidget,
-    );
-    expect(find.text('Share a Wicchu-designed 9:16 image.'), findsOneWidget);
+    expect(find.text('Community'), findsOneWidget);
+    expect(find.text('Vertical image · 9:16'), findsOneWidget);
     expect(find.text('Instagram Post'), findsOneWidget);
     expect(
       find.text('Share the original photos or videos without cropping.'),
@@ -124,13 +285,10 @@ void main() {
     expect(find.text('WhatsApp'), findsOneWidget);
     expect(find.text('Facebook'), findsOneWidget);
     expect(find.text('Copy link'), findsOneWidget);
-    expect(find.text('Create an Instagram or Facebook post'), findsOneWidget);
-    expect(
-      find.text(
-        'Copies the description and Wicchu link automatically. Choose your social app, then paste them into your post.',
-      ),
-      findsOneWidget,
-    );
+    await tester.ensureVisible(find.text('More sharing options'));
+    await tester.tap(find.text('More sharing options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Share original media'), findsOneWidget);
     String? copied;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
