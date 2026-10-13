@@ -744,6 +744,22 @@ const _spanish = <String, String>{
   'Owner': 'Propietario',
   'Save post': 'Guardar publicación',
   'Unsave post': 'Quitar de guardados',
+  'Pinned publication': 'Publicación fijada',
+  'Pin publication': 'Fijar publicación',
+  'Unpin publication': 'Desfijar publicación',
+  'Keep it at the top of the page':
+      'Mantenla en la parte superior de la página',
+  'Remove it from the top of the page':
+      'Quítala de la parte superior de la página',
+  'Keep it at the top of your profile':
+      'Mantenla en la parte superior de tu perfil',
+  'Remove it from the top of your profile':
+      'Quítala de la parte superior de tu perfil',
+  'Keep it at the top of its category':
+      'Mantenla en la parte superior de su categoría',
+  'Remove it from the top of its category':
+      'Quítala de la parte superior de su categoría',
+  'You can pin up to 3 publications': 'Puedes fijar hasta 3 publicaciones',
   'Edit': 'Editar',
   'Edit community': 'Editar comunidad',
   'Profile type and services': 'Tipo de perfil y servicios',

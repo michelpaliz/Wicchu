@@ -98,6 +98,25 @@ class ProfilePostTile extends StatelessWidget {
                 )
               else
                 fallback,
+              if (post.pinned)
+                Positioned(
+                  top: 5,
+                  right: 5,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(5),
+                      child: Icon(
+                        WicchuIcons.pushPinFill,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
               if (post.reactionCount > 0)
                 Positioned(
                   left: 5,

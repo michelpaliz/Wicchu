@@ -845,6 +845,15 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                               if (mounted) _reload();
                             }
                           : null,
+                      onPinnedChanged: post.isPersonal && post.canPin
+                          ? (pinned) async {
+                              await widget.repository.setPostPinned(
+                                post.id,
+                                pinned: pinned,
+                              );
+                              if (mounted) _reload();
+                            }
+                          : null,
                       text: post.displayText,
                       likes: post.reactionCount,
                       comments: post.commentCount,

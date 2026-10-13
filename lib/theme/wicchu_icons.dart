@@ -134,6 +134,8 @@ abstract final class WicchuIcons {
   static const plus = PhosphorIconsRegular.plus;
   static const plusCircle = PhosphorIconsRegular.plusCircle;
   static const prohibit = PhosphorIconsRegular.prohibit;
+  static const pushPin = PhosphorIconsRegular.pushPin;
+  static const pushPinFill = PhosphorIconsFill.pushPin;
   static const question = PhosphorIconsRegular.question;
   static const radioButton = PhosphorIconsRegular.radioButton;
   static const rows = PhosphorIconsRegular.rows;

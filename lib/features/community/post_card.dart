@@ -70,6 +70,7 @@ class PostCard extends StatefulWidget {
     this.edited = false,
     this.onEdit,
     this.onDelete,
+    this.onPinnedChanged,
     this.onModerationRemove,
     this.onMentionTap,
     this.repository,
@@ -118,6 +119,7 @@ class PostCard extends StatefulWidget {
   final bool edited;
   final VoidCallback? onEdit;
   final Future<void> Function()? onDelete;
+  final Future<void> Function(bool pinned)? onPinnedChanged;
   final Future<void> Function(String reason)? onModerationRemove;
   final ValueChanged<String>? onMentionTap;
 
@@ -233,6 +235,7 @@ class PostCard extends StatefulWidget {
                     await onDelete!();
                     if (viewerContext.mounted) Navigator.pop(viewerContext);
                   },
+            onPinnedChanged: onPinnedChanged,
             onModerationRemove: onModerationRemove == null
                 ? null
                 : (reason) async {
@@ -281,6 +284,7 @@ class _PostCardState extends State<PostCard> {
   late int _comments = widget.comments;
   late bool _reacted = widget.reacted;
   late bool _saved = widget.saved;
+  late bool _pinned = widget.post?.pinned ?? false;
   bool _savingReaction = false;
   bool _savingPost = false;
   bool _impressionSent = false;
@@ -327,6 +331,27 @@ class _PostCardState extends State<PostCard> {
       }
     } finally {
       if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  Future<void> _togglePinned() async {
+    if (widget.onPinnedChanged == null || _savingPost) return;
+    final previous = _pinned;
+    setState(() {
+      _pinned = !previous;
+      _savingPost = true;
+    });
+    try {
+      await widget.onPinnedChanged!(_pinned);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _pinned = previous);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _savingPost = false);
     }
   }
 
@@ -414,6 +439,9 @@ class _PostCardState extends State<PostCard> {
     if (oldWidget.comments != widget.comments) _comments = widget.comments;
     if (oldWidget.reacted != widget.reacted) _reacted = widget.reacted;
     if (oldWidget.saved != widget.saved) _saved = widget.saved;
+    if (oldWidget.post?.pinned != widget.post?.pinned) {
+      _pinned = widget.post?.pinned ?? false;
+    }
     if (oldWidget.promotion?.id != widget.promotion?.id) {
       _impressionSent = false;
       _recordImpression();
@@ -494,6 +522,27 @@ class _PostCardState extends State<PostCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_pinned) ...[
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      WicchuIcons.pushPinFill,
+                      size: 15,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      context.tr('Pinned publication'),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
               if (widget.promotion != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -669,6 +718,9 @@ class _PostCardState extends State<PostCard> {
     onReport: widget.onReport == null ? null : _report,
     onEdit: widget.onEdit,
     onDelete: widget.onDelete == null ? null : _deletePost,
+    pinned: _pinned,
+    personalPin: widget.post?.isPersonal == true,
+    onPin: widget.onPinnedChanged == null ? null : _togglePinned,
     onModerationRemove: widget.onModerationRemove == null
         ? null
         : _removeFromCommunity,
@@ -1212,6 +1264,9 @@ class _PostMenu extends StatelessWidget {
     this.onReport,
     this.onEdit,
     this.onDelete,
+    required this.pinned,
+    required this.personalPin,
+    this.onPin,
     this.onModerationRemove,
   });
 
@@ -1226,6 +1281,9 @@ class _PostMenu extends StatelessWidget {
   final VoidCallback? onReport;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final bool pinned;
+  final bool personalPin;
+  final VoidCallback? onPin;
   final VoidCallback? onModerationRemove;
 
   Future<void> _open(BuildContext context) async {
@@ -1411,6 +1469,19 @@ class _PostMenu extends StatelessWidget {
                     'Share post',
                     'Share it in other apps',
                   ),
+                if (onPin != null)
+                  option(
+                    _PostMenuAction.pin,
+                    pinned ? WicchuIcons.pushPinFill : WicchuIcons.pushPin,
+                    pinned ? 'Unpin publication' : 'Pin publication',
+                    personalPin
+                        ? (pinned
+                              ? 'Remove it from the top of your profile'
+                              : 'Keep it at the top of your profile')
+                        : (pinned
+                              ? 'Remove it from the top of its category'
+                              : 'Keep it at the top of its category'),
+                  ),
                 if (ownedByMe && onEdit != null)
                   option(
                     _PostMenuAction.edit,
@@ -1465,6 +1536,8 @@ class _PostMenu extends StatelessWidget {
         onReport?.call();
       case _PostMenuAction.edit:
         onEdit?.call();
+      case _PostMenuAction.pin:
+        onPin?.call();
       case _PostMenuAction.delete:
         onDelete?.call();
       case _PostMenuAction.moderationRemove:
@@ -1487,4 +1560,12 @@ class _PostMenu extends StatelessWidget {
   );
 }
 
-enum _PostMenuAction { save, share, edit, delete, report, moderationRemove }
+enum _PostMenuAction {
+  save,
+  share,
+  pin,
+  edit,
+  delete,
+  report,
+  moderationRemove,
+}

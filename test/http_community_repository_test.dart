@@ -6,6 +6,7 @@ import 'package:wicchu/domain/community_repository.dart';
 
 class _RecordingApiClient extends AuthenticatedApiClient {
   String? lastPath;
+  String? lastMethod;
   Map<String, dynamic>? lastBody;
 
   @override
@@ -318,6 +319,8 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'status': 'pendingApproval',
           'canInteract': false,
           'canShareToCommunities': true,
+          'pinned': true,
+          'canPin': true,
           'author': {
             'id': 'user-1',
             'name': 'Michael Paliz',
@@ -466,6 +469,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
     Map<String, dynamic>? body,
   }) async {
     lastPath = path;
+    lastMethod = 'PUT';
     lastBody = body;
     if (path == '/api/community/v1/communities/community-1/category-order') {
       return {'order': body?['order'] ?? const <String>[]};
@@ -479,6 +483,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> delete(String path) async {
     lastPath = path;
+    lastMethod = 'DELETE';
     if (path == '/api/community/v1/communities/community-1/category-order') {
       return {
         'order': ['all', 'category-1'],
@@ -1458,6 +1463,21 @@ void main() {
     expect(post.authorAvatarUrl, 'https://example.com/michael.jpg');
     expect(post.canInteract, isFalse);
     expect(post.canShareToCommunities, isTrue);
+    expect(post.pinned, isTrue);
+    expect(post.canPin, isTrue);
+  });
+
+  test('pinning and unpinning use the dedicated post endpoints', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.setPostPinned('post-1', pinned: true);
+    expect(api.lastPath, '/api/community/v1/posts/post-1/pin');
+    expect(api.lastMethod, 'PUT');
+
+    await repository.setPostPinned('post-1', pinned: false);
+    expect(api.lastPath, '/api/community/v1/posts/post-1/pin');
+    expect(api.lastMethod, 'DELETE');
   });
 
   test(

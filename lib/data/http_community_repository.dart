@@ -1787,6 +1787,15 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<void> setPostPinned(String postId, {required bool pinned}) async {
+    if (pinned) {
+      await _api.put('/api/community/v1/posts/$postId/pin');
+    } else {
+      await _api.delete('/api/community/v1/posts/$postId/pin');
+    }
+  }
+
+  @override
   Future<PostMedia> uploadPostMedia({
     required List<int> bytes,
     required String filename,
@@ -2623,6 +2632,8 @@ class HttpCommunityRepository implements CommunityRepository {
           json['isCommunityShare'] == true ||
           json['communityShare'] is Map<String, dynamic>,
       importantAnnouncement: json['importantAnnouncement'] as bool? ?? false,
+      pinned: json['pinned'] as bool? ?? false,
+      canPin: json['canPin'] as bool? ?? false,
     );
   }
 

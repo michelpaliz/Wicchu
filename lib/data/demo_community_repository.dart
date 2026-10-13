@@ -1106,6 +1106,8 @@ class DemoCommunityRepository implements CommunityRepository {
         importantAnnouncement: input.importantAnnouncement,
         businessViewCount: current.businessViewCount,
         businessContactCount: current.businessContactCount,
+        pinned: current.pinned,
+        canPin: current.canPin,
       );
       entry.value[index] = updated;
       return updated;
@@ -1118,6 +1120,53 @@ class DemoCommunityRepository implements CommunityRepository {
     for (final posts in _posts.values) {
       posts.removeWhere((post) => post.id == postId);
     }
+  }
+
+  @override
+  Future<void> setPostPinned(String postId, {required bool pinned}) async {
+    for (final posts in _posts.values) {
+      final index = posts.indexWhere((post) => post.id == postId);
+      if (index < 0) continue;
+      final post = posts[index];
+      posts[index] = CommunityPost(
+        id: post.id,
+        communityId: post.communityId,
+        categoryId: post.categoryId,
+        authorId: post.authorId,
+        text: post.text,
+        status: post.status,
+        createdAt: post.createdAt,
+        media: post.media,
+        authorName: post.authorName,
+        authorAvatarUrl: post.authorAvatarUrl,
+        reactionCount: post.reactionCount,
+        commentCount: post.commentCount,
+        reactedByMe: post.reactedByMe,
+        savedByMe: post.savedByMe,
+        ownedByMe: post.ownedByMe,
+        canInteract: post.canInteract,
+        canShareToCommunities: post.canShareToCommunities,
+        editedAt: post.editedAt,
+        promotion: post.promotion,
+        poll: post.poll,
+        todayMenu: post.todayMenu,
+        businessFeature: post.businessFeature,
+        businessViewCount: post.businessViewCount,
+        businessContactCount: post.businessContactCount,
+        mentionedUserIds: post.mentionedUserIds,
+        isAnonymous: post.isAnonymous,
+        moderationReason: post.moderationReason,
+        reviewedAt: post.reviewedAt,
+        destinationType: post.destinationType,
+        shareCaption: post.shareCaption,
+        isCommunityShare: post.isCommunityShare,
+        importantAnnouncement: post.importantAnnouncement,
+        pinned: pinned,
+        canPin: post.canPin,
+      );
+      return;
+    }
+    throw StateError('Post not found');
   }
 
   @override

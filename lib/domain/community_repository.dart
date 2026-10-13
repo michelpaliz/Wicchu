@@ -402,6 +402,7 @@ abstract interface class CommunityRepository {
   });
   Future<CommunityPost> updatePost(String postId, CreatePostInput input);
   Future<void> deletePost(String postId);
+  Future<void> setPostPinned(String postId, {required bool pinned});
   Future<PostMedia> uploadPostMedia({
     required List<int> bytes,
     required String filename,

@@ -910,6 +910,8 @@ class CommunityPost {
     this.shareCaption = '',
     this.isCommunityShare = false,
     this.importantAnnouncement = false,
+    this.pinned = false,
+    this.canPin = false,
   });
 
   final String id;
@@ -944,6 +946,8 @@ class CommunityPost {
   final String shareCaption;
   final bool isCommunityShare;
   final bool importantAnnouncement;
+  final bool pinned;
+  final bool canPin;
   bool get isPersonal => destinationType == 'personal';
   String get displayText =>
       shareCaption.trim().isEmpty ? text : '${shareCaption.trim()}\n\n$text';

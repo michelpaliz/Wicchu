@@ -3038,6 +3038,16 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                       if (mounted) setState(_reload);
                                     }
                                   : null,
+                              onPinnedChanged:
+                                  post.canPin && !post.isCommunityShare
+                                  ? (pinned) async {
+                                      await widget.repository.setPostPinned(
+                                        post.id,
+                                        pinned: pinned,
+                                      );
+                                      if (mounted) setState(_reload);
+                                    }
+                                  : null,
                               onModerationRemove:
                                   _canManage &&
                                       (post.isCommunityShare || !post.ownedByMe)
