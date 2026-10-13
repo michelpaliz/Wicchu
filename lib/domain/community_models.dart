@@ -215,6 +215,10 @@ class PublicMemberProfile {
     this.followerCount,
     this.followingCount,
     this.followedByMe = false,
+    this.followStatus = UserFollowStatus.none,
+    this.isPrivate = false,
+    this.canViewPersonalPosts = true,
+    this.followRequestCount = 0,
     this.socialLinks = const SocialLinks(),
     this.isOnline = false,
     this.lastActiveAt,
@@ -234,6 +238,10 @@ class PublicMemberProfile {
   final int? followerCount;
   final int? followingCount;
   final bool followedByMe;
+  final UserFollowStatus followStatus;
+  final bool isPrivate;
+  final bool canViewPersonalPosts;
+  final int followRequestCount;
   final int postCount;
   final int communityCount;
   final SocialLinks socialLinks;
@@ -243,6 +251,17 @@ class PublicMemberProfile {
   final bool neonBordersEnabled;
   final NeonBorderAnimation neonBorderAnimation;
   final double neonAnimationDurationSeconds;
+}
+
+enum UserFollowStatus { none, pending, accepted }
+
+class UserFollowActionResult {
+  const UserFollowActionResult({
+    required this.status,
+    required this.followerCount,
+  });
+  final UserFollowStatus status;
+  final int followerCount;
 }
 
 class UserFollowProfile {
@@ -333,6 +352,7 @@ class EditableMemberProfile {
     this.neonBordersEnabled = false,
     this.neonBorderAnimation = NeonBorderAnimation.staticGlow,
     this.neonAnimationDurationSeconds = 5,
+    this.isPrivate = false,
   });
 
   final String name;
@@ -345,6 +365,7 @@ class EditableMemberProfile {
   final bool neonBordersEnabled;
   final NeonBorderAnimation neonBorderAnimation;
   final double neonAnimationDurationSeconds;
+  final bool isPrivate;
 }
 
 class CommunityNotification {

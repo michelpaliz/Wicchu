@@ -30,6 +30,72 @@ class _RetryRepository extends DemoCommunityRepository {
   }
 }
 
+class _PrivateProfileRepository extends DemoCommunityRepository {
+  @override
+  Future<PublicMemberProfile> getMemberProfile(String userId) async =>
+      const PublicMemberProfile(
+        id: 'private-user',
+        name: 'Private member',
+        userName: 'private.member',
+        postCount: 0,
+        communityCount: 0,
+        followerCount: 2,
+        followingCount: 1,
+        isPrivate: true,
+        canViewPersonalPosts: false,
+      );
+
+  @override
+  Future<UserFollowActionResult> followUser(String userId) async =>
+      const UserFollowActionResult(
+        status: UserFollowStatus.pending,
+        followerCount: 2,
+      );
+
+  @override
+  Future<List<CommunityPost>> listMemberPosts(
+    String userId, {
+    String kind = 'all',
+    String sort = 'newest',
+  }) async => const [];
+}
+
+class _FollowRequestRepository extends DemoCommunityRepository {
+  bool? accepted;
+
+  @override
+  Future<PublicMemberProfile> getMemberProfile(String userId) async =>
+      const PublicMemberProfile(
+        id: 'current-user',
+        name: 'Profile owner',
+        userName: 'owner',
+        postCount: 0,
+        communityCount: 0,
+        followRequestCount: 1,
+        isPrivate: true,
+      );
+
+  @override
+  Future<UserFollowPage> listFollowRequests({String? cursor}) async =>
+      const UserFollowPage(
+        users: [
+          UserFollowProfile(
+            id: 'requester',
+            name: 'Requesting member',
+            userName: 'requester',
+          ),
+        ],
+      );
+
+  @override
+  Future<void> respondToFollowRequest(
+    String userId, {
+    required bool accept,
+  }) async {
+    accepted = accept;
+  }
+}
+
 void main() {
   testWidgets(
     'returning from account settings refreshes the short description',
@@ -202,5 +268,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Choose where to publish'), findsOneWidget);
     expect(find.text('Personal publication'), findsWidgets);
+  });
+
+  testWidgets('private profiles require an approved follow request', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemberProfilePage(
+          userId: 'private-user',
+          repository: _PrivateProfileRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('This profile is private'), findsOneWidget);
+    expect(find.text('Follow'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('profile-follow-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Requested'), findsOneWidget);
+    expect(find.text('Follow request sent'), findsOneWidget);
+  });
+
+  testWidgets('profile owner can approve a follow request', (tester) async {
+    final repository = _FollowRequestRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemberProfilePage(userId: 'current-user', repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Follow requests'));
+    await tester.pumpAndSettle();
+    expect(find.text('Requesting member'), findsOneWidget);
+    await tester.tap(find.byTooltip('Accept'));
+    await tester.pumpAndSettle();
+
+    expect(repository.accepted, isTrue);
+    expect(find.text('Requesting member'), findsNothing);
   });
 }

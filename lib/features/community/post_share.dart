@@ -41,6 +41,9 @@ Future<void> _shareGeneratedImage(
   String imageUrl, {
   required String title,
 }) async {
+  if (imageUrl.trim().isEmpty) {
+    throw StateError('The social image is not available.');
+  }
   final shareOrigin = _shareOrigin(context);
   final copiedMessage = context.tr(
     'Description and Wicchu link copied. Paste them into your social post.',
@@ -57,7 +60,6 @@ Future<void> _shareGeneratedImage(
     await SharePlus.instance.share(
       ShareParams(
         title: title,
-        text: kit.message,
         files: prepared.files,
         fileNameOverrides: prepared.fileNames,
         sharePositionOrigin: shareOrigin,
@@ -204,6 +206,7 @@ Future<void> sharePostTo(
           kit.instagramStoryImageUrl,
           title: context.tr('Instagram Story'),
         );
+        return;
       case PostShareDestination.instagramFeed:
         await _shareGeneratedImage(
           context,
@@ -211,6 +214,7 @@ Future<void> sharePostTo(
           kit.instagramFeedImageUrl,
           title: context.tr('Instagram Post'),
         );
+        return;
       case PostShareDestination.whatsapp:
         await _openSocialUrl(context, kit.whatsappUrl, kit.message);
       case PostShareDestination.facebook:

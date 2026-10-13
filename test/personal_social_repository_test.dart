@@ -62,6 +62,9 @@ class _Api extends AuthenticatedApiClient {
         'followerCount': 4,
         'followingCount': 2,
         'followedByMe': true,
+        'followStatus': 'accepted',
+        'isPrivate': true,
+        'canViewPersonalPosts': true,
       },
     };
   }
@@ -72,7 +75,7 @@ class _Api extends AuthenticatedApiClient {
     Map<String, dynamic>? body,
   }) async {
     path = value;
-    return {'following': true, 'followerCount': 5};
+    return {'following': true, 'status': 'accepted', 'followerCount': 5};
   }
 
   @override
@@ -107,13 +110,14 @@ void main() {
 
     final profile = await repository.getMemberProfile('creator');
     expect(profile.followedByMe, isTrue);
+    expect(profile.isPrivate, isTrue);
     expect(profile.shortDescription, 'Independent local journalist');
     expect(profile.neonBordersEnabled, isTrue);
     expect(profile.neonBorderAnimation, NeonBorderAnimation.aurora);
     expect(profile.neonAnimationDurationSeconds, 8);
     expect(profile.followerCount, 4);
-    expect(await repository.followUser('creator'), 5);
-    expect(await repository.unfollowUser('creator'), 4);
+    expect((await repository.followUser('creator')).followerCount, 5);
+    expect((await repository.unfollowUser('creator')).followerCount, 4);
     final followers = await repository.listFollowers('creator');
     expect(followers.users.single.userName, 'follower');
     expect(followers.nextCursor, 'next');

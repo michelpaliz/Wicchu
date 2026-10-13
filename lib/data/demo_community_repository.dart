@@ -107,6 +107,10 @@ class DemoCommunityRepository implements CommunityRepository {
         followerCount: 0,
         followingCount: userId == 'current-user' ? _followedUserIds.length : 0,
         followedByMe: _followedUserIds.contains(userId),
+        followStatus: _followedUserIds.contains(userId)
+            ? UserFollowStatus.accepted
+            : UserFollowStatus.none,
+        isPrivate: userId == 'current-user' && _editableProfile.isPrivate,
         socialLinks: _socialLinks,
         accentColor: _editableProfile.accentColor,
         neonBordersEnabled: _editableProfile.neonBordersEnabled,
@@ -116,16 +120,32 @@ class DemoCommunityRepository implements CommunityRepository {
       );
 
   @override
-  Future<int> followUser(String userId) async {
+  Future<UserFollowActionResult> followUser(String userId) async {
     _followedUserIds.add(userId);
-    return 1;
+    return const UserFollowActionResult(
+      status: UserFollowStatus.accepted,
+      followerCount: 1,
+    );
   }
 
   @override
-  Future<int> unfollowUser(String userId) async {
+  Future<UserFollowActionResult> unfollowUser(String userId) async {
     _followedUserIds.remove(userId);
-    return 0;
+    return const UserFollowActionResult(
+      status: UserFollowStatus.none,
+      followerCount: 0,
+    );
   }
+
+  @override
+  Future<UserFollowPage> listFollowRequests({String? cursor}) async =>
+      const UserFollowPage(users: []);
+
+  @override
+  Future<void> respondToFollowRequest(
+    String userId, {
+    required bool accept,
+  }) async {}
 
   @override
   Future<UserFollowPage> listFollowers(String userId, {String? cursor}) async =>
@@ -176,6 +196,7 @@ class DemoCommunityRepository implements CommunityRepository {
         neonBorderAnimation: _editableProfile.neonBorderAnimation,
         neonAnimationDurationSeconds:
             _editableProfile.neonAnimationDurationSeconds,
+        isPrivate: _editableProfile.isPrivate,
       );
 
   @override

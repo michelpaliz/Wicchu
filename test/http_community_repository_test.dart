@@ -47,6 +47,7 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'neonBordersEnabled': false,
           'neonBorderAnimation': 'breathing',
           'neonAnimationDurationSeconds': 7.5,
+          'isPrivate': true,
           'socialLinks': {
             'whatsapp': '+34600123456',
             'facebook': 'ana',
@@ -602,6 +603,7 @@ void main() {
       expect(profile.accentColor, 'purple');
       expect(profile.neonBorderAnimation, NeonBorderAnimation.breathing);
       expect(profile.neonAnimationDurationSeconds, 7.5);
+      expect(profile.isPrivate, isTrue);
       expect(await repository.isUsernameAvailable('available'), isTrue);
       expect(await repository.isUsernameAvailable('taken'), isFalse);
 
@@ -612,6 +614,7 @@ void main() {
       expect(api.lastBody?['accentColor'], 'purple');
       expect(api.lastBody?['neonBordersEnabled'], isFalse);
       expect(api.lastBody?['neonBorderAnimation'], 'breathing');
+      expect(api.lastBody?['isPrivate'], isTrue);
       expect(api.lastBody?['neonAnimationDurationSeconds'], 7.5);
       expect(api.lastBody?['socialLinks'], {
         'whatsapp': '+34600123456',

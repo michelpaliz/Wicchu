@@ -207,6 +207,18 @@ const _spanish = <String, String>{
       'Solo propietarios y administradores pueden encontrar y editar esta página.',
   'Unpublished': 'No publicada',
   'Profile color': 'Color del perfil',
+  'Profile privacy': 'Privacidad del perfil',
+  'Private profile': 'Perfil privado',
+  'Only approved followers can view your personal profile content.':
+      'Solo los seguidores aprobados pueden ver el contenido de tu perfil personal.',
+  'Posts you publish in public communities remain visible there.':
+      'Las publicaciones que hagas en comunidades públicas seguirán visibles allí.',
+  'This profile is private': 'Este perfil es privado',
+  'Follow this person to view their personal posts.':
+      'Sigue a esta persona para ver sus publicaciones personales.',
+  'Follow requests': 'Solicitudes de seguimiento',
+  'No pending follow requests': 'No hay solicitudes de seguimiento pendientes',
+  'Follow request sent': 'Solicitud de seguimiento enviada',
   'Off': 'Desactivado',
   'On': 'Activado',
   'Choose the color used by your page header and borders.':

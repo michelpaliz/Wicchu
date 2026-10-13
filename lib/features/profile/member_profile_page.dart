@@ -270,6 +270,146 @@ class _UserFollowListPageState extends State<_UserFollowListPage> {
   );
 }
 
+class _FollowRequestsPage extends StatefulWidget {
+  const _FollowRequestsPage({required this.repository});
+  final CommunityRepository repository;
+
+  @override
+  State<_FollowRequestsPage> createState() => _FollowRequestsPageState();
+}
+
+class _FollowRequestsPageState extends State<_FollowRequestsPage> {
+  final _users = <UserFollowProfile>[];
+  final _saving = <String>{};
+  String? _cursor;
+  bool _loading = false;
+  bool _hasMore = true;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load({bool refresh = false}) async {
+    if (_loading || (!_hasMore && !refresh)) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final page = await widget.repository.listFollowRequests(
+        cursor: refresh ? null : _cursor,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (refresh) _users.clear();
+        _users.addAll(
+          page.users.where((item) => !_users.any((old) => old.id == item.id)),
+        );
+        _cursor = page.nextCursor;
+        _hasMore = page.nextCursor != null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _respond(UserFollowProfile user, bool accept) async {
+    if (_saving.contains(user.id)) return;
+    setState(() => _saving.add(user.id));
+    try {
+      await widget.repository.respondToFollowRequest(user.id, accept: accept);
+      if (mounted) {
+        setState(() => _users.removeWhere((item) => item.id == user.id));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _saving.remove(user.id));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(context.tr('Follow requests'))),
+    body: RefreshIndicator(
+      onRefresh: () => _load(refresh: true),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (_users.isEmpty && _loading)
+            const Padding(
+              padding: EdgeInsets.all(40),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_users.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(40),
+              child: Center(
+                child: Text(
+                  _error == null
+                      ? context.tr('No pending follow requests')
+                      : context.trError(_error!),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          else
+            for (final user in _users)
+              Card(
+                child: ListTile(
+                  leading: UserAvatar(
+                    name: user.name,
+                    imageUrl: user.avatarUrl,
+                    userId: user.id,
+                    radius: 22,
+                  ),
+                  title: Text(user.name),
+                  subtitle: user.userName.isEmpty
+                      ? null
+                      : Text('@${user.userName}'),
+                  trailing: _saving.contains(user.id)
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Wrap(
+                          spacing: 4,
+                          children: [
+                            IconButton(
+                              tooltip: context.tr('Reject'),
+                              onPressed: () => _respond(user, false),
+                              icon: const Icon(WicchuIcons.x),
+                            ),
+                            IconButton.filled(
+                              tooltip: context.tr('Accept'),
+                              onPressed: () => _respond(user, true),
+                              icon: const Icon(WicchuIcons.check),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+          if (_error != null || _hasMore)
+            TextButton(
+              onPressed: _loading ? null : () => _load(refresh: _error != null),
+              child: Text(context.tr(_error != null ? 'Retry' : 'Load more')),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _MemberProfilePageState extends State<MemberProfilePage>
     with BlockVisibilityListener<MemberProfilePage> {
   @override
@@ -306,7 +446,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   bool _reporting = false;
   bool _followBusy = false;
   bool _notificationBusy = false;
-  bool? _following;
+  UserFollowStatus? _followStatus;
   int? _followerCount;
   late final Future<WicchuProfile?> _viewer = widget.repository
       .getProfile()
@@ -333,17 +473,21 @@ class _MemberProfilePageState extends State<MemberProfilePage>
       for (final community in communities) {
         _communityNames[community.id] = community.name;
       }
+      final communityIds = posts
+          .map((post) => post.communityId)
+          .where((id) => id.isNotEmpty)
+          .toSet();
       await Future.wait(
-        posts
-            .map((post) => post.communityId)
-            .where((id) => id.isNotEmpty)
-            .toSet()
-            .map((id) async {
-              final categories = await widget.repository.listCategories(id);
-              for (final category in categories) {
-                _categories[category.id] = category;
-              }
-            }),
+        communityIds.map((id) async {
+          if (!_communityNames.containsKey(id)) {
+            final community = await widget.repository.getCommunity(id);
+            _communityNames[id] = community.name;
+          }
+          final categories = await widget.repository.listCategories(id);
+          for (final category in categories) {
+            _categories[category.id] = category;
+          }
+        }),
       );
     } catch (_) {
       // A public post can remain visible even when its community metadata is private.
@@ -352,6 +496,8 @@ class _MemberProfilePageState extends State<MemberProfilePage>
   }
 
   void _reload() => setState(() {
+    _followStatus = null;
+    _followerCount = null;
     _profile = widget.repository.getMemberProfile(widget.userId);
     _posts = _loadPosts();
   });
@@ -419,6 +565,15 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                         tooltip: context.tr('Find people'),
                         onPressed: _findPeople,
                         icon: const Icon(WicchuIcons.userPlus, size: 22),
+                      ),
+                    if (own && profile.followRequestCount > 0)
+                      Badge.count(
+                        count: profile.followRequestCount,
+                        child: IconButton(
+                          tooltip: context.tr('Follow requests'),
+                          onPressed: _openFollowRequests,
+                          icon: const Icon(WicchuIcons.users, size: 22),
+                        ),
                       ),
                     if (viewer.hasData && !own)
                       PopupMenuButton<String>(
@@ -547,9 +702,38 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                         onExplore: widget.onExploreCommunities,
                       );
                     }
-                    return Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(child: Text(context.tr('No posts found'))),
+                    return FutureBuilder<PublicMemberProfile>(
+                      future: _profile,
+                      builder: (context, profileSnapshot) => Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (profileSnapshot.data?.isPrivate == true &&
+                                  profileSnapshot.data?.canViewPersonalPosts ==
+                                      false) ...[
+                                const Icon(WicchuIcons.lockKey, size: 32),
+                                const SizedBox(height: 10),
+                                Text(
+                                  context.tr('This profile is private'),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  context.tr(
+                                    'Follow this person to view their personal posts.',
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ] else
+                                Text(context.tr('No posts found')),
+                            ],
+                          ),
+                        ),
+                      ),
                     );
                   },
                 );
@@ -751,7 +935,7 @@ class _MemberProfilePageState extends State<MemberProfilePage>
       future: _viewer,
       builder: (context, viewer) {
         final own = viewer.data?.id == widget.userId;
-        _following ??= profile.followedByMe;
+        _followStatus ??= profile.followStatus;
         _followerCount ??= profile.followerCount ?? 0;
         final location =
             profile.location ?? (own ? viewer.data?.location : null);
@@ -999,19 +1183,25 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                                 ),
                               )
                             : Icon(
-                                _following == true
+                                _followStatus == UserFollowStatus.accepted
                                     ? WicchuIcons.check
+                                    : _followStatus == UserFollowStatus.pending
+                                    ? WicchuIcons.clock
                                     : WicchuIcons.userPlus,
                                 size: 18,
                               ),
                         label: Text(
                           context.tr(
-                            _following == true ? 'Following' : 'Follow',
+                            _followStatus == UserFollowStatus.accepted
+                                ? 'Following'
+                                : _followStatus == UserFollowStatus.pending
+                                ? 'Requested'
+                                : 'Follow',
                           ),
                         ),
                       ),
                     ),
-                    if (_following == true) ...[
+                    if (_followStatus == UserFollowStatus.accepted) ...[
                       const SizedBox(width: 8),
                       IconButton.filledTonal(
                         tooltip: context.tr('Post notifications'),
@@ -1057,22 +1247,44 @@ class _MemberProfilePageState extends State<MemberProfilePage>
 
   Future<void> _toggleFollow() async {
     if (_followBusy) return;
-    final previous = _following ?? false;
+    final previous = _followStatus ?? UserFollowStatus.none;
     final previousCount = _followerCount ?? 0;
+    final profile = await _profile;
+    if (!mounted) return;
+    final removing = previous != UserFollowStatus.none;
+    final optimistic = removing
+        ? UserFollowStatus.none
+        : profile.isPrivate
+        ? UserFollowStatus.pending
+        : UserFollowStatus.accepted;
     setState(() {
       _followBusy = true;
-      _following = !previous;
-      _followerCount = (previousCount + (previous ? -1 : 1)).clamp(0, 1 << 30);
+      _followStatus = optimistic;
+      if (previous == UserFollowStatus.accepted) {
+        _followerCount = (previousCount - 1).clamp(0, 1 << 30);
+      } else if (optimistic == UserFollowStatus.accepted) {
+        _followerCount = (previousCount + 1).clamp(0, 1 << 30);
+      }
     });
     try {
-      final count = previous
+      final result = removing
           ? await widget.repository.unfollowUser(widget.userId)
           : await widget.repository.followUser(widget.userId);
-      if (mounted) setState(() => _followerCount = count);
+      if (mounted) {
+        setState(() {
+          _followStatus = result.status;
+          _followerCount = result.followerCount;
+        });
+        if (result.status == UserFollowStatus.pending) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.tr('Follow request sent'))),
+          );
+        }
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _following = previous;
+        _followStatus = previous;
         _followerCount = previousCount;
       });
       ScaffoldMessenger.of(
@@ -1175,6 +1387,16 @@ class _MemberProfilePageState extends State<MemberProfilePage>
           userId: widget.userId,
           followers: followers,
         ),
+      ),
+    );
+    if (mounted) _reload();
+  }
+
+  Future<void> _openFollowRequests() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _FollowRequestsPage(repository: widget.repository),
       ),
     );
     if (mounted) _reload();

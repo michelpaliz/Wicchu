@@ -168,4 +168,21 @@ void main() {
       NeonBorderAnimation.snake,
     );
   });
+
+  testWidgets('profile privacy can be enabled and saved', (tester) async {
+    final repository = DemoCommunityRepository();
+    await tester.pumpWidget(
+      MaterialApp(home: EditProfilePage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    final privacy = find.byKey(const ValueKey('private-profile-switch'));
+    await tester.ensureVisible(privacy);
+    await tester.tap(privacy);
+    await tester.pump();
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+
+    expect((await repository.getEditableProfile()).isPrivate, isTrue);
+  });
 }

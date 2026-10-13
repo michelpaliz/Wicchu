@@ -73,6 +73,12 @@ class HttpCommunityRepository implements CommunityRepository {
       followerCount: (json['followerCount'] as num?)?.toInt(),
       followingCount: (json['followingCount'] as num?)?.toInt(),
       followedByMe: json['followedByMe'] == true,
+      followStatus: json['followStatus'] == null && json['followedByMe'] == true
+          ? UserFollowStatus.accepted
+          : _followStatus(json['followStatus']),
+      isPrivate: json['isPrivate'] == true,
+      canViewPersonalPosts: json['canViewPersonalPosts'] != false,
+      followRequestCount: (json['followRequestCount'] as num?)?.toInt() ?? 0,
       postCount: (json['postCount'] as num?)?.toInt() ?? 0,
       communityCount: (json['communityCount'] as num?)?.toInt() ?? 0,
       socialLinks: _socialLinksFromJson(json['socialLinks']),
@@ -89,16 +95,28 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<int> followUser(String userId) async {
+  Future<UserFollowActionResult> followUser(String userId) async {
     final body = await _api.put('/api/community/v1/users/$userId/follow');
-    return (body['followerCount'] as num?)?.toInt() ?? 0;
+    return UserFollowActionResult(
+      status: _followStatus(body['status']),
+      followerCount: (body['followerCount'] as num?)?.toInt() ?? 0,
+    );
   }
 
   @override
-  Future<int> unfollowUser(String userId) async {
+  Future<UserFollowActionResult> unfollowUser(String userId) async {
     final body = await _api.delete('/api/community/v1/users/$userId/follow');
-    return (body['followerCount'] as num?)?.toInt() ?? 0;
+    return UserFollowActionResult(
+      status: UserFollowStatus.none,
+      followerCount: (body['followerCount'] as num?)?.toInt() ?? 0,
+    );
   }
+
+  static UserFollowStatus _followStatus(Object? value) => switch (value) {
+    'accepted' => UserFollowStatus.accepted,
+    'pending' => UserFollowStatus.pending,
+    _ => UserFollowStatus.none,
+  };
 
   Future<UserFollowPage> _followPage(
     String userId,
@@ -133,6 +151,40 @@ class HttpCommunityRepository implements CommunityRepository {
   @override
   Future<UserFollowPage> listFollowingUsers(String userId, {String? cursor}) =>
       _followPage(userId, 'following', cursor: cursor);
+
+  @override
+  Future<UserFollowPage> listFollowRequests({String? cursor}) async {
+    final uri = Uri(
+      path: '/api/community/v1/me/follow-requests',
+      queryParameters: cursor == null ? null : {'cursor': cursor},
+    );
+    final body = await _api.get(uri.toString());
+    return UserFollowPage(
+      users: _list(body, 'users')
+          .map(
+            (json) => UserFollowProfile(
+              id: json['id']?.toString() ?? '',
+              name: json['name']?.toString() ?? 'Wicchu member',
+              userName: json['userName']?.toString() ?? '',
+              avatarUrl: json['avatarUrl'] as String?,
+            ),
+          )
+          .where((user) => user.id.isNotEmpty)
+          .toList(growable: false),
+      nextCursor: body['nextCursor']?.toString(),
+    );
+  }
+
+  @override
+  Future<void> respondToFollowRequest(
+    String userId, {
+    required bool accept,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/me/follow-requests/$userId',
+      body: {'decision': accept ? 'accept' : 'reject'},
+    );
+  }
 
   @override
   Future<PeopleSearchPage> searchPeople({
@@ -497,6 +549,7 @@ class HttpCommunityRepository implements CommunityRepository {
         'neonBordersEnabled': profile.neonBordersEnabled,
         'neonBorderAnimation': profile.neonBorderAnimation.apiValue,
         'neonAnimationDurationSeconds': profile.neonAnimationDurationSeconds,
+        'isPrivate': profile.isPrivate,
         'socialLinks': {
           'whatsapp': profile.socialLinks.whatsapp,
           'facebook': profile.socialLinks.facebook,
@@ -522,6 +575,7 @@ class HttpCommunityRepository implements CommunityRepository {
     ),
     neonAnimationDurationSeconds:
         (json['neonAnimationDurationSeconds'] as num?)?.toDouble() ?? 5,
+    isPrivate: json['isPrivate'] == true,
     socialLinks: _socialLinksFromJson(json['socialLinks']),
   );
 

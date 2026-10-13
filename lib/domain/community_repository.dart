@@ -135,8 +135,10 @@ abstract interface class CommunityRepository {
     required String location,
   });
   Future<PublicMemberProfile> getMemberProfile(String userId);
-  Future<int> followUser(String userId);
-  Future<int> unfollowUser(String userId);
+  Future<UserFollowActionResult> followUser(String userId);
+  Future<UserFollowActionResult> unfollowUser(String userId);
+  Future<UserFollowPage> listFollowRequests({String? cursor});
+  Future<void> respondToFollowRequest(String userId, {required bool accept});
   Future<UserFollowPage> listFollowers(String userId, {String? cursor});
   Future<UserFollowPage> listFollowingUsers(String userId, {String? cursor});
   Future<PeopleSearchPage> searchPeople({

@@ -47,6 +47,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _neonBordersEnabled = false;
   NeonBorderAnimation _neonBorderAnimation = NeonBorderAnimation.staticGlow;
   double _neonAnimationDurationSeconds = 5;
+  bool _isPrivate = false;
 
   @override
   void initState() {
@@ -136,6 +137,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       ..._controllers.map((controller) => controller.text.trim()),
     ];
     return _accentColor != initial.accentColor ||
+        _isPrivate != initial.isPrivate ||
         _neonBordersEnabled != initial.neonBordersEnabled ||
         _neonBorderAnimation != initial.neonBorderAnimation ||
         _neonAnimationDurationSeconds != initial.neonAnimationDurationSeconds ||
@@ -158,6 +160,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _neonBordersEnabled = profile.neonBordersEnabled;
       _neonBorderAnimation = profile.neonBorderAnimation;
       _neonAnimationDurationSeconds = profile.neonAnimationDurationSeconds;
+      _isPrivate = profile.isPrivate;
       final details = [
         profile.name,
         profile.userName,
@@ -293,6 +296,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           neonBordersEnabled: _neonBordersEnabled,
           neonBorderAnimation: _neonBorderAnimation,
           neonAnimationDurationSeconds: _neonAnimationDurationSeconds,
+          isPrivate: _isPrivate,
         ),
       );
       if (!mounted) return;
@@ -677,6 +681,37 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       const SizedBox(height: 12),
                     ],
+                    const Divider(height: 32),
+                    Text(
+                      context.tr('Profile privacy'),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      key: const ValueKey('private-profile-switch'),
+                      contentPadding: EdgeInsets.zero,
+                      value: _isPrivate,
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() => _isPrivate = value),
+                      title: Text(context.tr('Private profile')),
+                      subtitle: Text(
+                        context.tr(
+                          'Only approved followers can view your personal profile content.',
+                        ),
+                      ),
+                      secondary: Icon(
+                        _isPrivate ? WicchuIcons.lockKey : WicchuIcons.globe,
+                      ),
+                    ),
+                    Text(
+                      context.tr(
+                        'Posts you publish in public communities remain visible there.',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     const Divider(height: 32),
                     Text(
                       context.tr('Profile color'),
