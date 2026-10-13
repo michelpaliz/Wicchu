@@ -2173,19 +2173,19 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
               ],
               if (widget.community.isPublicProfile &&
                   _profileCategory == ProfileCategory.localBusiness) ...[
-                if (_businessServices.contains(BusinessService.food)) ...[
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(WicchuIcons.forkKnife),
-                    title: Text(context.tr('Restaurant settings')),
-                    subtitle: Text(
-                      context.tr('Opening hours, contact and delivery options'),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(WicchuIcons.storefront),
+                  title: Text(context.tr('Business operations')),
+                  subtitle: Text(
+                    context.tr(
+                      'Opening hours, contact and fulfillment options',
                     ),
-                    trailing: const Icon(WicchuIcons.caretRight),
-                    onTap: _saving ? null : _openRestaurantSettings,
                   ),
-                  _settingsDivider(),
-                ],
+                  trailing: const Icon(WicchuIcons.caretRight),
+                  onTap: _saving ? null : _openRestaurantSettings,
+                ),
+                _settingsDivider(),
               ],
               ListTile(
                 key: const ValueKey('page-location-settings'),
@@ -2486,14 +2486,14 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                 longitude: _businessLongitude,
                 showExactAddress: _showExactBusinessAddress,
               ),
-        businessHours: _businessServices.contains(BusinessService.food)
+        businessHours: _profileCategory == ProfileCategory.localBusiness
             ? List.unmodifiable(_businessHours)
             : null,
         businessFulfillmentOptions:
-            _businessServices.contains(BusinessService.food)
+            _profileCategory == ProfileCategory.localBusiness
             ? List.unmodifiable(_businessFulfillmentOptions)
             : null,
-        businessContact: _businessServices.contains(BusinessService.food)
+        businessContact: _profileCategory == ProfileCategory.localBusiness
             ? _businessContact
             : null,
         imageUrl: _imageUrl,

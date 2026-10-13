@@ -59,6 +59,10 @@ class DemoCommunityRepository implements CommunityRepository {
   NotificationPreferences _notificationPreferences =
       const NotificationPreferences();
   final Map<String, ScopedNotificationPreferences> _scopedPreferences = {};
+  final Map<String, BusinessCatalog> _businessCatalogs = {};
+  final List<BusinessOrder> _businessOrders = [];
+  final Map<String, BusinessRequestSettings> _businessRequestSettings = {};
+  final List<BusinessRequest> _businessRequests = [];
 
   static const _towns = [Town(id: 'town-1', name: 'Town X', countryCode: 'EC')];
 
@@ -957,6 +961,393 @@ class DemoCommunityRepository implements CommunityRepository {
       categoryIcon: category.icon,
     );
   }
+
+  @override
+  Future<BusinessCatalog> getBusinessCatalog(
+    String businessId, {
+    bool manage = false,
+  }) async =>
+      _businessCatalogs[businessId] ??
+      BusinessCatalog(
+        businessId: businessId,
+        businessName:
+            _communities
+                .where((community) => community.id == businessId)
+                .map((community) => community.name)
+                .firstOrNull ??
+            'Local business',
+      );
+
+  @override
+  Future<void> setBusinessAcceptingOrders(
+    String businessId, {
+    required bool accepting,
+  }) async {
+    final current = await getBusinessCatalog(businessId, manage: true);
+    _businessCatalogs[businessId] = BusinessCatalog(
+      businessId: current.businessId,
+      businessName: current.businessName,
+      acceptingOrders: accepting,
+      fulfillmentOptions: current.fulfillmentOptions,
+      whatsapp: current.whatsapp,
+      categories: current.categories,
+      products: current.products,
+    );
+  }
+
+  @override
+  Future<BusinessCatalogCategory> createBusinessCatalogCategory(
+    String businessId,
+    String name,
+  ) async {
+    final current = await getBusinessCatalog(businessId, manage: true);
+    final category = BusinessCatalogCategory(
+      id: 'demo-category-${current.categories.length + 1}',
+      name: name,
+      position: current.categories.length,
+    );
+    _businessCatalogs[businessId] = BusinessCatalog(
+      businessId: current.businessId,
+      businessName: current.businessName,
+      acceptingOrders: current.acceptingOrders,
+      fulfillmentOptions: current.fulfillmentOptions,
+      whatsapp: current.whatsapp,
+      categories: [...current.categories, category],
+      products: current.products,
+    );
+    return category;
+  }
+
+  @override
+  Future<void> deleteBusinessCatalogCategory(
+    String businessId,
+    String categoryId,
+  ) async {
+    final current = await getBusinessCatalog(businessId, manage: true);
+    _businessCatalogs[businessId] = BusinessCatalog(
+      businessId: current.businessId,
+      businessName: current.businessName,
+      acceptingOrders: current.acceptingOrders,
+      fulfillmentOptions: current.fulfillmentOptions,
+      whatsapp: current.whatsapp,
+      categories: current.categories
+          .where((category) => category.id != categoryId)
+          .toList(),
+      products: current.products,
+    );
+  }
+
+  BusinessProduct _demoProduct(String id, BusinessProductInput input) =>
+      BusinessProduct(
+        id: id,
+        categoryId: input.categoryId,
+        name: input.name,
+        description: input.description,
+        priceCents: input.priceCents,
+        kind: input.kind,
+        imageUrl: input.image?.url,
+        available: input.available,
+        quantityAvailable: input.quantityAvailable,
+        variants: input.variants
+            .map(
+              (variant) => BusinessProductVariant(
+                id: variant.id ?? 'demo-variant-${variant.name}',
+                name: variant.name,
+                sku: variant.sku,
+                priceCents: variant.priceCents,
+                available: variant.available,
+                quantityAvailable: variant.quantityAvailable,
+                attributes: variant.attributes,
+              ),
+            )
+            .toList(growable: false),
+        expiresAt: input.expiresAt,
+        position: input.position,
+      );
+
+  @override
+  Future<BusinessProduct> createBusinessProduct(
+    String businessId,
+    BusinessProductInput input,
+  ) async {
+    final current = await getBusinessCatalog(businessId, manage: true);
+    final product = _demoProduct(
+      'demo-product-${current.products.length + 1}',
+      input,
+    );
+    _businessCatalogs[businessId] = BusinessCatalog(
+      businessId: current.businessId,
+      businessName: current.businessName,
+      acceptingOrders: current.acceptingOrders,
+      fulfillmentOptions: current.fulfillmentOptions,
+      whatsapp: current.whatsapp,
+      categories: current.categories,
+      products: [...current.products, product],
+    );
+    return product;
+  }
+
+  @override
+  Future<BusinessProduct> updateBusinessProduct(
+    String businessId,
+    String productId,
+    BusinessProductInput input,
+  ) async {
+    final current = await getBusinessCatalog(businessId, manage: true);
+    final product = _demoProduct(productId, input);
+    _businessCatalogs[businessId] = BusinessCatalog(
+      businessId: current.businessId,
+      businessName: current.businessName,
+      acceptingOrders: current.acceptingOrders,
+      fulfillmentOptions: current.fulfillmentOptions,
+      whatsapp: current.whatsapp,
+      categories: current.categories,
+      products: current.products
+          .map((item) => item.id == productId ? product : item)
+          .toList(),
+    );
+    return product;
+  }
+
+  @override
+  Future<void> deleteBusinessProduct(
+    String businessId,
+    String productId,
+  ) async {
+    final current = await getBusinessCatalog(businessId, manage: true);
+    _businessCatalogs[businessId] = BusinessCatalog(
+      businessId: current.businessId,
+      businessName: current.businessName,
+      acceptingOrders: current.acceptingOrders,
+      fulfillmentOptions: current.fulfillmentOptions,
+      whatsapp: current.whatsapp,
+      categories: current.categories,
+      products: current.products
+          .where((product) => product.id != productId)
+          .toList(),
+    );
+  }
+
+  @override
+  Future<BusinessOrder> createBusinessOrder(
+    String businessId,
+    BusinessOrderInput input,
+  ) async {
+    final catalog = await getBusinessCatalog(businessId);
+    final lines = input.lines.isNotEmpty
+        ? input.lines
+        : input.quantities.entries
+              .map(
+                (entry) => BusinessOrderLineInput(
+                  productId: entry.key,
+                  quantity: entry.value,
+                ),
+              )
+              .toList();
+    final items = lines.map((line) {
+      final product = catalog.products.firstWhere(
+        (product) => product.id == line.productId,
+      );
+      final variant = line.variantId == null
+          ? null
+          : product.variants.firstWhere(
+              (variant) => variant.id == line.variantId,
+            );
+      final quantity = line.quantity;
+      final unitPrice = variant?.priceCents ?? product.priceCents;
+      return BusinessOrderItem(
+        productId: product.id,
+        name: product.name,
+        variantId: variant?.id,
+        variantName: variant?.name ?? '',
+        sku: variant?.sku ?? '',
+        quantity: quantity,
+        unitPriceCents: unitPrice,
+        totalCents: unitPrice * quantity,
+      );
+    }).toList();
+    final order = BusinessOrder(
+      id: 'demo-order-${_businessOrders.length + 1}',
+      businessId: businessId,
+      businessName: catalog.businessName,
+      orderNumber: 1001 + _businessOrders.length,
+      status: BusinessOrderStatus.pending,
+      fulfillmentMethod: input.fulfillmentMethod,
+      deliveryAddress: input.deliveryAddress,
+      customerPhone: input.customerPhone,
+      notes: input.notes,
+      subtotalCents: items.fold(0, (total, item) => total + item.totalCents),
+      items: items,
+      createdAt: DateTime.now(),
+    );
+    _businessOrders.insert(0, order);
+    return order;
+  }
+
+  @override
+  Future<List<BusinessOrder>> listMyBusinessOrders() async =>
+      List.unmodifiable(_businessOrders);
+
+  @override
+  Future<List<BusinessOrder>> listManagedBusinessOrders(
+    String businessId,
+  ) async => _businessOrders
+      .where((order) => order.businessId == businessId)
+      .toList(growable: false);
+
+  BusinessOrder _orderWithStatus(
+    BusinessOrder order,
+    BusinessOrderStatus status,
+  ) => BusinessOrder(
+    id: order.id,
+    businessId: order.businessId,
+    businessName: order.businessName,
+    orderNumber: order.orderNumber,
+    status: status,
+    fulfillmentMethod: order.fulfillmentMethod,
+    customerName: order.customerName,
+    deliveryAddress: order.deliveryAddress,
+    customerPhone: order.customerPhone,
+    notes: order.notes,
+    subtotalCents: order.subtotalCents,
+    items: order.items,
+    createdAt: order.createdAt,
+  );
+
+  @override
+  Future<BusinessOrder> updateBusinessOrderStatus(
+    String orderId,
+    BusinessOrderStatus status, {
+    String reason = '',
+  }) async {
+    final index = _businessOrders.indexWhere((order) => order.id == orderId);
+    if (index < 0) throw StateError('Order not found');
+    return _businessOrders[index] = _orderWithStatus(
+      _businessOrders[index],
+      status,
+    );
+  }
+
+  @override
+  Future<BusinessOrder> cancelBusinessOrder(String orderId) =>
+      updateBusinessOrderStatus(orderId, BusinessOrderStatus.cancelled);
+
+  @override
+  Future<BusinessRequestSettings> getBusinessRequestSettings(
+    String businessId,
+  ) async =>
+      _businessRequestSettings[businessId] ??
+      BusinessRequestSettings(
+        businessId: businessId,
+        businessName: 'Local business',
+        acceptingRequests: true,
+        capabilities: const [BusinessRequestType.service],
+      );
+
+  @override
+  Future<BusinessRequestSettings> updateBusinessRequestSettings(
+    String businessId, {
+    required bool acceptingRequests,
+    required List<BusinessRequestType> capabilities,
+  }) async {
+    final current = await getBusinessRequestSettings(businessId);
+    final updated = BusinessRequestSettings(
+      businessId: businessId,
+      businessName: current.businessName,
+      acceptingRequests: acceptingRequests,
+      capabilities: capabilities,
+    );
+    _businessRequestSettings[businessId] = updated;
+    return updated;
+  }
+
+  @override
+  Future<BusinessRequest> createBusinessRequest(
+    String businessId,
+    BusinessRequestInput input,
+  ) async {
+    final request = BusinessRequest(
+      id: 'request-${_businessRequests.length + 1}',
+      businessId: businessId,
+      requestNumber: 2001 + _businessRequests.length,
+      type: input.type,
+      status: BusinessRequestStatus.pending,
+      serviceName: input.serviceName,
+      description: input.description,
+      contactPhone: input.contactPhone,
+      location: input.location,
+      destination: input.destination,
+      preferredAt: input.preferredAt,
+      createdAt: DateTime.now(),
+    );
+    _businessRequests.insert(0, request);
+    return request;
+  }
+
+  @override
+  Future<List<BusinessRequest>> listMyBusinessRequests() async =>
+      List.unmodifiable(_businessRequests);
+
+  @override
+  Future<List<BusinessRequest>> listManagedBusinessRequests(
+    String businessId,
+  ) async => _businessRequests
+      .where((request) => request.businessId == businessId)
+      .toList(growable: false);
+
+  BusinessRequest _requestWithStatus(
+    BusinessRequest request,
+    BusinessRequestStatus status, {
+    String message = '',
+    DateTime? scheduledAt,
+    int? quotedPriceCents,
+  }) => BusinessRequest(
+    id: request.id,
+    businessId: request.businessId,
+    businessName: request.businessName,
+    requestNumber: request.requestNumber,
+    type: request.type,
+    status: status,
+    serviceName: request.serviceName,
+    customerName: request.customerName,
+    description: request.description,
+    contactPhone: request.contactPhone,
+    location: request.location,
+    destination: request.destination,
+    preferredAt: request.preferredAt,
+    scheduledAt: scheduledAt ?? request.scheduledAt,
+    quotedPriceCents: quotedPriceCents ?? request.quotedPriceCents,
+    businessMessage: message.isEmpty ? request.businessMessage : message,
+    attachments: request.attachments,
+    createdAt: request.createdAt,
+  );
+
+  @override
+  Future<BusinessRequest> updateBusinessRequestStatus(
+    String requestId,
+    BusinessRequestStatus status, {
+    String message = '',
+    DateTime? scheduledAt,
+    int? quotedPriceCents,
+  }) async {
+    final index = _businessRequests.indexWhere(
+      (request) => request.id == requestId,
+    );
+    if (index < 0) throw StateError('Request not found');
+    final updated = _requestWithStatus(
+      _businessRequests[index],
+      status,
+      message: message,
+      scheduledAt: scheduledAt,
+      quotedPriceCents: quotedPriceCents,
+    );
+    _businessRequests[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<BusinessRequest> cancelBusinessRequest(String requestId) =>
+      updateBusinessRequestStatus(requestId, BusinessRequestStatus.cancelled);
 
   @override
   Future<PostShareKit> getPostShareKit(String postId) async {

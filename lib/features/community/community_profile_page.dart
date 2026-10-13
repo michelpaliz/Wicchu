@@ -41,6 +41,8 @@ import 'report_dialog.dart';
 import 'post_share.dart';
 import 'comments_sheet.dart';
 import 'create_post_page.dart';
+import 'business_order_pages.dart';
+import 'business_request_pages.dart';
 
 enum CommunityScreen { feed, information, members, rules, links, rating }
 
@@ -3228,6 +3230,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           if (_community.businessServices.contains(BusinessService.food)) ...[
             const SizedBox(height: 12),
             _restaurantSummary(),
+          ] else if (_isLocalBusiness &&
+              (_canManage ||
+                  _community.businessAcceptingOrders ||
+                  _community.businessRequestCapabilities.isNotEmpty)) ...[
+            const SizedBox(height: 12),
+            _businessCatalogButton(foodBusiness: false),
           ],
           if (_community.isPublicProfile && !_canManage) ...[
             const SizedBox(height: 12),
@@ -3339,6 +3347,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 ],
               ),
             ],
+            const SizedBox(height: 10),
+            _businessCatalogButton(foodBusiness: true),
             if (contact.phone.isNotEmpty || contact.whatsapp.isNotEmpty) ...[
               const SizedBox(height: 10),
               Row(
@@ -3370,6 +3380,121 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 ],
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _businessCatalogButton({required bool foodBusiness}) {
+    final managesBusiness =
+        _community.myRole == CommunityRole.owner ||
+        _community.myRole == CommunityRole.admin;
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: () => managesBusiness
+            ? Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BusinessTransactionsPage(
+                    businessId: _community.id,
+                    businessName: _community.name,
+                    repository: widget.repository,
+                  ),
+                ),
+              )
+            : _openBusinessCustomerAction(foodBusiness: foodBusiness),
+        icon: Icon(managesBusiness ? WicchuIcons.gearSix : WicchuIcons.tote),
+        label: Text(
+          context.tr(
+            managesBusiness
+                ? 'Manage business'
+                : foodBusiness
+                ? 'View menu and order'
+                : _community.businessAcceptingOrders &&
+                      _community.businessRequestCapabilities.isEmpty
+                ? 'View products and order'
+                : !_community.businessAcceptingOrders &&
+                      _community.businessRequestCapabilities.length == 1
+                ? _community.businessRequestCapabilities.first.actionLabel
+                : 'Choose an action',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openBusinessCustomerAction({required bool foodBusiness}) async {
+    final requestTypes = _community.businessRequestCapabilities;
+    final offersProducts = foodBusiness || _community.businessAcceptingOrders;
+    if (!offersProducts && requestTypes.isNotEmpty) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BusinessRequestComposerPage(
+            businessId: _community.id,
+            repository: widget.repository,
+            initialCapabilities: requestTypes,
+          ),
+        ),
+      );
+      return;
+    }
+    if (offersProducts && requestTypes.isEmpty) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BusinessMenuPage(
+            businessId: _community.id,
+            repository: widget.repository,
+          ),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (offersProducts)
+              ListTile(
+                leading: const Icon(WicchuIcons.forkKnife),
+                title: Text(context.tr('Order food or products')),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BusinessMenuPage(
+                        businessId: _community.id,
+                        repository: widget.repository,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ListTile(
+              leading: const Icon(WicchuIcons.clipboardText),
+              title: Text(context.tr('Request a service')),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BusinessRequestComposerPage(
+                      businessId: _community.id,
+                      repository: widget.repository,
+                      initialCapabilities: requestTypes,
+                    ),
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),

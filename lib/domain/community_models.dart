@@ -90,6 +90,8 @@ enum CommunityNotificationType {
   newPost,
   newPersonalPost,
   todayMenu,
+  businessOrder,
+  businessRequest,
   postApproved,
   postRejected,
   postRemoved,
@@ -380,6 +382,8 @@ class CommunityNotification {
     this.actorAvatarUrl,
     this.communityId = '',
     this.promotionId = '',
+    this.orderId = '',
+    this.requestId = '',
   });
 
   final String id;
@@ -392,6 +396,8 @@ class CommunityNotification {
   final bool isRead;
   final String communityId;
   final String promotionId;
+  final String orderId;
+  final String requestId;
 }
 
 class NotificationFeed {
@@ -436,6 +442,9 @@ class Community {
     this.businessHours = const [],
     this.businessFulfillmentOptions = const [],
     this.businessContact = const BusinessContact(),
+    this.businessAcceptingOrders = false,
+    this.businessAcceptingRequests = false,
+    this.businessRequestCapabilities = const [],
     this.membershipStatus,
     this.banPublicReason,
     this.banExpiresAt,
@@ -472,6 +481,9 @@ class Community {
   final List<BusinessHour> businessHours;
   final List<BusinessFulfillmentOption> businessFulfillmentOptions;
   final BusinessContact businessContact;
+  final bool businessAcceptingOrders;
+  final bool businessAcceptingRequests;
+  final List<BusinessRequestType> businessRequestCapabilities;
 
   String get spaceTypeLabel => isPublicProfile
       ? profileCategory?.label ?? 'Public profile'
@@ -791,6 +803,280 @@ enum BusinessFulfillmentOption {
     }
     return null;
   }
+}
+
+class BusinessCatalogCategory {
+  const BusinessCatalogCategory({
+    required this.id,
+    required this.name,
+    this.position = 0,
+    this.active = true,
+  });
+
+  final String id;
+  final String name;
+  final int position;
+  final bool active;
+}
+
+enum BusinessProductKind { product, dailyMenu }
+
+class BusinessProductVariant {
+  const BusinessProductVariant({
+    required this.id,
+    required this.name,
+    this.sku = '',
+    this.priceCents,
+    this.available = true,
+    this.quantityAvailable,
+    this.attributes = const {},
+  });
+
+  final String id;
+  final String name;
+  final String sku;
+  final int? priceCents;
+  final bool available;
+  final int? quantityAvailable;
+  final Map<String, String> attributes;
+
+  bool get canOrder =>
+      available && (quantityAvailable == null || quantityAvailable! > 0);
+}
+
+class BusinessProduct {
+  const BusinessProduct({
+    required this.id,
+    required this.categoryId,
+    required this.name,
+    required this.priceCents,
+    this.kind = BusinessProductKind.product,
+    this.description = '',
+    this.currency = 'USD',
+    this.imageUrl,
+    this.available = true,
+    this.quantityAvailable,
+    this.variants = const [],
+    this.expiresAt,
+    this.position = 0,
+  });
+
+  final String id;
+  final String categoryId;
+  final BusinessProductKind kind;
+  final String name;
+  final String description;
+  final int priceCents;
+  final String currency;
+  final String? imageUrl;
+  final bool available;
+  final int? quantityAvailable;
+  final List<BusinessProductVariant> variants;
+  final DateTime? expiresAt;
+  final int position;
+
+  bool get isExpired =>
+      expiresAt != null && !expiresAt!.isAfter(DateTime.now());
+  bool get canOrder =>
+      available &&
+      !isExpired &&
+      (variants.isNotEmpty
+          ? variants.any((variant) => variant.canOrder)
+          : quantityAvailable == null || quantityAvailable! > 0);
+}
+
+class BusinessCatalog {
+  const BusinessCatalog({
+    required this.businessId,
+    required this.businessName,
+    this.acceptingOrders = false,
+    this.fulfillmentOptions = const [],
+    this.whatsapp = '',
+    this.currency = 'USD',
+    this.categories = const [],
+    this.products = const [],
+  });
+
+  final String businessId;
+  final String businessName;
+  final bool acceptingOrders;
+  final List<BusinessFulfillmentOption> fulfillmentOptions;
+  final String whatsapp;
+  final String currency;
+  final List<BusinessCatalogCategory> categories;
+  final List<BusinessProduct> products;
+}
+
+enum BusinessOrderStatus {
+  pending,
+  accepted,
+  preparing,
+  ready,
+  completed,
+  rejected,
+  cancelled;
+
+  static BusinessOrderStatus fromApi(Object? value) => values.firstWhere(
+    (status) => status.name == value,
+    orElse: () => BusinessOrderStatus.pending,
+  );
+}
+
+class BusinessOrderItem {
+  const BusinessOrderItem({
+    required this.productId,
+    required this.name,
+    required this.quantity,
+    required this.unitPriceCents,
+    required this.totalCents,
+    this.imageUrl,
+    this.variantId,
+    this.variantName = '',
+    this.sku = '',
+  });
+
+  final String productId;
+  final String name;
+  final int quantity;
+  final int unitPriceCents;
+  final int totalCents;
+  final String? imageUrl;
+  final String? variantId;
+  final String variantName;
+  final String sku;
+}
+
+class BusinessOrder {
+  const BusinessOrder({
+    required this.id,
+    required this.businessId,
+    required this.orderNumber,
+    required this.status,
+    required this.fulfillmentMethod,
+    required this.subtotalCents,
+    required this.items,
+    required this.createdAt,
+    this.businessName = '',
+    this.customerName = '',
+    this.deliveryAddress = '',
+    this.customerPhone = '',
+    this.notes = '',
+    this.currency = 'USD',
+  });
+
+  final String id;
+  final String businessId;
+  final String businessName;
+  final int orderNumber;
+  final BusinessOrderStatus status;
+  final BusinessFulfillmentOption fulfillmentMethod;
+  final String customerName;
+  final String deliveryAddress;
+  final String customerPhone;
+  final String notes;
+  final String currency;
+  final int subtotalCents;
+  final List<BusinessOrderItem> items;
+  final DateTime createdAt;
+}
+
+enum BusinessRequestType {
+  quote('quote', 'Request a quote'),
+  appointment('appointment', 'Book appointment'),
+  service('service', 'Request service'),
+  taxi('taxi', 'Request taxi');
+
+  const BusinessRequestType(this.apiValue, this.actionLabel);
+  final String apiValue;
+  final String actionLabel;
+
+  static BusinessRequestType? fromApi(Object? value) {
+    for (final type in values) {
+      if (type.apiValue == value) return type;
+    }
+    return null;
+  }
+}
+
+enum BusinessRequestStatus {
+  pending,
+  accepted,
+  quoted,
+  scheduled,
+  inProgress,
+  completed,
+  rejected,
+  cancelled;
+
+  String get apiValue => this == inProgress ? 'in_progress' : name;
+
+  static BusinessRequestStatus fromApi(Object? value) => values.firstWhere(
+    (status) => status.apiValue == value,
+    orElse: () => BusinessRequestStatus.pending,
+  );
+}
+
+class BusinessRequestSettings {
+  const BusinessRequestSettings({
+    required this.businessId,
+    required this.businessName,
+    this.acceptingRequests = false,
+    this.capabilities = const [],
+  });
+
+  final String businessId;
+  final String businessName;
+  final bool acceptingRequests;
+  final List<BusinessRequestType> capabilities;
+}
+
+class BusinessRequestAttachment {
+  const BusinessRequestAttachment({required this.url});
+  final String url;
+}
+
+class BusinessRequest {
+  const BusinessRequest({
+    required this.id,
+    required this.businessId,
+    required this.requestNumber,
+    required this.type,
+    required this.status,
+    required this.serviceName,
+    required this.createdAt,
+    this.businessName = '',
+    this.customerName = '',
+    this.description = '',
+    this.contactPhone = '',
+    this.location = '',
+    this.destination = '',
+    this.preferredAt,
+    this.scheduledAt,
+    this.quotedPriceCents,
+    this.currency = 'USD',
+    this.businessMessage = '',
+    this.attachments = const [],
+  });
+
+  final String id;
+  final String businessId;
+  final String businessName;
+  final int requestNumber;
+  final BusinessRequestType type;
+  final BusinessRequestStatus status;
+  final String serviceName;
+  final String customerName;
+  final String description;
+  final String contactPhone;
+  final String location;
+  final String destination;
+  final DateTime? preferredAt;
+  final DateTime? scheduledAt;
+  final int? quotedPriceCents;
+  final String currency;
+  final String businessMessage;
+  final List<BusinessRequestAttachment> attachments;
+  final DateTime createdAt;
 }
 
 class TodayMenuDish {

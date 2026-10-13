@@ -128,6 +128,7 @@ abstract final class WicchuIcons {
   static const pencilSimple = PhosphorIconsRegular.pencilSimple;
   static const percent = PhosphorIconsRegular.percent;
   static const phone = PhosphorIconsRegular.phone;
+  static const receipt = PhosphorIconsRegular.receipt;
   static const plant = PhosphorIconsRegular.plant;
   static const playCircle = PhosphorIconsRegular.playCircle;
   static const playFill = PhosphorIconsFill.play;

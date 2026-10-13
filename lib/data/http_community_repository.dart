@@ -1526,6 +1526,293 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<BusinessCatalog> getBusinessCatalog(
+    String businessId, {
+    bool manage = false,
+  }) async {
+    final body = await _api.get(
+      '/api/community/v1/businesses/$businessId/${manage ? 'manage/catalog' : 'catalog'}',
+    );
+    return _businessCatalogFromJson(_object(body, 'catalog'));
+  }
+
+  @override
+  Future<void> setBusinessAcceptingOrders(
+    String businessId, {
+    required bool accepting,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/businesses/$businessId/order-settings',
+      body: {'acceptingOrders': accepting},
+    );
+  }
+
+  @override
+  Future<BusinessCatalogCategory> createBusinessCatalogCategory(
+    String businessId,
+    String name,
+  ) async {
+    final body = await _api.post(
+      '/api/community/v1/businesses/$businessId/catalog/categories',
+      body: {'name': name},
+    );
+    return _businessCatalogCategoryFromJson(_object(body, 'category'));
+  }
+
+  @override
+  Future<void> deleteBusinessCatalogCategory(
+    String businessId,
+    String categoryId,
+  ) async {
+    await _api.delete(
+      '/api/community/v1/businesses/$businessId/catalog/categories/$categoryId',
+    );
+  }
+
+  Map<String, Object?> _businessProductBody(BusinessProductInput input) => {
+    'categoryId': input.categoryId,
+    'kind': input.kind == BusinessProductKind.dailyMenu
+        ? 'daily_menu'
+        : 'product',
+    'name': input.name,
+    'description': input.description,
+    'priceCents': input.priceCents,
+    'available': input.available,
+    'quantityAvailable': input.quantityAvailable,
+    'variants': input.variants
+        .map(
+          (variant) => {
+            if (variant.id != null) 'id': variant.id,
+            'name': variant.name,
+            'sku': variant.sku,
+            'priceCents': variant.priceCents,
+            'available': variant.available,
+            'quantityAvailable': variant.quantityAvailable,
+            'attributes': variant.attributes.entries
+                .map((entry) => {'name': entry.key, 'value': entry.value})
+                .toList(),
+          },
+        )
+        .toList(),
+    'expiresAt': input.expiresAt?.toUtc().toIso8601String(),
+    'position': input.position,
+    if (input.image != null) 'imageBlobName': input.image!.blobName,
+    if (input.image != null) 'imageUrl': input.image!.url,
+  };
+
+  @override
+  Future<BusinessProduct> createBusinessProduct(
+    String businessId,
+    BusinessProductInput input,
+  ) async {
+    final body = await _api.post(
+      '/api/community/v1/businesses/$businessId/catalog/products',
+      body: _businessProductBody(input),
+    );
+    return _businessProductFromJson(_object(body, 'product'));
+  }
+
+  @override
+  Future<BusinessProduct> updateBusinessProduct(
+    String businessId,
+    String productId,
+    BusinessProductInput input,
+  ) async {
+    final body = await _api.patch(
+      '/api/community/v1/businesses/$businessId/catalog/products/$productId',
+      body: _businessProductBody(input),
+    );
+    return _businessProductFromJson(_object(body, 'product'));
+  }
+
+  @override
+  Future<void> deleteBusinessProduct(
+    String businessId,
+    String productId,
+  ) async {
+    await _api.delete(
+      '/api/community/v1/businesses/$businessId/catalog/products/$productId',
+    );
+  }
+
+  @override
+  Future<BusinessOrder> createBusinessOrder(
+    String businessId,
+    BusinessOrderInput input,
+  ) async {
+    final body = await _api.post(
+      '/api/community/v1/businesses/$businessId/orders',
+      body: {
+        'fulfillmentMethod': input.fulfillmentMethod.apiValue,
+        'deliveryAddress': input.deliveryAddress,
+        'customerPhone': input.customerPhone,
+        'notes': input.notes,
+        'items': input.lines.isNotEmpty
+            ? input.lines
+                  .where((line) => line.quantity > 0)
+                  .map(
+                    (line) => {
+                      'productId': line.productId,
+                      if (line.variantId != null) 'variantId': line.variantId,
+                      'quantity': line.quantity,
+                    },
+                  )
+                  .toList()
+            : input.quantities.entries
+                  .where((entry) => entry.value > 0)
+                  .map(
+                    (entry) => {
+                      'productId': entry.key,
+                      'quantity': entry.value,
+                    },
+                  )
+                  .toList(),
+      },
+    );
+    return _businessOrderFromJson(_object(body, 'order'));
+  }
+
+  @override
+  Future<List<BusinessOrder>> listMyBusinessOrders() async {
+    final body = await _api.get('/api/community/v1/me/business-orders');
+    return _list(
+      body,
+      'orders',
+    ).map(_businessOrderFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<List<BusinessOrder>> listManagedBusinessOrders(
+    String businessId,
+  ) async {
+    final body = await _api.get(
+      '/api/community/v1/businesses/$businessId/orders',
+    );
+    return _list(
+      body,
+      'orders',
+    ).map(_businessOrderFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<BusinessOrder> updateBusinessOrderStatus(
+    String orderId,
+    BusinessOrderStatus status, {
+    String reason = '',
+  }) async {
+    final body = await _api.patch(
+      '/api/community/v1/business-orders/$orderId/status',
+      body: {'status': status.name, 'reason': reason},
+    );
+    return _businessOrderFromJson(_object(body, 'order'));
+  }
+
+  @override
+  Future<BusinessOrder> cancelBusinessOrder(String orderId) async {
+    final body = await _api.post(
+      '/api/community/v1/business-orders/$orderId/cancel',
+    );
+    return _businessOrderFromJson(_object(body, 'order'));
+  }
+
+  @override
+  Future<BusinessRequestSettings> getBusinessRequestSettings(
+    String businessId,
+  ) async {
+    final body = await _api.get(
+      '/api/community/v1/businesses/$businessId/request-settings',
+    );
+    return _businessRequestSettingsFromJson(_object(body, 'settings'));
+  }
+
+  @override
+  Future<BusinessRequestSettings> updateBusinessRequestSettings(
+    String businessId, {
+    required bool acceptingRequests,
+    required List<BusinessRequestType> capabilities,
+  }) async {
+    final body = await _api.patch(
+      '/api/community/v1/businesses/$businessId/request-settings',
+      body: {
+        'acceptingRequests': acceptingRequests,
+        'capabilities': capabilities.map((type) => type.apiValue).toList(),
+      },
+    );
+    return _businessRequestSettingsFromJson(_object(body, 'settings'));
+  }
+
+  @override
+  Future<BusinessRequest> createBusinessRequest(
+    String businessId,
+    BusinessRequestInput input,
+  ) async {
+    final body = await _api.post(
+      '/api/community/v1/businesses/$businessId/requests',
+      body: {
+        'type': input.type.apiValue,
+        'serviceName': input.serviceName,
+        'description': input.description,
+        'contactPhone': input.contactPhone,
+        'location': input.location,
+        'destination': input.destination,
+        'preferredAt': input.preferredAt?.toUtc().toIso8601String(),
+        'attachmentBlobNames': input.attachmentBlobNames,
+      },
+    );
+    return _businessRequestFromJson(_object(body, 'request'));
+  }
+
+  @override
+  Future<List<BusinessRequest>> listMyBusinessRequests() async {
+    final body = await _api.get('/api/community/v1/me/business-requests');
+    return _list(
+      body,
+      'requests',
+    ).map(_businessRequestFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<List<BusinessRequest>> listManagedBusinessRequests(
+    String businessId,
+  ) async {
+    final body = await _api.get(
+      '/api/community/v1/businesses/$businessId/requests',
+    );
+    return _list(
+      body,
+      'requests',
+    ).map(_businessRequestFromJson).toList(growable: false);
+  }
+
+  @override
+  Future<BusinessRequest> updateBusinessRequestStatus(
+    String requestId,
+    BusinessRequestStatus status, {
+    String message = '',
+    DateTime? scheduledAt,
+    int? quotedPriceCents,
+  }) async {
+    final body = await _api.patch(
+      '/api/community/v1/business-requests/$requestId/status',
+      body: {
+        'status': status.apiValue,
+        'message': message,
+        'scheduledAt': scheduledAt?.toUtc().toIso8601String(),
+        'quotedPriceCents': quotedPriceCents,
+      },
+    );
+    return _businessRequestFromJson(_object(body, 'request'));
+  }
+
+  @override
+  Future<BusinessRequest> cancelBusinessRequest(String requestId) async {
+    final body = await _api.post(
+      '/api/community/v1/business-requests/$requestId/cancel',
+    );
+    return _businessRequestFromJson(_object(body, 'request'));
+  }
+
+  @override
   Future<CommunityPost> getPost(String postId) async {
     final body = await _api.get('/api/community/v1/posts/$postId');
     return _postFromJson(_object(body, 'post'));
@@ -2377,6 +2664,169 @@ class HttpCommunityRepository implements CommunityRepository {
     countryCode: json['countryCode'] as String? ?? '',
   );
 
+  static BusinessCatalogCategory _businessCatalogCategoryFromJson(
+    Map<String, dynamic> json,
+  ) => BusinessCatalogCategory(
+    id: _id(json),
+    name: json['name']?.toString() ?? '',
+    position: (json['position'] as num?)?.toInt() ?? 0,
+    active: json['active'] != false,
+  );
+
+  static BusinessProduct _businessProductFromJson(Map<String, dynamic> json) =>
+      BusinessProduct(
+        id: _id(json),
+        categoryId: json['categoryId']?.toString() ?? '',
+        kind: json['kind'] == 'daily_menu'
+            ? BusinessProductKind.dailyMenu
+            : BusinessProductKind.product,
+        name: json['name']?.toString() ?? '',
+        description: json['description']?.toString() ?? '',
+        priceCents: (json['priceCents'] as num?)?.toInt() ?? 0,
+        currency: json['currency']?.toString() ?? 'USD',
+        imageUrl: json['imageUrl']?.toString(),
+        available: json['available'] != false,
+        quantityAvailable: (json['quantityAvailable'] as num?)?.toInt(),
+        variants: (json['variants'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (variant) => BusinessProductVariant(
+                id: _id(variant),
+                name: variant['name']?.toString() ?? '',
+                sku: variant['sku']?.toString() ?? '',
+                priceCents: (variant['priceCents'] as num?)?.toInt(),
+                available: variant['available'] != false,
+                quantityAvailable: (variant['quantityAvailable'] as num?)
+                    ?.toInt(),
+                attributes: {
+                  for (final attribute
+                      in (variant['attributes'] as List? ?? const [])
+                          .whereType<Map<String, dynamic>>())
+                    if ((attribute['name']?.toString() ?? '').isNotEmpty)
+                      attribute['name'].toString():
+                          attribute['value']?.toString() ?? '',
+                },
+              ),
+            )
+            .toList(growable: false),
+        expiresAt: _optionalDate(json['expiresAt']),
+        position: (json['position'] as num?)?.toInt() ?? 0,
+      );
+
+  static BusinessCatalog _businessCatalogFromJson(Map<String, dynamic> json) =>
+      BusinessCatalog(
+        businessId: json['businessId']?.toString() ?? '',
+        businessName: json['businessName']?.toString() ?? '',
+        acceptingOrders: json['acceptingOrders'] == true,
+        fulfillmentOptions: (json['fulfillmentOptions'] as List? ?? const [])
+            .map(BusinessFulfillmentOption.fromApi)
+            .whereType<BusinessFulfillmentOption>()
+            .toList(growable: false),
+        whatsapp: json['whatsapp']?.toString() ?? '',
+        currency: json['currency']?.toString() ?? 'USD',
+        categories: (json['categories'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(_businessCatalogCategoryFromJson)
+            .toList(growable: false),
+        products: (json['products'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(_businessProductFromJson)
+            .toList(growable: false),
+      );
+
+  static BusinessOrder _businessOrderFromJson(Map<String, dynamic> json) {
+    final fulfillment =
+        BusinessFulfillmentOption.fromApi(json['fulfillmentMethod']) ??
+        BusinessFulfillmentOption.pickup;
+    final business = json['business'] is Map<String, dynamic>
+        ? json['business'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final customer = json['customer'] is Map<String, dynamic>
+        ? json['customer'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    return BusinessOrder(
+      id: _id(json),
+      businessId: json['businessId']?.toString() ?? '',
+      businessName: business['name']?.toString() ?? '',
+      orderNumber: (json['orderNumber'] as num?)?.toInt() ?? 0,
+      status: BusinessOrderStatus.fromApi(json['status']),
+      fulfillmentMethod: fulfillment,
+      customerName: customer['name']?.toString() ?? '',
+      deliveryAddress: json['deliveryAddress']?.toString() ?? '',
+      customerPhone: json['customerPhone']?.toString() ?? '',
+      notes: json['notes']?.toString() ?? '',
+      currency: json['currency']?.toString() ?? 'USD',
+      subtotalCents: (json['subtotalCents'] as num?)?.toInt() ?? 0,
+      items: (json['items'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (item) => BusinessOrderItem(
+              productId: item['productId']?.toString() ?? '',
+              name: item['name']?.toString() ?? '',
+              quantity: (item['quantity'] as num?)?.toInt() ?? 0,
+              unitPriceCents: (item['unitPriceCents'] as num?)?.toInt() ?? 0,
+              totalCents: (item['totalCents'] as num?)?.toInt() ?? 0,
+              imageUrl: item['imageUrl']?.toString(),
+              variantId: item['variantId']?.toString(),
+              variantName: item['variantName']?.toString() ?? '',
+              sku: item['sku']?.toString() ?? '',
+            ),
+          )
+          .toList(growable: false),
+      createdAt:
+          _optionalDate(json['createdAt']) ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+    );
+  }
+
+  static BusinessRequestSettings _businessRequestSettingsFromJson(
+    Map<String, dynamic> json,
+  ) => BusinessRequestSettings(
+    businessId: json['businessId']?.toString() ?? '',
+    businessName: json['businessName']?.toString() ?? '',
+    acceptingRequests: json['acceptingRequests'] == true,
+    capabilities: (json['capabilities'] as List? ?? const [])
+        .map(BusinessRequestType.fromApi)
+        .whereType<BusinessRequestType>()
+        .toList(growable: false),
+  );
+
+  static BusinessRequest _businessRequestFromJson(Map<String, dynamic> json) {
+    final customer = json['customer'] is Map<String, dynamic>
+        ? json['customer'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    return BusinessRequest(
+      id: _id(json),
+      businessId: json['businessId']?.toString() ?? '',
+      businessName: json['businessName']?.toString() ?? '',
+      requestNumber: (json['requestNumber'] as num?)?.toInt() ?? 0,
+      type:
+          BusinessRequestType.fromApi(json['type']) ??
+          BusinessRequestType.service,
+      status: BusinessRequestStatus.fromApi(json['status']),
+      serviceName: json['serviceName']?.toString() ?? '',
+      customerName: customer['name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      contactPhone: json['contactPhone']?.toString() ?? '',
+      location: json['location']?.toString() ?? '',
+      destination: json['destination']?.toString() ?? '',
+      preferredAt: _optionalDate(json['preferredAt']),
+      scheduledAt: _optionalDate(json['scheduledAt']),
+      quotedPriceCents: (json['quotedPriceCents'] as num?)?.toInt(),
+      currency: json['currency']?.toString() ?? 'USD',
+      businessMessage: json['businessMessage']?.toString() ?? '',
+      attachments: (json['attachments'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map((item) => item['url']?.toString() ?? '')
+          .where((url) => url.isNotEmpty)
+          .map((url) => BusinessRequestAttachment(url: url))
+          .toList(growable: false),
+      createdAt:
+          _optionalDate(json['createdAt']) ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+    );
+  }
+
   static CommunityRule _ruleFromJson(Map<String, dynamic> json) =>
       CommunityRule(
         id: _id(json),
@@ -2405,6 +2855,13 @@ class HttpCommunityRepository implements CommunityRepository {
           .whereType<BusinessService>()
           .take(maxBusinessServices)
           .toList(growable: false),
+      businessAcceptingRequests: json['businessAcceptingRequests'] == true,
+      businessAcceptingOrders: json['businessAcceptingOrders'] == true,
+      businessRequestCapabilities:
+          (json['businessRequestCapabilities'] as List? ?? const [])
+              .map(BusinessRequestType.fromApi)
+              .whereType<BusinessRequestType>()
+              .toList(growable: false),
       slug: json['slug'] as String? ?? '',
       type: json['type'] == 'public_profile'
           ? CommunityType.publicProfile
@@ -2771,6 +3228,8 @@ class HttpCommunityRepository implements CommunityRepository {
       postId: json['postId']?.toString() ?? '',
       communityId: json['communityId']?.toString() ?? '',
       promotionId: json['promotionId']?.toString() ?? '',
+      orderId: json['orderId']?.toString() ?? '',
+      requestId: json['requestId']?.toString() ?? '',
       message: json['message'] as String? ?? '',
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
@@ -2831,6 +3290,8 @@ class HttpCommunityRepository implements CommunityRepository {
     'new_post' => CommunityNotificationType.newPost,
     'new_personal_post' => CommunityNotificationType.newPersonalPost,
     'today_menu' => CommunityNotificationType.todayMenu,
+    'business_order' => CommunityNotificationType.businessOrder,
+    'business_request' => CommunityNotificationType.businessRequest,
     'post_approved' => CommunityNotificationType.postApproved,
     'post_rejected' => CommunityNotificationType.postRejected,
     'post_removed' => CommunityNotificationType.postRemoved,

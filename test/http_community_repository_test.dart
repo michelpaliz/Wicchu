@@ -12,6 +12,55 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
+    if (path == '/api/community/v1/businesses/business-1/catalog') {
+      return {
+        'catalog': {
+          'businessId': 'business-1',
+          'businessName': 'Burger House',
+          'acceptingOrders': true,
+          'fulfillmentOptions': ['delivery', 'pickup'],
+          'whatsapp': '+593999999999',
+          'categories': [
+            {'id': 'burgers', 'name': 'Burgers', 'position': 0},
+          ],
+          'products': [
+            {
+              'id': 'classic',
+              'categoryId': 'burgers',
+              'kind': 'product',
+              'name': 'Classic burger',
+              'priceCents': 450,
+              'available': true,
+              'quantityAvailable': 8,
+              'variants': [
+                {
+                  'id': 'variant-medium-blue',
+                  'name': 'Medium · Blue',
+                  'sku': 'TS-M-BLU',
+                  'priceCents': 500,
+                  'available': true,
+                  'quantityAvailable': 3,
+                  'attributes': [
+                    {'name': 'Size', 'value': 'M'},
+                    {'name': 'Color', 'value': 'Blue'},
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      };
+    }
+    if (path == '/api/community/v1/businesses/business-1/request-settings') {
+      return {
+        'settings': {
+          'businessId': 'business-1',
+          'businessName': 'Jardines Michel',
+          'acceptingRequests': true,
+          'capabilities': ['quote', 'service'],
+        },
+      };
+    }
     if (path == '/api/community/v1/me/notifications') {
       return {
         'notifications': [
@@ -417,6 +466,44 @@ class _RecordingApiClient extends AuthenticatedApiClient {
         },
       };
     }
+    if (path == '/api/community/v1/businesses/business-1/orders') {
+      return {
+        'order': {
+          'id': 'order-1',
+          'businessId': 'business-1',
+          'orderNumber': 1042,
+          'status': 'pending',
+          'fulfillmentMethod': body?['fulfillmentMethod'],
+          'subtotalCents': 900,
+          'items': [
+            {
+              'productId': 'classic',
+              'name': 'Classic burger',
+              'quantity': 2,
+              'unitPriceCents': 450,
+              'totalCents': 900,
+            },
+          ],
+          'createdAt': '2026-10-13T10:00:00.000Z',
+        },
+      };
+    }
+    if (path == '/api/community/v1/businesses/business-1/requests') {
+      return {
+        'request': {
+          'id': 'request-1',
+          'businessId': 'business-1',
+          'requestNumber': 1043,
+          'type': body?['type'],
+          'status': 'pending',
+          'serviceName': body?['serviceName'],
+          'description': body?['description'],
+          'preferredAt': body?['preferredAt'],
+          'attachments': const [],
+          'createdAt': '2026-10-13T12:00:00.000Z',
+        },
+      };
+    }
     return {
       'community': {'id': 'community-1', ...?body},
     };
@@ -448,6 +535,45 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'status': 'published',
           'createdAt': '2026-10-07T10:00:00.000Z',
           'businessFeature': body?['businessFeature'],
+        },
+      };
+    }
+    if (path == '/api/community/v1/business-orders/order-1/status') {
+      return {
+        'order': {
+          'id': 'order-1',
+          'businessId': 'business-1',
+          'orderNumber': 1042,
+          'status': body?['status'],
+          'fulfillmentMethod': 'delivery',
+          'subtotalCents': 900,
+          'items': const [],
+          'createdAt': '2026-10-13T10:00:00.000Z',
+        },
+      };
+    }
+    if (path == '/api/community/v1/business-requests/request-1/status') {
+      return {
+        'request': {
+          'id': 'request-1',
+          'businessId': 'business-1',
+          'requestNumber': 1043,
+          'type': 'quote',
+          'status': body?['status'],
+          'serviceName': 'Garden maintenance',
+          'quotedPriceCents': body?['quotedPriceCents'],
+          'attachments': const [],
+          'createdAt': '2026-10-13T12:00:00.000Z',
+        },
+      };
+    }
+    if (path == '/api/community/v1/businesses/business-1/request-settings') {
+      return {
+        'settings': {
+          'businessId': 'business-1',
+          'businessName': 'Jardines Michel',
+          'acceptingRequests': body?['acceptingRequests'],
+          'capabilities': body?['capabilities'],
         },
       };
     }
@@ -1372,6 +1498,100 @@ void main() {
       BusinessFulfillmentOption.delivery,
     ]);
   });
+
+  test(
+    'business catalog and order flow preserve prices and quantities',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+
+      final catalog = await repository.getBusinessCatalog('business-1');
+      expect(catalog.businessName, 'Burger House');
+      expect(catalog.acceptingOrders, isTrue);
+      expect(catalog.products.single.priceCents, 450);
+      expect(catalog.products.single.quantityAvailable, 8);
+      expect(catalog.products.single.variants.single.name, 'Medium · Blue');
+      expect(catalog.products.single.variants.single.attributes['Size'], 'M');
+
+      final order = await repository.createBusinessOrder(
+        'business-1',
+        const BusinessOrderInput(
+          fulfillmentMethod: BusinessFulfillmentOption.delivery,
+          deliveryAddress: 'Calle Principal',
+          lines: [
+            BusinessOrderLineInput(
+              productId: 'classic',
+              variantId: 'variant-medium-blue',
+              quantity: 2,
+            ),
+          ],
+        ),
+      );
+      expect(api.lastPath, '/api/community/v1/businesses/business-1/orders');
+      expect(api.lastBody?['items'], [
+        {
+          'productId': 'classic',
+          'variantId': 'variant-medium-blue',
+          'quantity': 2,
+        },
+      ]);
+      expect(order.orderNumber, 1042);
+      expect(order.subtotalCents, 900);
+
+      final accepted = await repository.updateBusinessOrderStatus(
+        order.id,
+        BusinessOrderStatus.accepted,
+      );
+      expect(api.lastPath, '/api/community/v1/business-orders/order-1/status');
+      expect(api.lastBody?['status'], 'accepted');
+      expect(accepted.status, BusinessOrderStatus.accepted);
+    },
+  );
+
+  test(
+    'business requests use contextual types and shared status APIs',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+
+      final settings = await repository.getBusinessRequestSettings(
+        'business-1',
+      );
+      expect(settings.acceptingRequests, isTrue);
+      expect(settings.capabilities, [
+        BusinessRequestType.quote,
+        BusinessRequestType.service,
+      ]);
+
+      final preferredAt = DateTime.utc(2026, 10, 20, 9);
+      final request = await repository.createBusinessRequest(
+        'business-1',
+        BusinessRequestInput(
+          type: BusinessRequestType.quote,
+          serviceName: 'Garden maintenance',
+          description: 'Trim the garden and clean the pool.',
+          preferredAt: preferredAt,
+          attachmentBlobNames: const ['request/photo.jpg'],
+        ),
+      );
+      expect(api.lastPath, '/api/community/v1/businesses/business-1/requests');
+      expect(api.lastBody?['type'], 'quote');
+      expect(api.lastBody?['attachmentBlobNames'], ['request/photo.jpg']);
+      expect(request.requestNumber, 1043);
+
+      final quoted = await repository.updateBusinessRequestStatus(
+        request.id,
+        BusinessRequestStatus.quoted,
+        quotedPriceCents: 7500,
+      );
+      expect(
+        api.lastPath,
+        '/api/community/v1/business-requests/request-1/status',
+      );
+      expect(api.lastBody?['status'], 'quoted');
+      expect(quoted.quotedPriceCents, 7500);
+    },
+  );
 
   test('specialized business posts preserve their structured type', () async {
     final api = _RecordingApiClient();

@@ -40,6 +40,8 @@ import '../community/post_collection_page.dart';
 import '../community/post_detail_page.dart';
 import '../community/post_share.dart';
 import '../community/local_discovery_view.dart';
+import '../community/business_order_pages.dart';
+import '../community/business_request_pages.dart';
 import '../community/user_avatar.dart';
 import '../chat/direct_chat_pages.dart';
 import '../settings/account_settings_page.dart';
@@ -3572,6 +3574,8 @@ class _ActivityTabState extends State<_ActivityTab> {
       CommunityNotificationType.newPost => WicchuIcons.megaphone,
       CommunityNotificationType.newPersonalPost => WicchuIcons.article,
       CommunityNotificationType.todayMenu => WicchuIcons.forkKnife,
+      CommunityNotificationType.businessOrder => WicchuIcons.receipt,
+      CommunityNotificationType.businessRequest => WicchuIcons.clipboardText,
       CommunityNotificationType.commentReaction => WicchuIcons.heart,
       CommunityNotificationType.postComment ||
       CommunityNotificationType.commentReply ||
@@ -3601,6 +3605,8 @@ class _ActivityTabState extends State<_ActivityTab> {
       CommunityNotificationType.postReaction ||
       CommunityNotificationType.commentReaction => Colors.pink.shade600,
       CommunityNotificationType.todayMenu => Colors.orange.shade700,
+      CommunityNotificationType.businessOrder => colors.primary,
+      CommunityNotificationType.businessRequest => colors.primary,
       CommunityNotificationType.postComment ||
       CommunityNotificationType.commentReply => Colors.blue.shade600,
       _ => colors.primary,
@@ -3753,6 +3759,68 @@ class _ActivityTabState extends State<_ActivityTab> {
               MyCommunityInvitationsPage(repository: widget.repository),
         ),
       );
+      if (mounted) setState(_reload);
+      return;
+    }
+    if (notification.type == CommunityNotificationType.businessOrder) {
+      try {
+        final community = await widget.repository.getCommunity(
+          notification.communityId,
+        );
+        if (!mounted) return;
+        final manages =
+            community.myRole == CommunityRole.owner ||
+            community.myRole == CommunityRole.admin;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => manages
+                ? BusinessOrderManagementPage(
+                    businessId: community.id,
+                    businessName: community.name,
+                    repository: widget.repository,
+                  )
+                : MyBusinessOrdersPage(repository: widget.repository),
+          ),
+        );
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+        }
+      }
+      if (mounted) setState(_reload);
+      return;
+    }
+    if (notification.type == CommunityNotificationType.businessRequest) {
+      try {
+        final community = await widget.repository.getCommunity(
+          notification.communityId,
+        );
+        if (!mounted) return;
+        final manages =
+            community.myRole == CommunityRole.owner ||
+            community.myRole == CommunityRole.admin;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => manages
+                ? BusinessRequestManagementPage(
+                    businessId: community.id,
+                    businessName: community.name,
+                    repository: widget.repository,
+                  )
+                : MyBusinessRequestsPage(repository: widget.repository),
+          ),
+        );
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+        }
+      }
       if (mounted) setState(_reload);
       return;
     }

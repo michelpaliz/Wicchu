@@ -121,6 +121,106 @@ class CreatePostInput {
   final bool importantAnnouncement;
 }
 
+class BusinessProductInput {
+  const BusinessProductInput({
+    required this.categoryId,
+    required this.name,
+    required this.priceCents,
+    this.kind = BusinessProductKind.product,
+    this.description = '',
+    this.image,
+    this.available = true,
+    this.quantityAvailable,
+    this.variants = const [],
+    this.expiresAt,
+    this.position = 0,
+  });
+
+  final String categoryId;
+  final String name;
+  final int priceCents;
+  final BusinessProductKind kind;
+  final String description;
+  final PostMedia? image;
+  final bool available;
+  final int? quantityAvailable;
+  final List<BusinessProductVariantInput> variants;
+  final DateTime? expiresAt;
+  final int position;
+}
+
+class BusinessProductVariantInput {
+  const BusinessProductVariantInput({
+    this.id,
+    required this.name,
+    this.sku = '',
+    this.priceCents,
+    this.available = true,
+    this.quantityAvailable,
+    this.attributes = const {},
+  });
+
+  final String? id;
+  final String name;
+  final String sku;
+  final int? priceCents;
+  final bool available;
+  final int? quantityAvailable;
+  final Map<String, String> attributes;
+}
+
+class BusinessOrderLineInput {
+  const BusinessOrderLineInput({
+    required this.productId,
+    required this.quantity,
+    this.variantId,
+  });
+
+  final String productId;
+  final String? variantId;
+  final int quantity;
+}
+
+class BusinessOrderInput {
+  const BusinessOrderInput({
+    required this.fulfillmentMethod,
+    this.quantities = const {},
+    this.lines = const [],
+    this.deliveryAddress = '',
+    this.customerPhone = '',
+    this.notes = '',
+  });
+
+  final BusinessFulfillmentOption fulfillmentMethod;
+  final Map<String, int> quantities;
+  final List<BusinessOrderLineInput> lines;
+  final String deliveryAddress;
+  final String customerPhone;
+  final String notes;
+}
+
+class BusinessRequestInput {
+  const BusinessRequestInput({
+    required this.type,
+    required this.serviceName,
+    this.description = '',
+    this.contactPhone = '',
+    this.location = '',
+    this.destination = '',
+    this.preferredAt,
+    this.attachmentBlobNames = const [],
+  });
+
+  final BusinessRequestType type;
+  final String serviceName;
+  final String description;
+  final String contactPhone;
+  final String location;
+  final String destination;
+  final DateTime? preferredAt;
+  final List<String> attachmentBlobNames;
+}
+
 abstract interface class CommunityRepository {
   Future<List<Town>> listTowns();
   Future<Town> locateTown({
@@ -265,6 +365,64 @@ abstract interface class CommunityRepository {
     String communityId,
     String email,
   );
+  Future<BusinessCatalog> getBusinessCatalog(
+    String businessId, {
+    bool manage = false,
+  });
+  Future<void> setBusinessAcceptingOrders(
+    String businessId, {
+    required bool accepting,
+  });
+  Future<BusinessCatalogCategory> createBusinessCatalogCategory(
+    String businessId,
+    String name,
+  );
+  Future<void> deleteBusinessCatalogCategory(
+    String businessId,
+    String categoryId,
+  );
+  Future<BusinessProduct> createBusinessProduct(
+    String businessId,
+    BusinessProductInput input,
+  );
+  Future<BusinessProduct> updateBusinessProduct(
+    String businessId,
+    String productId,
+    BusinessProductInput input,
+  );
+  Future<void> deleteBusinessProduct(String businessId, String productId);
+  Future<BusinessOrder> createBusinessOrder(
+    String businessId,
+    BusinessOrderInput input,
+  );
+  Future<List<BusinessOrder>> listMyBusinessOrders();
+  Future<List<BusinessOrder>> listManagedBusinessOrders(String businessId);
+  Future<BusinessOrder> updateBusinessOrderStatus(
+    String orderId,
+    BusinessOrderStatus status, {
+    String reason = '',
+  });
+  Future<BusinessOrder> cancelBusinessOrder(String orderId);
+  Future<BusinessRequestSettings> getBusinessRequestSettings(String businessId);
+  Future<BusinessRequestSettings> updateBusinessRequestSettings(
+    String businessId, {
+    required bool acceptingRequests,
+    required List<BusinessRequestType> capabilities,
+  });
+  Future<BusinessRequest> createBusinessRequest(
+    String businessId,
+    BusinessRequestInput input,
+  );
+  Future<List<BusinessRequest>> listMyBusinessRequests();
+  Future<List<BusinessRequest>> listManagedBusinessRequests(String businessId);
+  Future<BusinessRequest> updateBusinessRequestStatus(
+    String requestId,
+    BusinessRequestStatus status, {
+    String message = '',
+    DateTime? scheduledAt,
+    int? quotedPriceCents,
+  });
+  Future<BusinessRequest> cancelBusinessRequest(String requestId);
   Future<CommunityInvitation> createCommunityInvitationLink(String communityId);
   Future<CommunityInvitation> getCommunityInvitationLink(String token);
   Future<void> respondToCommunityInvitationLink(

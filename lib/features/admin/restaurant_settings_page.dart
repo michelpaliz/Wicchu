@@ -64,7 +64,7 @@ class _RestaurantSettingsPageState extends State<RestaurantSettingsPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Restaurant settings'))),
+    appBar: AppBar(title: Text(context.tr('Business operations'))),
     body: SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(16),
