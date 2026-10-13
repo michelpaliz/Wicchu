@@ -170,6 +170,12 @@ Future<void> sharePostTo(
       if (context.mounted) await _shareMedia(context, post);
       return;
     }
+    if (destination == PostShareDestination.instagramFeed &&
+        post.media.isNotEmpty) {
+      await repository.recordPostShare(post.id).catchError((_) {});
+      if (context.mounted) await _shareMedia(context, post);
+      return;
+    }
     if (destination != PostShareDestination.copyLink) {
       showDialog<void>(
         context: context,
@@ -288,7 +294,11 @@ Future<void> sharePost(
               leading: const Icon(WicchuIcons.image),
               title: Text(sheetContext.tr('Instagram Post')),
               subtitle: Text(
-                sheetContext.tr('Share a Wicchu-designed 4:5 image.'),
+                sheetContext.tr(
+                  post.media.isEmpty
+                      ? 'Share a Wicchu-designed 4:5 image.'
+                      : 'Share the original photos or videos without cropping.',
+                ),
               ),
               onTap: () => Navigator.pop(
                 sheetContext,

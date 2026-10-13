@@ -116,6 +116,11 @@ void main() {
     );
     expect(find.text('Share a Wicchu-designed 9:16 image.'), findsOneWidget);
     expect(find.text('Instagram Post'), findsOneWidget);
+    expect(
+      find.text('Share the original photos or videos without cropping.'),
+      findsOneWidget,
+    );
+    expect(find.text('Share a Wicchu-designed 4:5 image.'), findsNothing);
     expect(find.text('WhatsApp'), findsOneWidget);
     expect(find.text('Facebook'), findsOneWidget);
     expect(find.text('Copy link'), findsOneWidget);

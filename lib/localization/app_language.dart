@@ -1112,6 +1112,8 @@ const _spanish = <String, String>{
       'Comparte una imagen 9:16 diseñada por Wicchu.',
   'Share a Wicchu-designed 4:5 image.':
       'Comparte una imagen 4:5 diseñada por Wicchu.',
+  'Share the original photos or videos without cropping.':
+      'Comparte las fotos o vídeos originales sin recortarlos.',
   'More sharing options': 'Más opciones para compartir',
   'Preparing share…': 'Preparando para compartir…',
   'Caption copied. Paste it in Instagram if needed.':
