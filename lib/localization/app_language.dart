@@ -1002,6 +1002,8 @@ const _spanish = <String, String>{
       'Hay una nueva actualización de Wicchu disponible',
   'Version {version} is ready to install.':
       'La versión {version} está lista para instalarse.',
+  'A new version is ready to install.':
+      'Hay una nueva versión lista para instalarse.',
   "What's new": 'Novedades',
   'Later': 'Más tarde',
   'Update now': 'Actualizar ahora',

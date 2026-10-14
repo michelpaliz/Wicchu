@@ -136,9 +136,11 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  context.tr('Version {version} is ready to install.', {
-                    'version': update.latestVersion,
-                  }),
+                  update.latestVersion.isEmpty
+                      ? context.tr('A new version is ready to install.')
+                      : context.tr('Version {version} is ready to install.', {
+                          'version': update.latestVersion,
+                        }),
                 ),
                 if (update.releaseNotes.isNotEmpty) ...[
                   const SizedBox(height: 16),
@@ -159,10 +161,14 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
                 ),
               FilledButton.icon(
                 onPressed: () async {
-                  final opened = await launchUrl(
-                    Uri.parse(update.updateUrl),
-                    mode: LaunchMode.externalApplication,
-                  );
+                  final result = await _appUpdateService.install(update);
+                  if (result == AppUpdateActionResult.cancelled) return;
+                  final opened =
+                      result == AppUpdateActionResult.success ||
+                      await launchUrl(
+                        Uri.parse(update.updateUrl),
+                        mode: LaunchMode.externalApplication,
+                      );
                   if (!opened && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
