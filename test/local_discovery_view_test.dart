@@ -37,6 +37,17 @@ class _LocalDiscoveryRepository extends DemoCommunityRepository {
       profileCategory: ProfileCategory.localBusiness,
       businessServices: const [BusinessService.transport],
     ),
+    Community(
+      id: 'wicchu',
+      name: 'Wicchu',
+      description: 'Community services',
+      town: town,
+      visibility: CommunityVisibility.public,
+      createdBy: 'owner-3',
+      createdAt: DateTime.utc(2026),
+      type: CommunityType.publicProfile,
+      profileCategory: ProfileCategory.organization,
+    ),
   ];
 
   late final posts = [
@@ -199,6 +210,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Como en Casa'), findsOneWidget);
+    expect(find.text('Transporte Express'), findsNothing);
+  });
+
+  testWidgets('organization pages appear in all and services discovery', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LocalDiscoveryView(repository: _LocalDiscoveryRepository()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wicchu'), findsOneWidget);
+    expect(find.textContaining('Organization'), findsOneWidget);
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Services'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Services'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wicchu'), findsOneWidget);
+    expect(find.text('Como en Casa'), findsNothing);
     expect(find.text('Transporte Express'), findsNothing);
   });
 

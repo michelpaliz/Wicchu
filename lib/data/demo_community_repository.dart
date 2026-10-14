@@ -386,7 +386,8 @@ class DemoCommunityRepository implements CommunityRepository {
   }) async => List.unmodifiable(
     _communities.where(
       (community) =>
-          community.profileCategory == ProfileCategory.localBusiness &&
+          (community.profileCategory == ProfileCategory.localBusiness ||
+              community.profileCategory == ProfileCategory.organization) &&
           (townId == null || community.town.id == townId) &&
           (query == null ||
               query.trim().isEmpty ||

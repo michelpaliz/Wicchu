@@ -9,6 +9,7 @@ import '../../domain/community_input_limits.dart';
 import 'package:flutter/services.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../../services/post_image_preparation.dart';
 import 'rule_management_page.dart';
 import 'official_links_page.dart';
 import 'business_services_page.dart';
@@ -2739,26 +2740,30 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   Future<void> _pickImage({required bool cover}) async {
     final file = await ImagePicker().pickImage(
       source: ImageSource.gallery,
-      imageQuality: 88,
-      maxWidth: cover ? 2400 : 1600,
-      maxHeight: cover ? 1200 : 1600,
+      requestFullMetadata: false,
     );
     if (file == null || !mounted) return;
-    final bytes = await file.readAsBytes();
-    if (bytes.length > 10 * 1024 * 1024) {
+    if (await file.length() > 25 * 1024 * 1024) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('The photo must be under 10 MB.'))),
+          SnackBar(content: Text(context.tr('The file must be under 25 MB.'))),
         );
       }
       return;
     }
     setState(() => _uploadingImage = true);
     try {
+      final prepared = await preparePostImage(
+        await file.readAsBytes(),
+        file.name,
+      );
+      if (prepared.bytes.length > 25 * 1024 * 1024) {
+        throw const FormatException('The file must be under 25 MB.');
+      }
       final media = await widget.repository.uploadPostMedia(
-        bytes: bytes,
-        filename: file.name,
-        mimeType: file.mimeType ?? _imageMimeType(file.name),
+        bytes: prepared.bytes,
+        filename: prepared.filename,
+        mimeType: prepared.mimeType,
       );
       if (media.type != 'image') {
         throw Exception('Choose a supported image file.');
@@ -2777,17 +2782,10 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('$error')));
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     } finally {
       if (mounted) setState(() => _uploadingImage = false);
     }
-  }
-
-  String _imageMimeType(String filename) {
-    final lower = filename.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    return 'image/jpeg';
   }
 }

@@ -1437,7 +1437,10 @@ void main() {
     await repository.listLocalBusinesses(townId: 'town-1');
     var uri = Uri.parse(api.lastPath!);
     expect(uri.path, '/api/community/v1/communities');
-    expect(uri.queryParameters['profileCategory'], 'local_business');
+    expect(
+      uri.queryParameters['profileCategories'],
+      'local_business,organization',
+    );
     expect(uri.queryParameters['townId'], 'town-1');
 
     await repository.listNearbyBusinesses(

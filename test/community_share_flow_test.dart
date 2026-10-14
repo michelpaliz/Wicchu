@@ -7,11 +7,25 @@ import 'package:wicchu/features/community/post_share.dart';
 import 'package:wicchu/features/community/post_rules_review_page.dart';
 
 class _SharingRepository extends DemoCommunityRepository {
+  _SharingRepository({this.includeOrigin = false});
+
+  final bool includeOrigin;
   int shares = 0;
   bool accepted = false;
   Map<String, String>? destinations;
   @override
   Future<List<Community>> listCommunities({String? query}) async => [
+    if (includeOrigin)
+      Community(
+        id: 'origin',
+        name: 'Original community',
+        description: '',
+        town: const Town(id: 'town', name: 'Town', countryCode: 'EC'),
+        visibility: CommunityVisibility.public,
+        createdBy: 'owner',
+        createdAt: DateTime(2026),
+        myRole: CommunityRole.member,
+      ),
     Community(
       id: 'community',
       name: 'Echeandia',
@@ -63,6 +77,7 @@ Future<void> _openShare(
   WidgetTester tester,
   _SharingRepository repository, {
   Locale locale = const Locale('en'),
+  String sourceCommunityId = 'business',
 }) async {
   await tester.binding.setSurfaceSize(const Size(430, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -79,7 +94,7 @@ Future<void> _openShare(
               repository,
               CommunityPost(
                 id: 'post',
-                communityId: 'business',
+                communityId: sourceCommunityId,
                 categoryId: 'posts',
                 authorId: 'author',
                 text: 'Business publication',
@@ -100,6 +115,18 @@ Future<void> _openShare(
 }
 
 void main() {
+  testWidgets('community post excludes its source from destinations', (
+    tester,
+  ) async {
+    await _openShare(
+      tester,
+      _SharingRepository(includeOrigin: true),
+      sourceCommunityId: 'origin',
+    );
+    expect(find.text('Original community'), findsNothing);
+    expect(find.text('Echeandia'), findsOneWidget);
+  });
+
   testWidgets(
     'short community list stays compact and comment expands on focus',
     (tester) async {

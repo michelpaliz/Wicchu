@@ -152,7 +152,9 @@ class _NotificationsRepository extends DemoCommunityRepository {
         type: type,
         communityId: communityId,
         postId: postId,
-        message: 'commented on your post',
+        message: type == CommunityNotificationType.reportCreated
+            ? 'reported a post'
+            : 'commented on your post',
         createdAt: DateTime.now(),
         isRead: read,
       ),
@@ -1511,6 +1513,46 @@ void main() {
     await tester.tap(find.text('All notifications'));
     await tester.pumpAndSettle();
     expect(find.text('Alex commented on your post'), findsOneWidget);
+  });
+
+  testWidgets('report notification opens the reported post media', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _NotificationsRepository()
+      ..type = CommunityNotificationType.reportCreated;
+    final media = await repository.uploadPostMedia(
+      bytes: const [1, 2, 3],
+      filename: 'reported-image.jpg',
+      mimeType: 'image/jpeg',
+    );
+    final post = await repository.createPost(
+      'town-x-community',
+      CreatePostInput(
+        categoryId: 'category-0',
+        text: 'Reported image publication',
+        media: [media],
+      ),
+    );
+    repository.postId = post.id;
+
+    await tester.pumpWidget(
+      WicchuApp(
+        repository: repository,
+        authGateway: _FakeAuthGateway(signedIn: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Notifications'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Alex reported a post'));
+    await tester.pumpAndSettle();
+
+    expect(repository.read, isTrue);
+    expect(find.text('Reported image publication'), findsOneWidget);
+    expect(find.byType(PostCard), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('pending post notification opens the community approval queue', (

@@ -3599,6 +3599,7 @@ class _ActivityTabState extends State<_ActivityTab> {
       CommunityNotificationType.commentReaction,
       CommunityNotificationType.postComment,
       CommunityNotificationType.commentReply,
+      CommunityNotificationType.reportCreated,
       CommunityNotificationType.postApproved,
       CommunityNotificationType.postRestored,
       CommunityNotificationType.commentApproved,

@@ -832,7 +832,7 @@ class HttpCommunityRepository implements CommunityRepository {
       path: '/api/community/v1/communities',
       queryParameters: {
         'type': 'public_profile',
-        'profileCategory': 'local_business',
+        'profileCategories': 'local_business,organization',
         'limit': '100',
         if (townId != null && townId.isNotEmpty) 'townId': townId,
         if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
@@ -2116,13 +2116,13 @@ class HttpCommunityRepository implements CommunityRepository {
     );
     final media = _object(body, 'media');
     return PostMedia(
-      url: _mediaUrl(media['url'] as String?, media['blobName']) ?? '',
+      // Newly uploaded assets are not attached yet, so the public media proxy
+      // cannot serve them. The upload response contains a temporary read URL
+      // specifically for the editor preview.
+      url: media['url'] as String? ?? '',
       type: media['type'] as String? ?? 'image',
       blobName: media['blobName'] as String?,
-      thumbnailUrl: _mediaUrl(
-        media['thumbnailUrl'] as String?,
-        media['thumbnailBlobName'],
-      ),
+      thumbnailUrl: media['thumbnailUrl'] as String?,
       thumbnailBlobName: media['thumbnailBlobName'] as String?,
     );
   }

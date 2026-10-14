@@ -570,7 +570,8 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
             (item) =>
                 (_locationMode != _DiscoveryLocationMode.town ||
                     item.town.id == _townId) &&
-                item.profileCategory == ProfileCategory.localBusiness &&
+                (item.profileCategory == ProfileCategory.localBusiness ||
+                    item.profileCategory == ProfileCategory.organization) &&
                 _matchesBusinessCategory(item) &&
                 _matchesBusinessQuery(item),
           )
@@ -733,19 +734,21 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
       ),
       _DiscoveryCategory.beauty => services.contains(BusinessService.beauty),
       _DiscoveryCategory.health => services.contains(BusinessService.health),
-      _DiscoveryCategory.services => services.any(
-        const {
-          BusinessService.gardening,
-          BusinessService.pools,
-          BusinessService.concierge,
-          BusinessService.cleaning,
-          BusinessService.maintenance,
-          BusinessService.construction,
-          BusinessService.education,
-          BusinessService.professionalServices,
-          BusinessService.other,
-        }.contains,
-      ),
+      _DiscoveryCategory.services =>
+        services.any(
+              const {
+                BusinessService.gardening,
+                BusinessService.pools,
+                BusinessService.concierge,
+                BusinessService.cleaning,
+                BusinessService.maintenance,
+                BusinessService.construction,
+                BusinessService.education,
+                BusinessService.professionalServices,
+                BusinessService.other,
+              }.contains,
+            ) ||
+            business.profileCategory == ProfileCategory.organization,
     };
   }
 
@@ -1455,9 +1458,12 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
             business.distanceKm! >= 0
         ? business.distanceKm
         : null;
+    final typeLabel = services.isEmpty
+        ? context.tr(business.profileCategory?.label ?? 'Local business')
+        : services;
     final subtitle = distance == null
-        ? '${services.isEmpty ? context.tr('Local business') : services} · ${business.town.name}'
-        : '${services.isEmpty ? context.tr('Local business') : services} · ${context.tr('{distance} km away', {'distance': distance.toStringAsFixed(distance < 10 ? 1 : 0)})}';
+        ? '$typeLabel · ${business.town.name}'
+        : '$typeLabel · ${context.tr('{distance} km away', {'distance': distance.toStringAsFixed(distance < 10 ? 1 : 0)})}';
     final colors = Theme.of(context).colorScheme;
     final image = business.imageUrl?.trim().isNotEmpty == true
         ? business.imageUrl!

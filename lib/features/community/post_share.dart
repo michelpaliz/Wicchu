@@ -596,8 +596,12 @@ class _CommunityShareSheetState extends State<_CommunityShareSheet> {
   Object? _shareError;
 
   Future<List<Community>> _load() async {
+    final sourceCommunityId =
+        widget.post.sourceCommunityId?.trim().isNotEmpty == true
+        ? widget.post.sourceCommunityId
+        : (widget.post.isPersonal ? null : widget.post.communityId);
     final communities = (await widget.repository.listCommunities())
-        .where((item) => !item.isPublicProfile)
+        .where((item) => !item.isPublicProfile && item.id != sourceCommunityId)
         .toList(growable: false);
     if (mounted) setState(() => _communityCount = communities.length);
     return communities;
