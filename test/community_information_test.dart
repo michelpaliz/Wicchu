@@ -181,7 +181,7 @@ void main() {
     });
   }
   testWidgets('membership options open in a bottom sheet', (tester) async {
-    final repository = DemoCommunityRepository();
+    final repository = _PreviewRepository();
     final original = (await repository.listJoinedCommunities()).first;
     final community = Community(
       id: original.id,
@@ -194,6 +194,7 @@ void main() {
       createdAt: original.createdAt,
       myRole: CommunityRole.member,
     );
+    repository.previewCommunity = community;
     await tester.pumpWidget(
       MaterialApp(
         home: CommunityProfilePage(
@@ -210,12 +211,46 @@ void main() {
     expect(find.text('Leave community'), findsOneWidget);
   });
 
+  testWidgets('private member directory is hidden from regular members', (
+    tester,
+  ) async {
+    final repository = _PreviewRepository();
+    final original = (await repository.listJoinedCommunities()).first;
+    final community = Community(
+      id: original.id,
+      name: original.name,
+      description: original.description,
+      town: original.town,
+      visibility: original.visibility,
+      createdBy: original.createdBy,
+      createdAt: original.createdAt,
+      myRole: CommunityRole.member,
+      membersListVisible: false,
+    );
+    repository.previewCommunity = community;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityProfilePage(
+          community: community,
+          repository: repository,
+          screen: CommunityScreen.members,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('The member list is private.'), findsOneWidget);
+    expect(find.text('You'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'description starts expanded, can collapse, and administration opens filtered members',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 850));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final repository = DemoCommunityRepository();
+      final repository = _PreviewRepository();
       final original = (await repository.listJoinedCommunities()).first;
       final community = Community(
         id: original.id,
@@ -235,6 +270,7 @@ void main() {
         myRole: CommunityRole.member,
         memberCount: original.memberCount,
       );
+      repository.previewCommunity = community;
       await tester.pumpWidget(
         MaterialApp(
           home: CommunityProfilePage(

@@ -1330,6 +1330,7 @@ class HttpCommunityRepository implements CommunityRepository {
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
+    bool? membersListVisible,
     required bool showWeather,
     required List<CommunityLink> links,
     ProfileCategory? profileCategory,
@@ -1371,6 +1372,7 @@ class HttpCommunityRepository implements CommunityRepository {
           'headerBorderEnabled':
               headerBorderEnabled ?? community.headerBorderEnabled,
         'approvalRequired': approvalRequired,
+        'membersListVisible': ?membersListVisible,
         'showWeather': showWeather,
         if (community.isPublicProfile && profileCategory != null)
           'profileCategory': profileCategory.apiValue,
@@ -1421,6 +1423,10 @@ class HttpCommunityRepository implements CommunityRepository {
       if (responseCommunity['town'] == null) 'town': _townToJson(town),
       'memberCount': community.memberCount,
       'myRole': community.myRole?.name,
+      'membersListVisible':
+          responseCommunity['membersListVisible'] ??
+          membersListVisible ??
+          community.membersListVisible,
     });
   }
 
@@ -2192,6 +2198,16 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<void> setPostHidden(String postId, {required bool hidden}) async {
+    final path = '/api/community/v1/me/hidden-posts/$postId';
+    if (hidden) {
+      await _api.put(path);
+    } else {
+      await _api.delete(path);
+    }
+  }
+
+  @override
   Future<void> reportPost(
     String postId,
     String reason, {
@@ -2922,6 +2938,7 @@ class HttpCommunityRepository implements CommunityRepository {
           (json['neonAnimationDurationSeconds'] as num?)?.toDouble() ?? 5,
       headerBorderEnabled: json['headerBorderEnabled'] == true,
       approvalRequired: json['approvalRequired'] as bool? ?? false,
+      membersListVisible: json['membersListVisible'] as bool? ?? true,
       showWeather: json['showWeather'] as bool? ?? false,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
       rules: (json['rules'] as List? ?? const [])

@@ -100,11 +100,15 @@ class PostCard extends StatefulWidget {
     this.repository,
     this.post,
     this.viewerContent = false,
+    this.onHide,
+    this.onUnhide,
   });
 
   final CommunityRepository? repository;
   final CommunityPost? post;
   final bool viewerContent;
+  final Future<void> Function()? onHide;
+  final Future<void> Function()? onUnhide;
   final String category;
   final String icon;
   final String community;
@@ -246,6 +250,16 @@ class PostCard extends StatefulWidget {
                     if (viewerContext.mounted) Navigator.pop(viewerContext);
                   }
                 },
+          onHide: repository == null || post == null
+              ? null
+              : () async {
+                  await repository!.setPostHidden(post!.id, hidden: true);
+                  hidden = true;
+                  if (viewerContext.mounted) Navigator.pop(viewerContext);
+                },
+          onUnhide: repository == null || post == null
+              ? null
+              : () => repository!.setPostHidden(post!.id, hidden: false),
           onEdit: onEdit == null
               ? null
               : () {
@@ -342,6 +356,7 @@ class _PostCardState extends State<PostCard> {
   bool _hidden = false;
   bool _deleting = false;
   bool _moderating = false;
+  bool _hiding = false;
   bool _businessViewSent = false;
 
   Future<Community?>? _sourceProfile;
@@ -906,27 +921,35 @@ class _PostCardState extends State<PostCard> {
     ],
   );
 
-  _PostMenu _menu() => _PostMenu(
-    category: widget.category,
-    categoryIcon: widget.icon,
-    media: widget.media,
-    ownedByMe:
+  _PostMenu _menu() {
+    final ownedByMe =
         widget.post?.ownedByMe ??
-        (widget.onEdit != null || widget.onDelete != null),
-    onShare: widget.onShare,
-    saved: _saved,
-    saving: _savingPost || _deleting || _moderating,
-    onSave: widget.onSaved == null ? null : _toggleSaved,
-    onReport: widget.onReport == null ? null : _report,
-    onEdit: widget.onEdit,
-    onDelete: widget.onDelete == null ? null : _deletePost,
-    pinned: _pinned,
-    personalPin: widget.post?.isPersonal == true,
-    onPin: widget.onPinnedChanged == null ? null : _togglePinned,
-    onModerationRemove: widget.onModerationRemove == null
-        ? null
-        : _removeFromCommunity,
-  );
+        (widget.onEdit != null || widget.onDelete != null);
+    final canHide =
+        !ownedByMe &&
+        (widget.onHide != null ||
+            (widget.repository != null && widget.post != null));
+    return _PostMenu(
+      category: widget.category,
+      categoryIcon: widget.icon,
+      media: widget.media,
+      ownedByMe: ownedByMe,
+      onShare: widget.onShare,
+      saved: _saved,
+      saving: _savingPost || _deleting || _moderating || _hiding,
+      onSave: widget.onSaved == null ? null : _toggleSaved,
+      onHide: canHide ? _hidePost : null,
+      onReport: widget.onReport == null ? null : _report,
+      onEdit: widget.onEdit,
+      onDelete: widget.onDelete == null ? null : _deletePost,
+      pinned: _pinned,
+      personalPin: widget.post?.isPersonal == true,
+      onPin: widget.onPinnedChanged == null ? null : _togglePinned,
+      onModerationRemove: widget.onModerationRemove == null
+          ? null
+          : _removeFromCommunity,
+    );
+  }
 
   Widget _businessFooter() {
     final post = widget.post!;
@@ -992,7 +1015,68 @@ class _PostCardState extends State<PostCard> {
         _hidden = result.hidden;
         _poll = result.poll;
       });
+      if (result.hidden) _showHiddenSnackBar();
     }
+  }
+
+  Future<void> _hidePost() async {
+    if (_hiding) return;
+    final repository = widget.repository;
+    final post = widget.post;
+    if (widget.onHide == null && (repository == null || post == null)) return;
+    setState(() {
+      _hidden = true;
+      _hiding = true;
+    });
+    try {
+      if (widget.onHide != null) {
+        await widget.onHide!();
+      } else {
+        await repository!.setPostHidden(post!.id, hidden: true);
+      }
+      if (mounted) _showHiddenSnackBar();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _hidden = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _hiding = false);
+    }
+  }
+
+  void _showHiddenSnackBar() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(context.tr('Post hidden')),
+          action: SnackBarAction(
+            label: context.tr('Undo'),
+            onPressed: () async {
+              try {
+                if (widget.onUnhide != null) {
+                  await widget.onUnhide!();
+                } else {
+                  await widget.repository!.setPostHidden(
+                    widget.post!.id,
+                    hidden: false,
+                  );
+                }
+                if (mounted) setState(() => _hidden = false);
+              } catch (error) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.trError(error))),
+                  );
+                }
+              }
+            },
+          ),
+        ),
+      );
   }
 
   void _updateCommentCount(int value) {
@@ -1564,6 +1648,7 @@ class _PostMenu extends StatelessWidget {
     required this.ownedByMe,
     this.onShare,
     this.onSave,
+    this.onHide,
     this.onReport,
     this.onEdit,
     this.onDelete,
@@ -1581,6 +1666,7 @@ class _PostMenu extends StatelessWidget {
   final bool saved;
   final bool saving;
   final VoidCallback? onSave;
+  final VoidCallback? onHide;
   final VoidCallback? onReport;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
@@ -1795,6 +1881,7 @@ class _PostMenu extends StatelessWidget {
                   ),
                 if ((ownedByMe && onDelete != null) ||
                     onModerationRemove != null ||
+                    (!ownedByMe && onHide != null) ||
                     (!ownedByMe && onReport != null))
                   const Divider(height: 24),
                 if (onModerationRemove != null)
@@ -1814,6 +1901,13 @@ class _PostMenu extends StatelessWidget {
                     'It will be permanently deleted',
                     tint: colors.error,
                     destructive: true,
+                  ),
+                if (!ownedByMe && onHide != null)
+                  option(
+                    _PostMenuAction.hide,
+                    WicchuIcons.eyeSlash,
+                    'Hide post',
+                    'You will no longer see this post',
                   ),
                 if (!ownedByMe && onReport != null)
                   option(
@@ -1837,6 +1931,8 @@ class _PostMenu extends StatelessWidget {
         onSave?.call();
       case _PostMenuAction.report:
         onReport?.call();
+      case _PostMenuAction.hide:
+        onHide?.call();
       case _PostMenuAction.edit:
         onEdit?.call();
       case _PostMenuAction.pin:
@@ -1869,6 +1965,7 @@ enum _PostMenuAction {
   pin,
   edit,
   delete,
+  hide,
   report,
   moderationRemove,
 }

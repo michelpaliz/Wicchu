@@ -500,6 +500,9 @@ const _spanish = <String, String>{
   'Report community': 'Reportar comunidad',
   'Report sent to Wicchu Safety': 'Reporte enviado a Seguridad de Wicchu',
   'Hide post': 'Ocultar publicación',
+  'Post hidden': 'Publicación oculta',
+  'You will no longer see this post': 'Ya no verás esta publicación',
+  'Undo': 'Deshacer',
   'Report comment': 'Reportar comentario',
   'Report profile': 'Reportar perfil',
   'Spam': 'Spam',
@@ -1549,6 +1552,12 @@ const _spanish = <String, String>{
       'restringió tu membresía en la comunidad',
   'restored your community membership': 'restauró tu membresía en la comunidad',
   'Member actions': 'Acciones del miembro',
+  'Show member list': 'Mostrar lista de miembros',
+  'Members can see who belongs to this community.':
+      'Los miembros pueden ver quién pertenece a esta comunidad.',
+  'Only administrators and moderators can view the member list.':
+      'Solo los administradores y moderadores pueden ver la lista de miembros.',
+  'The member list is private.': 'La lista de miembros es privada.',
   'Publish as Community Admin': 'Publicar como administrador de la comunidad',
   'Your identity will be hidden from members.':
       'Tu identidad se ocultará a los miembros.',

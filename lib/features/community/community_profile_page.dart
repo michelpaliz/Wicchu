@@ -127,6 +127,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       _community.myRole == CommunityRole.owner ||
       _community.myRole == CommunityRole.admin ||
       _community.myRole == CommunityRole.moderator;
+  bool get _canViewMemberDirectory =>
+      _community.membersListVisible || _canManage;
   bool get _canInviteToCommunity =>
       !_community.isPublicProfile &&
       _joined &&
@@ -458,7 +460,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             query: _searchController.text,
           )
         : Future.value(const <CommunityPost>[]);
-    _members = _joined
+    _members = _joined && _canViewMemberDirectory
         ? widget.repository.listMembers(_community.id)
         : Future.value(const <CommunityMember>[]);
   }
@@ -684,6 +686,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           memberCount: nextMemberCount < 0 ? 0 : nextMemberCount,
           myRole: _joined ? CommunityRole.member : null,
           approvalRequired: _community.approvalRequired,
+          membersListVisible: _community.membersListVisible,
           showWeather: _community.showWeather,
           distanceKm: _community.distanceKm,
           rules: _community.rules,
@@ -926,6 +929,12 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   Future<void> _openMembers({bool administration = false}) async {
+    if (!_canViewMemberDirectory) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('The member list is private.'))),
+      );
+      return;
+    }
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
@@ -945,7 +954,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     bool typeFirst = false,
   }) => InkWell(
     key: const ValueKey('community-members-entry'),
-    onTap: _openMembers,
+    onTap: _canViewMemberDirectory ? _openMembers : null,
     borderRadius: BorderRadius.circular(8),
     child: Padding(
       padding: compact
@@ -4435,7 +4444,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ],
           ),
         ),
-        if (_joined)
+        if (_joined && _canViewMemberDirectory)
           FutureBuilder<List<CommunityMember>>(
             future: _members,
             builder: (context, snapshot) {
@@ -5348,6 +5357,17 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             _community.isPublicProfile
                 ? 'Follow to view followers.'
                 : 'Join to view community members.',
+          ),
+        ),
+      );
+    }
+    if (!_canViewMemberDirectory) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            context.tr('The member list is private.'),
+            textAlign: TextAlign.center,
           ),
         ),
       );

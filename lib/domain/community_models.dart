@@ -434,6 +434,7 @@ class Community {
     this.memberCount = 0,
     this.myRole,
     this.approvalRequired = false,
+    this.membersListVisible = true,
     this.showWeather = false,
     this.distanceKm,
     this.rules = const [],
@@ -474,6 +475,7 @@ class Community {
   final int memberCount;
   final CommunityRole? myRole;
   final bool approvalRequired;
+  final bool membersListVisible;
   final bool showWeather;
   final double? distanceKm;
   final List<CommunityRule> rules;

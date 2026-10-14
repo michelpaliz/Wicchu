@@ -83,6 +83,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('member can hide a post without reporting and undo it', (
+    tester,
+  ) async {
+    var hidden = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PostCard(
+            category: 'General',
+            icon: 'chat',
+            community: 'Test community',
+            author: 'Another member',
+            time: 'Now',
+            text: 'A post I want to hide',
+            onHide: () async => hidden = true,
+            onUnhide: () async => hidden = false,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hide post'), findsOneWidget);
+    expect(find.text('Report post'), findsNothing);
+
+    await tester.tap(find.text('Hide post'));
+    await tester.pumpAndSettle();
+    expect(hidden, isTrue);
+    expect(find.text('A post I want to hide'), findsNothing);
+    expect(find.text('Post hidden'), findsOneWidget);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(hidden, isFalse);
+    expect(find.text('A post I want to hide'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('moderator removes a community post only after giving a reason', (
     tester,
   ) async {

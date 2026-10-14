@@ -1228,6 +1228,37 @@ void main() {
     },
   );
 
+  test('community member-directory privacy is sent and decoded', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+    final community = Community(
+      id: 'community-1',
+      name: 'Community',
+      description: '',
+      town: const Town(id: 'town-1', name: 'Town X', countryCode: 'EC'),
+      visibility: CommunityVisibility.public,
+      createdBy: 'user-1',
+      createdAt: DateTime.utc(2026),
+    );
+
+    final updated = await repository.updateCommunity(
+      community,
+      town: community.town,
+      name: community.name,
+      description: community.description,
+      visibility: community.visibility,
+      approvalRequired: false,
+      membersListVisible: false,
+      showWeather: false,
+      links: const [],
+      businessServices: const [],
+      businessLocation: null,
+    );
+
+    expect(api.lastBody?['membersListVisible'], isFalse);
+    expect(updated.membersListVisible, isFalse);
+  });
+
   test('page edits only send fields supported by the page type', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);
@@ -1738,6 +1769,19 @@ void main() {
 
     await repository.setPostPinned('post-1', pinned: false);
     expect(api.lastPath, '/api/community/v1/posts/post-1/pin');
+    expect(api.lastMethod, 'DELETE');
+  });
+
+  test('hiding and restoring a post use the private user endpoints', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.setPostHidden('post-1', hidden: true);
+    expect(api.lastPath, '/api/community/v1/me/hidden-posts/post-1');
+    expect(api.lastMethod, 'PUT');
+
+    await repository.setPostHidden('post-1', hidden: false);
+    expect(api.lastPath, '/api/community/v1/me/hidden-posts/post-1');
     expect(api.lastMethod, 'DELETE');
   });
 

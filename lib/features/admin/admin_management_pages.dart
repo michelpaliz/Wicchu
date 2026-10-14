@@ -1674,6 +1674,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     ...widget.community.businessServices,
   };
   late bool _approvalRequired = widget.community.approvalRequired;
+  late bool _membersListVisible = widget.community.membersListVisible;
   late bool _showWeather = widget.community.showWeather;
 
   bool _showIdentityHelp = false;
@@ -1723,6 +1724,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     _profileCategory?.name,
     _businessServices.map((value) => value.name).toList()..sort(),
     _approvalRequired,
+    _membersListVisible,
     _showWeather,
     _businessAddress.text,
     _businessLatitude,
@@ -2348,7 +2350,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                       ? null
                       : (value) => setState(() => _published = value),
                 )
-              else
+              else ...[
                 Row(
                   children: [
                     Icon(
@@ -2381,6 +2383,29 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                     ),
                   ],
                 ),
+                _settingsDivider(),
+                SwitchListTile.adaptive(
+                  key: const ValueKey('members-list-visibility-setting'),
+                  contentPadding: EdgeInsets.zero,
+                  secondary: Icon(
+                    _membersListVisible
+                        ? WicchuIcons.usersThree
+                        : WicchuIcons.eyeSlash,
+                  ),
+                  title: Text(context.tr('Show member list')),
+                  subtitle: Text(
+                    context.tr(
+                      _membersListVisible
+                          ? 'Members can see who belongs to this community.'
+                          : 'Only administrators and moderators can view the member list.',
+                    ),
+                  ),
+                  value: _membersListVisible,
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _membersListVisible = value),
+                ),
+              ],
             ]),
             const SizedBox(height: 12),
             const SizedBox(height: 24),
@@ -2475,6 +2500,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         description: _description.text.trim(),
         visibility: _visibility,
         approvalRequired: _approvalRequired,
+        membersListVisible: _membersListVisible,
         showWeather: _showWeather,
         links: List.unmodifiable(_links),
         businessLocation:

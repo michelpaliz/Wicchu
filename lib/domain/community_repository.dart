@@ -511,6 +511,7 @@ abstract interface class CommunityRepository {
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
+    bool? membersListVisible,
     required bool showWeather,
     required List<CommunityLink> links,
     ProfileCategory? profileCategory,
@@ -578,6 +579,7 @@ abstract interface class CommunityRepository {
   Future<List<CommunityPost>> listMyPosts();
   Future<List<CommunityPost>> listSavedPosts();
   Future<void> setPostSaved(String postId, {required bool saved});
+  Future<void> setPostHidden(String postId, {required bool hidden});
   Future<void> reportPost(
     String postId,
     String reason, {

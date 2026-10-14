@@ -49,6 +49,7 @@ class DemoCommunityRepository implements CommunityRepository {
   final List<PromotionCampaign> _promotions = [];
   final Map<String, List<Comment>> _comments = {};
   final Set<String> _savedPostIds = {};
+  final Set<String> _hiddenPostIds = {};
   final Set<String> _followedUserIds = {};
   final Map<String, CommunitySurveyResponse> _helpfulnessVotes = {};
   SocialLinks _socialLinks = const SocialLinks();
@@ -775,6 +776,7 @@ class DemoCommunityRepository implements CommunityRepository {
     required String description,
     required CommunityVisibility visibility,
     required bool approvalRequired,
+    bool? membersListVisible,
     required bool showWeather,
     required List<CommunityLink> links,
     ProfileCategory? profileCategory,
@@ -810,6 +812,7 @@ class DemoCommunityRepository implements CommunityRepository {
       memberCount: community.memberCount,
       myRole: community.myRole,
       approvalRequired: approvalRequired,
+      membersListVisible: membersListVisible ?? community.membersListVisible,
       showWeather: showWeather,
       distanceKm: community.distanceKm,
       rules: community.rules,
@@ -1640,6 +1643,11 @@ class DemoCommunityRepository implements CommunityRepository {
   @override
   Future<void> setPostSaved(String postId, {required bool saved}) async {
     saved ? _savedPostIds.add(postId) : _savedPostIds.remove(postId);
+  }
+
+  @override
+  Future<void> setPostHidden(String postId, {required bool hidden}) async {
+    hidden ? _hiddenPostIds.add(postId) : _hiddenPostIds.remove(postId);
   }
 
   @override
