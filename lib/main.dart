@@ -28,8 +28,11 @@ import 'theme/wicchu_theme.dart';
 import 'services/push_notification_service.dart';
 import 'services/presence_service.dart';
 import 'services/app_update_service.dart';
+import 'services/analytics_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AnalyticsService.instance.initialize();
   runApp(
     WicchuApp(
       repository: HttpCommunityRepository(),
@@ -577,6 +580,7 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
           navigatorKey: _navigatorKey,
           scaffoldMessengerKey: _scaffoldMessengerKey,
           title: 'Wicchu',
+          navigatorObservers: AnalyticsService.instance.navigatorObservers,
           builder: (context, child) =>
               WicchuViewport(child: child ?? const SizedBox.shrink()),
           debugShowCheckedModeBanner: false,
@@ -615,6 +619,7 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
                   repository: widget.repository,
                   authGateway: widget.authGateway,
                   onSignedOut: () {
+                    unawaited(AnalyticsService.instance.identifyUser(null));
                     _navigatorKey.currentState?.popUntil(
                       (route) => route.isFirst,
                     );

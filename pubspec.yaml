@@ -63,6 +63,7 @@ dependencies:
   package_info_plus: ^9.0.1
   in_app_update: ^5.0.0
   phosphoricons_flutter: ^1.1.1
+  firebase_analytics: ^12.6.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

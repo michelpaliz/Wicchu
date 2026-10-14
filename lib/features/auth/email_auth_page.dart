@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/auth_gateway.dart';
 import '../../localization/app_language.dart';
+import '../../services/analytics_service.dart';
 
 class EmailAuthPage extends StatefulWidget {
   const EmailAuthPage({
@@ -555,9 +556,14 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
       _error = null;
     });
     try {
-      await (facebook
+      final session = await (facebook
           ? widget.authGateway.signInWithFacebook()
           : widget.authGateway.signInWithGoogle());
+      await AnalyticsService.instance.authenticationCompleted(
+        provider: facebook ? 'facebook' : 'google',
+        userId: session.userId,
+        isNewUser: session.isNewUser,
+      );
       if (mounted) widget.onSignedIn();
     } catch (error) {
       if (mounted) {
@@ -708,6 +714,9 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
           password: _password.text,
           locale: Localizations.localeOf(context).languageCode,
         );
+        await AnalyticsService.instance.registrationCompleted(
+          provider: 'password',
+        );
         if (!mounted) return;
         await showDialog<void>(
           context: context,
@@ -732,9 +741,14 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
         _confirmPassword.clear();
         setState(() => _registering = false);
       } else {
-        await widget.authGateway.signInWithEmail(
+        final session = await widget.authGateway.signInWithEmail(
           _email.text.trim(),
           _password.text,
+        );
+        await AnalyticsService.instance.authenticationCompleted(
+          provider: 'password',
+          userId: session.userId,
+          isNewUser: session.isNewUser,
         );
         widget.onSignedIn();
       }

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/auth_gateway.dart';
 import '../../localization/app_language.dart';
+import '../../services/analytics_service.dart';
 import '../../theme/theme_menu.dart';
 import '../../widgets/wicchu_logo.dart';
 import 'email_auth_page.dart';
@@ -195,7 +196,12 @@ class _LoginPageState extends State<LoginPage> {
   }) async {
     setState(() => _loadingProvider = provider);
     try {
-      await action();
+      final session = await action();
+      await AnalyticsService.instance.authenticationCompleted(
+        provider: provider,
+        userId: session.userId,
+        isNewUser: session.isNewUser,
+      );
       widget.onSignedIn();
     } on AuthException catch (error) {
       if (mounted) {

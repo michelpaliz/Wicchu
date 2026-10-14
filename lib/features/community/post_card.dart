@@ -10,6 +10,7 @@ import '../../localization/app_language.dart';
 import 'post_media_gallery.dart';
 import 'comments_sheet.dart';
 import '../../domain/community_repository.dart';
+import '../../services/analytics_service.dart';
 import 'post_markdown.dart';
 import 'user_avatar.dart';
 import 'report_dialog.dart';
@@ -603,6 +604,15 @@ class _PostCardState extends State<PostCard> {
     _businessViewSent = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        final eventName = post.todayMenu != null
+            ? 'menu_viewed'
+            : post.businessFeature?.type ==
+                  BusinessPostFeatureType.transportTrip
+            ? 'transport_trip_viewed'
+            : null;
+        if (eventName != null) {
+          unawaited(AnalyticsService.instance.log(eventName));
+        }
         unawaited(
           widget.repository!
               .recordBusinessPostEngagement(post.id, action: 'view')

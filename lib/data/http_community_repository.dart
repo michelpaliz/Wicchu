@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../domain/community_models.dart';
 import '../domain/community_repository.dart';
+import '../services/analytics_service.dart';
 import 'authenticated_api_client.dart';
 
 class HttpCommunityRepository implements CommunityRepository {
@@ -26,7 +29,7 @@ class HttpCommunityRepository implements CommunityRepository {
   Future<WicchuProfile> getProfile() async {
     final body = await _api.get('/api/community/v1/me');
     final json = _object(body, 'user');
-    return WicchuProfile(
+    final profile = WicchuProfile(
       id: json['id']?.toString() ?? '',
       name: json['name'] as String? ?? '',
       userName: json['userName'] as String? ?? '',
@@ -37,6 +40,8 @@ class HttpCommunityRepository implements CommunityRepository {
       savedPostCount: (json['savedPostCount'] as num?)?.toInt() ?? 0,
       platformModerator: json['platformModerator'] as bool? ?? false,
     );
+    unawaited(AnalyticsService.instance.identifyUser(profile.id));
+    return profile;
   }
 
   @override
@@ -97,10 +102,17 @@ class HttpCommunityRepository implements CommunityRepository {
   @override
   Future<UserFollowActionResult> followUser(String userId) async {
     final body = await _api.put('/api/community/v1/users/$userId/follow');
-    return UserFollowActionResult(
+    final result = UserFollowActionResult(
       status: _followStatus(body['status']),
       followerCount: (body['followerCount'] as num?)?.toInt() ?? 0,
     );
+    unawaited(
+      AnalyticsService.instance.log(
+        'user_followed',
+        parameters: {'status': result.status.name},
+      ),
+    );
+    return result;
   }
 
   @override
@@ -913,6 +925,7 @@ class HttpCommunityRepository implements CommunityRepository {
   @override
   Future<void> joinCommunity(String communityId) async {
     await _api.post('/api/community/v1/communities/$communityId/join');
+    unawaited(AnalyticsService.instance.log('community_joined'));
   }
 
   @override
@@ -1886,6 +1899,7 @@ class HttpCommunityRepository implements CommunityRepository {
   @override
   Future<void> recordPostShare(String postId) async {
     await _api.post('/api/community/v1/posts/$postId/share');
+    unawaited(AnalyticsService.instance.log('post_shared'));
   }
 
   @override
@@ -1896,6 +1910,13 @@ class HttpCommunityRepository implements CommunityRepository {
     await _api.post(
       '/api/community/v1/posts/$postId/business-engagement',
       body: {'action': action},
+    );
+    unawaited(
+      AnalyticsService.instance.log(
+        action == 'contact'
+            ? 'business_contact_clicked'
+            : 'business_content_viewed',
+      ),
     );
   }
 
@@ -1966,7 +1987,19 @@ class HttpCommunityRepository implements CommunityRepository {
           'businessFeature': null,
       },
     );
-    return _postFromJson(_object(body, 'post'));
+    final post = _postFromJson(_object(body, 'post'));
+    unawaited(
+      AnalyticsService.instance.log(
+        'post_created',
+        parameters: {
+          'post_type': input.todayMenu != null
+              ? 'today_menu'
+              : input.businessFeature?.type.apiValue ?? 'standard',
+          'has_media': input.media.isNotEmpty ? 1 : 0,
+        },
+      ),
+    );
+    return post;
   }
 
   Map<String, Object?> _postInputBody(CreatePostInput input) => {
@@ -1990,7 +2023,17 @@ class HttpCommunityRepository implements CommunityRepository {
       '/api/community/v1/me/posts',
       body: _postInputBody(input),
     );
-    return _postFromJson(_object(body, 'post'));
+    final post = _postFromJson(_object(body, 'post'));
+    unawaited(
+      AnalyticsService.instance.log(
+        'post_created',
+        parameters: {
+          'post_type': 'personal',
+          'has_media': input.media.isNotEmpty ? 1 : 0,
+        },
+      ),
+    );
+    return post;
   }
 
   @override
@@ -2162,7 +2205,14 @@ class HttpCommunityRepository implements CommunityRepository {
       '/api/community/v1/posts/$postId/comments',
       body: {'text': text, 'parentCommentId': ?parentCommentId},
     );
-    return _commentFromJson(_object(body, 'comment'));
+    final comment = _commentFromJson(_object(body, 'comment'));
+    unawaited(
+      AnalyticsService.instance.log(
+        'post_commented',
+        parameters: {'is_reply': parentCommentId == null ? 0 : 1},
+      ),
+    );
+    return comment;
   }
 
   @override
