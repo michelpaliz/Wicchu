@@ -270,6 +270,57 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'posts30d': 84,
           'comments30d': 326,
           'reactions30d': 1204,
+          'interactions30d': 1530,
+          'monthlyRetentionRate': 42.5,
+          'monetization': {
+            'eligible': true,
+            'currency': 'EUR',
+            'reviewRequired': true,
+            'evaluationPeriodStart': '2026-10-01T00:00:00.000Z',
+            'evaluationPeriodEnd': '2026-11-01T00:00:00.000Z',
+            'daysRemaining': 17,
+            'payoutSetupComplete': false,
+            'enrollment': {
+              'requested': true,
+              'status': 'approved',
+              'accepted': true,
+              'countryCode': 'ES',
+              'currency': 'EUR',
+              'termsVersion': '2026-10-15',
+              'acceptedAt': '2026-10-02T10:00:00.000Z',
+            },
+            'currentTier': {
+              'id': 'high_impact',
+              'monthlyRewardCents': 5000,
+              'memberTarget': 400,
+              'monthlyActiveTarget': 150,
+              'postsTarget': 40,
+              'interactionsTarget': 150,
+              'retentionTargetPercent': 25,
+              'qualified': true,
+            },
+            'nextTier': null,
+            'tiers': [],
+            'history': [
+              {
+                'id': 'reward-1',
+                'periodStart': '2026-09-01T00:00:00.000Z',
+                'periodEnd': '2026-10-01T00:00:00.000Z',
+                'metrics': {
+                  'members': 1900,
+                  'monthlyActive': 490,
+                  'posts': 70,
+                  'interactions': 1200,
+                  'retentionPercent': 39.2,
+                },
+                'tierId': 'high_impact',
+                'rewardCents': 5000,
+                'currency': 'EUR',
+                'status': 'pending_review',
+              },
+            ],
+            'goodStanding': true,
+          },
           'memberGrowth': [
             {'date': '2026-09-01', 'members': 1900},
             {'date': '2026-09-30', 'members': 2043},
@@ -397,6 +448,18 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   }) async {
     lastPath = path;
     lastBody = body;
+    if (path.endsWith('/admin/rewards/request')) {
+      return {
+        'enrollment': {
+          'requested': true,
+          'status': 'pending',
+          'countryCode': body?['countryCode'],
+          'countryName': body?['countryName'],
+          'contactEmail': body?['contactEmail'],
+          'requestedAt': '2026-10-15T12:00:00.000Z',
+        },
+      };
+    }
     if (path == '/api/community/v1/messages/conversations') {
       if (body?['pageId'] != null) {
         return {
@@ -611,6 +674,17 @@ class _RecordingApiClient extends AuthenticatedApiClient {
     }
     if (path.endsWith('/content-notification-preferences')) {
       return {'preferences': body};
+    }
+    if (path.endsWith('/admin/rewards/enrollment')) {
+      return {
+        'enrollment': {
+          'accepted': true,
+          'countryCode': 'EC',
+          'currency': 'USD',
+          'termsVersion': '2026-10-15',
+          'acceptedAt': '2026-10-15T12:00:00.000Z',
+        },
+      };
     }
     return <String, dynamic>{};
   }
@@ -1151,7 +1225,33 @@ void main() {
     expect(insights.totalMembers, 2043);
     expect(insights.monthlyActiveUsers, 527);
     expect(insights.monthlyActivityRate, 25.8);
+    expect(insights.interactions30d, 1530);
+    expect(insights.monthlyRetentionRate, 42.5);
+    expect(insights.monetization.currentTier?.id, 'high_impact');
+    expect(insights.monetization.currentTier?.monthlyRewardCents, 5000);
+    expect(insights.monetization.daysRemaining, 17);
+    expect(insights.monetization.enrollment.countryCode, 'ES');
+    expect(insights.monetization.history.single.status, 'pending_review');
+    expect(insights.monetization.history.single.interactions, 1200);
     expect(insights.memberGrowth.last.members, 2043);
+  });
+
+  test('community owner accepts Ecuador reward pilot terms', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final enrollment = await repository.acceptCommunityRewardTerms(
+      'community-1',
+      countryCode: 'EC',
+    );
+
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/admin/rewards/enrollment',
+    );
+    expect(api.lastBody, {'accepted': true});
+    expect(enrollment.accepted, isTrue);
+    expect(enrollment.currency, 'USD');
   });
 
   test(

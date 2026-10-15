@@ -3340,6 +3340,15 @@ class _ActivityTabState extends State<_ActivityTab> {
       CommunityNotificationType.membershipRequest => WicchuIcons.userPlus,
       CommunityNotificationType.communityInvitation => WicchuIcons.envelope,
       CommunityNotificationType.communityRoleChanged => WicchuIcons.shieldCheck,
+      CommunityNotificationType.rewardRequest => WicchuIcons.currencyDollar,
+      CommunityNotificationType.rewardRequestApproved =>
+        WicchuIcons.checkCircle,
+      CommunityNotificationType.rewardRequestRejected =>
+        WicchuIcons.warningCircle,
+      CommunityNotificationType.rewardPayoutApproved ||
+      CommunityNotificationType.rewardPayoutPaid => WicchuIcons.currencyDollar,
+      CommunityNotificationType.rewardPayoutRejected =>
+        WicchuIcons.warningCircle,
       CommunityNotificationType.postPending ||
       CommunityNotificationType.commentPending => WicchuIcons.clipboardText,
       CommunityNotificationType.reportCreated => WicchuIcons.flag,

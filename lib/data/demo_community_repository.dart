@@ -1704,12 +1704,70 @@ class DemoCommunityRepository implements CommunityRepository {
   }) async {}
 
   @override
+  Future<List<CommunityRewardRequest>> listCommunityRewardRequests() async =>
+      [];
+
+  @override
+  Future<void> reviewCommunityRewardRequest(
+    String requestId, {
+    required bool approve,
+    String currency = 'USD',
+    String? note,
+  }) async {}
+
+  @override
+  Future<List<PlatformRewardPayout>> listPlatformRewardPayouts({
+    bool completed = false,
+  }) async => [];
+
+  @override
+  Future<void> reviewPlatformRewardPayout(
+    String payoutId, {
+    required String action,
+    String? note,
+  }) async {}
+
+  @override
+  Future<PlatformAnalytics> getPlatformAnalytics() async =>
+      const PlatformAnalytics();
+
+  @override
   Future<AdminAttentionSummary> getAdminAttention(String communityId) async =>
       const AdminAttentionSummary();
 
   @override
   Future<CommunityInsights> getCommunityInsights(String communityId) async =>
       const CommunityInsights();
+
+  @override
+  Future<CommunityRewardEnrollment> acceptCommunityRewardTerms(
+    String communityId, {
+    required String countryCode,
+  }) async => CommunityRewardEnrollment(
+    requested: true,
+    status: 'approved',
+    accepted: true,
+    countryCode: countryCode,
+    currency: countryCode == 'EC' ? 'USD' : 'EUR',
+    termsVersion: '2026-10-15',
+    acceptedAt: DateTime.now(),
+  );
+
+  @override
+  Future<CommunityRewardEnrollment> requestCommunityRewards(
+    String communityId, {
+    required String countryCode,
+    String? countryName,
+    required String contactEmail,
+    String? note,
+  }) async => CommunityRewardEnrollment(
+    requested: true,
+    status: 'pending',
+    countryCode: countryCode,
+    countryName: countryName,
+    contactEmail: contactEmail,
+    requestedAt: DateTime.now(),
+  );
 
   @override
   Future<List<CommunityReport>> listReports(String communityId) async => [];

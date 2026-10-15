@@ -25,6 +25,49 @@ class HttpCommunityRepository implements CommunityRepository {
         '?blobName=${Uri.encodeQueryComponent(name)}';
   }
 
+  static CommunityRewardTier? _rewardTier(Object? value) {
+    if (value is! Map<String, dynamic>) return null;
+    return CommunityRewardTier(
+      id: value['id']?.toString() ?? '',
+      monthlyRewardCents: (value['monthlyRewardCents'] as num?)?.toInt() ?? 0,
+      memberTarget: (value['memberTarget'] as num?)?.toInt() ?? 0,
+      monthlyActiveTarget: (value['monthlyActiveTarget'] as num?)?.toInt() ?? 0,
+      postsTarget: (value['postsTarget'] as num?)?.toInt() ?? 0,
+      interactionsTarget: (value['interactionsTarget'] as num?)?.toInt() ?? 0,
+      contributorsTarget: (value['contributorsTarget'] as num?)?.toInt() ?? 0,
+      retentionTargetPercent:
+          (value['retentionTargetPercent'] as num?)?.toDouble() ?? 0,
+      qualified: value['qualified'] == true,
+    );
+  }
+
+  static CommunityRewardEvaluation? _rewardEvaluation(Object? value) {
+    if (value is! Map<String, dynamic>) return null;
+    final metrics = value['metrics'] is Map<String, dynamic>
+        ? value['metrics'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final start = DateTime.tryParse(value['periodStart']?.toString() ?? '');
+    final end = DateTime.tryParse(value['periodEnd']?.toString() ?? '');
+    if (start == null || end == null) return null;
+    return CommunityRewardEvaluation(
+      id: value['id']?.toString() ?? '',
+      periodStart: start,
+      periodEnd: end,
+      members: (metrics['members'] as num?)?.toInt() ?? 0,
+      monthlyActive: (metrics['monthlyActive'] as num?)?.toInt() ?? 0,
+      posts: (metrics['posts'] as num?)?.toInt() ?? 0,
+      interactions: (metrics['interactions'] as num?)?.toInt() ?? 0,
+      uniqueContributors: (metrics['uniqueContributors'] as num?)?.toInt() ?? 0,
+      retentionPercent: (metrics['retentionPercent'] as num?)?.toDouble() ?? 0,
+      tierId: value['tierId']?.toString(),
+      rewardCents: (value['rewardCents'] as num?)?.toInt() ?? 0,
+      currency: value['currency']?.toString() ?? 'EUR',
+      status: value['status']?.toString() ?? 'not_qualified',
+      reviewNote: value['reviewNote']?.toString(),
+      paidAt: DateTime.tryParse(value['paidAt']?.toString() ?? ''),
+    );
+  }
+
   @override
   Future<WicchuProfile> getProfile() async {
     final body = await _api.get('/api/community/v1/me');
@@ -2442,6 +2485,163 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<List<CommunityRewardRequest>> listCommunityRewardRequests() async {
+    final body = await _api.get('/api/community/v1/platform/reward-requests');
+    return _list(body, 'requests')
+        .map(
+          (item) => CommunityRewardRequest(
+            id: item['_id']?.toString() ?? '',
+            communityId: item['communityId']?.toString() ?? '',
+            countryCode: item['countryCode']?.toString() ?? '',
+            countryName: item['countryName']?.toString(),
+            contactEmail: item['contactEmail']?.toString() ?? '',
+            note: item['note']?.toString(),
+            requestedAt:
+                DateTime.tryParse(item['requestedAt']?.toString() ?? '') ??
+                DateTime.now(),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> reviewCommunityRewardRequest(
+    String requestId, {
+    required bool approve,
+    String currency = 'USD',
+    String? note,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/platform/reward-requests/$requestId',
+      body: {
+        'status': approve ? 'approved' : 'rejected',
+        if (approve) 'currency': currency,
+        if (note?.trim().isNotEmpty ?? false) 'reviewNote': note!.trim(),
+      },
+    );
+  }
+
+  @override
+  Future<List<PlatformRewardPayout>> listPlatformRewardPayouts({
+    bool completed = false,
+  }) async {
+    final body = await _api.get(
+      '/api/community/v1/platform/reward-payouts?status=${completed ? 'completed' : 'open'}',
+    );
+    return _list(body, 'payouts')
+        .map((item) {
+          final attribution = item['attribution'] is Map<String, dynamic>
+              ? item['attribution'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          return PlatformRewardPayout(
+            id: item['_id']?.toString() ?? '',
+            communityName: item['communityName']?.toString() ?? 'Community',
+            contactEmail: item['contactEmail']?.toString() ?? '',
+            periodStart:
+                DateTime.tryParse(item['periodStart']?.toString() ?? '') ??
+                DateTime.now(),
+            rewardCents: (item['rewardCents'] as num?)?.toInt() ?? 0,
+            currency: item['currency']?.toString() ?? 'EUR',
+            status: item['status']?.toString() ?? 'pending_review',
+            reviewNote: item['reviewNote']?.toString(),
+            availableBalanceCents:
+                (item['availableBalanceCents'] as num?)?.toInt() ?? 0,
+            minimumPayoutCents:
+                (item['minimumPayoutCents'] as num?)?.toInt() ?? 2500,
+            attributedJoins: (attribution['joined'] as num?)?.toInt() ?? 0,
+            attributedNewUsers: (attribution['newUsers'] as num?)?.toInt() ?? 0,
+            attributedActive7d:
+                (attribution['activeAfter7Days'] as num?)?.toInt() ?? 0,
+            attributedActive30d:
+                (attribution['activeAfter30Days'] as num?)?.toInt() ?? 0,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> reviewPlatformRewardPayout(
+    String payoutId, {
+    required String action,
+    String? note,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/platform/reward-payouts/$payoutId',
+      body: {
+        'action': action,
+        if (note?.trim().isNotEmpty ?? false) 'note': note!.trim(),
+      },
+    );
+  }
+
+  @override
+  Future<PlatformAnalytics> getPlatformAnalytics() async {
+    final body = await _api.get('/api/community/v1/platform/analytics');
+    final analytics = _object(body, 'analytics');
+    return PlatformAnalytics(
+      registeredUsers: (analytics['registeredUsers'] as num?)?.toInt() ?? 0,
+      newRegistrations: (analytics['newRegistrations'] as num?)?.toInt() ?? 0,
+      dailyActiveUsers: (analytics['dailyActiveUsers'] as num?)?.toInt() ?? 0,
+      weeklyActiveUsers: (analytics['weeklyActiveUsers'] as num?)?.toInt() ?? 0,
+      monthlyActiveUsers:
+          (analytics['monthlyActiveUsers'] as num?)?.toInt() ?? 0,
+      monthlyRetentionPercent: (analytics['monthlyRetentionPercent'] as num?)
+          ?.toDouble(),
+      activeCommunities: (analytics['activeCommunities'] as num?)?.toInt() ?? 0,
+      participatingCommunities:
+          (analytics['participatingCommunities'] as num?)?.toInt() ?? 0,
+      pendingReviews: (analytics['pendingReviews'] as num?)?.toInt() ?? 0,
+      registrationsByLocation:
+          (analytics['registrationsByLocation'] as List? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (item) => PlatformLocationRegistration(
+                  location: item['location']?.toString() ?? '',
+                  users: (item['users'] as num?)?.toInt() ?? 0,
+                ),
+              )
+              .where((item) => item.location.isNotEmpty)
+              .toList(growable: false),
+      currencySummary: (analytics['currencySummary'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (item) => PlatformCurrencySummary(
+              currency: item['currency']?.toString() ?? 'EUR',
+              pendingCents: (item['pendingCents'] as num?)?.toInt() ?? 0,
+              approvedCents: (item['approvedCents'] as num?)?.toInt() ?? 0,
+              paidCents: (item['paidCents'] as num?)?.toInt() ?? 0,
+              remainingBudgetCents:
+                  (item['remainingBudgetCents'] as num?)?.toInt() ?? 0,
+            ),
+          )
+          .toList(growable: false),
+      communityPerformance:
+          (analytics['communityPerformance'] as List? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .map((item) {
+                final attribution = item['attribution'] is Map<String, dynamic>
+                    ? item['attribution'] as Map<String, dynamic>
+                    : const <String, dynamic>{};
+                return PlatformCommunityPerformance(
+                  name: item['name']?.toString() ?? 'Community',
+                  currency: item['currency']?.toString() ?? 'EUR',
+                  members: (item['members'] as num?)?.toInt() ?? 0,
+                  monthlyActive: (item['monthlyActive'] as num?)?.toInt() ?? 0,
+                  posts: (item['posts'] as num?)?.toInt() ?? 0,
+                  interactions: (item['interactions'] as num?)?.toInt() ?? 0,
+                  contributors: (item['contributors'] as num?)?.toInt() ?? 0,
+                  newUsers: (attribution['newUsers'] as num?)?.toInt() ?? 0,
+                  activeAfter7Days:
+                      (attribution['activeAfter7Days'] as num?)?.toInt() ?? 0,
+                  activeAfter30Days:
+                      (attribution['activeAfter30Days'] as num?)?.toInt() ?? 0,
+                );
+              })
+              .toList(growable: false),
+    );
+  }
+
+  @override
   Future<AdminAttentionSummary> getAdminAttention(String communityId) async {
     final body = await _api.get(
       '/api/community/v1/communities/$communityId/admin/summary',
@@ -2465,6 +2665,9 @@ class HttpCommunityRepository implements CommunityRepository {
     final monetization = insights['monetization'] is Map<String, dynamic>
         ? insights['monetization'] as Map<String, dynamic>
         : const <String, dynamic>{};
+    final enrollment = monetization['enrollment'] is Map<String, dynamic>
+        ? monetization['enrollment'] as Map<String, dynamic>
+        : const <String, dynamic>{};
     return CommunityInsights(
       totalMembers: (insights['totalMembers'] as num?)?.toInt() ?? 0,
       newMembers30d: (insights['newMembers30d'] as num?)?.toInt() ?? 0,
@@ -2478,6 +2681,13 @@ class HttpCommunityRepository implements CommunityRepository {
       posts30d: (insights['posts30d'] as num?)?.toInt() ?? 0,
       comments30d: (insights['comments30d'] as num?)?.toInt() ?? 0,
       reactions30d: (insights['reactions30d'] as num?)?.toInt() ?? 0,
+      interactions30d: (insights['interactions30d'] as num?)?.toInt() ?? 0,
+      uniqueContributors30d:
+          (insights['uniqueContributors30d'] as num?)?.toInt() ?? 0,
+      monthlyRetentionRate:
+          (insights['monthlyRetentionRate'] as num?)?.toDouble() ?? 0,
+      retentionDataAvailable:
+          insights['retentionDataAvailable'] as bool? ?? false,
       memberGrowth: growth is List
           ? growth
                 .whereType<Map<String, dynamic>>()
@@ -2491,15 +2701,104 @@ class HttpCommunityRepository implements CommunityRepository {
           : const [],
       monetization: CommunityMonetizationEligibility(
         eligible: monetization['eligible'] as bool? ?? false,
-        memberTarget: (monetization['memberTarget'] as num?)?.toInt() ?? 1000,
-        monthlyActiveTarget:
-            (monetization['monthlyActiveTarget'] as num?)?.toInt() ?? 250,
-        membersRemaining:
-            (monetization['membersRemaining'] as num?)?.toInt() ?? 1000,
-        monthlyActiveRemaining:
-            (monetization['monthlyActiveRemaining'] as num?)?.toInt() ?? 250,
+        currency: monetization['currency']?.toString() ?? 'EUR',
+        reviewRequired: monetization['reviewRequired'] as bool? ?? true,
+        evaluationPeriodStart: DateTime.tryParse(
+          monetization['evaluationPeriodStart']?.toString() ?? '',
+        ),
+        evaluationPeriodEnd: DateTime.tryParse(
+          monetization['evaluationPeriodEnd']?.toString() ?? '',
+        ),
+        daysRemaining: (monetization['daysRemaining'] as num?)?.toInt() ?? 0,
+        payoutSetupComplete:
+            monetization['payoutSetupComplete'] as bool? ?? false,
+        availableBalanceCents:
+            (monetization['availableBalanceCents'] as num?)?.toInt() ?? 0,
+        minimumPayoutCents:
+            (monetization['minimumPayoutCents'] as num?)?.toInt() ?? 2500,
+        enrollment: CommunityRewardEnrollment(
+          requested: enrollment['requested'] as bool? ?? false,
+          status: enrollment['status']?.toString() ?? 'not_requested',
+          accepted: enrollment['accepted'] as bool? ?? false,
+          countryCode: enrollment['countryCode']?.toString(),
+          countryName: enrollment['countryName']?.toString(),
+          contactEmail: enrollment['contactEmail']?.toString(),
+          currency: enrollment['currency']?.toString(),
+          termsVersion: enrollment['termsVersion']?.toString(),
+          requestedAt: DateTime.tryParse(
+            enrollment['requestedAt']?.toString() ?? '',
+          ),
+          acceptedAt: DateTime.tryParse(
+            enrollment['acceptedAt']?.toString() ?? '',
+          ),
+          reviewNote: enrollment['reviewNote']?.toString(),
+        ),
+        currentTier: _rewardTier(monetization['currentTier']),
+        nextTier: _rewardTier(monetization['nextTier']),
+        tiers: monetization['tiers'] is List
+            ? (monetization['tiers'] as List)
+                  .map(_rewardTier)
+                  .whereType<CommunityRewardTier>()
+                  .toList(growable: false)
+            : const [],
+        history: monetization['history'] is List
+            ? (monetization['history'] as List)
+                  .map(_rewardEvaluation)
+                  .whereType<CommunityRewardEvaluation>()
+                  .toList(growable: false)
+            : const [],
         goodStanding: monetization['goodStanding'] as bool? ?? true,
         restrictionReason: monetization['restrictionReason']?.toString(),
+      ),
+    );
+  }
+
+  @override
+  Future<CommunityRewardEnrollment> acceptCommunityRewardTerms(
+    String communityId, {
+    required String countryCode,
+  }) async {
+    final body = await _api.put(
+      '/api/community/v1/communities/$communityId/admin/rewards/enrollment',
+      body: {'accepted': true},
+    );
+    final enrollment = _object(body, 'enrollment');
+    return CommunityRewardEnrollment(
+      accepted: enrollment['accepted'] as bool? ?? false,
+      countryCode: enrollment['countryCode']?.toString(),
+      currency: enrollment['currency']?.toString(),
+      termsVersion: enrollment['termsVersion']?.toString(),
+      acceptedAt: DateTime.tryParse(enrollment['acceptedAt']?.toString() ?? ''),
+    );
+  }
+
+  @override
+  Future<CommunityRewardEnrollment> requestCommunityRewards(
+    String communityId, {
+    required String countryCode,
+    String? countryName,
+    required String contactEmail,
+    String? note,
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/$communityId/admin/rewards/request',
+      body: {
+        'countryCode': countryCode,
+        if (countryName?.trim().isNotEmpty ?? false)
+          'countryName': countryName!.trim(),
+        'contactEmail': contactEmail.trim(),
+        if (note?.trim().isNotEmpty ?? false) 'note': note!.trim(),
+      },
+    );
+    final enrollment = _object(body, 'enrollment');
+    return CommunityRewardEnrollment(
+      requested: true,
+      status: enrollment['status']?.toString() ?? 'pending',
+      countryCode: enrollment['countryCode']?.toString(),
+      countryName: enrollment['countryName']?.toString(),
+      contactEmail: enrollment['contactEmail']?.toString(),
+      requestedAt: DateTime.tryParse(
+        enrollment['requestedAt']?.toString() ?? '',
       ),
     );
   }
@@ -3396,6 +3695,14 @@ class HttpCommunityRepository implements CommunityRepository {
     'report_created' => CommunityNotificationType.reportCreated,
     'community_invitation' => CommunityNotificationType.communityInvitation,
     'community_role_changed' => CommunityNotificationType.communityRoleChanged,
+    'reward_request' => CommunityNotificationType.rewardRequest,
+    'reward_request_approved' =>
+      CommunityNotificationType.rewardRequestApproved,
+    'reward_request_rejected' =>
+      CommunityNotificationType.rewardRequestRejected,
+    'reward_payout_approved' => CommunityNotificationType.rewardPayoutApproved,
+    'reward_payout_rejected' => CommunityNotificationType.rewardPayoutRejected,
+    'reward_payout_paid' => CommunityNotificationType.rewardPayoutPaid,
     _ => CommunityNotificationType.postReaction,
   };
 

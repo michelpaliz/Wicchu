@@ -112,6 +112,12 @@ enum CommunityNotificationType {
   reportCreated,
   communityInvitation,
   communityRoleChanged,
+  rewardRequest,
+  rewardRequestApproved,
+  rewardRequestRejected,
+  rewardPayoutApproved,
+  rewardPayoutRejected,
+  rewardPayoutPaid,
 }
 
 class NotificationPreferences {

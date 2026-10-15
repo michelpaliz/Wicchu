@@ -128,6 +128,25 @@ class LanguageMenu extends StatelessWidget {
 }
 
 const _spanish = <String, String>{
+  'Analytics': 'Analítica',
+  'Platform growth': 'Crecimiento de la plataforma',
+  'Registered users': 'Usuarios registrados',
+  'New registrations': 'Nuevos registros',
+  'Daily active users': 'Usuarios activos diarios',
+  'Weekly active users': 'Usuarios activos semanales',
+  'Monthly active users': 'Usuarios activos mensuales',
+  'Monthly retention': 'Retención mensual',
+  'Active communities': 'Comunidades activas',
+  'Participating communities': 'Comunidades participantes',
+  'Pending reviews': 'Revisiones pendientes',
+  'Registrations by location': 'Registros por ubicación',
+  'Financial overview': 'Resumen financiero',
+  'Budget left': 'Presupuesto restante',
+  'Community performance': 'Rendimiento de comunidades',
+  'No participating communities yet.': 'Aún no hay comunidades participantes.',
+  'Publications': 'Publicaciones',
+  'Interactions': 'Interacciones',
+  'Contributors': 'Colaboradores',
   'We copied the text and Wicchu link. Paste them into your Instagram caption.':
       'Hemos copiado el texto y enlace de Wicchu. Pégalos en la descripción de Instagram.',
   'More': 'Más',
@@ -880,7 +899,6 @@ const _spanish = <String, String>{
   'Child safety': 'Seguridad infantil',
   'Describe the concern': 'Describe el problema',
   'Report submitted': 'Denuncia enviada',
-  'Reason': 'Motivo',
   'Report': 'Denunciar',
   'Cancel': 'Cancelar',
   'Comments': 'Comentarios',
@@ -1983,7 +2001,6 @@ const _spanish = <String, String>{
   'Open comments': 'Abrir comentarios',
   'Join or follow this page to interact.':
       'Únete o sigue esta página para interactuar.',
-  'Required': 'Obligatoria',
   'Automatic': 'Automática',
   'public': 'Pública',
   'private': 'Privada',
@@ -2295,7 +2312,6 @@ const _spanish = <String, String>{
   'Request settings': 'Configuración de solicitudes',
   'Enable request types in settings so customers can contact you.':
       'Activa tipos de solicitud para que los clientes puedan contactarte.',
-  'Reject request': 'Rechazar solicitud',
   'Send quote': 'Enviar presupuesto',
   'Accepting requests': 'Aceptando solicitudes',
   'Customers can submit the enabled request types.':
@@ -2463,4 +2479,153 @@ const _spanish = <String, String>{
       'Faltan {members} miembros y {active} miembros activos',
   'Start earning from local promotions':
       'Empieza a obtener ingresos con promociones locales',
+  'Monthly community reward': 'Recompensa mensual de la comunidad',
+  'Grow and earn': 'Crece y gana',
+  'Active': 'Activa',
+  'Growing': 'En crecimiento',
+  'High Impact': 'Alto impacto',
+  'You reached the {level} level and can earn {amount} every qualifying month.':
+      'Has alcanzado el nivel {level} y puedes ganar {amount} cada mes que cumplas los requisitos.',
+  'Build a genuine, active community to unlock a monthly Wicchu reward.':
+      'Construye una comunidad auténtica y activa para desbloquear una recompensa mensual de Wicchu.',
+  'Estimated reward: {amount} per month':
+      'Recompensa estimada: {amount} al mes',
+  '{level} level requirements': 'Requisitos del nivel {level}',
+  'Useful posts in 30 days': 'Publicaciones útiles en 30 días',
+  'Meaningful interactions in 30 days': 'Interacciones relevantes en 30 días',
+  'Monthly member retention': 'Retención mensual de miembros',
+  'Complete every requirement to reach {level} and earn {amount} monthly.':
+      'Completa todos los requisitos para alcanzar el nivel {level} y ganar {amount} al mes.',
+  'Rewards are reviewed after each qualifying month. Genuine activity only; spam and artificial engagement do not count.':
+      'Las recompensas se revisan después de cada mes que cumpla los requisitos. Solo cuenta la actividad auténtica; el spam y la interacción artificial no cuentan.',
+  'Keep meeting these requirements every month to retain your reward.':
+      'Sigue cumpliendo estos requisitos cada mes para mantener tu recompensa.',
+  'Your reward journey': 'Tu recorrido de recompensas',
+  'Locked': 'Bloqueado',
+  '{amount}/month': '{amount}/mes',
+  'How rewards work': 'Cómo funcionan las recompensas',
+  'Wicchu checks the previous 30 days. Meet every requirement and remain in good standing. Approved rewards are paid the following month.':
+      'Wicchu revisa los 30 días anteriores. Cumple todos los requisitos y mantén la comunidad en regla. Las recompensas aprobadas se pagan el mes siguiente.',
+  'Payment setup': 'Configuración de pago',
+  'Required before your first payment. Wicchu will request verified payment details after you qualify.':
+      'Es obligatoria antes del primer pago. Wicchu solicitará datos de pago verificados cuando cumplas los requisitos.',
+  'View reward details': 'Ver detalles de recompensas',
+  'Community rewards': 'Recompensas de la comunidad',
+  'Current evaluation period': 'Periodo de evaluación actual',
+  '{days} days remaining': 'Quedan {days} días',
+  'No reward unlocked yet': 'Aún no has desbloqueado una recompensa',
+  'Progress toward {level}': 'Progreso hacia {level}',
+  'Active accounts that currently belong to this community.':
+      'Cuentas activas que actualmente pertenecen a esta comunidad.',
+  'Unique members who visited or participated during the previous 30 days.':
+      'Miembros únicos que visitaron o participaron durante los 30 días anteriores.',
+  'Published community posts; removed or rejected content is excluded.':
+      'Publicaciones de la comunidad publicadas; se excluye el contenido eliminado o rechazado.',
+  'Published comments and reactions from community activity.':
+      'Comentarios publicados y reacciones de la actividad de la comunidad.',
+  'Existing members who returned and were active during the previous 30 days.':
+      'Miembros existentes que regresaron y estuvieron activos durante los 30 días anteriores.',
+  'Eligibility and payment': 'Requisitos y pago',
+  'Complete': 'Completa',
+  'Required': 'Obligatoria',
+  'Results are reviewed after the month ends. Spam, duplicate accounts and artificial engagement are excluded.':
+      'Los resultados se revisan al finalizar el mes. Se excluyen el spam, las cuentas duplicadas y la interacción artificial.',
+  'Previous monthly results': 'Resultados mensuales anteriores',
+  'No completed evaluation periods yet.':
+      'Todavía no hay periodos de evaluación completados.',
+  'Pending review': 'Pendiente de revisión',
+  'Approved': 'Aprobada',
+  'Paid': 'Pagada',
+  'Not qualified': 'No cumple los requisitos',
+  'Join the Community Rewards pilot':
+      'Únete al piloto de Recompensas de la comunidad',
+  'Choose the community owner’s tax country. Wicchu currently supports Spain and Ecuador.':
+      'Elige el país fiscal del propietario de la comunidad. Wicchu admite actualmente España y Ecuador.',
+  'Spain · EUR': 'España · EUR',
+  'Ecuador · USD': 'Ecuador · USD',
+  'Before you join': 'Antes de unirte',
+  'Rewards are reviewed and are not guaranteed.':
+      'Las recompensas se revisan y no están garantizadas.',
+  'Spam, duplicate accounts and artificial activity do not count.':
+      'El spam, las cuentas duplicadas y la actividad artificial no cuentan.',
+  'Approved rewards are paid after the monthly review.':
+      'Las recompensas aprobadas se pagan después de la revisión mensual.',
+  'Rewards may be taxable income in your country.':
+      'Las recompensas pueden ser ingresos sujetos a impuestos en tu país.',
+  'Wicchu may change future reward amounts with advance notice.':
+      'Wicchu puede cambiar los importes futuros avisando con antelación.',
+  'You can appeal a rejected monthly reward.':
+      'Puedes apelar una recompensa mensual rechazada.',
+  'I understand and accept the Community Rewards pilot terms.':
+      'Entiendo y acepto las condiciones del piloto de Recompensas de la comunidad.',
+  'Only the community owner can accept these terms.':
+      'Solo el propietario de la comunidad puede aceptar estas condiciones.',
+  'Accept and join pilot': 'Aceptar y unirse al piloto',
+  'Community Rewards pilot': 'Piloto de Recompensas de la comunidad',
+  'View the reward levels and choose Spain or Ecuador to join the pilot.':
+      'Consulta los niveles de recompensa y elige España o Ecuador para unirte al piloto.',
+  'Review pilot terms': 'Revisar condiciones del piloto',
+  'Request Community Rewards': 'Solicitar Recompensas de la comunidad',
+  'Tell Wicchu where you are based. We will review availability and contact you.':
+      'Dile a Wicchu dónde resides. Revisaremos la disponibilidad y nos pondremos en contacto contigo.',
+  'Country': 'País',
+  'Spain': 'España',
+  'Ecuador': 'Ecuador',
+  'Another country': 'Otro país',
+  'Country name': 'Nombre del país',
+  'Contact email': 'Correo electrónico de contacto',
+  'Enter a valid email': 'Introduce un correo electrónico válido',
+  'Message (optional)': 'Mensaje (opcional)',
+  'Only the community owner can send this request.':
+      'Solo el propietario de la comunidad puede enviar esta solicitud.',
+  'Request under review': 'Solicitud en revisión',
+  'Wicchu will contact you at {email} after reviewing availability in your country.':
+      'Wicchu te contactará en {email} después de revisar la disponibilidad en tu país.',
+  'Wicchu will contact the community owner after reviewing availability.':
+      'Wicchu contactará al propietario de la comunidad después de revisar la disponibilidad.',
+  'Your request was approved. Review and accept the terms to join.':
+      'Tu solicitud fue aprobada. Revisa y acepta las condiciones para unirte.',
+  'Reward request under review': 'Solicitud de recompensas en revisión',
+  'Wicchu will contact you after reviewing your country.':
+      'Wicchu te contactará después de revisar tu país.',
+  'Send a short request to check availability in your country.':
+      'Envía una breve solicitud para consultar la disponibilidad en tu país.',
+  'Your request was approved. Accept the terms to join.':
+      'Tu solicitud fue aprobada. Acepta las condiciones para unirte.',
+  'View request': 'Ver solicitud',
+  'Request access': 'Solicitar acceso',
+  'Rewards': 'Recompensas',
+  'No pending reward requests.':
+      'No hay solicitudes de recompensas pendientes.',
+  'Approve request': 'Aprobar solicitud',
+  'Reject request': 'Rechazar solicitud',
+  'Currency': 'Moneda',
+  'Review note': 'Nota de revisión',
+  'Add a reason before rejecting.': 'Añade un motivo antes de rechazar.',
+  'Payouts': 'Pagos',
+  'No payouts awaiting action.': 'No hay pagos pendientes de acción.',
+  'Month': 'Mes',
+  'Amount': 'Importe',
+  'Status': 'Estado',
+  'Mark paid': 'Marcar como pagado',
+  'Reject payout': 'Rechazar pago',
+  'Reason': 'Motivo',
+  'Paid on': 'Pagado el',
+  'Approved balance': 'Saldo aprobado',
+  'Ready for manual payment': 'Listo para pago manual',
+  '{amount} remaining until payout': 'Faltan {amount} para el pago',
+  'Unique contributors in 30 days': 'Colaboradores únicos en 30 días',
+  'Different non-admin members who published, commented or voted in a poll.':
+      'Miembros distintos que no son administradores y que publicaron, comentaron o votaron en una encuesta.',
+  'Attributed users': 'Usuarios atribuidos',
+  'New Wicchu users': 'Nuevos usuarios de Wicchu',
+  'Active after 7 days': 'Activos después de 7 días',
+  'Active after 30 days': 'Activos después de 30 días',
+  'Not enough retention data': 'No hay suficientes datos de retención',
+  'your monthly Community Rewards evaluation is ready for review':
+      'tu evaluación mensual de Recompensas de la comunidad está lista para revisión',
+  'your monthly Community Rewards results are available':
+      'tus resultados mensuales de Recompensas de la comunidad están disponibles',
+  'Members present before the UTC calendar month who were active during that month.':
+      'Miembros presentes antes del mes natural UTC que estuvieron activos durante ese mes.',
 };

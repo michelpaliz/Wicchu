@@ -58,6 +58,10 @@ class CommunityInsights {
     this.posts30d = 0,
     this.comments30d = 0,
     this.reactions30d = 0,
+    this.interactions30d = 0,
+    this.uniqueContributors30d = 0,
+    this.monthlyRetentionRate = 0,
+    this.retentionDataAvailable = false,
     this.memberGrowth = const [],
     this.monetization = const CommunityMonetizationEligibility(),
   });
@@ -71,6 +75,10 @@ class CommunityInsights {
   final int posts30d;
   final int comments30d;
   final int reactions30d;
+  final int interactions30d;
+  final int uniqueContributors30d;
+  final double monthlyRetentionRate;
+  final bool retentionDataAvailable;
   final List<MemberGrowthPoint> memberGrowth;
   final CommunityMonetizationEligibility monetization;
 }
@@ -78,21 +86,258 @@ class CommunityInsights {
 class CommunityMonetizationEligibility {
   const CommunityMonetizationEligibility({
     this.eligible = false,
-    this.memberTarget = 1000,
-    this.monthlyActiveTarget = 250,
-    this.membersRemaining = 1000,
-    this.monthlyActiveRemaining = 250,
+    this.currency = 'EUR',
+    this.reviewRequired = true,
+    this.evaluationPeriodStart,
+    this.evaluationPeriodEnd,
+    this.daysRemaining = 0,
+    this.payoutSetupComplete = false,
+    this.availableBalanceCents = 0,
+    this.minimumPayoutCents = 2500,
+    this.enrollment = const CommunityRewardEnrollment(),
+    this.currentTier,
+    this.nextTier,
+    this.tiers = const [],
+    this.history = const [],
     this.goodStanding = true,
     this.restrictionReason,
   });
 
   final bool eligible;
-  final int memberTarget;
-  final int monthlyActiveTarget;
-  final int membersRemaining;
-  final int monthlyActiveRemaining;
+  final String currency;
+  final bool reviewRequired;
+  final DateTime? evaluationPeriodStart;
+  final DateTime? evaluationPeriodEnd;
+  final int daysRemaining;
+  final bool payoutSetupComplete;
+  final int availableBalanceCents;
+  final int minimumPayoutCents;
+  final CommunityRewardEnrollment enrollment;
+  final CommunityRewardTier? currentTier;
+  final CommunityRewardTier? nextTier;
+  final List<CommunityRewardTier> tiers;
+  final List<CommunityRewardEvaluation> history;
   final bool goodStanding;
   final String? restrictionReason;
+}
+
+class CommunityRewardEnrollment {
+  const CommunityRewardEnrollment({
+    this.requested = false,
+    this.status = 'not_requested',
+    this.accepted = false,
+    this.countryCode,
+    this.countryName,
+    this.contactEmail,
+    this.currency,
+    this.termsVersion,
+    this.requestedAt,
+    this.acceptedAt,
+    this.reviewNote,
+  });
+
+  final bool requested;
+  final String status;
+  final bool accepted;
+  final String? countryCode;
+  final String? countryName;
+  final String? contactEmail;
+  final String? currency;
+  final String? termsVersion;
+  final DateTime? requestedAt;
+  final DateTime? acceptedAt;
+  final String? reviewNote;
+}
+
+class CommunityRewardRequest {
+  const CommunityRewardRequest({
+    required this.id,
+    required this.communityId,
+    required this.countryCode,
+    required this.contactEmail,
+    required this.requestedAt,
+    this.countryName,
+    this.note,
+  });
+
+  final String id;
+  final String communityId;
+  final String countryCode;
+  final String? countryName;
+  final String contactEmail;
+  final String? note;
+  final DateTime requestedAt;
+}
+
+class PlatformRewardPayout {
+  const PlatformRewardPayout({
+    required this.id,
+    required this.communityName,
+    required this.contactEmail,
+    required this.periodStart,
+    required this.rewardCents,
+    required this.currency,
+    required this.status,
+    this.availableBalanceCents = 0,
+    this.minimumPayoutCents = 2500,
+    this.attributedJoins = 0,
+    this.attributedNewUsers = 0,
+    this.attributedActive7d = 0,
+    this.attributedActive30d = 0,
+    this.reviewNote,
+  });
+
+  final String id;
+  final String communityName;
+  final String contactEmail;
+  final DateTime periodStart;
+  final int rewardCents;
+  final String currency;
+  final String status;
+  final int availableBalanceCents;
+  final int minimumPayoutCents;
+  final int attributedJoins;
+  final int attributedNewUsers;
+  final int attributedActive7d;
+  final int attributedActive30d;
+  final String? reviewNote;
+}
+
+class PlatformAnalytics {
+  const PlatformAnalytics({
+    this.registeredUsers = 0,
+    this.newRegistrations = 0,
+    this.dailyActiveUsers = 0,
+    this.weeklyActiveUsers = 0,
+    this.monthlyActiveUsers = 0,
+    this.monthlyRetentionPercent,
+    this.activeCommunities = 0,
+    this.participatingCommunities = 0,
+    this.pendingReviews = 0,
+    this.registrationsByLocation = const [],
+    this.currencySummary = const [],
+    this.communityPerformance = const [],
+  });
+
+  final int registeredUsers;
+  final int newRegistrations;
+  final int dailyActiveUsers;
+  final int weeklyActiveUsers;
+  final int monthlyActiveUsers;
+  final double? monthlyRetentionPercent;
+  final int activeCommunities;
+  final int participatingCommunities;
+  final int pendingReviews;
+  final List<PlatformLocationRegistration> registrationsByLocation;
+  final List<PlatformCurrencySummary> currencySummary;
+  final List<PlatformCommunityPerformance> communityPerformance;
+}
+
+class PlatformLocationRegistration {
+  const PlatformLocationRegistration({required this.location, this.users = 0});
+
+  final String location;
+  final int users;
+}
+
+class PlatformCurrencySummary {
+  const PlatformCurrencySummary({
+    required this.currency,
+    this.pendingCents = 0,
+    this.approvedCents = 0,
+    this.paidCents = 0,
+    this.remainingBudgetCents = 0,
+  });
+  final String currency;
+  final int pendingCents;
+  final int approvedCents;
+  final int paidCents;
+  final int remainingBudgetCents;
+}
+
+class PlatformCommunityPerformance {
+  const PlatformCommunityPerformance({
+    required this.name,
+    required this.currency,
+    this.members = 0,
+    this.monthlyActive = 0,
+    this.posts = 0,
+    this.interactions = 0,
+    this.contributors = 0,
+    this.newUsers = 0,
+    this.activeAfter7Days = 0,
+    this.activeAfter30Days = 0,
+  });
+  final String name;
+  final String currency;
+  final int members;
+  final int monthlyActive;
+  final int posts;
+  final int interactions;
+  final int contributors;
+  final int newUsers;
+  final int activeAfter7Days;
+  final int activeAfter30Days;
+}
+
+class CommunityRewardEvaluation {
+  const CommunityRewardEvaluation({
+    required this.id,
+    required this.periodStart,
+    required this.periodEnd,
+    required this.members,
+    required this.monthlyActive,
+    required this.posts,
+    required this.interactions,
+    this.uniqueContributors = 0,
+    required this.retentionPercent,
+    required this.rewardCents,
+    required this.currency,
+    required this.status,
+    this.tierId,
+    this.reviewNote,
+    this.paidAt,
+  });
+
+  final String id;
+  final DateTime periodStart;
+  final DateTime periodEnd;
+  final int members;
+  final int monthlyActive;
+  final int posts;
+  final int interactions;
+  final int uniqueContributors;
+  final double retentionPercent;
+  final String? tierId;
+  final int rewardCents;
+  final String currency;
+  final String status;
+  final String? reviewNote;
+  final DateTime? paidAt;
+}
+
+class CommunityRewardTier {
+  const CommunityRewardTier({
+    required this.id,
+    required this.monthlyRewardCents,
+    required this.memberTarget,
+    required this.monthlyActiveTarget,
+    required this.postsTarget,
+    required this.interactionsTarget,
+    this.contributorsTarget = 0,
+    required this.retentionTargetPercent,
+    required this.qualified,
+  });
+
+  final String id;
+  final int monthlyRewardCents;
+  final int memberTarget;
+  final int monthlyActiveTarget;
+  final int postsTarget;
+  final int interactionsTarget;
+  final int contributorsTarget;
+  final double retentionTargetPercent;
+  final bool qualified;
 }
 
 class CreatePostInput {
@@ -614,8 +859,35 @@ abstract interface class CommunityRepository {
     required String action,
     String? note,
   });
+  Future<List<CommunityRewardRequest>> listCommunityRewardRequests();
+  Future<void> reviewCommunityRewardRequest(
+    String requestId, {
+    required bool approve,
+    String currency = 'USD',
+    String? note,
+  });
+  Future<List<PlatformRewardPayout>> listPlatformRewardPayouts({
+    bool completed = false,
+  });
+  Future<void> reviewPlatformRewardPayout(
+    String payoutId, {
+    required String action,
+    String? note,
+  });
+  Future<PlatformAnalytics> getPlatformAnalytics();
   Future<AdminAttentionSummary> getAdminAttention(String communityId);
   Future<CommunityInsights> getCommunityInsights(String communityId);
+  Future<CommunityRewardEnrollment> acceptCommunityRewardTerms(
+    String communityId, {
+    required String countryCode,
+  });
+  Future<CommunityRewardEnrollment> requestCommunityRewards(
+    String communityId, {
+    required String countryCode,
+    String? countryName,
+    required String contactEmail,
+    String? note,
+  });
   Future<List<CommunityReport>> listReports(String communityId);
   Future<void> decideReport(
     String communityId,

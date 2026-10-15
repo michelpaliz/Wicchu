@@ -13,6 +13,7 @@ import 'rule_management_page.dart';
 import '../community/community_invitations_page.dart';
 import '../community/community_avatar.dart';
 import 'community_insights_page.dart';
+import 'community_rewards_page.dart';
 import 'removed_posts_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
@@ -229,6 +230,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 }
                 return _MonetizationCard(
                   insights: snapshot.data!,
+                  onDetails: () => _openQueue(
+                    CommunityRewardsPage(
+                      community: community,
+                      repository: repository,
+                    ),
+                  ),
                   onInvite: () => _openQueue(
                     CommunityInvitationsPage(
                       community: community,
@@ -428,24 +435,89 @@ class _MonetizationLoadingCard extends StatelessWidget {
 }
 
 class _MonetizationCard extends StatelessWidget {
-  const _MonetizationCard({required this.insights, required this.onInvite});
+  const _MonetizationCard({
+    required this.insights,
+    required this.onDetails,
+    required this.onInvite,
+  });
 
   final CommunityInsights insights;
+  final VoidCallback onDetails;
   final VoidCallback onInvite;
 
   @override
   Widget build(BuildContext context) {
     final eligibility = insights.monetization;
     final colors = Theme.of(context).colorScheme;
-    final membersProgress = eligibility.memberTarget == 0
-        ? 0.0
-        : (insights.totalMembers / eligibility.memberTarget).clamp(0.0, 1.0);
-    final activeProgress = eligibility.monthlyActiveTarget == 0
-        ? 0.0
-        : (insights.monthlyActiveUsers / eligibility.monthlyActiveTarget).clamp(
-            0.0,
-            1.0,
-          );
+    if (!eligibility.enrollment.accepted) {
+      final enrollment = eligibility.enrollment;
+      final pending = enrollment.status == 'pending';
+      final approved = enrollment.status == 'approved';
+      return Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(WicchuIcons.currencyDollar, color: colors.primary),
+              const SizedBox(height: 10),
+              Text(
+                context.tr(
+                  pending
+                      ? 'Reward request under review'
+                      : 'Community Rewards pilot',
+                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.tr(
+                  pending
+                      ? 'Wicchu will contact you after reviewing your country.'
+                      : approved
+                      ? 'Your request was approved. Accept the terms to join.'
+                      : 'Send a short request to check availability in your country.',
+                ),
+              ),
+              const SizedBox(height: 14),
+              FilledButton(
+                onPressed: onDetails,
+                child: Text(
+                  context.tr(
+                    pending
+                        ? 'View request'
+                        : approved
+                        ? 'Review pilot terms'
+                        : 'Request access',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final earned = eligibility.currentTier;
+    final target = eligibility.nextTier ?? earned;
+    if (target == null) return const SizedBox.shrink();
+    double progress(num value, num goal) =>
+        goal <= 0 ? 1 : (value / goal).clamp(0.0, 1.0).toDouble();
+    String tierName(String id) => context.tr(switch (id) {
+      'active' => 'Active',
+      'growing' => 'Growing',
+      'high_impact' => 'High Impact',
+      _ => id,
+    });
+    String reward(CommunityRewardTier tier) {
+      final euros = tier.monthlyRewardCents / 100;
+      final amount = euros == euros.roundToDouble()
+          ? euros.toInt().toString()
+          : euros.toStringAsFixed(2);
+      return eligibility.currency == 'USD' ? '\$$amount' : '$amount €';
+    }
 
     return Card(
       margin: EdgeInsets.zero,
@@ -458,7 +530,7 @@ class _MonetizationCard extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  eligibility.eligible
+                  earned != null
                       ? WicchuIcons.confetti
                       : WicchuIcons.currencyDollar,
                   color: colors.primary,
@@ -467,43 +539,149 @@ class _MonetizationCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     context.tr(
-                      eligibility.eligible
-                          ? 'Monetization unlocked'
-                          : 'Monetization',
+                      earned != null
+                          ? 'Monthly community reward'
+                          : 'Grow and earn',
                     ),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                _EligibilityBadge(eligible: eligibility.eligible),
+                _EligibilityBadge(eligible: earned != null),
               ],
             ),
             const SizedBox(height: 10),
             Text(
               context.tr(
-                eligibility.eligible
-                    ? 'Your community is eligible for earning opportunities from local promotions.'
-                    : 'Build an active community to unlock earning opportunities from local promotions.',
+                earned != null
+                    ? 'You reached the {level} level and can earn {amount} every qualifying month.'
+                    : 'Build a genuine, active community to unlock a monthly Wicchu reward.',
+                earned != null
+                    ? {'level': tierName(earned.id), 'amount': reward(earned)}
+                    : const {},
               ),
             ),
+            if (eligibility.tiers.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Text(
+                context.tr('Your reward journey'),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
+              for (final tier in eligibility.tiers) ...[
+                _RewardLevelTile(
+                  name: tierName(tier.id),
+                  reward: reward(tier),
+                  state: tier.qualified
+                      ? (eligibility.nextTier == null && earned?.id == tier.id
+                            ? _RewardStepState.current
+                            : _RewardStepState.completed)
+                      : tier.id == target.id
+                      ? _RewardStepState.current
+                      : _RewardStepState.locked,
+                ),
+                if (tier != eligibility.tiers.last) const SizedBox(height: 8),
+              ],
+            ],
+            if (earned != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  context.tr('Estimated reward: {amount} per month', {
+                    'amount': reward(earned),
+                  }),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
+            Text(
+              context.tr('{level} level requirements', {
+                'level': tierName(target.id),
+              }),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
             _MonetizationRequirement(
               icon: WicchuIcons.users,
               label: context.tr('Members'),
               value: insights.totalMembers,
-              target: eligibility.memberTarget,
-              progress: membersProgress,
+              target: target.memberTarget,
+              progress: progress(insights.totalMembers, target.memberTarget),
             ),
             const SizedBox(height: 16),
             _MonetizationRequirement(
               icon: WicchuIcons.circleFill,
               label: context.tr('Monthly active members'),
               value: insights.monthlyActiveUsers,
-              target: eligibility.monthlyActiveTarget,
-              progress: activeProgress,
+              target: target.monthlyActiveTarget,
+              progress: progress(
+                insights.monthlyActiveUsers,
+                target.monthlyActiveTarget,
+              ),
               iconColor: Colors.green,
             ),
+            const SizedBox(height: 16),
+            _MonetizationRequirement(
+              icon: WicchuIcons.article,
+              label: context.tr('Useful posts in 30 days'),
+              value: insights.posts30d,
+              target: target.postsTarget,
+              progress: progress(insights.posts30d, target.postsTarget),
+            ),
+            const SizedBox(height: 16),
+            _MonetizationRequirement(
+              icon: WicchuIcons.heart,
+              label: context.tr('Meaningful interactions in 30 days'),
+              value: insights.interactions30d,
+              target: target.interactionsTarget,
+              progress: progress(
+                insights.interactions30d,
+                target.interactionsTarget,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _MonetizationRequirement(
+              icon: WicchuIcons.users,
+              label: context.tr('Unique contributors in 30 days'),
+              value: insights.uniqueContributors30d,
+              target: target.contributorsTarget,
+              progress: progress(
+                insights.uniqueContributors30d,
+                target.contributorsTarget,
+              ),
+            ),
+            if (target.retentionTargetPercent > 0) ...[
+              const SizedBox(height: 16),
+              if (insights.retentionDataAvailable)
+                _MonetizationRequirement(
+                  icon: WicchuIcons.chartLineUp,
+                  label: context.tr('Monthly member retention'),
+                  value: insights.monthlyRetentionRate,
+                  target: target.retentionTargetPercent,
+                  progress: progress(
+                    insights.monthlyRetentionRate,
+                    target.retentionTargetPercent,
+                  ),
+                  suffix: '%',
+                )
+              else
+                Text(context.tr('Not enough retention data')),
+            ],
             const SizedBox(height: 16),
             Row(
               children: [
@@ -528,14 +706,13 @@ class _MonetizationCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (!eligibility.eligible) ...[
+            if (earned == null) ...[
               const SizedBox(height: 20),
               Text(
-                context
-                    .tr('{members} members and {active} active members to go', {
-                      'members': '${eligibility.membersRemaining}',
-                      'active': '${eligibility.monthlyActiveRemaining}',
-                    }),
+                context.tr(
+                  'Complete every requirement to reach {level} and earn {amount} monthly.',
+                  {'level': tierName(target.id), 'amount': reward(target)},
+                ),
                 style: Theme.of(
                   context,
                 ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -549,14 +726,138 @@ class _MonetizationCard extends StatelessWidget {
             ] else ...[
               const SizedBox(height: 20),
               Text(
-                context.tr('Start earning from local promotions'),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                context.tr(
+                  eligibility.reviewRequired
+                      ? 'Rewards are reviewed after each qualifying month. Genuine activity only; spam and artificial engagement do not count.'
+                      : 'Keep meeting these requirements every month to retain your reward.',
+                ),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 12),
+            Text(
+              context.tr('How rewards work'),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.tr(
+                'Wicchu checks the previous 30 days. Meet every requirement and remain in good standing. Approved rewards are paid the following month.',
+              ),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  WicchuIcons.currencyDollar,
+                  size: 20,
+                  color: colors.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('Payment setup'),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        context.tr(
+                          'Required before your first payment. Wicchu will request verified payment details after you qualify.',
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: onDetails,
+              icon: const Icon(WicchuIcons.chartBar),
+              label: Text(context.tr('View reward details')),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+enum _RewardStepState { completed, current, locked }
+
+class _RewardLevelTile extends StatelessWidget {
+  const _RewardLevelTile({
+    required this.name,
+    required this.reward,
+    required this.state,
+  });
+
+  final String name;
+  final String reward;
+  final _RewardStepState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final active = state != _RewardStepState.locked;
+    final color = state == _RewardStepState.completed
+        ? Colors.green
+        : active
+        ? colors.primary
+        : colors.onSurfaceVariant;
+    final label = switch (state) {
+      _RewardStepState.completed => 'Completed',
+      _RewardStepState.current => 'In progress',
+      _RewardStepState.locked => 'Locked',
+    };
+    final icon = switch (state) {
+      _RewardStepState.completed => WicchuIcons.check,
+      _RewardStepState.current => WicchuIcons.circleFill,
+      _RewardStepState.locked => WicchuIcons.lockKey,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: active ? .10 : .05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: .25)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: color.withValues(alpha: .15),
+            child: Icon(icon, size: 17, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                  context.tr(label),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: color),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            context.tr('{amount}/month', {'amount': reward}),
+            style: TextStyle(fontWeight: FontWeight.w800, color: color),
+          ),
+        ],
       ),
     );
   }
@@ -594,14 +895,16 @@ class _MonetizationRequirement extends StatelessWidget {
     required this.target,
     required this.progress,
     this.iconColor,
+    this.suffix = '',
   });
 
   final IconData icon;
   final String label;
-  final int value;
-  final int target;
+  final num value;
+  final num target;
   final double progress;
   final Color? iconColor;
+  final String suffix;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -613,7 +916,7 @@ class _MonetizationRequirement extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: Text(label)),
           Text(
-            '$value / $target',
+            '${_display(value)}$suffix / ${_display(target)}$suffix',
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ],
@@ -622,6 +925,10 @@ class _MonetizationRequirement extends StatelessWidget {
       LinearProgressIndicator(value: progress, minHeight: 8),
     ],
   );
+
+  static String _display(num value) => value is double && value % 1 != 0
+      ? value.toStringAsFixed(1)
+      : value.toInt().toString();
 }
 
 class _ActionRow extends StatelessWidget {
