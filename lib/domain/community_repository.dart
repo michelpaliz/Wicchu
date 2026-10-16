@@ -280,6 +280,40 @@ class PlatformCommunityPerformance {
   final int activeAfter30Days;
 }
 
+class FinancialSupportApplication {
+  const FinancialSupportApplication({
+    required this.id,
+    required this.pageId,
+    required this.countryCode,
+    required this.recipientType,
+    required this.purpose,
+    required this.contactEmail,
+    required this.status,
+    required this.requestedAt,
+    this.pageName,
+    this.countryName = '',
+    this.reviewedAt,
+    this.reviewNote = '',
+    this.providerStatus = 'not_configured',
+    this.paymentsEnabled = false,
+  });
+
+  final String id;
+  final String pageId;
+  final String? pageName;
+  final String countryCode;
+  final String countryName;
+  final String recipientType;
+  final String purpose;
+  final String contactEmail;
+  final String status;
+  final DateTime requestedAt;
+  final DateTime? reviewedAt;
+  final String reviewNote;
+  final String providerStatus;
+  final bool paymentsEnabled;
+}
+
 class CommunityRewardEvaluation {
   const CommunityRewardEvaluation({
     required this.id,
@@ -686,6 +720,13 @@ abstract interface class CommunityRepository {
     String communityId,
     String invitationId,
   );
+  Future<CommunityInvitation> resendCommunityInvitation(
+    String communityId,
+    String invitationId,
+  );
+  Future<List<CommunityAuditEntry>> listCommunityAuditHistory(
+    String communityId,
+  );
   Future<void> createOwnershipTransfer(String communityId, String targetUserId);
   Future<void> createAdminInvitation(String communityId, String targetUserId);
   Future<void> stepDownCommunityRole(String communityId);
@@ -739,6 +780,14 @@ abstract interface class CommunityRepository {
     String communityId,
     String userId, {
     required bool enabled,
+  });
+  Future<void> setPagePermissions(
+    String communityId,
+    String userId, {
+    required bool messages,
+    required bool orders,
+    required bool services,
+    required bool analytics,
   });
   Future<void> setMemberAccess(
     String communityId,
@@ -875,6 +924,23 @@ abstract interface class CommunityRepository {
     String? note,
   });
   Future<PlatformAnalytics> getPlatformAnalytics();
+  Future<FinancialSupportApplication?> getFinancialSupportApplication(
+    String pageId,
+  );
+  Future<FinancialSupportApplication> submitFinancialSupportApplication(
+    String pageId, {
+    required String countryCode,
+    String? countryName,
+    required String recipientType,
+    required String purpose,
+    required String contactEmail,
+  });
+  Future<List<FinancialSupportApplication>> listFinancialSupportApplications();
+  Future<void> reviewFinancialSupportApplication(
+    String applicationId, {
+    required bool approve,
+    String? note,
+  });
   Future<AdminAttentionSummary> getAdminAttention(String communityId);
   Future<CommunityInsights> getCommunityInsights(String communityId);
   Future<CommunityRewardEnrollment> acceptCommunityRewardTerms(

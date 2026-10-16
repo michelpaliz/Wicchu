@@ -753,6 +753,106 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
   bool _showInviteHint = true;
   bool _showTip = true;
 
+  String _rolePermissionDescription(CommunityRole role) {
+    if (widget.community.isPublicProfile) {
+      return switch (role) {
+        CommunityRole.owner =>
+          'Full control, ownership, financial support and team permissions.',
+        CommunityRole.admin =>
+          'Manages page content. The owner separately grants messages, orders, services and analytics.',
+        CommunityRole.moderator =>
+          'Reviews content, comments and reports. No financial or business access.',
+        CommunityRole.member =>
+          'Can follow and interact with the page. No management access.',
+      };
+    }
+    return switch (role) {
+      CommunityRole.owner =>
+        'Full control, ownership, Community Rewards and administrator access.',
+      CommunityRole.admin =>
+        'Manages content, members, categories and community settings.',
+      CommunityRole.moderator =>
+        'Reviews content, comments and reports. No ownership or financial access.',
+      CommunityRole.member =>
+        'Can join, publish and interact according to community rules.',
+    };
+  }
+
+  String _memberStatusLabel(CommunityMember member) => switch (member.status) {
+    MembershipStatus.active => 'Active',
+    MembershipStatus.pending => 'Pending',
+    MembershipStatus.banned => 'Banned',
+  };
+
+  Future<void> _showRoleInformation(CommunityMember member) => showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      icon: const Icon(WicchuIcons.info),
+      title: Text(dialogContext.tr(widget.community.roleLabel(member.role))),
+      content: Text(dialogContext.tr(_rolePermissionDescription(member.role))),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: Text(dialogContext.tr('Close')),
+        ),
+      ],
+    ),
+  );
+
+  List<String> _grantedPagePermissions(CommunityMember member) => [
+    if (member.pageInboxAccess) 'Messages',
+    if (member.canManageOrders) 'Orders',
+    if (member.canManageServices) 'Services',
+    if (member.canViewPageAnalytics) 'Page analytics',
+  ];
+
+  Widget _memberPill(
+    String label, {
+    required Color foreground,
+    required Color background,
+    IconData? icon,
+    VoidCallback? onTap,
+  }) {
+    final child = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: foreground),
+            const SizedBox(width: 4),
+          ],
+          Flexible(
+            child: Text(
+              context.tr(label),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                color: foreground,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (onTap == null) return child;
+    return Semantics(
+      button: true,
+      label: '${context.tr(label)}. ${context.tr('View role permissions')}',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: child,
+      ),
+    );
+  }
+
   Future<void> _invite() async {
     await Navigator.push(
       context,
@@ -782,11 +882,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                 ),
                 title: Text(member.name),
                 subtitle: Text(
-                  context.tr(
-                    member.role == CommunityRole.owner
-                        ? 'Owner'
-                        : member.role.name,
-                  ),
+                  context.tr(widget.community.roleLabel(member.role)),
                 ),
               ),
               if (member.status == MembershipStatus.banned)
@@ -834,37 +930,38 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                         ),
                         title: Text(
                           role == CommunityRole.admin
-                              ? context.tr('Invite as administrator')
+                              ? context.tr(
+                                  widget.community.isPublicProfile
+                                      ? 'Invite as page administrator'
+                                      : 'Invite as community administrator',
+                                )
                               : context.tr('Set role: {role}', {
-                                  'role': context.tr(role.name),
+                                  'role': context.tr(
+                                    widget.community.roleLabel(role),
+                                  ),
                                 }),
+                        ),
+                        subtitle: Text(
+                          context.tr(_rolePermissionDescription(role)),
                         ),
                         enabled: role != member.role,
                         onTap: () =>
                             Navigator.pop(sheetContext, 'role:${role.name}'),
                       ),
-                if (widget.community.myRole == CommunityRole.owner &&
+                if (widget.community.isPublicProfile &&
+                    widget.community.myRole == CommunityRole.owner &&
                     member.status == MembershipStatus.active &&
                     member.role == CommunityRole.admin)
                   ListTile(
-                    leading: Icon(
-                      member.pageInboxAccess
-                          ? WicchuIcons.envelopeOpen
-                          : WicchuIcons.envelopeSimple,
-                    ),
-                    title: Text(
-                      context.tr(
-                        member.pageInboxAccess
-                            ? 'Remove shared inbox access'
-                            : 'Allow shared inbox access',
-                      ),
-                    ),
+                    leading: const Icon(WicchuIcons.key),
+                    title: Text(context.tr('Page permissions')),
                     subtitle: Text(
                       context.tr(
-                        'Reply to members using this shared identity.',
+                        'Choose access to messages, orders, services and analytics.',
                       ),
                     ),
-                    onTap: () => Navigator.pop(sheetContext, 'page-inbox'),
+                    onTap: () =>
+                        Navigator.pop(sheetContext, 'page-permissions'),
                   ),
                 if (widget.community.myRole == CommunityRole.owner &&
                     member.status == MembershipStatus.active &&
@@ -874,21 +971,63 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                     title: Text(context.tr('Transfer ownership')),
                     onTap: () => Navigator.pop(sheetContext, 'transfer'),
                   ),
+                if (widget.community.myRole == CommunityRole.owner &&
+                    member.status == MembershipStatus.active &&
+                    (member.role == CommunityRole.admin ||
+                        member.role == CommunityRole.moderator))
+                  ListTile(
+                    leading: Icon(
+                      WicchuIcons.shieldWarning,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    title: Text(
+                      context.tr('Remove all management access'),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                    subtitle: Text(
+                      context.tr(
+                        widget.community.isPublicProfile
+                            ? 'Change this person back to a follower and remove every page permission.'
+                            : 'Change this person back to a member and remove every management permission.',
+                      ),
+                    ),
+                    onTap: () => Navigator.pop(sheetContext, 'remove-access'),
+                  ),
                 if (member.status == MembershipStatus.banned)
                   ListTile(
                     leading: const Icon(WicchuIcons.lockOpen),
-                    title: Text(context.tr('Unban member')),
+                    title: Text(
+                      context.tr(
+                        widget.community.isPublicProfile
+                            ? 'Unban follower'
+                            : 'Unban member',
+                      ),
+                    ),
                     onTap: () => Navigator.pop(sheetContext, 'unban'),
                   )
                 else ...[
                   ListTile(
                     leading: const Icon(WicchuIcons.userMinus),
-                    title: Text(context.tr('Remove member')),
+                    title: Text(
+                      context.tr(
+                        widget.community.isPublicProfile
+                            ? 'Remove follower'
+                            : 'Remove member',
+                      ),
+                    ),
                     onTap: () => Navigator.pop(sheetContext, 'remove'),
                   ),
                   ListTile(
                     leading: const Icon(WicchuIcons.prohibit),
-                    title: Text(context.tr('Ban member')),
+                    title: Text(
+                      context.tr(
+                        widget.community.isPublicProfile
+                            ? 'Ban follower'
+                            : 'Ban member',
+                      ),
+                    ),
                     onTap: () => Navigator.pop(sheetContext, 'ban'),
                   ),
                 ],
@@ -918,38 +1057,216 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
       }
     } else if (action == 'transfer') {
       await _transferOwnership(member);
-    } else if (action == 'page-inbox') {
-      await _setPageInboxAccess(member);
+    } else if (action == 'page-permissions') {
+      await _setPagePermissions(member);
+    } else if (action == 'remove-access') {
+      await _removeAllAccess(member);
     } else {
       await _changeAccess(member, action);
     }
   }
 
-  Future<void> _setPageInboxAccess(CommunityMember member) async {
-    try {
-      await widget.repository.setPageInboxAccess(
-        widget.community.id,
-        member.userId,
-        enabled: !member.pageInboxAccess,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.tr(
-              member.pageInboxAccess
-                  ? 'Shared inbox access removed.'
-                  : 'Shared inbox access granted.',
+  Future<void> _setPagePermissions(CommunityMember member) async {
+    var messages = member.pageInboxAccess;
+    var orders = member.canManageOrders;
+    var services = member.canManageServices;
+    var analytics = member.canViewPageAnalytics;
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(context.tr('Page permissions')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  context.tr(
+                    'Financial support, payouts, ownership transfers and team permissions always remain owner-only.',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    context.tr('Permission presets'),
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ActionChip(
+                      label: Text(context.tr('Content manager')),
+                      onPressed: () => setDialogState(() {
+                        messages = false;
+                        orders = false;
+                        services = false;
+                        analytics = false;
+                      }),
+                    ),
+                    ActionChip(
+                      label: Text(context.tr('Customer support')),
+                      onPressed: () => setDialogState(() {
+                        messages = true;
+                        orders = false;
+                        services = true;
+                        analytics = false;
+                      }),
+                    ),
+                    ActionChip(
+                      label: Text(context.tr('Sales manager')),
+                      onPressed: () => setDialogState(() {
+                        messages = true;
+                        orders = true;
+                        services = false;
+                        analytics = true;
+                      }),
+                    ),
+                    ActionChip(
+                      label: Text(context.tr('Analytics viewer')),
+                      onPressed: () => setDialogState(() {
+                        messages = false;
+                        orders = false;
+                        services = false;
+                        analytics = true;
+                      }),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  context.tr(
+                    'Presets only change the optional permissions below. Page administrators can still manage page content.',
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                CheckboxListTile(
+                  value: messages,
+                  onChanged: (value) =>
+                      setDialogState(() => messages = value ?? false),
+                  title: Text(context.tr('Messages')),
+                  subtitle: Text(
+                    context.tr('Read and reply from the shared page inbox.'),
+                  ),
+                ),
+                CheckboxListTile(
+                  value: orders,
+                  onChanged: (value) =>
+                      setDialogState(() => orders = value ?? false),
+                  title: Text(context.tr('Orders')),
+                  subtitle: Text(
+                    context.tr('Manage the catalog and customer orders.'),
+                  ),
+                ),
+                CheckboxListTile(
+                  value: services,
+                  onChanged: (value) =>
+                      setDialogState(() => services = value ?? false),
+                  title: Text(context.tr('Services')),
+                  subtitle: Text(
+                    context.tr(
+                      'Manage service settings and customer requests.',
+                    ),
+                  ),
+                ),
+                CheckboxListTile(
+                  value: analytics,
+                  onChanged: (value) =>
+                      setDialogState(() => analytics = value ?? false),
+                  title: Text(context.tr('Page analytics')),
+                  subtitle: Text(
+                    context.tr('View page growth and engagement insights.'),
+                  ),
+                ),
+              ],
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(context.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(context.tr('Save changes')),
+            ),
+          ],
         ),
+      ),
+    );
+    if (save != true || !mounted) return;
+    try {
+      await widget.repository.setPagePermissions(
+        widget.community.id,
+        member.userId,
+        messages: messages,
+        orders: orders,
+        services: services,
+        analytics: analytics,
       );
-      _reload();
+      if (mounted) _reload();
     } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    }
+  }
+
+  Future<void> _removeAllAccess(CommunityMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(
+          WicchuIcons.shieldWarning,
+          color: Theme.of(dialogContext).colorScheme.error,
+        ),
+        title: Text(dialogContext.tr('Remove all management access?')),
+        content: Text(
+          dialogContext.tr(
+            widget.community.isPublicProfile
+                ? '{name} will become a follower. Messages, orders, services and analytics access will be removed immediately.'
+                : '{name} will become a member and lose all administration and moderation access immediately.',
+            {'name': member.name},
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.tr('Cancel')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(dialogContext.tr('Remove access')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await widget.repository.setMemberRole(
+        widget.community.id,
+        member.userId,
+        CommunityRole.member,
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      _reload();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Management access removed.'))),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
     }
   }
 
@@ -957,10 +1274,18 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(dialogContext.tr('Invite as administrator')),
+        title: Text(
+          dialogContext.tr(
+            widget.community.isPublicProfile
+                ? 'Invite as page administrator'
+                : 'Invite as community administrator',
+          ),
+        ),
         content: Text(
           dialogContext.tr(
-            '{name} will become an administrator only after accepting the invitation.',
+            widget.community.isPublicProfile
+                ? '{name} will become a page administrator only after accepting the invitation.'
+                : '{name} will become a community administrator only after accepting the invitation.',
             {'name': member.name},
           ),
         ),
@@ -987,7 +1312,9 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         SnackBar(
           content: Text(
             context.tr(
-              'Administrator invitation sent. The member must accept it.',
+              widget.community.isPublicProfile
+                  ? 'Page administrator invitation sent. The follower must accept it.'
+                  : 'Community administrator invitation sent. The member must accept it.',
             ),
           ),
         ),
@@ -1007,7 +1334,9 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         title: Text(dialogContext.tr('Transfer ownership')),
         content: Text(
           dialogContext.tr(
-            '{name} must accept the transfer. After acceptance, they will become the owner and you will become an administrator.',
+            widget.community.isPublicProfile
+                ? '{name} must accept the transfer. After acceptance, they will become the page owner and you will become a page administrator.'
+                : '{name} must accept the transfer. After acceptance, they will become the community owner and you will become a community administrator.',
             {'name': member.name},
           ),
         ),
@@ -1056,6 +1385,19 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         context.tr(widget.community.isPublicProfile ? 'Followers' : 'Members'),
       ),
       actions: [
+        IconButton(
+          tooltip: context.tr('Activity history'),
+          icon: const Icon(WicchuIcons.clockCounterClockwise),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CommunityAuditHistoryPage(
+                community: widget.community,
+                repository: widget.repository,
+              ),
+            ),
+          ),
+        ),
         IconButton(
           tooltip: context.tr(_searching ? 'Close' : 'Search members'),
           icon: Icon(_searching ? WicchuIcons.x : WicchuIcons.magnifyingGlass),
@@ -1229,89 +1571,106 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   ),
                 ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  leading: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      UserAvatar(
-                        name: member.name,
-                        imageUrl: member.avatarUrl,
-                        radius: 24,
-                      ),
-                      if (member.isOnline &&
-                          member.status == MembershipStatus.active)
-                        Positioned(
-                          right: -1,
-                          bottom: -1,
-                          child: Container(
-                            width: 13,
-                            height: 13,
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: colors.surface,
-                                width: 2,
-                              ),
+                  contentPadding: EdgeInsets.zero,
+                  title: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            UserAvatar(
+                              name: member.name,
+                              imageUrl: member.avatarUrl,
+                              radius: 24,
                             ),
+                            if (member.isOnline &&
+                                member.status == MembershipStatus.active)
+                              Positioned(
+                                right: -1,
+                                bottom: -1,
+                                child: Container(
+                                  width: 13,
+                                  height: 13,
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: colors.surface,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                member.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 7),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  _memberPill(
+                                    widget.community.roleLabel(member.role),
+                                    foreground: colors.primary,
+                                    background: colors.primary.withValues(
+                                      alpha: .10,
+                                    ),
+                                    icon: WicchuIcons.info,
+                                    onTap: () => _showRoleInformation(member),
+                                  ),
+                                  _memberPill(
+                                    _memberStatusLabel(member),
+                                    foreground:
+                                        member.status == MembershipStatus.banned
+                                        ? colors.error
+                                        : member.status ==
+                                              MembershipStatus.pending
+                                        ? colors.tertiary
+                                        : Colors.green.shade700,
+                                    background:
+                                        member.status == MembershipStatus.banned
+                                        ? colors.errorContainer
+                                        : member.status ==
+                                              MembershipStatus.pending
+                                        ? colors.tertiaryContainer
+                                        : Colors.green.withValues(alpha: .10),
+                                  ),
+                                  if (widget.community.isPublicProfile &&
+                                      member.role == CommunityRole.admin)
+                                    for (final permission
+                                        in _grantedPagePermissions(member))
+                                      _memberPill(
+                                        permission,
+                                        foreground: colors.onSecondaryContainer,
+                                        background: colors.secondaryContainer,
+                                        icon: WicchuIcons.check,
+                                      ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                    ],
-                  ),
-                  title: Text(member.name),
-                  subtitle: Text(
-                    context.tr(
-                      member.status == MembershipStatus.banned
-                          ? 'Banned'
-                          : member.status == MembershipStatus.pending
-                          ? 'Pending'
-                          : member.isOnline
-                          ? 'Online now'
-                          : member.lastActiveAt != null
-                          ? 'Active recently'
-                          : 'Offline',
+                        IconButton(
+                          key: ValueKey('member-actions-${member.userId}'),
+                          tooltip: context.tr('Actions'),
+                          onPressed: () => _memberActions(member),
+                          icon: const Icon(WicchuIcons.dotsThreeVertical),
+                        ),
+                      ],
                     ),
                   ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (member.status == MembershipStatus.banned)
-                        TextButton.icon(
-                          key: ValueKey('unban-member-${member.userId}'),
-                          onPressed: () => _changeAccess(member, 'unban'),
-                          icon: const Icon(WicchuIcons.lockOpen, size: 18),
-                          label: Text(context.tr('Unban')),
-                        ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.primary.withValues(alpha: .10),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          context.tr(
-                            member.role == CommunityRole.owner
-                                ? 'Owner'
-                                : member.role.name,
-                          ),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(WicchuIcons.caretRight, size: 20),
-                    ],
-                  ),
-                  onTap: () => _memberActions(member),
                 ),
               ),
             if (activeCount <= 1 &&
@@ -1471,7 +1830,13 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         context: context,
         builder: (dialogContext) => StatefulBuilder(
           builder: (context, setDialogState) => AlertDialog(
-            title: Text(dialogContext.tr('Ban member')),
+            title: Text(
+              dialogContext.tr(
+                widget.community.isPublicProfile
+                    ? 'Ban follower'
+                    : 'Ban member',
+              ),
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1484,7 +1849,9 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                     decoration: InputDecoration(
                       labelText: dialogContext.tr('Reason shown to member'),
                       helperText: dialogContext.tr(
-                        'The member will receive this reason.',
+                        widget.community.isPublicProfile
+                            ? 'The follower will receive this reason.'
+                            : 'The member will receive this reason.',
                       ),
                     ),
                   ),
@@ -1545,7 +1912,13 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                     _BanInput(value, internalNoteInput.trim(), durationDays),
                   );
                 },
-                child: Text(dialogContext.tr('Ban member')),
+                child: Text(
+                  dialogContext.tr(
+                    widget.community.isPublicProfile
+                        ? 'Ban follower'
+                        : 'Ban member',
+                  ),
+                ),
               ),
             ],
           ),
@@ -1565,14 +1938,24 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         builder: (dialogContext) => AlertDialog(
           title: Text(
             dialogContext.tr(
-              action == 'remove' ? 'Remove member' : 'Unban member',
+              action == 'remove'
+                  ? (widget.community.isPublicProfile
+                        ? 'Remove follower'
+                        : 'Remove member')
+                  : (widget.community.isPublicProfile
+                        ? 'Unban follower'
+                        : 'Unban member'),
             ),
           ),
           content: Text(
             dialogContext.tr(
               action == 'remove'
-                  ? 'This member can request to join the community again.'
-                  : 'This member will regain access to the community.',
+                  ? (widget.community.isPublicProfile
+                        ? 'This follower can follow the page again.'
+                        : 'This member can request to join the community again.')
+                  : (widget.community.isPublicProfile
+                        ? 'This follower will regain access to the page.'
+                        : 'This member will regain access to the community.'),
             ),
           ),
           actions: [
@@ -1624,6 +2007,154 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
       }
     }
   }
+}
+
+class CommunityAuditHistoryPage extends StatefulWidget {
+  const CommunityAuditHistoryPage({
+    super.key,
+    required this.community,
+    required this.repository,
+  });
+
+  final Community community;
+  final CommunityRepository repository;
+
+  @override
+  State<CommunityAuditHistoryPage> createState() =>
+      _CommunityAuditHistoryPageState();
+}
+
+class _CommunityAuditHistoryPageState extends State<CommunityAuditHistoryPage> {
+  late Future<List<CommunityAuditEntry>> _history = widget.repository
+      .listCommunityAuditHistory(widget.community.id);
+
+  String _actionLabel(CommunityAuditEntry entry) => switch (entry.action) {
+    'change_role' => 'Changed a role',
+    'change_page_permissions' => 'Changed page permissions',
+    'invite_admin' => 'Sent an administrator invitation',
+    'transfer_ownership' => 'Sent an ownership transfer',
+    'resend_invitation' => 'Sent an invitation again',
+    'revoke_invitation' => 'Revoked an invitation',
+    'remove_member' =>
+      widget.community.isPublicProfile
+          ? 'Removed a follower'
+          : 'Removed a member',
+    'ban_member' =>
+      widget.community.isPublicProfile
+          ? 'Banned a follower'
+          : 'Banned a member',
+    'unban_member' =>
+      widget.community.isPublicProfile
+          ? 'Unbanned a follower'
+          : 'Unbanned a member',
+    _ => 'Administrative action',
+  };
+
+  String? _details(CommunityAuditEntry entry) {
+    if (entry.action == 'change_role') {
+      final previous = entry.details['previousRole']?.toString();
+      final next = entry.details['role']?.toString();
+      if (previous != null && next != null) return '$previous → $next';
+    }
+    if (entry.action == 'change_page_permissions') {
+      final permissions = entry.details['permissions'];
+      if (permissions is Map) {
+        final enabled = permissions.entries
+            .where((item) => item.value == true)
+            .map(
+              (item) => context.tr(
+                item.key.toString() == 'analytics'
+                    ? 'Page analytics'
+                    : '${item.key.toString()[0].toUpperCase()}${item.key.toString().substring(1)}',
+              ),
+            )
+            .toList();
+        return enabled.isEmpty
+            ? context.tr('No additional permissions')
+            : enabled.join(', ');
+      }
+    }
+    return entry.reason.isEmpty ? null : entry.reason;
+  }
+
+  String _date(DateTime value) {
+    final local = value.toLocal();
+    final date = MaterialLocalizations.of(context).formatMediumDate(local);
+    final time = MaterialLocalizations.of(
+      context,
+    ).formatTimeOfDay(TimeOfDay.fromDateTime(local));
+    return '$date · $time';
+  }
+
+  void _reload() => setState(() {
+    _history = widget.repository.listCommunityAuditHistory(widget.community.id);
+  });
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(context.tr('Activity history'))),
+    body: FutureBuilder<List<CommunityAuditEntry>>(
+      future: _history,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(context.trError(snapshot.error!)),
+                TextButton(
+                  onPressed: _reload,
+                  child: Text(context.tr('Retry')),
+                ),
+              ],
+            ),
+          );
+        }
+        final items = snapshot.data ?? const <CommunityAuditEntry>[];
+        if (items.isEmpty) {
+          return Center(
+            child: Text(context.tr('No administrative activity yet.')),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () async => _reload(),
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final detail = _details(item);
+              return Card(
+                elevation: 0,
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(WicchuIcons.shieldCheck),
+                  ),
+                  title: Text(context.tr(_actionLabel(item))),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.targetName == null
+                            ? item.actorName
+                            : '${item.actorName} · ${item.targetName}',
+                      ),
+                      if (detail != null) Text(detail),
+                      Text(_date(item.createdAt)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    ),
+  );
 }
 
 class _BanInput {

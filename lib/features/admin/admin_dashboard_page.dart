@@ -14,6 +14,7 @@ import '../community/community_invitations_page.dart';
 import '../community/community_avatar.dart';
 import 'community_insights_page.dart';
 import 'community_rewards_page.dart';
+import 'financial_support_page.dart';
 import 'removed_posts_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
@@ -246,6 +247,25 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               },
             ),
           ],
+          if (community.myRole == CommunityRole.owner &&
+              community.isPublicProfile)
+            _MenuSection(
+              label: 'Monetization',
+              children: [
+                _MenuRow(
+                  icon: WicchuIcons.heart,
+                  label: 'Financial support',
+                  description:
+                      'Apply to receive voluntary support in the future',
+                  onTap: () => _openQueue(
+                    FinancialSupportPage(
+                      page: community,
+                      repository: repository,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           _MenuSection(
             label: 'Content',
             children: [
@@ -257,7 +277,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     : 'Community activity and key details',
                 onTap: () => _openOverview(),
               ),
-              if (_canConfigure)
+              if (_canConfigure &&
+                  (!community.isPublicProfile ||
+                      community.canViewPageAnalytics))
                 _MenuRow(
                   icon: WicchuIcons.chartLineUp,
                   label: 'Insights',

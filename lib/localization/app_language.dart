@@ -48,6 +48,7 @@ extension AppTranslation on BuildContext {
     if (exact != null) return exact;
     const invitationPrefixes = {
       'invited you to join ': 'te invitó a unirte a ',
+      'invited you to follow ': 'te invitó a seguir ',
       'invited you to become an administrator of ':
           'te invitó a ser administrador de ',
     };
@@ -64,9 +65,28 @@ extension AppTranslation on BuildContext {
         'an administrator' => 'administrador',
         'a moderator' => 'moderador',
         'a member' => 'miembro',
+        'a page administrator' => 'administrador de la página',
+        'a page moderator' => 'moderador de la página',
+        'a follower' => 'seguidor',
+        'a community administrator' => 'administrador de la comunidad',
+        'a community moderator' => 'moderador de la comunidad',
         final value => value ?? '',
       };
       return 'cambió tu rol a $role en ${roleChange.group(2)}';
+    }
+    final permissionChange = RegExp(
+      r'^updated your permissions for (.+): (.+)$',
+    ).firstMatch(english);
+    if (permissionChange != null) {
+      final changes = permissionChange
+          .group(2)!
+          .replaceAll('added ', 'añadió ')
+          .replaceAll('removed ', 'eliminó ')
+          .replaceAll('messages', 'mensajes')
+          .replaceAll('orders', 'pedidos')
+          .replaceAll('services', 'servicios')
+          .replaceAll('analytics', 'analítica');
+      return 'actualizó tus permisos para ${permissionChange.group(1)}: $changes';
     }
     return english;
   }
@@ -128,6 +148,160 @@ class LanguageMenu extends StatelessWidget {
 }
 
 const _spanish = <String, String>{
+  'Full control, ownership, financial support and team permissions.':
+      'Control total, propiedad, apoyo financiero y permisos del equipo.',
+  'Manages page content. The owner separately grants messages, orders, services and analytics.':
+      'Gestiona el contenido de la página. El propietario concede por separado mensajes, pedidos, servicios y analítica.',
+  'Reviews content, comments and reports. No financial or business access.':
+      'Revisa contenido, comentarios y reportes. Sin acceso financiero ni comercial.',
+  'Can follow and interact with the page. No management access.':
+      'Puede seguir e interactuar con la página. Sin acceso de gestión.',
+  'Full control, ownership, Community Rewards and administrator access.':
+      'Control total, propiedad, Recompensas de la comunidad y acceso de administradores.',
+  'Manages content, members, categories and community settings.':
+      'Gestiona contenido, miembros, categorías y configuración de la comunidad.',
+  'Reviews content, comments and reports. No ownership or financial access.':
+      'Revisa contenido, comentarios y reportes. Sin acceso a propiedad ni finanzas.',
+  'Can join, publish and interact according to community rules.':
+      'Puede unirse, publicar e interactuar según las reglas de la comunidad.',
+  'Page permissions': 'Permisos de la página',
+  'Choose access to messages, orders, services and analytics.':
+      'Elige el acceso a mensajes, pedidos, servicios y analítica.',
+  'Financial support, payouts, ownership transfers and team permissions always remain owner-only.':
+      'El apoyo financiero, los pagos, las transferencias de propiedad y los permisos del equipo siempre son exclusivos del propietario.',
+  'Read and reply from the shared page inbox.':
+      'Leer y responder desde la bandeja compartida de la página.',
+  'Manage the catalog and customer orders.':
+      'Gestionar el catálogo y los pedidos de clientes.',
+  'Manage service settings and customer requests.':
+      'Gestionar la configuración de servicios y las solicitudes de clientes.',
+  'Page analytics': 'Analítica de la página',
+  'View page growth and engagement insights.':
+      'Ver datos sobre el crecimiento y la participación de la página.',
+  'Page owner': 'Propietario de la página',
+  'Page administrator': 'Administrador de la página',
+  'Page moderator': 'Moderador de la página',
+  'Follower': 'Seguidor',
+  'View role permissions': 'Ver permisos del rol',
+  'Actions': 'Acciones',
+  'Activity history': 'Historial de actividad',
+  'Changed a role': 'Cambió un rol',
+  'Changed page permissions': 'Cambió los permisos de la página',
+  'Sent an administrator invitation': 'Envió una invitación de administrador',
+  'Sent an ownership transfer': 'Envió una transferencia de propiedad',
+  'Sent an invitation again': 'Volvió a enviar una invitación',
+  'Revoked an invitation': 'Revocó una invitación',
+  'Removed a follower': 'Eliminó a un seguidor',
+  'Removed a member': 'Eliminó a un miembro',
+  'Banned a follower': 'Bloqueó a un seguidor',
+  'Banned a member': 'Bloqueó a un miembro',
+  'Unbanned a follower': 'Desbloqueó a un seguidor',
+  'Unbanned a member': 'Desbloqueó a un miembro',
+  'Administrative action': 'Acción administrativa',
+  'No additional permissions': 'Sin permisos adicionales',
+  'No administrative activity yet.': 'Aún no hay actividad administrativa.',
+  'Send again': 'Enviar de nuevo',
+  'Invitation sent again.': 'La invitación se envió de nuevo.',
+  'Remove all management access': 'Quitar todo el acceso de gestión',
+  'Change this person back to a follower and remove every page permission.':
+      'Convierte a esta persona de nuevo en seguidor y elimina todos los permisos de la página.',
+  'Change this person back to a member and remove every management permission.':
+      'Convierte a esta persona de nuevo en miembro y elimina todos los permisos de gestión.',
+  'Permission presets': 'Perfiles de permisos',
+  'Content manager': 'Gestor de contenido',
+  'Customer support': 'Atención al cliente',
+  'Sales manager': 'Gestor de ventas',
+  'Analytics viewer': 'Visor de analítica',
+  'Presets only change the optional permissions below. Page administrators can still manage page content.':
+      'Los perfiles solo cambian los permisos opcionales siguientes. Los administradores aún pueden gestionar el contenido de la página.',
+  'Remove all management access?': '¿Quitar todo el acceso de gestión?',
+  '{name} will become a follower. Messages, orders, services and analytics access will be removed immediately.':
+      '{name} se convertirá en seguidor. El acceso a mensajes, pedidos, servicios y analítica se eliminará inmediatamente.',
+  '{name} will become a member and lose all administration and moderation access immediately.':
+      '{name} se convertirá en miembro y perderá inmediatamente todo acceso de administración y moderación.',
+  'Remove access': 'Quitar acceso',
+  'Management access removed.': 'Se eliminó el acceso de gestión.',
+  'Community owner': 'Propietario de la comunidad',
+  'Community administrator': 'Administrador de la comunidad',
+  'Community moderator': 'Moderador de la comunidad',
+  'Invite as page administrator': 'Invitar como administrador de la página',
+  'Invite as community administrator':
+      'Invitar como administrador de la comunidad',
+  '{name} will become a page administrator only after accepting the invitation.':
+      '{name} será administrador de la página solo después de aceptar la invitación.',
+  '{name} will become a community administrator only after accepting the invitation.':
+      '{name} será administrador de la comunidad solo después de aceptar la invitación.',
+  'Page administrator invitation sent. The follower must accept it.':
+      'Invitación de administrador de la página enviada. El seguidor debe aceptarla.',
+  'Community administrator invitation sent. The member must accept it.':
+      'Invitación de administrador de la comunidad enviada. El miembro debe aceptarla.',
+  'Page administrator invitation': 'Invitación de administrador de la página',
+  'Community administrator invitation':
+      'Invitación de administrador de la comunidad',
+  'The page owner invited you to take ownership of this page.':
+      'El propietario de la página te invitó a asumir su propiedad.',
+  'The community owner invited you to take ownership of this community.':
+      'El propietario de la comunidad te invitó a asumir su propiedad.',
+  'The page owner invited you to become a page administrator.':
+      'El propietario de la página te invitó a ser administrador de la página.',
+  'The community owner invited you to become a community administrator.':
+      'El propietario de la comunidad te invitó a ser administrador de la comunidad.',
+  'You were invited to follow this page.': 'Te invitaron a seguir esta página.',
+  'Ban follower': 'Bloquear seguidor',
+  'Unban follower': 'Desbloquear seguidor',
+  'Remove follower': 'Eliminar seguidor',
+  'The follower will receive this reason.': 'El seguidor recibirá este motivo.',
+  'This follower can follow the page again.':
+      'Este seguidor podrá volver a seguir la página.',
+  'This follower will regain access to the page.':
+      'Este seguidor recuperará el acceso a la página.',
+  '{name} must accept the transfer. After acceptance, they will become the page owner and you will become a page administrator.':
+      '{name} debe aceptar la transferencia. Después será propietario de la página y tú serás administrador de la página.',
+  '{name} must accept the transfer. After acceptance, they will become the community owner and you will become a community administrator.':
+      '{name} debe aceptar la transferencia. Después será propietario de la comunidad y tú serás administrador de la comunidad.',
+  'Page administrator invitation accepted.':
+      'Invitación de administrador de la página aceptada.',
+  'Community administrator invitation accepted.':
+      'Invitación de administrador de la comunidad aceptada.',
+  'You now follow the page.': 'Ahora sigues la página.',
+  'Financial support': 'Apoyo financiero',
+  'Apply to receive voluntary support in the future':
+      'Solicita recibir apoyo voluntario en el futuro',
+  'Apply for financial support': 'Solicitar apoyo financiero',
+  'Tell Wicchu who will receive support and how the money would be used. Approval does not enable payments yet.':
+      'Indica a Wicchu quién recibirá el apoyo y cómo se utilizaría el dinero. La aprobación todavía no activa los pagos.',
+  'Other country': 'Otro país',
+  'Enter your country': 'Introduce tu país',
+  'Recipient type': 'Tipo de beneficiario',
+  'Individual': 'Persona',
+  'Business': 'Negocio',
+  'Community project': 'Proyecto comunitario',
+  'Enter a valid contact email': 'Introduce un correo de contacto válido',
+  'How will financial support be used?':
+      '¿Cómo se utilizará el apoyo financiero?',
+  'Please provide at least 20 characters.': 'Escribe al menos 20 caracteres.',
+  'Submit application': 'Enviar solicitud',
+  'Resubmit application': 'Volver a enviar la solicitud',
+  'Application approved': 'Solicitud aprobada',
+  'Application under review': 'Solicitud en revisión',
+  'Wicchu approved the application. Payments remain unavailable until recipient verification and a payment provider are configured.':
+      'Wicchu aprobó la solicitud. Los pagos seguirán sin estar disponibles hasta verificar al beneficiario y configurar un proveedor de pagos.',
+  'Wicchu Safety will review the page, recipient and intended use of funds.':
+      'Wicchu Safety revisará la página, el beneficiario y el uso previsto de los fondos.',
+  'Payments': 'Pagos',
+  'Not enabled yet': 'Aún no habilitados',
+  'No financial support applications.':
+      'No hay solicitudes de apoyo financiero.',
+  'Approve application': 'Aprobar solicitud',
+  'Reject application': 'Rechazar solicitud',
+  'Approval does not enable payments. Recipient verification is still required.':
+      'La aprobación no activa los pagos. Aún es necesario verificar al beneficiario.',
+  'Explain why the application was rejected.':
+      'Explica por qué se rechazó la solicitud.',
+  'approved your financial support application':
+      'aprobó tu solicitud de apoyo financiero',
+  'reviewed your financial support application':
+      'revisó tu solicitud de apoyo financiero',
   'Analytics': 'Analítica',
   'Platform growth': 'Crecimiento de la plataforma',
   'Registered users': 'Usuarios registrados',

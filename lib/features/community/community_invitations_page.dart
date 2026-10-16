@@ -193,6 +193,27 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
     }
   }
 
+  Future<void> _resend(CommunityInvitation item) async {
+    if (_busy != null) return;
+    setState(() => _busy = item.id);
+    try {
+      final refreshed = await widget.repository.resendCommunityInvitation(
+        widget.community.id,
+        item.id,
+      );
+      if (!mounted) return;
+      _created[item.id] = refreshed;
+      _reload();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Invitation sent again.'))),
+      );
+    } catch (error) {
+      _error(error);
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
   String _date(DateTime date) =>
       MaterialLocalizations.of(context).formatShortDate(date.toLocal());
   Widget _icon(IconData icon) => Container(
@@ -535,12 +556,23 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                       item.isOwnershipTransfer
                           ? context.tr('Ownership transfer')
                           : item.isAdminInvitation
-                          ? context.tr('Administrator invitation')
+                          ? context.tr(
+                              widget.community.isPublicProfile
+                                  ? 'Page administrator invitation'
+                                  : 'Community administrator invitation',
+                            )
                           : item.isLink
                           ? context.tr('Invitation link')
                           : item.email ?? context.tr('Invitation'),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
+                    if (item.invitedUserName?.isNotEmpty == true) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        item.invitedUserName!,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       '${context.tr(state)} · ${context.tr('Expires on {date}', {'date': _date(item.expiresAt)})}',
@@ -556,12 +588,18 @@ class _CommunityInvitationsPageState extends State<CommunityInvitationsPage> {
                   ],
                 ),
               ),
-              if (active)
+              if (item.status == 'pending')
                 PopupMenuButton<String>(
                   enabled: _busy == null,
                   tooltip: context.tr('Invitation options'),
-                  onSelected: (_) => _revoke(item),
+                  onSelected: (action) =>
+                      action == 'resend' ? _resend(item) : _revoke(item),
                   itemBuilder: (_) => [
+                    if (!item.isLink)
+                      PopupMenuItem(
+                        value: 'resend',
+                        child: Text(context.tr('Send again')),
+                      ),
                     PopupMenuItem(
                       value: 'revoke',
                       child: Text(context.tr('Revoke')),
@@ -750,9 +788,13 @@ class _MyCommunityInvitationsPageState
     if (!accept) return 'Invitation declined.';
     if (invitation.isOwnershipTransfer) return 'Ownership transfer accepted.';
     if (invitation.isAdminInvitation) {
-      return 'Administrator invitation accepted.';
+      return invitation.isPublicProfile
+          ? 'Page administrator invitation accepted.'
+          : 'Community administrator invitation accepted.';
     }
-    return 'You joined the community.';
+    return invitation.isPublicProfile
+        ? 'You now follow the page.'
+        : 'You joined the community.';
   }
 
   Future<void> _respond(CommunityInvitation invitation, bool accept) async {
@@ -831,9 +873,15 @@ class _MyCommunityInvitationsPageState
               subtitle: Text(
                 context.tr(
                   ownershipTransfer
-                      ? 'The owner invited you to take ownership of this space.'
+                      ? (item.isPublicProfile
+                            ? 'The page owner invited you to take ownership of this page.'
+                            : 'The community owner invited you to take ownership of this community.')
                       : adminInvitation
-                      ? 'The owner invited you to become an administrator of this space.'
+                      ? (item.isPublicProfile
+                            ? 'The page owner invited you to become a page administrator.'
+                            : 'The community owner invited you to become a community administrator.')
+                      : item.isPublicProfile
+                      ? 'You were invited to follow this page.'
                       : 'You were invited to join this community.',
                 ),
               ),

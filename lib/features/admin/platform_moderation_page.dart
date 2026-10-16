@@ -16,7 +16,7 @@ class PlatformModerationPage extends StatefulWidget {
 
 class _PlatformModerationPageState extends State<PlatformModerationPage>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 5, vsync: this)
+  late final TabController _tabs = TabController(length: 6, vsync: this)
     ..addListener(() {
       if (!_tabs.indexIsChanging) _reload();
     });
@@ -27,6 +27,9 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
       .listPlatformRewardPayouts();
   late Future<PlatformAnalytics> _analytics = widget.repository
       .getPlatformAnalytics();
+  late Future<List<FinancialSupportApplication>> _supportApplications = widget
+      .repository
+      .listFinancialSupportApplications();
   final Set<String> _saving = {};
 
   Future<List<PlatformReport>> _load() =>
@@ -39,6 +42,9 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
       _rewardPayouts = widget.repository.listPlatformRewardPayouts();
     } else if (_tabs.index == 4) {
       _analytics = widget.repository.getPlatformAnalytics();
+    } else if (_tabs.index == 5) {
+      _supportApplications = widget.repository
+          .listFinancialSupportApplications();
     } else {
       _reports = _load();
     }
@@ -63,6 +69,7 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
           Tab(text: context.tr('Rewards')),
           Tab(text: context.tr('Payouts')),
           Tab(text: context.tr('Analytics')),
+          Tab(text: context.tr('Financial support')),
         ],
       ),
     ),
@@ -71,7 +78,9 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
               ? _buildRewardRequests()
               : _tabs.index == 3
               ? _buildRewardPayouts()
-              : _buildAnalytics())
+              : _tabs.index == 4
+              ? _buildAnalytics()
+              : _buildSupportApplications())
         : FutureBuilder<List<PlatformReport>>(
             future: _reports,
             builder: (context, snapshot) {
@@ -118,6 +127,164 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
             },
           ),
   );
+
+  Widget
+  _buildSupportApplications() => FutureBuilder<List<FinancialSupportApplication>>(
+    future: _supportApplications,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (snapshot.hasError) {
+        return Center(
+          child: FilledButton.icon(
+            onPressed: _reload,
+            icon: const Icon(WicchuIcons.arrowsClockwise),
+            label: Text(context.trError(snapshot.error!)),
+          ),
+        );
+      }
+      final applications = snapshot.data ?? const [];
+      if (applications.isEmpty) {
+        return Center(
+          child: Text(context.tr('No financial support applications.')),
+        );
+      }
+      return RefreshIndicator(
+        onRefresh: () async {
+          _reload();
+          await _supportApplications;
+        },
+        child: ListView.builder(
+          padding: const EdgeInsets.all(20),
+          itemCount: applications.length,
+          itemBuilder: (context, index) {
+            final item = applications[index];
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.pageName ?? context.tr('Page'),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${context.tr('Country')}: ${item.countryCode == 'OT' ? item.countryName : item.countryCode}',
+                    ),
+                    Text(
+                      '${context.tr('Recipient type')}: ${context.tr(_recipientTypeLabel(item.recipientType))}',
+                    ),
+                    Text(
+                      '${context.tr('Contact email')}: ${item.contactEmail}',
+                    ),
+                    const SizedBox(height: 10),
+                    Text(item.purpose),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton(
+                          onPressed: _saving.contains(item.id)
+                              ? null
+                              : () => _reviewSupport(item, false),
+                          child: Text(context.tr('Reject')),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: _saving.contains(item.id)
+                              ? null
+                              : () => _reviewSupport(item, true),
+                          child: Text(context.tr('Approve')),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    },
+  );
+
+  String _recipientTypeLabel(String value) => switch (value) {
+    'organization' => 'Organization',
+    'business' => 'Business',
+    'community_project' => 'Community project',
+    _ => 'Individual',
+  };
+
+  Future<void> _reviewSupport(
+    FinancialSupportApplication application,
+    bool approve,
+  ) async {
+    final note = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          context.tr(approve ? 'Approve application' : 'Reject application'),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              context.tr(
+                approve
+                    ? 'Approval does not enable payments. Recipient verification is still required.'
+                    : 'Explain why the application was rejected.',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: note,
+              maxLength: 500,
+              maxLines: 3,
+              decoration: InputDecoration(labelText: context.tr('Review note')),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!approve && note.text.trim().isEmpty) return;
+              Navigator.pop(dialogContext, true);
+            },
+            child: Text(context.tr('Confirm')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _saving.add(application.id));
+    try {
+      await widget.repository.reviewFinancialSupportApplication(
+        application.id,
+        approve: approve,
+        note: note.text,
+      );
+      if (mounted) _reload();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      note.dispose();
+      if (mounted) setState(() => _saving.remove(application.id));
+    }
+  }
 
   Widget _buildRewardRequests() => FutureBuilder<List<CommunityRewardRequest>>(
     future: _rewardRequests,

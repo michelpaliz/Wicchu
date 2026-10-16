@@ -21,6 +21,28 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
+    if (path == '/api/community/v1/pages/page-1/support-application') {
+      return {'application': null};
+    }
+    if (path == '/api/community/v1/platform/support-applications') {
+      return {
+        'applications': [
+          {
+            'id': 'support-1',
+            'pageId': 'page-1',
+            'pageName': 'Local Project',
+            'countryCode': 'EC',
+            'recipientType': 'community_project',
+            'purpose': 'Support community workshops and local activities.',
+            'contactEmail': 'project@example.com',
+            'status': 'pending',
+            'requestedAt': '2026-10-16T10:00:00.000Z',
+            'providerStatus': 'not_configured',
+            'paymentsEnabled': false,
+          },
+        ],
+      };
+    }
     if (path == '/api/community/v1/businesses/business-1/catalog') {
       return {
         'catalog': {
@@ -448,6 +470,19 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   }) async {
     lastPath = path;
     lastBody = body;
+    if (path == '/api/community/v1/pages/page-1/support-application') {
+      return {
+        'application': {
+          'id': 'support-1',
+          'pageId': 'page-1',
+          ...?body,
+          'status': 'pending',
+          'requestedAt': '2026-10-16T10:00:00.000Z',
+          'providerStatus': 'not_configured',
+          'paymentsEnabled': false,
+        },
+      };
+    }
     if (path.endsWith('/admin/rewards/request')) {
       return {
         'enrollment': {
@@ -1926,4 +1961,64 @@ void main() {
     expect(feed.items[0].type, CommunityNotificationType.newPost);
     expect(feed.items[1].type, CommunityNotificationType.newPersonalPost);
   });
+
+  test('financial support applications stay separate from payments', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    expect(await repository.getFinancialSupportApplication('page-1'), isNull);
+    final submitted = await repository.submitFinancialSupportApplication(
+      'page-1',
+      countryCode: 'EC',
+      recipientType: 'community_project',
+      purpose: 'Support community workshops and local activities.',
+      contactEmail: 'project@example.com',
+    );
+    expect(api.lastPath, '/api/community/v1/pages/page-1/support-application');
+    expect(submitted.status, 'pending');
+    expect(submitted.paymentsEnabled, isFalse);
+
+    final queue = await repository.listFinancialSupportApplications();
+    expect(queue.single.pageName, 'Local Project');
+    expect(queue.single.providerStatus, 'not_configured');
+
+    await repository.reviewFinancialSupportApplication(
+      'support-1',
+      approve: true,
+      note: 'Initial application approved',
+    );
+    expect(
+      api.lastPath,
+      '/api/community/v1/platform/support-applications/support-1',
+    );
+    expect(api.lastBody?['status'], 'approved');
+  });
+
+  test(
+    'page administrator permissions use the owner-controlled endpoint',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+
+      await repository.setPagePermissions(
+        'page-1',
+        'admin-1',
+        messages: true,
+        orders: false,
+        services: true,
+        analytics: false,
+      );
+
+      expect(
+        api.lastPath,
+        '/api/community/v1/communities/page-1/members/admin-1/page-permissions',
+      );
+      expect(api.lastBody, {
+        'messages': true,
+        'orders': false,
+        'services': true,
+        'analytics': false,
+      });
+    },
+  );
 }

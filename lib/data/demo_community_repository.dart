@@ -64,6 +64,7 @@ class DemoCommunityRepository implements CommunityRepository {
   final List<BusinessOrder> _businessOrders = [];
   final Map<String, BusinessRequestSettings> _businessRequestSettings = {};
   final List<BusinessRequest> _businessRequests = [];
+  final Map<String, FinancialSupportApplication> _supportApplications = {};
 
   static const _towns = [Town(id: 'town-1', name: 'Town X', countryCode: 'EC')];
 
@@ -558,6 +559,23 @@ class DemoCommunityRepository implements CommunityRepository {
   ) async {}
 
   @override
+  Future<CommunityInvitation> resendCommunityInvitation(
+    String communityId,
+    String invitationId,
+  ) async => CommunityInvitation(
+    id: invitationId,
+    communityId: communityId,
+    status: 'pending',
+    expiresAt: DateTime.now().add(const Duration(days: 7)),
+    createdAt: DateTime.now(),
+  );
+
+  @override
+  Future<List<CommunityAuditEntry>> listCommunityAuditHistory(
+    String communityId,
+  ) async => const [];
+
+  @override
   Future<void> createOwnershipTransfer(
     String communityId,
     String targetUserId,
@@ -756,6 +774,16 @@ class DemoCommunityRepository implements CommunityRepository {
     String communityId,
     String userId, {
     required bool enabled,
+  }) async {}
+
+  @override
+  Future<void> setPagePermissions(
+    String communityId,
+    String userId, {
+    required bool messages,
+    required bool orders,
+    required bool services,
+    required bool analytics,
   }) async {}
 
   @override
@@ -2097,6 +2125,47 @@ class DemoCommunityRepository implements CommunityRepository {
     String messageId,
     String reason, {
     required String category,
+  }) async {}
+
+  @override
+  Future<FinancialSupportApplication?> getFinancialSupportApplication(
+    String pageId,
+  ) async => _supportApplications[pageId];
+
+  @override
+  Future<FinancialSupportApplication> submitFinancialSupportApplication(
+    String pageId, {
+    required String countryCode,
+    String? countryName,
+    required String recipientType,
+    required String purpose,
+    required String contactEmail,
+  }) async {
+    final application = FinancialSupportApplication(
+      id: 'support-$pageId',
+      pageId: pageId,
+      countryCode: countryCode,
+      countryName: countryName ?? '',
+      recipientType: recipientType,
+      purpose: purpose,
+      contactEmail: contactEmail,
+      status: 'pending',
+      requestedAt: DateTime.now(),
+    );
+    _supportApplications[pageId] = application;
+    return application;
+  }
+
+  @override
+  Future<List<FinancialSupportApplication>>
+  listFinancialSupportApplications() async =>
+      _supportApplications.values.toList(growable: false);
+
+  @override
+  Future<void> reviewFinancialSupportApplication(
+    String applicationId, {
+    required bool approve,
+    String? note,
   }) async {}
 
   static String _iconFor(String name) => switch (name) {

@@ -3532,7 +3532,8 @@ class _ActivityTabState extends State<_ActivityTab> {
         if (!mounted) return;
         final manages =
             community.myRole == CommunityRole.owner ||
-            community.myRole == CommunityRole.admin;
+            (community.myRole == CommunityRole.admin &&
+                community.canManagePageOrders);
         await Navigator.push(
           context,
           MaterialPageRoute(
@@ -3563,7 +3564,8 @@ class _ActivityTabState extends State<_ActivityTab> {
         if (!mounted) return;
         final manages =
             community.myRole == CommunityRole.owner ||
-            community.myRole == CommunityRole.admin;
+            (community.myRole == CommunityRole.admin &&
+                community.canManagePageServices);
         await Navigator.push(
           context,
           MaterialPageRoute(
@@ -3805,13 +3807,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                     radius: 20,
                   ),
                   title: Text(space.name),
-                  subtitle: Text(
-                    context.tr(
-                      space.myRole == CommunityRole.owner
-                          ? 'Owner'
-                          : 'Administrator',
-                    ),
-                  ),
+                  subtitle: Text(context.tr(space.roleLabel(space.myRole!))),
                   selected: _selectedSpace?.id == space.id,
                   onTap: () => Navigator.pop(context, space.id),
                 ),

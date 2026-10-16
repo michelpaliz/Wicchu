@@ -459,6 +459,9 @@ class Community {
     this.banPublicReason,
     this.banExpiresAt,
     this.canManagePageInbox = false,
+    this.canManagePageOrders = false,
+    this.canManagePageServices = false,
+    this.canViewPageAnalytics = false,
     this.published = true,
     this.accentColor = 'teal',
     this.neonBordersEnabled = false,
@@ -504,6 +507,9 @@ class Community {
   final String? banPublicReason;
   final DateTime? banExpiresAt;
   final bool canManagePageInbox;
+  final bool canManagePageOrders;
+  final bool canManagePageServices;
+  final bool canViewPageAnalytics;
   final bool published;
   final String accentColor;
   final bool neonBordersEnabled;
@@ -523,6 +529,17 @@ class Community {
           myRole == CommunityRole.admin);
   bool get isPublicProfile => type == CommunityType.publicProfile;
   int get followerCount => memberCount;
+
+  String roleLabel(CommunityRole role) => switch ((isPublicProfile, role)) {
+    (true, CommunityRole.owner) => 'Page owner',
+    (true, CommunityRole.admin) => 'Page administrator',
+    (true, CommunityRole.moderator) => 'Page moderator',
+    (true, CommunityRole.member) => 'Follower',
+    (false, CommunityRole.owner) => 'Community owner',
+    (false, CommunityRole.admin) => 'Community administrator',
+    (false, CommunityRole.moderator) => 'Community moderator',
+    (false, CommunityRole.member) => 'Member',
+  };
 }
 
 class BusinessLocation {
@@ -604,7 +621,10 @@ class CommunityInvitation {
     required this.createdAt,
     this.communityName,
     this.communityImageUrl,
+    this.communityType = CommunityType.community,
     this.invitationUrl,
+    this.invitedUserName,
+    this.invitedUserAvatarUrl,
   });
 
   final String id;
@@ -616,11 +636,35 @@ class CommunityInvitation {
   final DateTime createdAt;
   final String? communityName;
   final String? communityImageUrl;
+  final CommunityType communityType;
   final String? invitationUrl;
+  final String? invitedUserName;
+  final String? invitedUserAvatarUrl;
 
   bool get isLink => type == 'link';
   bool get isAdminInvitation => type == 'admin_invitation';
   bool get isOwnershipTransfer => type == 'ownership_transfer';
+  bool get isPublicProfile => communityType == CommunityType.publicProfile;
+}
+
+class CommunityAuditEntry {
+  const CommunityAuditEntry({
+    required this.id,
+    required this.action,
+    required this.createdAt,
+    this.actorName = 'Wicchu administrator',
+    this.targetName,
+    this.reason = '',
+    this.details = const {},
+  });
+
+  final String id;
+  final String action;
+  final DateTime createdAt;
+  final String actorName;
+  final String? targetName;
+  final String reason;
+  final Map<String, dynamic> details;
 }
 
 class CommunityHelpfulness {
@@ -711,6 +755,9 @@ class CommunityMember {
     this.bannedAt,
     this.banExpiresAt,
     this.pageInboxAccess = false,
+    this.canManageOrders = false,
+    this.canManageServices = false,
+    this.canViewPageAnalytics = false,
   });
 
   final String userId;
@@ -728,6 +775,9 @@ class CommunityMember {
   final DateTime? bannedAt;
   final DateTime? banExpiresAt;
   final bool pageInboxAccess;
+  final bool canManageOrders;
+  final bool canManageServices;
+  final bool canViewPageAnalytics;
 }
 
 class CommunityCategory {

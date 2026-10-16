@@ -11,12 +11,11 @@ class SpaceRoleIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = context.tr(switch (space.myRole) {
-      CommunityRole.owner => 'Owner',
-      CommunityRole.admin => 'Administrator',
-      CommunityRole.moderator => 'Moderator',
-      _ => space.isPublicProfile ? 'Following' : 'Member',
-    });
+    final label = context.tr(
+      space.myRole == null
+          ? (space.isPublicProfile ? 'Following' : 'Member')
+          : space.roleLabel(space.myRole!),
+    );
     final icon = switch (space.myRole) {
       CommunityRole.owner => WicchuIcons.shield,
       CommunityRole.admin => WicchuIcons.shieldCheck,

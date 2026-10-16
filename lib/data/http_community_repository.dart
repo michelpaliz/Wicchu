@@ -1092,6 +1092,53 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<CommunityInvitation> resendCommunityInvitation(
+    String communityId,
+    String invitationId,
+  ) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/$communityId/invitations/$invitationId/resend',
+    );
+    return _invitationFromJson(
+      _object(body, 'invitation'),
+      invitationUrl: body['invitationUrl']?.toString(),
+    );
+  }
+
+  @override
+  Future<List<CommunityAuditEntry>> listCommunityAuditHistory(
+    String communityId,
+  ) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/admin/moderation-history',
+    );
+    return _list(body, 'actions')
+        .map((json) {
+          final actor = json['actor'] is Map<String, dynamic>
+              ? json['actor'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          final target = json['targetUser'] is Map<String, dynamic>
+              ? json['targetUser'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          final details = json['details'] is Map<String, dynamic>
+              ? json['details'] as Map<String, dynamic>
+              : const <String, dynamic>{};
+          return CommunityAuditEntry(
+            id: _id(json),
+            action: json['action']?.toString() ?? '',
+            createdAt:
+                DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+                DateTime.now(),
+            actorName: actor['name']?.toString() ?? 'Wicchu administrator',
+            targetName: target['name']?.toString(),
+            reason: json['reason']?.toString() ?? '',
+            details: details,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  @override
   Future<void> createOwnershipTransfer(
     String communityId,
     String targetUserId,
@@ -1328,6 +1375,17 @@ class HttpCommunityRepository implements CommunityRepository {
             bannedAt: _optionalDate(json['bannedAt']),
             banExpiresAt: _optionalDate(json['banExpiresAt']),
             pageInboxAccess: json['pageInboxAccess'] == true,
+            canManageOrders:
+                (json['pagePermissions'] as Map<String, dynamic>?)?['orders'] ==
+                true,
+            canManageServices:
+                (json['pagePermissions']
+                    as Map<String, dynamic>?)?['services'] ==
+                true,
+            canViewPageAnalytics:
+                (json['pagePermissions']
+                    as Map<String, dynamic>?)?['analytics'] ==
+                true,
           );
         })
         .toList(growable: false);
@@ -1354,6 +1412,26 @@ class HttpCommunityRepository implements CommunityRepository {
     await _api.patch(
       '/api/community/v1/communities/$communityId/members/$userId/page-inbox',
       body: {'pageInboxAccess': enabled},
+    );
+  }
+
+  @override
+  Future<void> setPagePermissions(
+    String communityId,
+    String userId, {
+    required bool messages,
+    required bool orders,
+    required bool services,
+    required bool analytics,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/communities/$communityId/members/$userId/page-permissions',
+      body: {
+        'messages': messages,
+        'orders': orders,
+        'services': services,
+        'analytics': analytics,
+      },
     );
   }
 
@@ -2641,6 +2719,90 @@ class HttpCommunityRepository implements CommunityRepository {
     );
   }
 
+  FinancialSupportApplication _financialSupportApplication(
+    Map<String, dynamic> item,
+  ) => FinancialSupportApplication(
+    id: item['id']?.toString() ?? '',
+    pageId: item['pageId']?.toString() ?? '',
+    pageName: item['pageName']?.toString(),
+    countryCode: item['countryCode']?.toString() ?? '',
+    countryName: item['countryName']?.toString() ?? '',
+    recipientType: item['recipientType']?.toString() ?? 'individual',
+    purpose: item['purpose']?.toString() ?? '',
+    contactEmail: item['contactEmail']?.toString() ?? '',
+    status: item['status']?.toString() ?? 'pending',
+    requestedAt:
+        DateTime.tryParse(item['requestedAt']?.toString() ?? '') ??
+        DateTime.now(),
+    reviewedAt: DateTime.tryParse(item['reviewedAt']?.toString() ?? ''),
+    reviewNote: item['reviewNote']?.toString() ?? '',
+    providerStatus: item['providerStatus']?.toString() ?? 'not_configured',
+    paymentsEnabled: item['paymentsEnabled'] == true,
+  );
+
+  @override
+  Future<FinancialSupportApplication?> getFinancialSupportApplication(
+    String pageId,
+  ) async {
+    final body = await _api.get(
+      '/api/community/v1/pages/$pageId/support-application',
+    );
+    final item = body['application'];
+    return item is Map<String, dynamic>
+        ? _financialSupportApplication(item)
+        : null;
+  }
+
+  @override
+  Future<FinancialSupportApplication> submitFinancialSupportApplication(
+    String pageId, {
+    required String countryCode,
+    String? countryName,
+    required String recipientType,
+    required String purpose,
+    required String contactEmail,
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/pages/$pageId/support-application',
+      body: {
+        'countryCode': countryCode,
+        if (countryName?.trim().isNotEmpty ?? false)
+          'countryName': countryName!.trim(),
+        'recipientType': recipientType,
+        'purpose': purpose.trim(),
+        'contactEmail': contactEmail.trim(),
+      },
+    );
+    return _financialSupportApplication(_object(body, 'application'));
+  }
+
+  @override
+  Future<List<FinancialSupportApplication>>
+  listFinancialSupportApplications() async {
+    final body = await _api.get(
+      '/api/community/v1/platform/support-applications',
+    );
+    return (body['applications'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(_financialSupportApplication)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> reviewFinancialSupportApplication(
+    String applicationId, {
+    required bool approve,
+    String? note,
+  }) async {
+    await _api.patch(
+      '/api/community/v1/platform/support-applications/$applicationId',
+      body: {
+        'status': approve ? 'approved' : 'rejected',
+        if (note?.trim().isNotEmpty ?? false) 'note': note!.trim(),
+      },
+    );
+  }
+
   @override
   Future<AdminAttentionSummary> getAdminAttention(String communityId) async {
     final body = await _api.get(
@@ -3277,6 +3439,9 @@ class HttpCommunityRepository implements CommunityRepository {
       banPublicReason: json['banPublicReason']?.toString(),
       banExpiresAt: _optionalDate(json['banExpiresAt']),
       canManagePageInbox: json['canManagePageInbox'] == true,
+      canManagePageOrders: json['canManagePageOrders'] == true,
+      canManagePageServices: json['canManagePageServices'] == true,
+      canViewPageAnalytics: json['canViewPageAnalytics'] == true,
       published: json['published'] != false,
       accentColor: json['accentColor']?.toString() ?? 'teal',
       neonBordersEnabled: json['neonBordersEnabled'] == true,
@@ -3724,6 +3889,9 @@ class HttpCommunityRepository implements CommunityRepository {
     final communityJson = community is Map<String, dynamic>
         ? community
         : const <String, dynamic>{};
+    final invitedUser = json['invitedUser'] is Map<String, dynamic>
+        ? json['invitedUser'] as Map<String, dynamic>
+        : const <String, dynamic>{};
     return CommunityInvitation(
       id: _id(json),
       communityId:
@@ -3741,7 +3909,12 @@ class HttpCommunityRepository implements CommunityRepository {
           DateTime.now(),
       communityName: communityJson['name']?.toString(),
       communityImageUrl: communityJson['imageUrl']?.toString(),
+      communityType: communityJson['type'] == 'public_profile'
+          ? CommunityType.publicProfile
+          : CommunityType.community,
       invitationUrl: invitationUrl,
+      invitedUserName: invitedUser['name']?.toString(),
+      invitedUserAvatarUrl: invitedUser['avatarUrl']?.toString(),
     );
   }
 

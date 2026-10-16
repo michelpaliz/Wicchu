@@ -2007,28 +2007,30 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (!_canManage && !_community.isBanned)
-              ListTile(
-                leading: const Icon(WicchuIcons.chatCircle),
-                title: Text(sheetContext.tr('Message')),
-                onTap: () => Navigator.pop(sheetContext, 'message'),
-              ),
-            if (phone.isNotEmpty)
-              ListTile(
-                leading: const Icon(WicchuIcons.phone),
-                title: Text(sheetContext.tr('Call')),
-                onTap: () => Navigator.pop(sheetContext, 'phone'),
-              ),
-            if (whatsapp.isNotEmpty)
-              ListTile(
-                leading: const Icon(WicchuIcons.chatCircle),
-                title: const Text('WhatsApp'),
-                onTap: () => Navigator.pop(sheetContext, 'whatsapp'),
-              ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!_canManage && !_community.isBanned)
+                ListTile(
+                  leading: const Icon(WicchuIcons.chatCircle),
+                  title: Text(sheetContext.tr('Message')),
+                  onTap: () => Navigator.pop(sheetContext, 'message'),
+                ),
+              if (phone.isNotEmpty)
+                ListTile(
+                  leading: const Icon(WicchuIcons.phone),
+                  title: Text(sheetContext.tr('Call')),
+                  onTap: () => Navigator.pop(sheetContext, 'phone'),
+                ),
+              if (whatsapp.isNotEmpty)
+                ListTile(
+                  leading: const Icon(WicchuIcons.chatCircle),
+                  title: const Text('WhatsApp'),
+                  onTap: () => Navigator.pop(sheetContext, 'whatsapp'),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -3184,7 +3186,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   Widget _businessCatalogButton({required bool foodBusiness}) {
     final managesBusiness =
         _community.myRole == CommunityRole.owner ||
-        _community.myRole == CommunityRole.admin;
+        (_community.myRole == CommunityRole.admin &&
+            _community.canManagePageOrders);
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
@@ -3481,12 +3484,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }) {
     final scheme = Theme.of(context).colorScheme;
     final message = _community.isPublicProfile
-        ? context.tr(switch (_community.myRole) {
-            CommunityRole.owner => 'Owner',
-            CommunityRole.admin => 'Admin',
-            CommunityRole.moderator => 'Moderator',
-            _ => 'Following',
-          })
+        ? context.tr(
+            _community.myRole == null
+                ? 'Following'
+                : _community.roleLabel(_community.myRole!),
+          )
         : context.tr(switch (_community.myRole) {
             CommunityRole.owner => 'You own this community',
             CommunityRole.admin => 'You administer this community',
@@ -5214,12 +5216,32 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       !member.isAnonymous &&
       member.userId.isNotEmpty;
 
-  String _memberRoleLabel(CommunityRole role) => switch (role) {
-    CommunityRole.owner => 'Owner',
-    CommunityRole.admin => 'Administrator',
-    CommunityRole.moderator => 'Moderator',
-    CommunityRole.member => _community.isPublicProfile ? 'Follower' : 'Member',
-  };
+  String _memberRoleLabel(CommunityRole role) => _community.roleLabel(role);
+
+  String _memberRolePermissionDescription(CommunityRole role) {
+    if (_community.isPublicProfile) {
+      return switch (role) {
+        CommunityRole.owner =>
+          'Full control, ownership, financial support and team permissions.',
+        CommunityRole.admin =>
+          'Manages page content. The owner separately grants messages, orders, services and analytics.',
+        CommunityRole.moderator =>
+          'Reviews content, comments and reports. No financial or business access.',
+        CommunityRole.member =>
+          'Can follow and interact with the page. No management access.',
+      };
+    }
+    return switch (role) {
+      CommunityRole.owner =>
+        'Full control, ownership, Community Rewards and administrator access.',
+      CommunityRole.admin =>
+        'Manages content, members, categories and community settings.',
+      CommunityRole.moderator =>
+        'Reviews content, comments and reports. No ownership or financial access.',
+      CommunityRole.member =>
+        'Can join, publish and interact according to community rules.',
+    };
+  }
 
   Future<void> _changeMemberRole(CommunityMember member) async {
     if (!_canChangeMemberRole(member) || _savingMemberRole) return;
@@ -5227,33 +5249,41 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(member.name),
-              subtitle: Text(context.tr('Change role')),
-            ),
-            for (final role in [
-              if (_community.myRole == CommunityRole.owner) CommunityRole.admin,
-              CommunityRole.moderator,
-              CommunityRole.member,
-            ])
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               ListTile(
-                title: Text(
-                  context.tr(
-                    role == CommunityRole.admin
-                        ? 'Invite as administrator'
-                        : _memberRoleLabel(role),
-                  ),
-                ),
-                trailing: role == member.role
-                    ? const Icon(WicchuIcons.check)
-                    : null,
-                enabled: role != member.role,
-                onTap: () => Navigator.pop(sheetContext, role),
+                title: Text(member.name),
+                subtitle: Text(context.tr('Change role')),
               ),
-          ],
+              for (final role in [
+                if (_community.myRole == CommunityRole.owner)
+                  CommunityRole.admin,
+                CommunityRole.moderator,
+                CommunityRole.member,
+              ])
+                ListTile(
+                  title: Text(
+                    context.tr(
+                      role == CommunityRole.admin
+                          ? (_community.isPublicProfile
+                                ? 'Invite as page administrator'
+                                : 'Invite as community administrator')
+                          : _memberRoleLabel(role),
+                    ),
+                  ),
+                  subtitle: Text(
+                    context.tr(_memberRolePermissionDescription(role)),
+                  ),
+                  trailing: role == member.role
+                      ? const Icon(WicchuIcons.check)
+                      : null,
+                  enabled: role != member.role,
+                  onTap: () => Navigator.pop(sheetContext, role),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -5264,12 +5294,20 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(
-          context.tr(inviteAdmin ? 'Invite as administrator' : 'Change role'),
+          context.tr(
+            inviteAdmin
+                ? (_community.isPublicProfile
+                      ? 'Invite as page administrator'
+                      : 'Invite as community administrator')
+                : 'Change role',
+          ),
         ),
         content: Text(
           context.tr(
             inviteAdmin
-                ? '{name} will become an administrator only after accepting the invitation.'
+                ? (_community.isPublicProfile
+                      ? '{name} will become a page administrator only after accepting the invitation.'
+                      : '{name} will become a community administrator only after accepting the invitation.')
                 : 'Change {name} to {role}?',
             {'name': member.name, 'role': context.tr(_memberRoleLabel(role))},
           ),
@@ -5314,7 +5352,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           content: Text(
             context.tr(
               inviteAdmin
-                  ? 'Administrator invitation sent. The member must accept it.'
+                  ? (_community.isPublicProfile
+                        ? 'Page administrator invitation sent. The follower must accept it.'
+                        : 'Community administrator invitation sent. The member must accept it.')
                   : 'Role updated',
             ),
           ),

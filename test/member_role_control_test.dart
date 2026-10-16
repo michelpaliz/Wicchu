@@ -94,7 +94,13 @@ void main() {
         expect(find.byKey(const ValueKey('member-role-owner')), findsNothing);
         await tester.tap(find.byKey(const ValueKey('member-role-target')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Invite as administrator'));
+        await tester.tap(
+          find.text(
+            category == null
+                ? 'Invite as community administrator'
+                : 'Invite as page administrator',
+          ),
+        );
         await tester.pumpAndSettle();
         expect(repository.writes, 0);
         await tester.tap(find.widgetWithText(FilledButton, 'Send invitation'));
@@ -105,7 +111,9 @@ void main() {
         expect(repository.role, CommunityRole.member);
         expect(
           find.text(
-            'Administrator invitation sent. The member must accept it.',
+            category == null
+                ? 'Community administrator invitation sent. The member must accept it.'
+                : 'Page administrator invitation sent. The follower must accept it.',
           ),
           fail ? findsNothing : findsOneWidget,
         );
@@ -128,22 +136,32 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('member-role-target')));
         await tester.pumpAndSettle();
-        expect(find.text('Invite as administrator'), findsNothing);
-        await tester.tap(find.text('Moderator'));
+        expect(
+          find.text(
+            category == null
+                ? 'Invite as community administrator'
+                : 'Invite as page administrator',
+          ),
+          findsNothing,
+        );
+        final moderatorLabel = category == null
+            ? 'Community moderator'
+            : 'Page moderator';
+        await tester.tap(find.text(moderatorLabel));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
         await tester.pumpAndSettle();
         expect(repository.writes, 0);
         await tester.tap(find.byKey(const ValueKey('member-role-target')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Moderator'));
+        await tester.tap(find.text(moderatorLabel));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
         await tester.pumpAndSettle();
         expect(repository.writes, 1);
         expect(repository.invitations, 0);
         expect(repository.role, CommunityRole.moderator);
-        expect(find.text('Moderator'), findsOneWidget);
+        expect(find.text(moderatorLabel), findsOneWidget);
       },
     );
     testWidgets('ordinary viewer cannot change roles category=$category', (
