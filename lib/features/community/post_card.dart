@@ -359,6 +359,10 @@ class _PostCardState extends State<PostCard> {
   bool _moderating = false;
   bool _hiding = false;
   bool _businessViewSent = false;
+  bool _translating = false;
+  String? _translatedText;
+  String? _translationLanguage;
+  bool _showTranslation = false;
 
   Future<Community?>? _sourceProfile;
 
@@ -581,7 +585,51 @@ class _PostCardState extends State<PostCard> {
     if (oldWidget.poll != widget.poll) _poll = widget.poll;
     if (oldWidget.post?.id != widget.post?.id) {
       _businessViewSent = false;
+      _translatedText = null;
+      _translationLanguage = null;
+      _showTranslation = false;
       _recordBusinessView();
+    }
+  }
+
+  String get _visiblePostText {
+    if (!_showTranslation || _translatedText == null) return widget.text;
+    final caption = widget.post?.shareCaption.trim() ?? '';
+    return caption.isEmpty
+        ? _translatedText!
+        : '$caption\n\n${_translatedText!}';
+  }
+
+  Future<void> _translatePost() async {
+    final repository = widget.repository;
+    final post = widget.post;
+    if (repository == null || post == null || _translating) return;
+    const targetLanguage = 'auto';
+    if (_translatedText != null &&
+        (targetLanguage == 'auto' || _translationLanguage == targetLanguage)) {
+      setState(() => _showTranslation = true);
+      return;
+    }
+    setState(() => _translating = true);
+    try {
+      final result = await repository.translatePost(
+        post.id,
+        targetLanguage: targetLanguage,
+      );
+      if (!mounted) return;
+      setState(() {
+        _translatedText = result.translatedText;
+        _translationLanguage = result.targetLanguage;
+        _showTranslation = true;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _translating = false);
     }
   }
 
@@ -862,13 +910,21 @@ class _PostCardState extends State<PostCard> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.post?.todayMenu case final menu?)
-          _TodayMenuView(menu: menu)
-        else if (widget.post?.businessFeature case final feature?)
-          _BusinessFeatureView(feature: feature)
-        else if (widget.text.isNotEmpty)
+        if (widget.post?.todayMenu case final menu?) ...[
+          if (_showTranslation && _translatedText != null) ...[
+            PostMarkdown(data: _translatedText!, compact: true),
+            const SizedBox(height: 8),
+          ],
+          _TodayMenuView(menu: menu),
+        ] else if (widget.post?.businessFeature case final feature?) ...[
+          if (_showTranslation && _translatedText != null) ...[
+            PostMarkdown(data: _translatedText!, compact: true),
+            const SizedBox(height: 8),
+          ],
+          _BusinessFeatureView(feature: feature),
+        ] else if (widget.text.isNotEmpty) ...[
           PostMarkdown(
-            data: widget.text,
+            data: _visiblePostText,
             bodyStyle: _poll == null
                 ? null
                 : Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -881,6 +937,49 @@ class _PostCardState extends State<PostCard> {
             previewLines: 3,
             onUserTap: widget.onMentionTap,
           ),
+        ],
+        if (widget.repository != null &&
+            widget.post != null &&
+            (widget.post!.text.trim().isNotEmpty ||
+                widget.post!.todayMenu != null ||
+                widget.post!.businessFeature != null)) ...[
+          const SizedBox(height: 2),
+          TextButton.icon(
+            key: ValueKey('translate-post-${widget.post!.id}'),
+            onPressed: _translating
+                ? null
+                : _showTranslation
+                ? () => setState(() => _showTranslation = false)
+                : _translatePost,
+            icon: _translating
+                ? const SizedBox.square(
+                    dimension: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    _showTranslation
+                        ? WicchuIcons.arrowsClockwise
+                        : WicchuIcons.globe,
+                    size: 16,
+                  ),
+            label: Text(
+              context.tr(
+                _translating
+                    ? 'Translating…'
+                    : _showTranslation
+                    ? 'View original'
+                    : 'Translate',
+              ),
+            ),
+          ),
+          if (_showTranslation)
+            Text(
+              context.tr('Translated automatically'),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+        ],
         if (widget.post?.todayMenu != null ||
             widget.post?.businessFeature != null)
           _businessFooter(),

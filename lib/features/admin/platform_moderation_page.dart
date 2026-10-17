@@ -448,6 +448,42 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            Text(
+              context.tr('Translation usage'),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _AnalyticsCard(
+                  label: 'Translation requests (30d)',
+                  value: '${data.translationRequests}',
+                ),
+                _AnalyticsCard(
+                  label: 'Translation errors (30d)',
+                  value: '${data.translationErrors}',
+                ),
+                _AnalyticsCard(
+                  label: 'Average translation latency',
+                  value: '${data.translationAverageLatencyMs.round()} ms',
+                ),
+                _AnalyticsCard(
+                  label: 'Estimated translation cost (30d)',
+                  value:
+                      '\$${data.translationEstimatedCostUsd.toStringAsFixed(2)}',
+                ),
+                _AnalyticsCard(
+                  label: 'Monthly translation budget',
+                  value:
+                      '\$${data.translationMonthlyBudgetUsedUsd.toStringAsFixed(2)} / \$${data.translationMonthlyBudgetLimitUsd.toStringAsFixed(2)}',
+                ),
+              ],
+            ),
             if (data.registrationsByLocation.isNotEmpty) ...[
               const SizedBox(height: 24),
               Text(

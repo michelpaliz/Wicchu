@@ -221,6 +221,16 @@ const _spanish = <String, String>{
       '{name} se convertirá en miembro y perderá inmediatamente todo acceso de administración y moderación.',
   'Remove access': 'Quitar acceso',
   'Management access removed.': 'Se eliminó el acceso de gestión.',
+  'Translate to Spanish': 'Traducir al español',
+  'Translate': 'Traducir',
+  'Translate to English': 'Traducir al inglés',
+  'Translating…': 'Traduciendo…',
+  'View original': 'Ver original',
+  'Translated automatically': 'Traducido automáticamente',
+  'Post translation is temporarily unavailable':
+      'La traducción de publicaciones no está disponible temporalmente',
+  'This post has no text to translate':
+      'Esta publicación no tiene texto para traducir',
   'Community owner': 'Propietario de la comunidad',
   'Community administrator': 'Administrador de la comunidad',
   'Community moderator': 'Moderador de la comunidad',

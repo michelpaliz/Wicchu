@@ -21,6 +21,21 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
+    if (path == '/api/community/v1/platform/translation-analytics') {
+      return {
+        'analytics': {
+          'totals': {
+            'requests': 12,
+            'errors': 1,
+            'averageLatencyMs': 320,
+            'estimatedCostUsd': 0.04,
+          },
+          'limits': {
+            'monthlyBudgetUsd': {'used': 0.04, 'limit': 20},
+          },
+        },
+      };
+    }
     if (path == '/api/community/v1/pages/page-1/support-application') {
       return {'application': null};
     }
@@ -470,6 +485,16 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   }) async {
     lastPath = path;
     lastBody = body;
+    if (path == '/api/community/v1/posts/post-1/translation') {
+      return {
+        'translation': {
+          'postId': 'post-1',
+          'targetLanguage': body?['targetLanguage'],
+          'translatedText': 'Reunión comunitaria',
+          'cached': false,
+        },
+      };
+    }
     if (path == '/api/community/v1/pages/page-1/support-application') {
       return {
         'application': {
@@ -2021,4 +2046,21 @@ void main() {
       });
     },
   );
+
+  test('post translation sends the requested target language', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final translation = await repository.translatePost(
+      'post-1',
+      targetLanguage: 'es',
+    );
+
+    expect(api.lastPath, '/api/community/v1/posts/post-1/translation');
+    expect(api.lastBody, {'targetLanguage': 'es'});
+    expect(translation.postId, 'post-1');
+    expect(translation.targetLanguage, 'es');
+    expect(translation.translatedText, 'Reunión comunitaria');
+    expect(translation.cached, isFalse);
+  });
 }

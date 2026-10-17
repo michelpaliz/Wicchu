@@ -1973,6 +1973,44 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<PostTranslation> translatePost(
+    String postId, {
+    required String targetLanguage,
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/posts/$postId/translation',
+      body: {'targetLanguage': targetLanguage},
+    );
+    final json = _object(body, 'translation');
+    return PostTranslation(
+      postId: json['postId']?.toString() ?? postId,
+      targetLanguage: json['targetLanguage']?.toString() ?? targetLanguage,
+      sourceLanguage: json['sourceLanguage']?.toString() ?? '',
+      translatedText: json['translatedText']?.toString() ?? '',
+      cached: json['cached'] as bool? ?? false,
+    );
+  }
+
+  @override
+  Future<PostTranslation> translateComment(
+    String commentId, {
+    String targetLanguage = 'auto',
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/comments/$commentId/translation',
+      body: {'targetLanguage': targetLanguage},
+    );
+    final json = _object(body, 'translation');
+    return PostTranslation(
+      postId: json['commentId']?.toString() ?? commentId,
+      targetLanguage: json['targetLanguage']?.toString() ?? targetLanguage,
+      sourceLanguage: json['sourceLanguage']?.toString() ?? '',
+      translatedText: json['translatedText']?.toString() ?? '',
+      cached: json['cached'] as bool? ?? false,
+    );
+  }
+
+  @override
   Future<SharedPostPreview> getSharedPost(String postId) async {
     final body = await _api.get('/wicchu/api/posts/$postId');
     final postJson = _object(body, 'post');
@@ -2654,9 +2692,34 @@ class HttpCommunityRepository implements CommunityRepository {
 
   @override
   Future<PlatformAnalytics> getPlatformAnalytics() async {
-    final body = await _api.get('/api/community/v1/platform/analytics');
+    final responses = await Future.wait([
+      _api.get('/api/community/v1/platform/analytics'),
+      _api.get('/api/community/v1/platform/translation-analytics'),
+    ]);
+    final body = responses[0];
     final analytics = _object(body, 'analytics');
+    final translation = _object(responses[1], 'analytics');
+    final translationTotals = translation['totals'] is Map<String, dynamic>
+        ? translation['totals'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final translationLimits = translation['limits'] is Map<String, dynamic>
+        ? translation['limits'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final budget = translationLimits['monthlyBudgetUsd'] is Map<String, dynamic>
+        ? translationLimits['monthlyBudgetUsd'] as Map<String, dynamic>
+        : const <String, dynamic>{};
     return PlatformAnalytics(
+      translationRequests:
+          (translationTotals['requests'] as num?)?.toInt() ?? 0,
+      translationErrors: (translationTotals['errors'] as num?)?.toInt() ?? 0,
+      translationAverageLatencyMs:
+          (translationTotals['averageLatencyMs'] as num?)?.toDouble() ?? 0,
+      translationEstimatedCostUsd:
+          (translationTotals['estimatedCostUsd'] as num?)?.toDouble() ?? 0,
+      translationMonthlyBudgetUsedUsd:
+          (budget['used'] as num?)?.toDouble() ?? 0,
+      translationMonthlyBudgetLimitUsd:
+          (budget['limit'] as num?)?.toDouble() ?? 20,
       registeredUsers: (analytics['registeredUsers'] as num?)?.toInt() ?? 0,
       newRegistrations: (analytics['newRegistrations'] as num?)?.toInt() ?? 0,
       dailyActiveUsers: (analytics['dailyActiveUsers'] as num?)?.toInt() ?? 0,

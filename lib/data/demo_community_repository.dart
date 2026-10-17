@@ -975,6 +975,32 @@ class DemoCommunityRepository implements CommunityRepository {
       .firstWhere((post) => post.id == postId);
 
   @override
+  Future<PostTranslation> translatePost(
+    String postId, {
+    required String targetLanguage,
+  }) async => PostTranslation(
+    postId: postId,
+    sourceLanguage: targetLanguage == 'en' ? 'es' : 'en',
+    targetLanguage: targetLanguage == 'auto' ? 'es' : targetLanguage,
+    translatedText: targetLanguage == 'es' || targetLanguage == 'auto'
+        ? 'Esta es una traducción de demostración.'
+        : 'This is a demonstration translation.',
+  );
+
+  @override
+  Future<PostTranslation> translateComment(
+    String commentId, {
+    String targetLanguage = 'auto',
+  }) async => PostTranslation(
+    postId: commentId,
+    sourceLanguage: targetLanguage == 'en' ? 'es' : 'en',
+    targetLanguage: targetLanguage == 'auto' ? 'es' : targetLanguage,
+    translatedText: targetLanguage == 'en'
+        ? 'Demo comment'
+        : 'Comentario de demostración',
+  );
+
+  @override
   Future<SharedPostPreview> getSharedPost(String postId) async {
     final post = await getPost(postId);
     final community = _communities.firstWhere(

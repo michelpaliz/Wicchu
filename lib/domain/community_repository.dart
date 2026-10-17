@@ -217,6 +217,12 @@ class PlatformAnalytics {
     this.registrationsByLocation = const [],
     this.currencySummary = const [],
     this.communityPerformance = const [],
+    this.translationRequests = 0,
+    this.translationErrors = 0,
+    this.translationAverageLatencyMs = 0,
+    this.translationEstimatedCostUsd = 0,
+    this.translationMonthlyBudgetUsedUsd = 0,
+    this.translationMonthlyBudgetLimitUsd = 20,
   });
 
   final int registeredUsers;
@@ -231,6 +237,12 @@ class PlatformAnalytics {
   final List<PlatformLocationRegistration> registrationsByLocation;
   final List<PlatformCurrencySummary> currencySummary;
   final List<PlatformCommunityPerformance> communityPerformance;
+  final int translationRequests;
+  final int translationErrors;
+  final double translationAverageLatencyMs;
+  final double translationEstimatedCostUsd;
+  final double translationMonthlyBudgetUsedUsd;
+  final double translationMonthlyBudgetLimitUsd;
 }
 
 class PlatformLocationRegistration {
@@ -839,6 +851,14 @@ abstract interface class CommunityRepository {
     String? query,
   });
   Future<CommunityPost> getPost(String postId);
+  Future<PostTranslation> translatePost(
+    String postId, {
+    required String targetLanguage,
+  });
+  Future<PostTranslation> translateComment(
+    String commentId, {
+    String targetLanguage = 'auto',
+  });
   Future<SharedPostPreview> getSharedPost(String postId);
   Future<PostShareKit> getPostShareKit(String postId);
   Future<void> recordPostShare(String postId);

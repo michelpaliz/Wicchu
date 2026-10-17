@@ -1305,6 +1305,22 @@ class CommunityPost {
       shareCaption.trim().isEmpty ? text : '${shareCaption.trim()}\n\n$text';
 }
 
+class PostTranslation {
+  const PostTranslation({
+    required this.postId,
+    required this.targetLanguage,
+    required this.translatedText,
+    this.sourceLanguage = '',
+    this.cached = false,
+  });
+
+  final String postId;
+  final String targetLanguage;
+  final String sourceLanguage;
+  final String translatedText;
+  final bool cached;
+}
+
 enum PromotionStatus { pending, active, rejected, completed, cancelled }
 
 class PromotionEligibility {

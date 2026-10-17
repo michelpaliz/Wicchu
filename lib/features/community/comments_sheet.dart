@@ -61,6 +61,8 @@ class _PostCommentsState extends State<PostComments> {
       .catchError((Object _) => null);
   final _savingReactions = <String>{};
   final _expandedThreads = <String>{};
+  final _translatedComments = <String, String>{};
+  final _translatingComments = <String>{};
   late Future<List<Comment>> _comments;
   late int _count = widget.post.commentCount;
   bool _saving = false;
@@ -87,6 +89,29 @@ class _PostCommentsState extends State<PostComments> {
   }
 
   void _retry() => setState(() => _comments = _loadComments());
+
+  Future<void> _translateComment(Comment comment) async {
+    if (_translatedComments.containsKey(comment.id)) {
+      setState(() => _translatedComments.remove(comment.id));
+      return;
+    }
+    if (!_translatingComments.add(comment.id)) return;
+    setState(() {});
+    try {
+      final result = await widget.repository.translateComment(comment.id);
+      if (mounted) {
+        setState(() => _translatedComments[comment.id] = result.translatedText);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _translatingComments.remove(comment.id));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +232,9 @@ class _PostCommentsState extends State<PostComments> {
                     children: [
                       _CommentItem(
                         comment: root,
+                        translatedText: _translatedComments[root.id],
+                        translating: _translatingComments.contains(root.id),
+                        onTranslate: () => _translateComment(root),
                         canReply: widget.post.canInteract,
                         savingReaction: _savingReactions.contains(root.id),
                         onReaction: widget.post.canInteract
@@ -285,6 +313,12 @@ class _PostCommentsState extends State<PostComments> {
                                   ),
                                   child: _CommentItem(
                                     comment: reply,
+                                    translatedText:
+                                        _translatedComments[reply.id],
+                                    translating: _translatingComments.contains(
+                                      reply.id,
+                                    ),
+                                    onTranslate: () => _translateComment(reply),
                                     compact: true,
                                     canReply: widget.post.canInteract,
                                     savingReaction: _savingReactions.contains(
@@ -639,6 +673,9 @@ class _CommentItem extends StatelessWidget {
     this.compact = false,
     this.onReply,
     this.onReport,
+    this.translatedText,
+    this.translating = false,
+    this.onTranslate,
   });
 
   final bool compact;
@@ -648,6 +685,9 @@ class _CommentItem extends StatelessWidget {
   final bool canReply;
   final VoidCallback? onReply;
   final VoidCallback? onReport;
+  final String? translatedText;
+  final bool translating;
+  final VoidCallback? onTranslate;
 
   @override
   Widget build(BuildContext context) {
@@ -732,10 +772,28 @@ class _CommentItem extends StatelessWidget {
                   const SizedBox(height: 2),
                 ],
                 Text(
-                  comment.text,
+                  translatedText ?? comment.text,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontSize: 16,
                     height: 1.3,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: translating ? null : onTranslate,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                  icon: translating
+                      ? const SizedBox.square(
+                          dimension: 13,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(WicchuIcons.globe, size: 15),
+                  label: Text(
+                    context.tr(
+                      translatedText == null ? 'Translate' : 'View original',
+                    ),
                   ),
                 ),
                 Row(
