@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../../localization/activity_status.dart';
 import '../../services/presence_service.dart';
 import '../community/report_dialog.dart';
 import '../community/user_avatar.dart';
@@ -296,10 +297,15 @@ class _ConversationListPageState extends State<ConversationListPage> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
             children: [
-              UserAvatar(
-                name: conversation.otherUser.name,
-                imageUrl: conversation.otherUser.avatarUrl,
-                radius: 23,
+              Badge(
+                isLabelVisible: conversation.isOnline,
+                backgroundColor: Colors.green,
+                smallSize: 10,
+                child: UserAvatar(
+                  name: conversation.otherUser.name,
+                  imageUrl: conversation.otherUser.avatarUrl,
+                  radius: 23,
+                ),
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -1171,7 +1177,13 @@ class _DirectChatPageState extends State<DirectChatPage> {
                           ? widget.conversation.communityInbox
                                 ? 'Community admin conversation'
                                 : 'Page conversation'
-                          : 'Private conversation',
+                          : activityStatusText(
+                                  context,
+                                  isOnline: widget.conversation.isOnline,
+                                  lastActiveAt:
+                                      widget.conversation.lastActiveAt,
+                                ) ??
+                                'Private conversation',
                       widget.conversation.viewingAsPage
                           ? {'page': widget.conversation.pageName ?? 'Wicchu'}
                           : const {},

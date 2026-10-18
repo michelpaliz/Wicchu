@@ -236,6 +236,8 @@ class _RecordingApiClient extends AuthenticatedApiClient {
             'lastMessagePreview': 'Hello',
             'lastMessageAt': '2026-10-05T10:00:00.000Z',
             'unreadCount': 2,
+            'isOnline': true,
+            'lastActiveAt': '2026-10-05T09:55:00.000Z',
             if (path.contains('requests=true')) ...{
               'requestStatus': 'pending',
               'requestedByMe': false,
@@ -485,12 +487,34 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   }) async {
     lastPath = path;
     lastBody = body;
+    if (path == '/api/community/v1/communities/category-suggestions') {
+      return {
+        'template': 'football',
+        'editable': true,
+        'categories': [
+          {'key': 'general', 'name': 'General'},
+          {'key': 'matches', 'name': 'Partidos'},
+        ],
+      };
+    }
     if (path == '/api/community/v1/posts/post-1/translation') {
       return {
         'translation': {
           'postId': 'post-1',
           'targetLanguage': body?['targetLanguage'],
           'translatedText': 'Reunión comunitaria',
+          'cached': false,
+        },
+      };
+    }
+    if (path == '/api/community/v1/communities/community-1/about-translation') {
+      return {
+        'translation': {
+          'communityId': 'community-1',
+          'sourceLanguage': 'en',
+          'targetLanguage': 'es',
+          'translatedShortDescription': 'Resumen local',
+          'translatedDescription': 'Descripción completa',
           'cached': false,
         },
       };
@@ -732,6 +756,19 @@ class _RecordingApiClient extends AuthenticatedApiClient {
     if (path == '/api/community/v1/communities/community-1/category-order') {
       return {'order': body?['order'] ?? const <String>[]};
     }
+    if (path == '/api/community/v1/communities/community-1/categories/order') {
+      return {
+        'categories': [
+          for (final id in body?['categoryIds'] as List? ?? const [])
+            {
+              '_id': id,
+              'communityId': 'community-1',
+              'name': id == 'category-2' ? 'Events' : 'General',
+              'icon': '💬',
+            },
+        ],
+      };
+    }
     if (path.endsWith('/content-notification-preferences')) {
       return {'preferences': body};
     }
@@ -862,6 +899,23 @@ void main() {
     );
   });
 
+  test('administrators can persist the shared category order', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final categories = await repository.reorderCategories('community-1', const [
+      'category-2',
+      'category-1',
+    ]);
+
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/categories/order',
+    );
+    expect(api.lastBody?['categoryIds'], ['category-2', 'category-1']);
+    expect(categories.map((item) => item.id), ['category-2', 'category-1']);
+  });
+
   test('removed posts can be listed and restored with a reason', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);
@@ -971,6 +1025,11 @@ void main() {
     final conversations = await repository.listDirectConversations();
     expect(conversations.single.otherUser.name, 'Ana');
     expect(conversations.single.unreadCount, 2);
+    expect(conversations.single.isOnline, isTrue);
+    expect(
+      conversations.single.lastActiveAt,
+      DateTime.parse('2026-10-05T09:55:00.000Z'),
+    );
 
     final started = await repository.startDirectConversation('user-2');
     expect(started.id, 'conversation-1');
@@ -1692,6 +1751,24 @@ void main() {
     expect(community.myRole, CommunityRole.owner);
   });
 
+  test('category suggestions preserve stable keys and language', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final suggestions = await repository.getCategorySuggestions(
+      spaceType: CommunityType.community,
+      subject: 'Fútbol',
+      language: 'es',
+    );
+
+    expect(api.lastPath, '/api/community/v1/communities/category-suggestions');
+    expect(api.lastBody?['subject'], 'Fútbol');
+    expect(api.lastBody?['language'], 'es');
+    expect(suggestions.template, 'football');
+    expect(suggestions.categories[1].key, 'matches');
+    expect(suggestions.categories[1].name, 'Partidos');
+  });
+
   test('global community creation does not send a town', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);
@@ -2093,5 +2170,24 @@ void main() {
     expect(translation.targetLanguage, 'es');
     expect(translation.translatedText, 'Reunión comunitaria');
     expect(translation.cached, isFalse);
+  });
+
+  test('About translation maps both description fields', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final translation = await repository.translateCommunityAbout(
+      'community-1',
+      targetLanguage: 'es',
+    );
+
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/about-translation',
+    );
+    expect(api.lastBody, {'targetLanguage': 'es'});
+    expect(translation.translatedShortDescription, 'Resumen local');
+    expect(translation.translatedDescription, 'Descripción completa');
+    expect(translation.targetLanguage, 'es');
   });
 }

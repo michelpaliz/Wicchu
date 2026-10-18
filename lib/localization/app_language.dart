@@ -489,6 +489,20 @@ const _spanish = <String, String>{
   'Important announcements only': 'Solo anuncios importantes',
   'All new posts': 'Todas las publicaciones nuevas',
   'Selected categories': 'Categorías seleccionadas',
+  'Organize your space': 'Organiza tu espacio',
+  'Subject or purpose': 'Tema o propósito',
+  'For example: football, gardening or technology':
+      'Por ejemplo: fútbol, jardinería o tecnología',
+  'Add a category': 'Añadir una categoría',
+  'Recommended': 'Recomendada',
+  'Custom': 'Personalizada',
+  'Rename category': 'Renombrar categoría',
+  'Reorder category': 'Reordenar categoría',
+  'Organize posts on your page. Drag categories to reorder them or tap one to edit it.':
+      'Organiza las publicaciones de tu página. Arrastra las categorías para ordenarlas o toca una para editarla.',
+  'Organize conversations in your community. Drag categories to reorder them or tap one to edit it.':
+      'Organiza las conversaciones de tu comunidad. Arrastra las categorías para ordenarlas o toca una para editarla.',
+  'Category name is too long.': 'El nombre de la categoría es demasiado largo.',
   'Mute this community': 'Silenciar esta comunidad',
   'Push notifications': 'Notificaciones push',
   'Receive alerts on your device': 'Recibe avisos en tu dispositivo',
@@ -1867,6 +1881,15 @@ const _spanish = <String, String>{
   'Show online status': 'Mostrar estado en línea',
   'Let members of your communities see when you are online':
       'Permite que los miembros de tus comunidades vean cuándo estás en línea',
+  'Activity status': 'Estado de actividad',
+  'Let people see when you are active and when you were last active':
+      'Permite que otras personas vean cuándo estás activo y cuándo estuviste activo por última vez',
+  'Active now': 'Activo ahora',
+  'Active {count} min ago': 'Activo hace {count} min',
+  'Active {count} hr ago': 'Activo hace {count} h',
+  'Active yesterday at {time}': 'Activo ayer a las {time}',
+  'Active {count} days ago': 'Activo hace {count} días',
+  'Active over a week ago': 'Activo hace más de una semana',
   'Online now': 'En línea ahora',
   'Online in your communities': 'En línea en tus comunidades',
   'Neighbors online': 'Vecinos conectados',

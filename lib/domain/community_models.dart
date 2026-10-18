@@ -1326,6 +1326,24 @@ class PostTranslation {
   final bool cached;
 }
 
+class CommunityAboutTranslation {
+  const CommunityAboutTranslation({
+    required this.communityId,
+    required this.targetLanguage,
+    required this.translatedShortDescription,
+    required this.translatedDescription,
+    this.sourceLanguage = '',
+    this.cached = false,
+  });
+
+  final String communityId;
+  final String targetLanguage;
+  final String sourceLanguage;
+  final String translatedShortDescription;
+  final String translatedDescription;
+  final bool cached;
+}
+
 enum PromotionStatus { pending, active, rejected, completed, cancelled }
 
 class PromotionEligibility {
@@ -1616,6 +1634,8 @@ class DirectConversation {
     this.otherIsPage = false,
     this.communityInbox = false,
     this.label = ConversationLabel.newConversation,
+    this.isOnline = false,
+    this.lastActiveAt,
   });
 
   final String id;
@@ -1634,6 +1654,8 @@ class DirectConversation {
   final bool otherIsPage;
   final bool communityInbox;
   final ConversationLabel label;
+  final bool isOnline;
+  final DateTime? lastActiveAt;
 }
 
 enum MessageRequestStatus { pending, accepted, declined }

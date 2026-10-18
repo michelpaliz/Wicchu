@@ -30,6 +30,7 @@ import '../../data/authenticated_api_client.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../../localization/activity_status.dart';
 import '../admin/admin_dashboard_page.dart';
 import '../admin/admin_management_pages.dart';
 import '../admin/official_links_page.dart';
@@ -103,6 +104,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   String? _categoryId;
   late int _memberFilter = widget.showAdministration ? 1 : 0;
   bool _descriptionExpanded = true;
+  CommunityAboutTranslation? _aboutTranslation;
+  bool _showAboutTranslation = false;
+  bool _translatingAbout = false;
   String _memberQuery = '';
   bool _searchMembers = false;
   bool _savingMemberRole = false;
@@ -203,6 +207,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       final updated = await widget.repository.getCommunity(previous.id);
       if (!mounted || !identical(previous, _community)) return;
       setState(() {
+        if (previous.shortDescription != updated.shortDescription ||
+            previous.description != updated.description) {
+          _aboutTranslation = null;
+          _showAboutTranslation = false;
+        }
         _community = updated;
         _joined = updated.isJoined;
         if (previous.isJoined != updated.isJoined ||
@@ -215,6 +224,65 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       // Keep the available profile if this background refresh is unavailable.
     }
   }
+
+  String get _aboutDescription => _showAboutTranslation
+      ? (_aboutTranslation?.translatedDescription ?? _community.description)
+      : _community.description;
+
+  String get _aboutShortDescription => _showAboutTranslation
+      ? (_aboutTranslation?.translatedShortDescription ??
+            _community.shortDescription)
+      : _community.shortDescription;
+
+  Future<void> _translateAbout() async {
+    if (_showAboutTranslation) {
+      setState(() => _showAboutTranslation = false);
+      return;
+    }
+    if (_aboutTranslation != null) {
+      setState(() => _showAboutTranslation = true);
+      return;
+    }
+    if (_translatingAbout) return;
+    setState(() => _translatingAbout = true);
+    try {
+      final translation = await widget.repository.translateCommunityAbout(
+        _community.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _aboutTranslation = translation;
+        _showAboutTranslation = true;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _translatingAbout = false);
+    }
+  }
+
+  Widget _aboutTranslationButton() => TextButton.icon(
+    key: const ValueKey('about-translation-button'),
+    onPressed: _translatingAbout ? null : _translateAbout,
+    icon: _translatingAbout
+        ? const SizedBox.square(
+            dimension: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Icon(
+            _showAboutTranslation
+                ? WicchuIcons.clockCounterClockwise
+                : WicchuIcons.globe,
+            size: 18,
+          ),
+    label: Text(
+      context.tr(_showAboutTranslation ? 'View original' : 'Translate'),
+    ),
+  );
 
   bool _isGenericPostsCategory(CommunityCategory category) {
     final name = category.name.trim().toLowerCase();
@@ -3793,7 +3861,13 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       ? ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text(_community.profileSummary),
+            Text(_aboutShortDescription),
+            if (_community.shortDescription.trim().isNotEmpty ||
+                _community.description.trim().isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _aboutTranslationButton(),
+              ),
             const SizedBox(height: 12),
             Text(context.tr('Join to view community posts.')),
           ],
@@ -3806,12 +3880,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           children: [
             if (widget.screen == CommunityScreen.information)
               _compactCommunityHeader(),
-            if (_isLocalBusiness &&
-                _community.shortDescription.trim().isNotEmpty)
+            if (_isLocalBusiness && _aboutShortDescription.trim().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Text(
-                  _community.shortDescription.trim(),
+                  _aboutShortDescription.trim(),
                   key: const ValueKey('business-information-summary'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -3830,11 +3903,17 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   Padding(
                     padding: const EdgeInsets.only(bottom: 14),
                     child: Text(
-                      _community.description.trim().isEmpty
+                      _aboutDescription.trim().isEmpty
                           ? context.tr('No description provided')
-                          : _community.description,
+                          : _aboutDescription,
                     ),
                   ),
+                  if (_community.shortDescription.trim().isNotEmpty ||
+                      _community.description.trim().isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _aboutTranslationButton(),
+                    ),
                   Divider(
                     color: Theme.of(
                       context,
@@ -4404,7 +4483,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(_community.description),
+                  Text(_aboutDescription),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _aboutTranslationButton(),
+                  ),
                 ],
               ),
             ),
@@ -5497,16 +5580,30 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            subtitle: member.isOnline
-                                ? Text(
-                                    context.tr('Online now'),
+                            subtitle:
+                                activityStatusText(
+                                      context,
+                                      isOnline: member.isOnline,
+                                      lastActiveAt: member.lastActiveAt,
+                                    ) ==
+                                    null
+                                ? null
+                                : Text(
+                                    activityStatusText(
+                                      context,
+                                      isOnline: member.isOnline,
+                                      lastActiveAt: member.lastActiveAt,
+                                    )!,
                                     style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
+                                      color: member.isOnline
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.primary
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
                                     ),
-                                  )
-                                : null,
+                                  ),
                             trailing: _memberRoleControl(member),
                             onTap: member.isAnonymous || member.userId.isEmpty
                                 ? null

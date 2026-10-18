@@ -60,7 +60,76 @@ class _RatingRepository extends DemoCommunityRepository {
   }
 }
 
+class _AboutTranslationRepository extends DemoCommunityRepository {
+  int translationRequests = 0;
+  Community? current;
+
+  @override
+  Future<Community> getCommunity(String id) async =>
+      current ?? await super.getCommunity(id);
+
+  @override
+  Future<CommunityAboutTranslation> translateCommunityAbout(
+    String communityId, {
+    String targetLanguage = 'auto',
+  }) async {
+    translationRequests++;
+    return CommunityAboutTranslation(
+      communityId: communityId,
+      sourceLanguage: 'en',
+      targetLanguage: 'es',
+      translatedShortDescription: 'Resumen traducido',
+      translatedDescription: 'Descripción traducida',
+    );
+  }
+}
+
 void main() {
+  testWidgets('About information can switch between translation and original', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _AboutTranslationRepository();
+    final original = (await repository.listJoinedCommunities()).first;
+    final community = Community(
+      id: original.id,
+      name: original.name,
+      shortDescription: 'Original summary',
+      description: 'Original description',
+      town: original.town,
+      visibility: original.visibility,
+      createdBy: original.createdBy,
+      createdAt: original.createdAt,
+      myRole: CommunityRole.member,
+    );
+    repository.current = community;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityProfilePage(
+          community: community,
+          repository: repository,
+          screen: CommunityScreen.information,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('about-translation-button')),
+    );
+    await tester.tap(find.byKey(const ValueKey('about-translation-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Descripción traducida'), findsOneWidget);
+    expect(repository.translationRequests, 1);
+
+    await tester.tap(find.byKey(const ValueKey('about-translation-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Original description'), findsOneWidget);
+    expect(repository.translationRequests, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('rating choice opens and submits one complete survey', (
     tester,
   ) async {

@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/admin/create_community_page.dart';
+import 'package:wicchu/localization/app_language.dart';
 import 'package:wicchu/services/place_search_service.dart';
+import 'package:wicchu/theme/wicchu_icons.dart';
 
 class _LocationRepository extends DemoCommunityRepository {
   (double, double)? coordinates;
@@ -24,27 +26,31 @@ void main() {
     final repository = _LocationRepository();
     var gpsRequests = 0;
     await tester.pumpWidget(
-      MaterialApp(
-        home: CreateCommunityPage(
-          repository: repository,
-          locateCurrentTown: () async {
-            gpsRequests++;
-            throw Exception(
-              'Location permission was denied. You can search for a location instead.',
-            );
-          },
-          searchPlaces: (query, language) async {
-            expect(query, 'Echeandia');
-            return const [
-              PlaceResult(
-                name: 'Echeandía',
-                region: 'Bolívar',
-                country: 'Ecuador',
-                latitude: -1.43,
-                longitude: -79.28,
-              ),
-            ];
-          },
+      AppLanguageScope(
+        languageCode: 'en',
+        onLanguageChanged: (_) {},
+        child: MaterialApp(
+          home: CreateCommunityPage(
+            repository: repository,
+            locateCurrentTown: () async {
+              gpsRequests++;
+              throw Exception(
+                'Location permission was denied. You can search for a location instead.',
+              );
+            },
+            searchPlaces: (query, language) async {
+              expect(query, 'Echeandia');
+              return const [
+                PlaceResult(
+                  name: 'Echeandía',
+                  region: 'Bolívar',
+                  country: 'Ecuador',
+                  latitude: -1.43,
+                  longitude: -79.28,
+                ),
+              ];
+            },
+          ),
         ),
       ),
     );
@@ -76,6 +82,18 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
     expect(find.text('Step 3 of 4'), findsOneWidget);
+    expect(find.text('Organize your space'), findsOneWidget);
+    expect(find.text('Recommended'), findsWidgets);
+    expect(find.byIcon(WicchuIcons.dotsThreeVertical), findsWidgets);
+    await tester.tap(find.byTooltip('Rename category').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Category name'),
+      'Community updates',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Community updates'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

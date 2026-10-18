@@ -49,6 +49,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   final _nameController = TextEditingController();
   final _shortDescriptionController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _subjectController = TextEditingController();
+  final _customCategoryController = TextEditingController();
   static const _businessSuggestions = [
     'Products',
     'Offers',
@@ -67,12 +69,15 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       _type == CommunityType.publicProfile &&
       _profileCategory == ProfileCategory.localBusiness;
   List<String> get _creationCategories => _type == CommunityType.community
-      ? _selectedCategories.toList()
+      ? _categoryKeys.keys
+            .where(_selectedCategories.contains)
+            .toList(growable: false)
       : _isLocalBusiness && _businessCategories.isNotEmpty
       ? _businessCategories.toList()
       : ['Posts'];
 
-  final _selectedCategories = <String>{..._defaults};
+  final _selectedCategories = <String>{};
+  final _categoryKeys = <String, String?>{};
   final _draftRules = <CommunityRule>[];
   final _basicsForm = GlobalKey<FormState>();
   final _scroll = ScrollController();
@@ -84,6 +89,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   int _step = 0;
   Town? _town;
   bool _saving = false;
+  bool _loadingCategories = false;
+  bool _suggestionsLoaded = false;
   bool _approvalRequired = false;
   late CommunityType _type = widget.initialType;
   ProfileCategory? _profileCategory;
@@ -99,6 +106,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     _nameController.dispose();
     _shortDescriptionController.dispose();
     _descriptionController.dispose();
+    _subjectController.dispose();
+    _customCategoryController.dispose();
     super.dispose();
   }
 
@@ -421,6 +430,24 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 ),
               ),
             ),
+            if (_type == CommunityType.community) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _subjectController,
+                maxLength: 120,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) {
+                  _suggestionsLoaded = false;
+                  setState(() => _dirty = true);
+                },
+                decoration: InputDecoration(
+                  labelText: context.tr('Subject or purpose'),
+                  hintText: context.tr(
+                    'For example: football, gardening or technology',
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: _shortDescriptionController,
@@ -623,7 +650,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         context.tr(
           _type == CommunityType.publicProfile && !_isLocalBusiness
               ? 'Publishing'
-              : 'Categories',
+              : 'Organize your space',
         ),
       ),
       isActive: _step >= 2,
@@ -649,25 +676,32 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 title: Text(context.tr('Posts')),
               ),
             )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+          else ...[
+            if (_loadingCategories) const LinearProgressIndicator(),
+            if (!_loadingCategories) _communityCategoryOrganizer(),
+            const SizedBox(height: 12),
+            Row(
               children: [
-                for (final category in _defaults)
-                  FilterChip(
-                    label: Text(context.tr(category)),
-                    selected: _selectedCategories.contains(category),
-                    onSelected: (selected) => setState(() {
-                      _dirty = true;
-                      _categoryError = null;
-                      selected
-                          ? _selectedCategories.add(category)
-                          : _selectedCategories.remove(category);
-                    }),
+                Expanded(
+                  child: TextField(
+                    controller: _customCategoryController,
+                    maxLength: 80,
+                    decoration: InputDecoration(
+                      labelText: context.tr('Add a category'),
+                      counterText: '',
+                    ),
+                    onSubmitted: (_) => _addCustomCategory(),
                   ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  onPressed: _addCustomCategory,
+                  icon: const Icon(WicchuIcons.plus),
+                  tooltip: context.tr('Add category'),
+                ),
               ],
             ),
+          ],
           if (_type == CommunityType.community && _categoryError != null)
             Text(
               _categoryError!,
@@ -1183,6 +1217,10 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     }
     if (_step < 3) {
       final nextStep = _step + 1;
+      if (nextStep == 2 && _type == CommunityType.community) {
+        await _loadCategorySuggestions();
+        if (!mounted) return;
+      }
       setState(() => _step = nextStep);
       if (_scroll.hasClients) _scroll.jumpTo(0);
       return;
@@ -1195,10 +1233,15 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           name: _nameController.text.trim(),
           shortDescription: _shortDescriptionController.text.trim(),
           description: _descriptionController.text.trim(),
+          subject: _subjectController.text.trim(),
           town: _scope == CommunityScope.local ? _town : null,
           scope: _scope,
           visibility: CommunityVisibility.public,
           categoryNames: _creationCategories,
+          categories: [
+            for (final name in _creationCategories)
+              CategorySuggestion(key: _categoryKeys[name], name: name),
+          ],
           approvalRequired: _approvalRequired,
           rules: _draftRules,
           type: _type,
@@ -1270,6 +1313,230 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         if (mounted) Navigator.pop(context, community);
       });
     }
+  }
+
+  Future<void> _loadCategorySuggestions() async {
+    if (_suggestionsLoaded || _loadingCategories) return;
+    setState(() => _loadingCategories = true);
+    try {
+      final repository = widget.repository;
+      final result = repository is CategorySuggestionRepository
+          ? await (repository as CategorySuggestionRepository)
+                .getCategorySuggestions(
+                  spaceType: _type,
+                  subject: _subjectController.text.trim().isEmpty
+                      ? '${_nameController.text} ${_descriptionController.text}'
+                      : _subjectController.text.trim(),
+                  language: AppLanguageScope.of(context).languageCode,
+                )
+          : CategorySuggestions(
+              template: 'default',
+              categories: [
+                for (final name in _defaults)
+                  CategorySuggestion(key: null, name: name),
+              ],
+            );
+      if (!mounted) return;
+      setState(() {
+        _categoryKeys
+          ..clear()
+          ..addEntries(
+            result.categories.map((item) => MapEntry(item.name, item.key)),
+          );
+        _selectedCategories
+          ..clear()
+          ..addAll(result.categories.take(5).map((item) => item.name));
+        _suggestionsLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _categoryKeys
+          ..clear()
+          ..addEntries(_defaults.map((name) => MapEntry(name, null)));
+        _selectedCategories
+          ..clear()
+          ..addAll(_defaults.take(5));
+        _suggestionsLoaded = true;
+      });
+    } finally {
+      if (mounted) setState(() => _loadingCategories = false);
+    }
+  }
+
+  void _addCustomCategory() {
+    final name = _customCategoryController.text.trim().replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    );
+    final duplicate = _categoryKeys.keys.any(
+      (item) => item.toLowerCase() == name.toLowerCase(),
+    );
+    if (name.isEmpty ||
+        name.length > 80 ||
+        duplicate ||
+        _categoryKeys.length >= 20) {
+      return;
+    }
+    setState(() {
+      _categoryKeys[name] = null;
+      _selectedCategories.add(name);
+      _customCategoryController.clear();
+      _categoryError = null;
+      _dirty = true;
+    });
+  }
+
+  Widget _communityCategoryOrganizer() {
+    final categories = _categoryKeys.keys.toList(growable: false);
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: categories.length,
+      onReorderItem: _reorderCategory,
+      itemBuilder: (context, index) {
+        final name = categories[index];
+        final recommended = _categoryKeys[name] != null;
+        return Card(
+          key: ValueKey('creation-category-$name'),
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            contentPadding: const EdgeInsets.only(left: 8, right: 4),
+            leading: Checkbox(
+              value: _selectedCategories.contains(name),
+              onChanged: (selected) => setState(() {
+                _dirty = true;
+                _categoryError = null;
+                selected == true
+                    ? _selectedCategories.add(name)
+                    : _selectedCategories.remove(name);
+              }),
+            ),
+            title: Text(context.tr(name)),
+            subtitle: Text(context.tr(recommended ? 'Recommended' : 'Custom')),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  onPressed: () => _renameCategory(name),
+                  icon: const Icon(WicchuIcons.pencilSimple),
+                  tooltip: context.tr('Rename category'),
+                ),
+                ReorderableDragStartListener(
+                  index: index,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Icon(
+                      WicchuIcons.dotsThreeVertical,
+                      semanticLabel: context.tr('Reorder category'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _reorderCategory(int oldIndex, int newIndex) {
+    final entries = _categoryKeys.entries.toList();
+    final moved = entries.removeAt(oldIndex);
+    entries.insert(newIndex, moved);
+    setState(() {
+      _categoryKeys
+        ..clear()
+        ..addEntries(entries);
+      _dirty = true;
+    });
+  }
+
+  Future<void> _renameCategory(String currentName) async {
+    final controller = TextEditingController(text: currentName);
+    String? error;
+    final renamed = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(context.tr('Rename category')),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 80,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              labelText: context.tr('Category name'),
+              errorText: error,
+            ),
+            onSubmitted: (value) {
+              final validation = _categoryRenameError(currentName, value);
+              if (validation == null) {
+                Navigator.pop(
+                  dialogContext,
+                  value.trim().replaceAll(RegExp(r'\s+'), ' '),
+                );
+              } else {
+                setDialogState(() => error = validation);
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(context.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: () {
+                final validation = _categoryRenameError(
+                  currentName,
+                  controller.text,
+                );
+                if (validation == null) {
+                  Navigator.pop(
+                    dialogContext,
+                    controller.text.trim().replaceAll(RegExp(r'\s+'), ' '),
+                  );
+                } else {
+                  setDialogState(() => error = validation);
+                }
+              },
+              child: Text(context.tr('Save')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || renamed == null || renamed == currentName) return;
+    final entries = _categoryKeys.entries
+        .map(
+          (entry) => MapEntry(
+            entry.key == currentName ? renamed : entry.key,
+            entry.value,
+          ),
+        )
+        .toList();
+    setState(() {
+      final wasSelected = _selectedCategories.remove(currentName);
+      _categoryKeys
+        ..clear()
+        ..addEntries(entries);
+      if (wasSelected) _selectedCategories.add(renamed);
+      _dirty = true;
+    });
+  }
+
+  String? _categoryRenameError(String currentName, String value) {
+    final name = value.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (name.isEmpty) return context.tr('Enter a category name.');
+    if (name.length > 80) return context.tr('Category name is too long.');
+    if (_categoryKeys.keys.any(
+      (item) => item != currentName && item.toLowerCase() == name.toLowerCase(),
+    )) {
+      return context.tr('This category already exists.');
+    }
+    return null;
   }
 
   Future<void> _editDraftRule([int? index]) async {

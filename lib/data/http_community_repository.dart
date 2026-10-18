@@ -7,7 +7,11 @@ import '../domain/community_repository.dart';
 import '../services/analytics_service.dart';
 import 'authenticated_api_client.dart';
 
-class HttpCommunityRepository implements CommunityRepository {
+class HttpCommunityRepository
+    implements
+        CommunityRepository,
+        CategorySuggestionRepository,
+        CategoryReorderRepository {
   HttpCommunityRepository({AuthenticatedApiClient? apiClient})
     : _api = apiClient ?? AuthenticatedApiClient();
 
@@ -508,6 +512,8 @@ class HttpCommunityRepository implements CommunityRepository {
       otherIsPage: json['otherIsPage'] == true,
       communityInbox: json['communityInbox'] == true,
       label: _conversationLabel(json['label']),
+      isOnline: json['isOnline'] == true,
+      lastActiveAt: _optionalDate(json['lastActiveAt']),
     );
   }
 
@@ -952,10 +958,15 @@ class HttpCommunityRepository implements CommunityRepository {
           'profileCategory': input.profileCategory!.apiValue,
         'shortDescription': input.shortDescription,
         'description': input.description,
+        'subject': input.subject,
         'scope': input.scope.name,
         if (input.town != null) 'townId': input.town!.id,
         'visibility': input.visibility.name,
         'categoryNames': input.categoryNames,
+        if (input.categories.isNotEmpty)
+          'categories': input.categories
+              .map((item) => {'key': item.key, 'name': item.name})
+              .toList(),
         'approvalRequired': input.approvalRequired,
         'rules': input.rules
             .map(
@@ -973,6 +984,37 @@ class HttpCommunityRepository implements CommunityRepository {
       'myRole': 'owner',
       'memberCount': 1,
     });
+  }
+
+  @override
+  Future<CategorySuggestions> getCategorySuggestions({
+    required CommunityType spaceType,
+    required String subject,
+    required String language,
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/category-suggestions',
+      body: {
+        'spaceType': spaceType == CommunityType.community
+            ? 'community'
+            : 'public_profile',
+        'subject': subject,
+        'language': language,
+      },
+    );
+    return CategorySuggestions(
+      template: body['template']?.toString() ?? 'default',
+      editable: body['editable'] != false,
+      categories: _list(body, 'categories')
+          .map(
+            (item) => CategorySuggestion(
+              key: item['key']?.toString(),
+              name: item['name']?.toString() ?? '',
+            ),
+          )
+          .where((item) => item.name.isNotEmpty)
+          .toList(growable: false),
+    );
   }
 
   @override
@@ -1344,6 +1386,21 @@ class HttpCommunityRepository implements CommunityRepository {
     await _api.delete(
       '/api/community/v1/communities/$communityId/categories/$categoryId',
     );
+  }
+
+  @override
+  Future<List<CommunityCategory>> reorderCategories(
+    String communityId,
+    List<String> categoryIds,
+  ) async {
+    final body = await _api.put(
+      '/api/community/v1/communities/$communityId/categories/order',
+      body: {'categoryIds': categoryIds},
+    );
+    return _list(
+      body,
+      'categories',
+    ).map(_categoryFromJson).toList(growable: false);
   }
 
   @override
@@ -1997,6 +2054,27 @@ class HttpCommunityRepository implements CommunityRepository {
       targetLanguage: json['targetLanguage']?.toString() ?? targetLanguage,
       sourceLanguage: json['sourceLanguage']?.toString() ?? '',
       translatedText: json['translatedText']?.toString() ?? '',
+      cached: json['cached'] as bool? ?? false,
+    );
+  }
+
+  @override
+  Future<CommunityAboutTranslation> translateCommunityAbout(
+    String communityId, {
+    String targetLanguage = 'auto',
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/$communityId/about-translation',
+      body: {'targetLanguage': targetLanguage},
+    );
+    final json = _object(body, 'translation');
+    return CommunityAboutTranslation(
+      communityId: json['communityId']?.toString() ?? communityId,
+      targetLanguage: json['targetLanguage']?.toString() ?? targetLanguage,
+      sourceLanguage: json['sourceLanguage']?.toString() ?? '',
+      translatedShortDescription:
+          json['translatedShortDescription']?.toString() ?? '',
+      translatedDescription: json['translatedDescription']?.toString() ?? '',
       cached: json['cached'] as bool? ?? false,
     );
   }

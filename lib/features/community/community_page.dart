@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../../localization/activity_status.dart';
 import '../admin/admin_dashboard_page.dart';
 import 'category_page.dart';
 import 'comments_sheet.dart';
@@ -222,11 +223,21 @@ class _CommunityPageState extends State<CommunityPage>
                   ),
                 ),
                 title: Text(member.name),
-                subtitle: member.isOnline
-                    ? Text(context.tr('Online now'))
-                    : member.lastActiveAt != null
-                    ? Text(context.tr('Active recently'))
-                    : null,
+                subtitle:
+                    activityStatusText(
+                          context,
+                          isOnline: member.isOnline,
+                          lastActiveAt: member.lastActiveAt,
+                        ) ==
+                        null
+                    ? null
+                    : Text(
+                        activityStatusText(
+                          context,
+                          isOnline: member.isOnline,
+                          lastActiveAt: member.lastActiveAt,
+                        )!,
+                      ),
                 onTap: member.isAnonymous || member.userId.isEmpty
                     ? null
                     : () {

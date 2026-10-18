@@ -38,6 +38,7 @@ class CategoryManagementPage extends StatefulWidget {
 class _CategoryManagementPageState extends State<CategoryManagementPage> {
   late Future<List<CommunityCategory>> _categories = widget.repository
       .listCategories(widget.community.id);
+  bool _reordering = false;
 
   void _reload() => setState(() {
     _categories = widget.repository.listCategories(widget.community.id);
@@ -64,88 +65,151 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
         if (items.isEmpty) {
           return Center(child: Text(context.tr('No categories')));
         }
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
-          itemCount: items.length + 1,
-          separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final theme = Theme.of(context);
-            if (index == 0) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.community.name,
-                      style: theme.textTheme.titleMedium,
+        final theme = Theme.of(context);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.community.name,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    context.tr(
+                      widget.community.isPublicProfile
+                          ? 'Organize posts on your page. Drag categories to reorder them or tap one to edit it.'
+                          : 'Organize conversations in your community. Drag categories to reorder them or tap one to edit it.',
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      context.tr(
-                        widget.community.isPublicProfile
-                            ? 'Organize posts on your page. Tap a category to edit it.'
-                            : 'Organize conversations in your community. Tap a category to edit it.',
-                      ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
+                  ),
+                  if (_reordering) ...[
+                    const SizedBox(height: 8),
+                    const LinearProgressIndicator(),
                   ],
-                ),
-              );
-            }
-            final category = items[index - 1];
-            return Material(
-              color: theme.colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(16),
-              clipBehavior: Clip.antiAlias,
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 4,
-                ),
-                leading: CircleAvatar(
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  child: CategorySymbol(category.icon),
-                ),
-                title: Text(
-                  context.tr(category.name),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: category.description.isEmpty
-                    ? null
-                    : Text(
-                        category.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                onTap: () => _edit(category),
-                trailing: PopupMenuButton<String>(
-                  tooltip: context.tr('Category options'),
-                  onSelected: (value) =>
-                      value == 'edit' ? _edit(category) : _delete(category),
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Text(context.tr('Edit category')),
-                    ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Text(
-                        context.tr('Delete'),
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
-            );
-          },
+            ),
+            Expanded(
+              child: ReorderableListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+                buildDefaultDragHandles: false,
+                itemCount: items.length,
+                onReorderItem: (oldIndex, newIndex) =>
+                    _reorder(items, oldIndex, newIndex),
+                itemBuilder: (context, index) {
+                  final category = items[index];
+                  return Material(
+                    key: ValueKey('managed-category-${category.id}'),
+                    color: theme.colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 4,
+                      ),
+                      leading: CircleAvatar(
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        child: CategorySymbol(category.icon),
+                      ),
+                      title: Text(
+                        context.tr(category.name),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: category.description.isEmpty
+                          ? null
+                          : Text(
+                              category.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                      onTap: () => _edit(category),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PopupMenuButton<String>(
+                            tooltip: context.tr('Category options'),
+                            onSelected: (value) => value == 'edit'
+                                ? _edit(category)
+                                : _delete(category),
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text(context.tr('Edit category')),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text(
+                                  context.tr('Delete'),
+                                  style: TextStyle(
+                                    color: theme.colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          ReorderableDragStartListener(
+                            index: index,
+                            enabled: !_reordering,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Icon(
+                                WicchuIcons.dotsThreeVertical,
+                                semanticLabel: context.tr('Reorder category'),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     ),
   );
+
+  Future<void> _reorder(
+    List<CommunityCategory> current,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    if (_reordering || widget.repository is! CategoryReorderRepository) return;
+    final reordered = [...current];
+    final moved = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, moved);
+    setState(() {
+      _reordering = true;
+      _categories = Future.value(reordered);
+    });
+    try {
+      final saved = await (widget.repository as CategoryReorderRepository)
+          .reorderCategories(
+            widget.community.id,
+            reordered.map((item) => item.id).toList(growable: false),
+          );
+      if (mounted) setState(() => _categories = Future.value(saved));
+    } catch (error) {
+      if (mounted) {
+        setState(() => _categories = Future.value(current));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _reordering = false);
+    }
+  }
 
   Future<void> _edit([CommunityCategory? category]) async {
     final saved = await showModalBottomSheet<bool>(

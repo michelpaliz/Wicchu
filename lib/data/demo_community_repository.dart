@@ -1,7 +1,11 @@
 import '../domain/community_models.dart';
 import '../domain/community_repository.dart';
 
-class DemoCommunityRepository implements CommunityRepository {
+class DemoCommunityRepository
+    implements
+        CommunityRepository,
+        CategorySuggestionRepository,
+        CategoryReorderRepository {
   final List<BlockedUser> _blockedUsers = [];
 
   DemoCommunityRepository() {
@@ -457,6 +461,45 @@ class DemoCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<CategorySuggestions> getCategorySuggestions({
+    required CommunityType spaceType,
+    required String subject,
+    required String language,
+  }) async {
+    final spanish = language.toLowerCase().startsWith('es');
+    final football = RegExp(
+      r'football|futbol|fútbol|soccer',
+      caseSensitive: false,
+    ).hasMatch(subject);
+    final names = football
+        ? (spanish
+              ? const [
+                  'General',
+                  'Partidos',
+                  'Resultados',
+                  'Entrenamientos',
+                  'Torneos',
+                ]
+              : const [
+                  'General',
+                  'Matches',
+                  'Results',
+                  'Training',
+                  'Tournaments',
+                ])
+        : (spanish
+              ? const ['General', 'Noticias', 'Eventos', 'Preguntas']
+              : const ['General', 'News', 'Events', 'Questions']);
+    return CategorySuggestions(
+      template: football ? 'football' : 'default',
+      categories: [
+        for (final name in names)
+          CategorySuggestion(key: name.toLowerCase(), name: name),
+      ],
+    );
+  }
+
+  @override
   Future<PostMedia> uploadPostMedia({
     required List<int> bytes,
     required String filename,
@@ -756,6 +799,21 @@ class DemoCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<List<CommunityCategory>> reorderCategories(
+    String communityId,
+    List<String> categoryIds,
+  ) async {
+    final items = _categories[communityId] ?? [];
+    final byId = {for (final item in items) item.id: item};
+    if (categoryIds.length != items.length ||
+        categoryIds.any((id) => !byId.containsKey(id))) {
+      throw StateError('Invalid category order');
+    }
+    _categories[communityId] = [for (final id in categoryIds) byId[id]!];
+    return List.unmodifiable(_categories[communityId]!);
+  }
+
+  @override
   Future<List<CommunityMember>> listMembers(
     String communityId, {
     bool includeInactive = false,
@@ -993,6 +1051,22 @@ class DemoCommunityRepository implements CommunityRepository {
     translatedText: targetLanguage == 'es' || targetLanguage == 'auto'
         ? 'Esta es una traducción de demostración.'
         : 'This is a demonstration translation.',
+  );
+
+  @override
+  Future<CommunityAboutTranslation> translateCommunityAbout(
+    String communityId, {
+    String targetLanguage = 'auto',
+  }) async => CommunityAboutTranslation(
+    communityId: communityId,
+    sourceLanguage: targetLanguage == 'en' ? 'es' : 'en',
+    targetLanguage: targetLanguage == 'auto' ? 'es' : targetLanguage,
+    translatedShortDescription: targetLanguage == 'en'
+        ? 'A local community for everyone.'
+        : 'Una comunidad local para todos.',
+    translatedDescription: targetLanguage == 'en'
+        ? 'Discover everything happening in this community.'
+        : 'Descubre todo lo que ocurre en esta comunidad.',
   );
 
   @override

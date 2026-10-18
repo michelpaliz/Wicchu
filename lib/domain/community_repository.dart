@@ -8,6 +8,8 @@ class CreateCommunityInput {
     this.town,
     required this.visibility,
     required this.categoryNames,
+    this.subject = '',
+    this.categories = const [],
     this.approvalRequired = false,
     this.rules = const [],
     this.type = CommunityType.community,
@@ -21,11 +23,45 @@ class CreateCommunityInput {
   final Town? town;
   final CommunityVisibility visibility;
   final List<String> categoryNames;
+  final String subject;
+  final List<CategorySuggestion> categories;
   final bool approvalRequired;
   final List<CommunityRule> rules;
   final CommunityType type;
   final ProfileCategory? profileCategory;
   final CommunityScope scope;
+}
+
+class CategorySuggestion {
+  const CategorySuggestion({required this.key, required this.name});
+  final String? key;
+  final String name;
+}
+
+class CategorySuggestions {
+  const CategorySuggestions({
+    required this.template,
+    required this.categories,
+    this.editable = true,
+  });
+  final String template;
+  final List<CategorySuggestion> categories;
+  final bool editable;
+}
+
+abstract interface class CategorySuggestionRepository {
+  Future<CategorySuggestions> getCategorySuggestions({
+    required CommunityType spaceType,
+    required String subject,
+    required String language,
+  });
+}
+
+abstract interface class CategoryReorderRepository {
+  Future<List<CommunityCategory>> reorderCategories(
+    String communityId,
+    List<String> categoryIds,
+  );
 }
 
 class AdminAttentionSummary {
@@ -857,6 +893,10 @@ abstract interface class CommunityRepository {
   Future<PostTranslation> translatePost(
     String postId, {
     required String targetLanguage,
+  });
+  Future<CommunityAboutTranslation> translateCommunityAbout(
+    String communityId, {
+    String targetLanguage = 'auto',
   });
   Future<PostTranslation> translateComment(
     String commentId, {

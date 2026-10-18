@@ -20,6 +20,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
+import '../../localization/activity_status.dart';
 import '../community/comments_sheet.dart';
 import '../community/user_avatar.dart';
 import '../community/post_share.dart';
@@ -1104,11 +1105,19 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          if (!profile.isOnline &&
-                              profile.lastActiveAt != null) ...[
+                          if (activityStatusText(
+                                context,
+                                isOnline: profile.isOnline,
+                                lastActiveAt: profile.lastActiveAt,
+                              ) !=
+                              null) ...[
                             const SizedBox(height: 3),
                             Text(
-                              context.tr('Active recently'),
+                              activityStatusText(
+                                context,
+                                isOnline: profile.isOnline,
+                                lastActiveAt: profile.lastActiveAt,
+                              )!,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 fontSize: 12,
                                 color: colors.onSurfaceVariant,

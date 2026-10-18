@@ -213,10 +213,10 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(WicchuIcons.eye),
-                  title: Text(context.tr('Show online status')),
+                  title: Text(context.tr('Activity status')),
                   subtitle: Text(
                     context.tr(
-                      'Let members of your communities see when you are online',
+                      'Let people see when you are active and when you were last active',
                     ),
                   ),
                   value: _showOnlineStatus,
