@@ -350,20 +350,23 @@ class DemoCommunityRepository implements CommunityRepository {
       List.unmodifiable(_communities);
 
   @override
-  Future<List<Community>> listCommunities({String? query}) async =>
-      List.unmodifiable(
-        _communities.where(
-          (community) =>
-              query == null ||
+  Future<List<Community>> listCommunities({
+    String? query,
+    String? townId,
+  }) async => List.unmodifiable(
+    _communities.where(
+      (community) =>
+          (townId == null || community.town.id == townId) &&
+          (query == null ||
               query.trim().isEmpty ||
               community.name.toLowerCase().contains(
                 query.trim().toLowerCase(),
               ) ||
               community.town.name.toLowerCase().contains(
                 query.trim().toLowerCase(),
-              ),
-        ),
-      );
+              )),
+    ),
+  );
 
   @override
   Future<Community> getCommunity(String communityId) async =>
@@ -378,7 +381,10 @@ class DemoCommunityRepository implements CommunityRepository {
     required double latitude,
     required double longitude,
     double radiusKm = 25,
-  }) async => List.unmodifiable(_communities);
+    String? excludeTownId,
+  }) async => List.unmodifiable(
+    _communities.where((community) => community.town.id != excludeTownId),
+  );
 
   @override
   Future<List<Community>> listLocalBusinesses({
@@ -412,7 +418,9 @@ class DemoCommunityRepository implements CommunityRepository {
       name: input.name,
       shortDescription: input.shortDescription,
       description: input.description,
-      town: input.town,
+      town:
+          input.town ?? const Town(id: '', name: 'Everywhere', countryCode: ''),
+      scope: input.scope,
       visibility: input.visibility,
       createdBy: 'current-user',
       createdAt: DateTime.now(),

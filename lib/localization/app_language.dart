@@ -223,6 +223,15 @@ const _spanish = <String, String>{
   'Management access removed.': 'Se eliminó el acceso de gestión.',
   'Translate to Spanish': 'Traducir al español',
   'Translate': 'Traducir',
+  'Community reach': 'Alcance de la comunidad',
+  'Location-based': 'Basada en ubicación',
+  'Open to people everywhere': 'Abierta a personas de cualquier lugar',
+  'Open to people everywhere. No location is required.':
+      'Abierta a personas de cualquier lugar. No se requiere ubicación.',
+  'Connected to a specific city, town, or area.':
+      'Conectada a una ciudad, pueblo o zona específica.',
+  'This community will appear in Explore and search, but not Nearby.':
+      'Esta comunidad aparecerá en Explorar y en las búsquedas, pero no en Cerca de ti.',
   'Translate to English': 'Traducir al inglés',
   'Translating…': 'Traduciendo…',
   'View original': 'Ver original',
@@ -838,6 +847,11 @@ const _spanish = <String, String>{
   'Near me': 'Cerca de mí',
   'Choose town': 'Elegir localidad',
   'Anywhere': 'Cualquier lugar',
+  'My town': 'Mi localidad',
+  'Nearby towns': 'Localidades cercanas',
+  'Change location': 'Cambiar ubicación',
+  'Nearby towns are ranked by distance automatically.':
+      'Las localidades cercanas se ordenan automáticamente por distancia.',
   'Search radius': 'Radio de búsqueda',
   'Nearest first': 'Más cercanos primero',
   '{distance} km away': 'A {distance} km',

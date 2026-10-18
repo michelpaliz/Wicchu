@@ -6,6 +6,8 @@ enum MembershipStatus { active, pending, banned }
 
 enum CommunityType { community, publicProfile }
 
+enum CommunityScope { local, global }
+
 enum NeonBorderAnimation { staticGlow, snake, breathing, aurora }
 
 extension NeonBorderAnimationApi on NeonBorderAnimation {
@@ -446,6 +448,7 @@ class Community {
     this.rules = const [],
     this.links = const [],
     this.type = CommunityType.community,
+    this.scope = CommunityScope.local,
     this.profileCategory,
     this.businessServices = const [],
     this.businessLocation,
@@ -490,6 +493,7 @@ class Community {
   final List<CommunityRule> rules;
   final List<CommunityLink> links;
   final CommunityType type;
+  final CommunityScope scope;
   final ProfileCategory? profileCategory;
   final List<BusinessService> businessServices;
   final List<BusinessHour> businessHours;
@@ -502,6 +506,7 @@ class Community {
   String get spaceTypeLabel => isPublicProfile
       ? profileCategory?.label ?? 'Public profile'
       : 'Community';
+  bool get isGlobal => scope == CommunityScope.global;
   final BusinessLocation? businessLocation;
   final MembershipStatus? membershipStatus;
   final String? banPublicReason;

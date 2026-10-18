@@ -1693,14 +1693,16 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   Widget _headerDetails() {
     final theme = Theme.of(context);
     final description = _community.profileSummary;
-    final location = [
-      _community.town.name,
-      _community.isPublicProfile
-          ? _community.town.countryCode
-          : _community.town.countryCode.toUpperCase() == 'EC'
-          ? 'Ecuador'
-          : _community.town.countryCode,
-    ].where((part) => part.isNotEmpty).join(', ');
+    final location = _community.isGlobal
+        ? context.tr('Open to people everywhere')
+        : [
+            _community.town.name,
+            _community.isPublicProfile
+                ? _community.town.countryCode
+                : _community.town.countryCode.toUpperCase() == 'EC'
+                ? 'Ecuador'
+                : _community.town.countryCode,
+          ].where((part) => part.isNotEmpty).join(', ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

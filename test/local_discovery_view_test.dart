@@ -95,7 +95,10 @@ class _LocalDiscoveryRepository extends DemoCommunityRepository {
   Future<List<Community>> listJoinedCommunities() async => businesses;
 
   @override
-  Future<List<Community>> listCommunities({String? query}) async => businesses;
+  Future<List<Community>> listCommunities({
+    String? query,
+    String? townId,
+  }) async => businesses;
 
   @override
   Future<List<Community>> listLocalBusinesses({

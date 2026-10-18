@@ -182,7 +182,10 @@ class _NoCommunitiesRepository extends DemoCommunityRepository {
 
 class _EmptyExploreRepository extends DemoCommunityRepository {
   @override
-  Future<List<Community>> listCommunities({String? query}) async => [];
+  Future<List<Community>> listCommunities({
+    String? query,
+    String? townId,
+  }) async => [];
   @override
   Future<List<Community>> listJoinedCommunities() async => [];
 }
@@ -1377,7 +1380,9 @@ void main() {
     await tester.tap(find.byTooltip('Location'));
     await tester.pumpAndSettle();
     expect(find.byType(DropdownButtonFormField<int>), findsNothing);
-    expect(find.widgetWithText(ChoiceChip, 'Near me'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Nearby towns'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'My town'), findsOneWidget);
+    expect(find.textContaining('km'), findsNothing);
     await tester.tap(find.text('Reset filters'));
     await tester.pumpAndSettle();
     expect(find.text('Riverside'), findsWidgets);

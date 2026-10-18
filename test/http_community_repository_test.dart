@@ -1581,13 +1581,18 @@ void main() {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);
 
-    await repository.listNearbyCommunities(latitude: 40.5, longitude: -3.7);
+    await repository.listNearbyCommunities(
+      latitude: 40.5,
+      longitude: -3.7,
+      excludeTownId: 'town-1',
+    );
 
     final uri = Uri.parse(api.lastPath!);
     expect(uri.path, '/api/community/v1/communities/nearby');
     expect(uri.queryParameters['latitude'], '40.5');
     expect(uri.queryParameters['longitude'], '-3.7');
     expect(uri.queryParameters['radiusKm'], '25.0');
+    expect(uri.queryParameters['excludeTownId'], 'town-1');
   });
 
   test('business discovery sends location mode parameters', () async {
@@ -1624,8 +1629,14 @@ void main() {
       final api = _RecordingApiClient();
       final repository = HttpCommunityRepository(apiClient: api);
 
-      final communities = await repository.listCommunities(query: 'Town X');
-      expect(api.lastPath, '/api/community/v1/communities?q=Town+X');
+      final communities = await repository.listCommunities(
+        query: 'Town X',
+        townId: 'town-1',
+      );
+      final communityUri = Uri.parse(api.lastPath!);
+      expect(communityUri.path, '/api/community/v1/communities');
+      expect(communityUri.queryParameters['q'], 'Town X');
+      expect(communityUri.queryParameters['townId'], 'town-1');
       expect(communities.single.name, 'Riverside');
 
       await repository.listPosts(
@@ -1679,6 +1690,26 @@ void main() {
     expect(api.lastBody?['approvalRequired'], isTrue);
     expect(community.shortDescription, 'Neighbors connected');
     expect(community.myRole, CommunityRole.owner);
+  });
+
+  test('global community creation does not send a town', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final community = await repository.createCommunity(
+      const CreateCommunityInput(
+        name: 'Flutter Developers',
+        description: 'Developers everywhere',
+        visibility: CommunityVisibility.public,
+        categoryNames: ['Technology'],
+        scope: CommunityScope.global,
+      ),
+    );
+
+    expect(api.lastBody?['scope'], 'global');
+    expect(api.lastBody?.containsKey('townId'), isFalse);
+    expect(community.scope, CommunityScope.global);
+    expect(community.town.name, 'Everywhere');
   });
 
   test('promotion eligibility and submission use the pilot API', () async {

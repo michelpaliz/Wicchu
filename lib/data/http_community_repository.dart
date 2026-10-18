@@ -841,11 +841,15 @@ class HttpCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<List<Community>> listCommunities({String? query}) => _listCommunities(
-    query == null || query.trim().isEmpty
-        ? ''
-        : '?q=${Uri.encodeQueryComponent(query.trim())}',
-  );
+  Future<List<Community>> listCommunities({String? query, String? townId}) {
+    final parameters = <String, String>{
+      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+      if (townId != null && townId.isNotEmpty) 'townId': townId,
+    };
+    return _listCommunities(
+      parameters.isEmpty ? '' : '?${Uri(queryParameters: parameters).query}',
+    );
+  }
 
   @override
   Future<Community> getCommunity(String communityId) async {
@@ -862,6 +866,7 @@ class HttpCommunityRepository implements CommunityRepository {
     required double latitude,
     required double longitude,
     double radiusKm = 25,
+    String? excludeTownId,
   }) async {
     final uri = Uri(
       path: '/api/community/v1/communities/nearby',
@@ -869,6 +874,8 @@ class HttpCommunityRepository implements CommunityRepository {
         'latitude': '$latitude',
         'longitude': '$longitude',
         'radiusKm': '$radiusKm',
+        if (excludeTownId != null && excludeTownId.isNotEmpty)
+          'excludeTownId': excludeTownId,
       },
     );
     final body = await _api.get(uri.toString());
@@ -945,7 +952,8 @@ class HttpCommunityRepository implements CommunityRepository {
           'profileCategory': input.profileCategory!.apiValue,
         'shortDescription': input.shortDescription,
         'description': input.description,
-        'townId': input.town.id,
+        'scope': input.scope.name,
+        if (input.town != null) 'townId': input.town!.id,
         'visibility': input.visibility.name,
         'categoryNames': input.categoryNames,
         'approvalRequired': input.approvalRequired,
@@ -959,7 +967,9 @@ class HttpCommunityRepository implements CommunityRepository {
     final json = _object(body, 'community');
     return _communityFromJson({
       ...json,
-      'town': _townToJson(input.town),
+      'town': input.town == null
+          ? {'id': '', 'name': 'Everywhere', 'countryCode': ''}
+          : _townToJson(input.town!),
       'myRole': 'owner',
       'memberCount': 1,
     });
@@ -3446,8 +3456,15 @@ class HttpCommunityRepository implements CommunityRepository {
   };
 
   static Community _communityFromJson(Map<String, dynamic> json) {
-    final townJson = json['town'];
-    if (townJson is! Map<String, dynamic>) {
+    final scope = json['scope'] == 'global'
+        ? CommunityScope.global
+        : CommunityScope.local;
+    final townJson = json['town'] is Map<String, dynamic>
+        ? json['town'] as Map<String, dynamic>
+        : scope == CommunityScope.global
+        ? <String, dynamic>{'_id': '', 'name': 'Everywhere', 'countryCode': ''}
+        : null;
+    if (townJson == null) {
       throw const ApiException('Community town data is missing.');
     }
     return Community(
@@ -3470,6 +3487,7 @@ class HttpCommunityRepository implements CommunityRepository {
       type: json['type'] == 'public_profile'
           ? CommunityType.publicProfile
           : CommunityType.community,
+      scope: scope,
       shortDescription: json['shortDescription'] as String? ?? '',
       description: json['description'] as String? ?? '',
       town: _townFromJson(townJson),

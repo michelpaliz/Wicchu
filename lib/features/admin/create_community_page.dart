@@ -90,6 +90,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   bool _detectingLocation = false;
   String? _selectedLocationLabel;
   String? _locationError;
+  CommunityScope _scope = CommunityScope.local;
 
   @override
   void dispose() {
@@ -259,6 +260,9 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           key: ValueKey('space-type-${type.name}'),
           onTap: () => setState(() {
             _type = type;
+            if (type == CommunityType.publicProfile) {
+              _scope = CommunityScope.local;
+            }
             _dirty = true;
           }),
           child: Padding(
@@ -495,70 +499,122 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            context.tr('Where is this space?'),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            context.tr('Search for a location or use your current position.'),
-          ),
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: _detectingLocation ? null : _searchLocation,
-            icon: const Icon(WicchuIcons.magnifyingGlass),
-            label: Text(context.tr('Search city or place')),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            context.tr('Search by city, town or area'),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _detectingLocation ? null : _detectLocation,
-            icon: const Icon(WicchuIcons.crosshair),
-            label: Text(context.tr('Use my current location')),
-          ),
-          if (_detectingLocation) ...[
-            const SizedBox(height: 12),
-            const LinearProgressIndicator(),
-          ],
-          if (_locationError != null) ...[
-            const SizedBox(height: 12),
+          if (_type == CommunityType.community) ...[
             Text(
-              context.tr(_locationError!),
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              context.tr('Community reach'),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-          ],
-          if (_locationSettings)
-            TextButton(
-              onPressed: () => _serviceSettings
-                  ? Geolocator.openLocationSettings()
-                  : Geolocator.openAppSettings(),
-              child: Text(context.tr('Open settings')),
-            ),
-          if (_town != null) ...[
-            const SizedBox(height: 18),
-            Text(
-              context.tr('Selected location'),
-              style: Theme.of(context).textTheme.titleSmall,
+            const SizedBox(height: 10),
+            SegmentedButton<CommunityScope>(
+              segments: [
+                ButtonSegment(
+                  value: CommunityScope.local,
+                  icon: const Icon(WicchuIcons.mapPin),
+                  label: Text(context.tr('Location-based')),
+                ),
+                ButtonSegment(
+                  value: CommunityScope.global,
+                  icon: const Icon(WicchuIcons.globe),
+                  label: Text(context.tr('Anywhere')),
+                ),
+              ],
+              selected: {_scope},
+              onSelectionChanged: (value) => setState(() {
+                _scope = value.first;
+                _locationError = null;
+                _dirty = true;
+              }),
             ),
             const SizedBox(height: 8),
+            Text(
+              context.tr(
+                _scope == CommunityScope.global
+                    ? 'Open to people everywhere. No location is required.'
+                    : 'Connected to a specific city, town, or area.',
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+          if (_scope == CommunityScope.local ||
+              _type == CommunityType.publicProfile) ...[
+            Text(
+              context.tr('Where is this space?'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.tr('Search for a location or use your current position.'),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: _detectingLocation ? null : _searchLocation,
+              icon: const Icon(WicchuIcons.magnifyingGlass),
+              label: Text(context.tr('Search city or place')),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.tr('Search by city, town or area'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _detectingLocation ? null : _detectLocation,
+              icon: const Icon(WicchuIcons.crosshair),
+              label: Text(context.tr('Use my current location')),
+            ),
+            if (_detectingLocation) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(),
+            ],
+            if (_locationError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                context.tr(_locationError!),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            if (_locationSettings)
+              TextButton(
+                onPressed: () => _serviceSettings
+                    ? Geolocator.openLocationSettings()
+                    : Geolocator.openAppSettings(),
+                child: Text(context.tr('Open settings')),
+              ),
+            if (_town != null) ...[
+              const SizedBox(height: 18),
+              Text(
+                context.tr('Selected location'),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
+                  leading: const Icon(WicchuIcons.mapPin),
+                  title: Text(
+                    _selectedLocationLabel ??
+                        '${_town!.name}, ${_town!.countryCode}',
+                  ),
+                  trailing: Icon(
+                    WicchuIcons.checkCircleFill,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ],
+          if (_scope == CommunityScope.global &&
+              _type == CommunityType.community)
             Card(
               child: ListTile(
-                leading: const Icon(WicchuIcons.mapPin),
-                title: Text(
-                  _selectedLocationLabel ??
-                      '${_town!.name}, ${_town!.countryCode}',
-                ),
-                trailing: Icon(
-                  WicchuIcons.checkCircleFill,
-                  color: Theme.of(context).colorScheme.primary,
+                leading: const Icon(WicchuIcons.globe),
+                title: Text(context.tr('Open to people everywhere')),
+                subtitle: Text(
+                  context.tr(
+                    'This community will appear in Explore and search, but not Nearby.',
+                  ),
                 ),
               ),
             ),
-          ],
         ],
       ),
     ),
@@ -1113,7 +1169,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     if (_saving || _detectingLocation) return;
     if (_step == 0 && !(_basicsForm.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
-    if (_step == 1 && _town == null) {
+    if (_step == 1 && _scope == CommunityScope.local && _town == null) {
       setState(() => _locationError = 'Choose a location to continue.');
       return;
     }
@@ -1139,7 +1195,8 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           name: _nameController.text.trim(),
           shortDescription: _shortDescriptionController.text.trim(),
           description: _descriptionController.text.trim(),
-          town: _town!,
+          town: _scope == CommunityScope.local ? _town : null,
+          scope: _scope,
           visibility: CommunityVisibility.public,
           categoryNames: _creationCategories,
           approvalRequired: _approvalRequired,

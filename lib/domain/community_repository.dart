@@ -5,25 +5,27 @@ class CreateCommunityInput {
     required this.name,
     this.shortDescription = '',
     required this.description,
-    required this.town,
+    this.town,
     required this.visibility,
     required this.categoryNames,
     this.approvalRequired = false,
     this.rules = const [],
     this.type = CommunityType.community,
     this.profileCategory,
+    this.scope = CommunityScope.local,
   });
 
   final String name;
   final String shortDescription;
   final String description;
-  final Town town;
+  final Town? town;
   final CommunityVisibility visibility;
   final List<String> categoryNames;
   final bool approvalRequired;
   final List<CommunityRule> rules;
   final CommunityType type;
   final ProfileCategory? profileCategory;
+  final CommunityScope scope;
 }
 
 class AdminAttentionSummary {
@@ -615,7 +617,7 @@ abstract interface class CommunityRepository {
     String languageCode = 'en',
   });
   Future<void> unregisterDeviceToken(String token);
-  Future<List<Community>> listCommunities({String? query});
+  Future<List<Community>> listCommunities({String? query, String? townId});
   Future<Community> getCommunity(String communityId);
   Future<List<Community>> listJoinedCommunities();
   Future<List<Community>> listManagedCommunities();
@@ -623,6 +625,7 @@ abstract interface class CommunityRepository {
     required double latitude,
     required double longitude,
     double radiusKm = 25,
+    String? excludeTownId,
   });
   Future<List<Community>> listLocalBusinesses({String? townId, String? query});
   Future<List<Community>> listNearbyBusinesses({

@@ -14,7 +14,10 @@ class _SharingRepository extends DemoCommunityRepository {
   bool accepted = false;
   Map<String, String>? destinations;
   @override
-  Future<List<Community>> listCommunities({String? query}) async => [
+  Future<List<Community>> listCommunities({
+    String? query,
+    String? townId,
+  }) async => [
     if (includeOrigin)
       Community(
         id: 'origin',

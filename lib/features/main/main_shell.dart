@@ -1958,10 +1958,14 @@ class _ExploreTabState extends State<_ExploreTab> {
           : widget.repository.listNearbyCommunities(
               latitude: position.latitude,
               longitude: position.longitude,
-              radiusKm: _discoveryRadius,
+              radiusKm: 50,
+              excludeTownId: _discoveryTownId,
             );
     } else {
-      _communities = widget.repository.listCommunities(query: _query);
+      _communities = widget.repository.listCommunities(
+        query: _query,
+        townId: _filter == 3 && !_usingLocation ? _discoveryTownId : null,
+      );
     }
   }
 
@@ -2015,13 +2019,18 @@ class _ExploreTabState extends State<_ExploreTab> {
           timeLimit: Duration(seconds: 15),
         ),
       );
+      final detectedTown = await widget.repository.locateTown(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
       if (!mounted) return;
       final nearbyCommunities = _filter == 6
           ? null
           : await widget.repository.listNearbyCommunities(
               latitude: position.latitude,
               longitude: position.longitude,
-              radiusKm: _discoveryRadius,
+              radiusKm: 50,
+              excludeTownId: detectedTown.id,
             );
       final nearbyPeople = _filter == 6
           ? await widget.repository.searchPeople(
@@ -2036,6 +2045,7 @@ class _ExploreTabState extends State<_ExploreTab> {
       setState(() {
         _usingLocation = true;
         _position = position;
+        _discoveryTownId = detectedTown.id;
         if (_filter == 1) {
           _communities = Future.value(nearbyCommunities ?? const []);
         } else if (_filter == 6) {
@@ -2484,7 +2494,6 @@ class _ExploreTabState extends State<_ExploreTab> {
     var audience = _audienceRange;
     var townId = _discoveryTownId;
     var nearby = _usingLocation;
-    var radius = _discoveryRadius;
     final peopleOnly = _filter == 6;
     final towns = await widget.repository.listTowns();
     if (!mounted) return;
@@ -2515,13 +2524,27 @@ class _ExploreTabState extends State<_ExploreTab> {
                   runSpacing: 8,
                   children: [
                     ChoiceChip(
-                      label: Text(context.tr('Near me')),
+                      label: Text(context.tr('Nearby towns')),
                       avatar: const Icon(WicchuIcons.crosshair, size: 18),
                       selected: nearby,
                       onSelected: (_) async {
                         await _findNearby();
                         if (sheetContext.mounted) {
                           setSheetState(() => nearby = _usingLocation);
+                        }
+                      },
+                    ),
+                    ChoiceChip(
+                      label: Text(context.tr('My town')),
+                      avatar: const Icon(WicchuIcons.mapPin, size: 18),
+                      selected: !nearby && townId != null,
+                      onSelected: (_) async {
+                        if (townId == null) {
+                          await _findNearby();
+                          townId = _discoveryTownId;
+                        }
+                        if (sheetContext.mounted) {
+                          setSheetState(() => nearby = false);
                         }
                       },
                     ),
@@ -2541,7 +2564,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                       ? townId
                       : null,
                   decoration: InputDecoration(
-                    labelText: context.tr('Choose town'),
+                    labelText: context.tr('Change location'),
                     prefixIcon: const Icon(WicchuIcons.mapPin),
                   ),
                   items: [
@@ -2554,16 +2577,13 @@ class _ExploreTabState extends State<_ExploreTab> {
                   }),
                 ),
                 if (nearby)
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final km in [1.0, 10.0, 50.0])
-                        ChoiceChip(
-                          label: Text('${km.toInt()} km'),
-                          selected: radius == km,
-                          onSelected: (_) => setSheetState(() => radius = km),
-                        ),
-                    ],
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      context.tr(
+                        'Nearby towns are ranked by distance automatically.',
+                      ),
+                    ),
                   ),
                 const SizedBox(height: 24),
                 FilledButton(
@@ -2575,7 +2595,6 @@ class _ExploreTabState extends State<_ExploreTab> {
                     scope = peopleOnly ? 6 : 3;
                     townId = null;
                     nearby = false;
-                    radius = 10;
                     days = 0;
                     audience = 0;
                     Navigator.pop(sheetContext, true);
@@ -2594,7 +2613,6 @@ class _ExploreTabState extends State<_ExploreTab> {
       _audienceRange = audience;
       _discoveryTownId = townId;
       _usingLocation = nearby;
-      _discoveryRadius = radius;
       if (!nearby) _position = null;
     });
     if (!peopleOnly) {
@@ -2607,7 +2625,6 @@ class _ExploreTabState extends State<_ExploreTab> {
             ? 'anywhere'
             : 'town',
       );
-      await preferences.setDouble('business_discovery_radius_km', radius);
       if (townId != null) {
         await preferences.setString('business_discovery_town_id', townId!);
       }
@@ -2909,7 +2926,7 @@ class _ExploreTabState extends State<_ExploreTab> {
                                 Text(
                                   '${context.trCount(communities.length, singular: '{count} community found', plural: '{count} communities found')}'
                                   '${_usingLocation
-                                      ? ' · ${context.tr('Near me')}'
+                                      ? ' · ${context.tr('Nearby towns')}'
                                       : _discoveryTownId == null
                                       ? ''
                                       : ' · ${(snapshot.data ?? <Community>[]).where((item) => item.town.id == _discoveryTownId).firstOrNull?.town.name ?? context.tr('Selected town')}'}',
