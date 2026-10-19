@@ -465,6 +465,7 @@ class Community {
     this.canManagePageOrders = false,
     this.canManagePageServices = false,
     this.canViewPageAnalytics = false,
+    this.canManageLocalNews = false,
     this.published = true,
     this.accentColor = 'teal',
     this.neonBordersEnabled = false,
@@ -515,6 +516,9 @@ class Community {
   final bool canManagePageOrders;
   final bool canManagePageServices;
   final bool canViewPageAnalytics;
+
+  /// Server-computed: the current user may manage Local News for this community.
+  final bool canManageLocalNews;
   final bool published;
   final String accentColor;
   final bool neonBordersEnabled;
@@ -1377,6 +1381,11 @@ class LocalNewsSettings {
       LocalNewsPlan(tier: 'pro', priceEur: 4.99, priceUsd: 4.99),
       LocalNewsPlan(tier: 'business', priceEur: 9.99, priceUsd: 9.99),
     ],
+    this.access,
+    this.usage = const LocalNewsUsage(),
+    this.lastRun,
+    this.application,
+    this.dashboard,
   });
 
   final bool enabled;
@@ -1389,7 +1398,152 @@ class LocalNewsSettings {
   final Map<String, int> tierLimits;
   final List<LocalNewsPlan> plans;
 
-  bool get entitled => monthlyLimit > 0;
+  /// Server-resolved access. Null when talking to a backend that predates it.
+  final LocalNewsAccess? access;
+  final LocalNewsUsage usage;
+  final LocalNewsLastRun? lastRun;
+  final LocalNewsAccessApplication? application;
+  final LocalNewsDashboard? dashboard;
+
+  bool get entitled => access?.entitled ?? monthlyLimit > 0;
+  bool get isPilot => access?.source == 'pilot';
+}
+
+class LocalNewsAccess {
+  const LocalNewsAccess({
+    this.entitled = false,
+    this.source = 'none',
+    this.tier = 'free',
+    this.monthlyLimit = 0,
+    this.dailyLimit = 1,
+  });
+
+  final bool entitled;
+
+  /// `pilot`, `subscription` or `none`.
+  final String source;
+  final String tier;
+  final int monthlyLimit;
+  final int dailyLimit;
+}
+
+class LocalNewsUsage {
+  const LocalNewsUsage({
+    this.month = '',
+    this.monthlyUsed = 0,
+    this.monthlyLimit = 0,
+    this.todayUsed = 0,
+    this.dailyLimit = 1,
+  });
+
+  final String month;
+  final int monthlyUsed;
+  final int monthlyLimit;
+  final int todayUsed;
+  final int dailyLimit;
+}
+
+class LocalNewsLastRun {
+  const LocalNewsLastRun({
+    required this.status,
+    required this.finishedAt,
+    this.trigger = 'manual',
+    this.errorReason,
+    this.processed = 0,
+    this.pendingApproval = 0,
+    this.published = 0,
+    this.skipped = 0,
+    this.errors = 0,
+    this.sourceErrors = 0,
+  });
+
+  /// `success`, `partial`, `daily_limit_reached` or `error`.
+  final String status;
+  final DateTime finishedAt;
+  final String trigger;
+
+  /// Public reason such as `sources_unavailable`; never a provider error code.
+  final String? errorReason;
+  final int processed;
+  final int pendingApproval;
+  final int published;
+  final int skipped;
+  final int errors;
+  final int sourceErrors;
+}
+
+/// Operational summary from GET admin/news-settings. Times are UTC instants.
+class LocalNewsDashboard {
+  const LocalNewsDashboard({
+    required this.status,
+    required this.quotaResetsAt,
+    this.reason,
+    this.enabled = false,
+    this.collecting = false,
+    this.approvalMode = 'manual',
+    this.nextCollectionAt,
+    this.scheduleUnavailableReason,
+    this.schedulerIntervalMinutes,
+    this.timezone = 'UTC',
+    this.pendingApproval = 0,
+    this.todayUsed = 0,
+    this.publishedToday = 0,
+    this.dailyLimit = 1,
+    this.monthlyUsed = 0,
+    this.monthlyLimit = 0,
+    this.lastRun,
+  });
+
+  /// `scheduled`, `collecting`, `awaiting_approval`, `daily_limit_reached`,
+  /// `configuration_needed`, `paused` or `error`.
+  final String status;
+  final String? reason;
+  final bool enabled;
+  final bool collecting;
+  final String approvalMode;
+
+  /// Next time Wicchu will look for news. Null when it cannot be determined.
+  final DateTime? nextCollectionAt;
+  final String? scheduleUnavailableReason;
+  final int? schedulerIntervalMinutes;
+
+  /// Timezone of the quota day boundaries.
+  final String timezone;
+  final DateTime quotaResetsAt;
+  final int pendingApproval;
+
+  /// News collected today that counts toward the daily limit (published or waiting).
+  final int todayUsed;
+  final int publishedToday;
+  final int dailyLimit;
+  final int monthlyUsed;
+  final int monthlyLimit;
+  final LocalNewsLastRun? lastRun;
+
+  bool get dailyLimitReached => todayUsed >= dailyLimit;
+}
+
+class LocalNewsAccessApplication {
+  const LocalNewsAccessApplication({
+    required this.id,
+    required this.status,
+    required this.requestedAt,
+    this.message = '',
+    this.reviewNote = '',
+    this.reviewedAt,
+  });
+
+  final String id;
+
+  /// `pending`, `approved`, `rejected` or `cancelled`.
+  final String status;
+  final DateTime requestedAt;
+  final String message;
+  final String reviewNote;
+  final DateTime? reviewedAt;
+
+  bool get isPending => status == 'pending';
+  bool get isApproved => status == 'approved';
 }
 
 class LocalNewsPlan {

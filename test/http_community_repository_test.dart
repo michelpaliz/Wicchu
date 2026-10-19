@@ -55,6 +55,100 @@ class _RecordingApiClient extends AuthenticatedApiClient {
       };
     }
     if (path ==
+        '/api/community/v1/communities/community-2/admin/news-settings') {
+      return {
+        'settings': {
+          'enabled': false,
+          'sourceIds': <String>[],
+          'categoryIds': <String>[],
+          'language': 'es',
+          'approvalMode': 'manual',
+          'subscriptionTier': 'free',
+        },
+        'access': {
+          'entitled': true,
+          'source': 'pilot',
+          'tier': 'pilot',
+          'monthlyLimit': 60,
+          'dailyLimit': 2,
+        },
+        'usage': {
+          'month': '2026-10',
+          'monthlyUsed': 5,
+          'monthlyLimit': 60,
+          'todayUsed': 1,
+          'dailyLimit': 2,
+        },
+        'lastRun': {
+          'trigger': 'scheduler',
+          'status': 'partial',
+          'errorReason': 'sources_unavailable',
+          'finishedAt': '2026-10-19T08:00:00.000Z',
+          'processed': 3,
+          'pendingApproval': 1,
+          'published': 0,
+          'sourceErrors': 1,
+        },
+        'application': {
+          'id': 'application-1',
+          'communityId': 'community-2',
+          'status': 'approved',
+          'message': 'Please',
+          'requestedAt': '2026-10-01T08:00:00.000Z',
+          'reviewedAt': '2026-10-02T08:00:00.000Z',
+          'reviewNote': 'Welcome',
+        },
+        'dashboard': {
+          'status': 'awaiting_approval',
+          'reason': null,
+          'enabled': true,
+          'collecting': false,
+          'approvalMode': 'manual',
+          'nextCollectionAt': '2026-10-19T21:16:31.000Z',
+          'scheduleUnavailableReason': null,
+          'schedulerIntervalMinutes': 60,
+          'timezone': 'UTC',
+          'quotaResetsAt': '2026-10-20T00:00:00.000Z',
+          'pendingApproval': 2,
+          'todayUsed': 1,
+          'publishedToday': 0,
+          'dailyLimit': 1,
+          'monthlyUsed': 5,
+          'monthlyLimit': 60,
+          'lastRun': null,
+        },
+        'tierLimits': {'free': 0, 'pro': 60, 'business': 200},
+        'plans': <Map<String, dynamic>>[],
+      };
+    }
+    if (path == '/api/community/v1/communities/pilot-community') {
+      return {
+        'community': {
+          '_id': 'pilot-community',
+          'town': {'_id': 'town-1', 'name': 'Dénia', 'countryCode': 'ES'},
+          'name': 'Denia',
+          'description': '',
+          'visibility': 'public',
+          'createdBy': 'user-1',
+          'myRole': 'admin',
+          'canManageLocalNews': true,
+        },
+      };
+    }
+    if (path == '/api/community/v1/communities/other-community') {
+      return {
+        'community': {
+          '_id': 'other-community',
+          'town': {'_id': 'town-1', 'name': 'Dénia', 'countryCode': 'ES'},
+          'name': 'Elsewhere',
+          'description': '',
+          'visibility': 'public',
+          'createdBy': 'user-1',
+          'myRole': 'admin',
+        },
+      };
+    }
+    if (path ==
         '/api/community/v1/communities/community-1/admin/news-articles') {
       return {
         'articles': [
@@ -542,6 +636,30 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           {'key': 'general', 'name': 'General'},
           {'key': 'matches', 'name': 'Partidos'},
         ],
+      };
+    }
+    if (path ==
+        '/api/community/v1/communities/community-3/admin/news-access-application') {
+      return {
+        'application': {
+          'id': 'application-3',
+          'communityId': 'community-3',
+          'status': 'pending',
+          'message': body?['message'],
+          'requestedAt': '2026-10-19T08:00:00.000Z',
+        },
+      };
+    }
+    if (path ==
+        '/api/community/v1/communities/community-3/admin/news-access-application/cancel') {
+      return {
+        'application': {
+          'id': 'application-3',
+          'communityId': 'community-3',
+          'status': 'cancelled',
+          'requestedAt': '2026-10-19T08:00:00.000Z',
+          'cancelledAt': '2026-10-19T09:00:00.000Z',
+        },
       };
     }
     if (path ==
@@ -2265,6 +2383,81 @@ void main() {
     expect(result.processed, 2);
     expect(result.pendingApproval, 1);
     expect(result.skipped, 1);
+  });
+
+  test('Local News settings map access, usage, last run and application', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final settings = await repository.getLocalNewsSettings('community-2');
+    expect(settings.entitled, isTrue);
+    expect(settings.isPilot, isTrue);
+    expect(settings.subscriptionTier, 'free');
+    expect(settings.monthlyLimit, 60);
+    expect(settings.access?.dailyLimit, 2);
+    expect(settings.usage.monthlyUsed, 5);
+    expect(settings.usage.todayUsed, 1);
+    expect(settings.usage.dailyLimit, 2);
+    expect(settings.lastRun?.status, 'partial');
+    expect(settings.lastRun?.trigger, 'scheduler');
+    expect(settings.lastRun?.sourceErrors, 1);
+    expect(settings.lastRun?.finishedAt, DateTime.utc(2026, 10, 19, 8));
+    expect(settings.lastRun?.errorReason, 'sources_unavailable');
+    final dashboard = settings.dashboard!;
+    expect(dashboard.status, 'awaiting_approval');
+    expect(dashboard.nextCollectionAt, DateTime.utc(2026, 10, 19, 21, 16, 31));
+    expect(dashboard.nextCollectionAt!.isUtc, isTrue);
+    expect(dashboard.quotaResetsAt, DateTime.utc(2026, 10, 20));
+    expect(dashboard.timezone, 'UTC');
+    expect(dashboard.pendingApproval, 2);
+    expect(dashboard.todayUsed, 1);
+    expect(dashboard.publishedToday, 0);
+    expect(dashboard.dailyLimitReached, isTrue);
+    expect(dashboard.lastRun, isNull);
+    expect(settings.application?.isApproved, isTrue);
+    expect(settings.application?.reviewNote, 'Welcome');
+
+    final legacy = await repository.getLocalNewsSettings('community-1');
+    expect(legacy.dashboard, isNull);
+    expect(legacy.access, isNull);
+    expect(legacy.entitled, isTrue, reason: 'older responses still work');
+    expect(legacy.lastRun, isNull);
+    expect(legacy.application, isNull);
+  });
+
+  test('Local News visibility comes from the server capability flag', () async {
+    final repository = HttpCommunityRepository(apiClient: _RecordingApiClient());
+    final pilot = await repository.getCommunity('pilot-community');
+    final other = await repository.getCommunity('other-community');
+    expect(pilot.canManageLocalNews, isTrue);
+    expect(other.myRole, CommunityRole.admin);
+    expect(other.canManageLocalNews, isFalse, reason: 'missing flag means hidden');
+  });
+
+  test('Local News access applications use owner endpoints', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final submitted = await repository.submitLocalNewsAccessApplication(
+      'community-3',
+      message: 'Town news please',
+    );
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-3/admin/news-access-application',
+    );
+    expect(api.lastBody, {'message': 'Town news please'});
+    expect(submitted.isPending, isTrue);
+    expect(submitted.message, 'Town news please');
+
+    final cancelled = await repository.cancelLocalNewsAccessApplication(
+      'community-3',
+    );
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-3/admin/news-access-application/cancel',
+    );
+    expect(cancelled.status, 'cancelled');
   });
 
   test('About translation maps both description fields', () async {

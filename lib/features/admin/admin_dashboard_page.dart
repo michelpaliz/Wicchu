@@ -49,6 +49,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     _reload();
   }
 
+  @override
+  void didUpdateWidget(covariant AdminDashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Switching communities must not keep the previous community's menu.
+    if (oldWidget.community.id != widget.community.id) {
+      _community = widget.community;
+      _reload();
+    }
+  }
+
   void _reload() {
     _summary = repository.getAdminAttention(community.id);
     _insights = repository.getCommunityInsights(community.id);
@@ -306,7 +316,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     ),
                   ),
                 ),
-              if (_canConfigure && !community.isPublicProfile)
+              // Server-computed: pilot access plus owner/admin role.
+              if (community.canManageLocalNews)
                 _MenuRow(
                   icon: WicchuIcons.newspaper,
                   label: 'Automated news',

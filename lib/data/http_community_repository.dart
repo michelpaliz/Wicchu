@@ -2097,13 +2097,114 @@ class HttpCommunityRepository
         .toList(growable: false);
   }
 
+  LocalNewsLastRun? _localNewsRun(Map<String, dynamic>? json) {
+    final finishedAt = _optionalDate(json?['finishedAt']);
+    if (json == null || finishedAt == null) return null;
+    int count(String key) => (json[key] as num?)?.toInt() ?? 0;
+    final reason = json['errorReason']?.toString();
+    return LocalNewsLastRun(
+      status: json['status']?.toString() ?? 'success',
+      finishedAt: finishedAt,
+      trigger: json['trigger']?.toString() ?? 'manual',
+      errorReason: reason == null || reason.isEmpty ? null : reason,
+      processed: count('processed'),
+      pendingApproval: count('pendingApproval'),
+      published: count('published'),
+      skipped: count('skipped'),
+      errors: count('errors'),
+      sourceErrors: count('sourceErrors'),
+    );
+  }
+
+  LocalNewsAccessApplication? _localNewsApplication(Object? value) {
+    if (value is! Map<String, dynamic>) return null;
+    final id = value['id']?.toString() ?? '';
+    if (id.isEmpty) return null;
+    return LocalNewsAccessApplication(
+      id: id,
+      status: value['status']?.toString() ?? 'pending',
+      requestedAt:
+          _optionalDate(value['requestedAt']) ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      message: value['message']?.toString() ?? '',
+      reviewNote: value['reviewNote']?.toString() ?? '',
+      reviewedAt: _optionalDate(value['reviewedAt']),
+    );
+  }
+
   LocalNewsSettings _localNewsSettings(
     Map<String, dynamic> json, {
     Map<String, dynamic>? limits,
     List<dynamic>? plans,
+    Map<String, dynamic>? body,
   }) {
     final tier = json['subscriptionTier']?.toString() ?? 'free';
+    int count(Map<String, dynamic>? map, String key, [int fallback = 0]) =>
+        (map?[key] as num?)?.toInt() ?? fallback;
+    final accessJson = body?['access'] is Map<String, dynamic>
+        ? body!['access'] as Map<String, dynamic>
+        : null;
+    final usageJson = body?['usage'] is Map<String, dynamic>
+        ? body!['usage'] as Map<String, dynamic>
+        : null;
+    final runJson = body?['lastRun'] is Map<String, dynamic>
+        ? body!['lastRun'] as Map<String, dynamic>
+        : null;
+    final access = accessJson == null
+        ? null
+        : LocalNewsAccess(
+            entitled: accessJson['entitled'] == true,
+            source: accessJson['source']?.toString() ?? 'none',
+            tier: accessJson['tier']?.toString() ?? tier,
+            monthlyLimit: count(accessJson, 'monthlyLimit'),
+            dailyLimit: count(accessJson, 'dailyLimit', 1),
+          );
+    final dashboardJson = body?['dashboard'] is Map<String, dynamic>
+        ? body!['dashboard'] as Map<String, dynamic>
+        : null;
     return LocalNewsSettings(
+      access: access,
+      usage: LocalNewsUsage(
+        month: usageJson?['month']?.toString() ?? '',
+        monthlyUsed: count(usageJson, 'monthlyUsed'),
+        monthlyLimit: count(usageJson, 'monthlyLimit'),
+        todayUsed: count(usageJson, 'todayUsed'),
+        dailyLimit: count(usageJson, 'dailyLimit', 1),
+      ),
+      lastRun: _localNewsRun(runJson),
+      dashboard: dashboardJson == null
+          ? null
+          : LocalNewsDashboard(
+              status: dashboardJson['status']?.toString() ?? 'scheduled',
+              reason: dashboardJson['reason']?.toString(),
+              enabled: dashboardJson['enabled'] == true,
+              collecting: dashboardJson['collecting'] == true,
+              approvalMode:
+                  dashboardJson['approvalMode']?.toString() ?? 'manual',
+              nextCollectionAt: _optionalDate(
+                dashboardJson['nextCollectionAt'],
+              ),
+              scheduleUnavailableReason: dashboardJson['scheduleUnavailableReason']
+                  ?.toString(),
+              schedulerIntervalMinutes:
+                  (dashboardJson['schedulerIntervalMinutes'] as num?)?.toInt(),
+              timezone: dashboardJson['timezone']?.toString() ?? 'UTC',
+              quotaResetsAt:
+                  _optionalDate(dashboardJson['quotaResetsAt']) ??
+                  DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+              pendingApproval: count(dashboardJson, 'pendingApproval'),
+              todayUsed: count(dashboardJson, 'todayUsed'),
+              publishedToday: count(dashboardJson, 'publishedToday'),
+              dailyLimit: count(dashboardJson, 'dailyLimit', 1),
+              monthlyUsed: count(dashboardJson, 'monthlyUsed'),
+              monthlyLimit: count(dashboardJson, 'monthlyLimit'),
+              lastRun: _localNewsRun(
+                dashboardJson['lastRun'] is Map<String, dynamic>
+                    ? dashboardJson['lastRun'] as Map<String, dynamic>
+                    : null,
+              ),
+            ),
+      application: _localNewsApplication(body?['application']),
       enabled: json['enabled'] == true,
       sourceIds: (json['sourceIds'] as List? ?? const [])
           .map((value) => value.toString())
@@ -2114,7 +2215,8 @@ class HttpCommunityRepository
       language: json['language']?.toString() ?? 'es',
       approvalMode: json['approvalMode']?.toString() ?? 'manual',
       subscriptionTier: tier,
-      monthlyLimit: (limits?[tier] as num?)?.toInt() ?? 0,
+      monthlyLimit:
+          access?.monthlyLimit ?? (limits?[tier] as num?)?.toInt() ?? 0,
       tierLimits: {
         for (final entry in (limits ?? const <String, dynamic>{}).entries)
           entry.key: (entry.value as num?)?.toInt() ?? 0,
@@ -2144,6 +2246,7 @@ class HttpCommunityRepository
           ? body['tierLimits'] as Map<String, dynamic>
           : null,
       plans: body['plans'] as List?,
+      body: body,
     );
   }
 
@@ -2191,6 +2294,32 @@ class HttpCommunityRepository
           ),
         )
         .toList(growable: false);
+  }
+
+  @override
+  Future<LocalNewsAccessApplication> submitLocalNewsAccessApplication(
+    String communityId, {
+    String message = '',
+  }) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/$communityId/admin/news-access-application',
+      body: {'message': message},
+    );
+    final application = _localNewsApplication(body['application']);
+    if (application == null) throw const FormatException('Missing application');
+    return application;
+  }
+
+  @override
+  Future<LocalNewsAccessApplication> cancelLocalNewsAccessApplication(
+    String communityId,
+  ) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/$communityId/admin/news-access-application/cancel',
+    );
+    final application = _localNewsApplication(body['application']);
+    if (application == null) throw const FormatException('Missing application');
+    return application;
   }
 
   @override
@@ -3731,6 +3860,7 @@ class HttpCommunityRepository
       canManagePageOrders: json['canManagePageOrders'] == true,
       canManagePageServices: json['canManagePageServices'] == true,
       canViewPageAnalytics: json['canViewPageAnalytics'] == true,
+      canManageLocalNews: json['canManageLocalNews'] == true,
       published: json['published'] != false,
       accentColor: json['accentColor']?.toString() ?? 'teal',
       neonBordersEnabled: json['neonBordersEnabled'] == true,

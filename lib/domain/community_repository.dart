@@ -1002,6 +1002,13 @@ abstract interface class CommunityRepository {
   });
   Future<List<LocalNewsArticle>> listLocalNewsArticles(String communityId);
   Future<LocalNewsRunResult> runLocalNewsNow(String communityId);
+  Future<LocalNewsAccessApplication> submitLocalNewsAccessApplication(
+    String communityId, {
+    String message = '',
+  });
+  Future<LocalNewsAccessApplication> cancelLocalNewsAccessApplication(
+    String communityId,
+  );
   Future<FinancialSupportApplication> submitFinancialSupportApplication(
     String pageId, {
     required String countryCode,

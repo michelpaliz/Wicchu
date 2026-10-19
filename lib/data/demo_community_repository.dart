@@ -21,6 +21,7 @@ class DemoCommunityRepository
         createdAt: DateTime(2026),
         memberCount: 2481,
         myRole: CommunityRole.owner,
+        canManageLocalNews: true,
       ),
     );
     _categories['town-x-community'] = [
@@ -921,6 +922,7 @@ class DemoCommunityRepository
           businessFulfillmentOptions ?? community.businessFulfillmentOptions,
       businessContact: businessContact ?? community.businessContact,
       published: published ?? community.published,
+      canManageLocalNews: community.canManageLocalNews,
       accentColor: accentColor ?? community.accentColor,
       neonBordersEnabled: neonBordersEnabled ?? community.neonBordersEnabled,
       neonBorderAnimation: neonBorderAnimation ?? community.neonBorderAnimation,
@@ -1083,7 +1085,29 @@ class DemoCommunityRepository
 
   @override
   Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
-      const LocalNewsSettings(subscriptionTier: 'pro', monthlyLimit: 60);
+      LocalNewsSettings(
+        monthlyLimit: 60,
+        access: const LocalNewsAccess(
+          entitled: true,
+          source: 'pilot',
+          tier: 'pilot',
+          monthlyLimit: 60,
+        ),
+        usage: const LocalNewsUsage(monthlyUsed: 3, monthlyLimit: 60),
+        dashboard: LocalNewsDashboard(
+          status: 'scheduled',
+          enabled: true,
+          nextCollectionAt: DateTime.now().toUtc().add(const Duration(minutes: 40)),
+          schedulerIntervalMinutes: 60,
+          quotaResetsAt: DateTime.utc(
+            DateTime.now().toUtc().year,
+            DateTime.now().toUtc().month,
+            DateTime.now().toUtc().day + 1,
+          ),
+          monthlyUsed: 3,
+          monthlyLimit: 60,
+        ),
+      );
 
   @override
   Future<LocalNewsSettings> updateLocalNewsSettings(
@@ -1099,8 +1123,13 @@ class DemoCommunityRepository
     categoryIds: categoryIds,
     language: language,
     approvalMode: approvalMode,
-    subscriptionTier: 'pro',
     monthlyLimit: 60,
+    access: const LocalNewsAccess(
+      entitled: true,
+      source: 'pilot',
+      tier: 'pilot',
+      monthlyLimit: 60,
+    ),
   );
 
   @override
@@ -1111,6 +1140,26 @@ class DemoCommunityRepository
   @override
   Future<LocalNewsRunResult> runLocalNewsNow(String communityId) async =>
       const LocalNewsRunResult(processed: 1, pendingApproval: 1);
+
+  @override
+  Future<LocalNewsAccessApplication> submitLocalNewsAccessApplication(
+    String communityId, {
+    String message = '',
+  }) async => LocalNewsAccessApplication(
+    id: 'news-application-$communityId',
+    status: 'pending',
+    requestedAt: DateTime.now(),
+    message: message,
+  );
+
+  @override
+  Future<LocalNewsAccessApplication> cancelLocalNewsAccessApplication(
+    String communityId,
+  ) async => LocalNewsAccessApplication(
+    id: 'news-application-$communityId',
+    status: 'cancelled',
+    requestedAt: DateTime.now(),
+  );
 
   @override
   Future<PostTranslation> translateComment(
