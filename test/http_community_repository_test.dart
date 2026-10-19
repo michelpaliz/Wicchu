@@ -21,6 +21,53 @@ class _RecordingApiClient extends AuthenticatedApiClient {
   @override
   Future<Map<String, dynamic>> get(String path) async {
     lastPath = path;
+    if (path == '/api/community/v1/news/sources') {
+      return {
+        'sources': [
+          {
+            '_id': 'source-1',
+            'name': 'Local Gazette',
+            'type': 'rss',
+            'siteUrl': 'https://news.example',
+            'trusted': true,
+            'authorizedForAutoPublish': true,
+          },
+        ],
+      };
+    }
+    if (path ==
+        '/api/community/v1/communities/community-1/admin/news-settings') {
+      return {
+        'settings': {
+          'enabled': true,
+          'sourceIds': ['source-1'],
+          'categoryIds': ['category-1'],
+          'language': 'es',
+          'approvalMode': 'manual',
+          'subscriptionTier': 'pro',
+        },
+        'tierLimits': {'free': 0, 'pro': 60, 'business': 200},
+        'plans': [
+          {'tier': 'free', 'priceEur': 0, 'priceUsd': 0},
+          {'tier': 'pro', 'priceEur': 4.99, 'priceUsd': 4.99},
+          {'tier': 'business', 'priceEur': 9.99, 'priceUsd': 9.99},
+        ],
+      };
+    }
+    if (path ==
+        '/api/community/v1/communities/community-1/admin/news-articles') {
+      return {
+        'articles': [
+          {
+            '_id': 'article-1',
+            'title': 'Community update',
+            'status': 'pending_approval',
+            'sourceUrl': 'https://news.example/article',
+            'createdAt': '2026-10-19T08:00:00.000Z',
+          },
+        ],
+      };
+    }
     if (path == '/api/community/v1/platform/translation-analytics') {
       return {
         'analytics': {
@@ -495,6 +542,17 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           {'key': 'general', 'name': 'General'},
           {'key': 'matches', 'name': 'Partidos'},
         ],
+      };
+    }
+    if (path ==
+        '/api/community/v1/communities/community-1/admin/news-collect') {
+      return {
+        'collected': 2,
+        'processed': 2,
+        'pendingApproval': 1,
+        'published': 0,
+        'skipped': 1,
+        'errors': 0,
       };
     }
     if (path == '/api/community/v1/posts/post-1/translation') {
@@ -2170,6 +2228,43 @@ void main() {
     expect(translation.targetLanguage, 'es');
     expect(translation.translatedText, 'Reunión comunitaria');
     expect(translation.cached, isFalse);
+  });
+
+  test('Local News settings and runs use administrator endpoints', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    final sources = await repository.listLocalNewsSources();
+    expect(sources.single.name, 'Local Gazette');
+    expect(sources.single.authorizedForAutoPublish, isTrue);
+
+    final settings = await repository.getLocalNewsSettings('community-1');
+    expect(settings.enabled, isTrue);
+    expect(settings.subscriptionTier, 'pro');
+    expect(settings.monthlyLimit, 60);
+    expect(settings.plans[1].tier, 'pro');
+    expect(settings.plans[1].priceEur, 4.99);
+
+    await repository.updateLocalNewsSettings(
+      'community-1',
+      enabled: true,
+      sourceIds: const ['source-1'],
+      categoryIds: const ['category-1'],
+      language: 'es',
+      approvalMode: 'manual',
+    );
+    expect(
+      api.lastPath,
+      '/api/community/v1/communities/community-1/admin/news-settings',
+    );
+
+    final articles = await repository.listLocalNewsArticles('community-1');
+    expect(articles.single.status, 'pending_approval');
+
+    final result = await repository.runLocalNewsNow('community-1');
+    expect(result.processed, 2);
+    expect(result.pendingApproval, 1);
+    expect(result.skipped, 1);
   });
 
   test('About translation maps both description fields', () async {

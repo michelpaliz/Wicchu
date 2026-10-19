@@ -990,6 +990,18 @@ abstract interface class CommunityRepository {
   Future<FinancialSupportApplication?> getFinancialSupportApplication(
     String pageId,
   );
+  Future<List<LocalNewsSource>> listLocalNewsSources();
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId);
+  Future<LocalNewsSettings> updateLocalNewsSettings(
+    String communityId, {
+    required bool enabled,
+    required List<String> sourceIds,
+    required List<String> categoryIds,
+    required String language,
+    required String approvalMode,
+  });
+  Future<List<LocalNewsArticle>> listLocalNewsArticles(String communityId);
+  Future<LocalNewsRunResult> runLocalNewsNow(String communityId);
   Future<FinancialSupportApplication> submitFinancialSupportApplication(
     String pageId, {
     required String countryCode,

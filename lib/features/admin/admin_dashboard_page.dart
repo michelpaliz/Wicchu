@@ -16,6 +16,7 @@ import 'community_insights_page.dart';
 import 'community_rewards_page.dart';
 import 'financial_support_page.dart';
 import 'removed_posts_page.dart';
+import 'local_news_settings_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({
@@ -300,6 +301,19 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       : 'Manage community categories',
                   onTap: () => _openQueue(
                     CategoryManagementPage(
+                      community: community,
+                      repository: repository,
+                    ),
+                  ),
+                ),
+              if (_canConfigure && !community.isPublicProfile)
+                _MenuRow(
+                  icon: WicchuIcons.newspaper,
+                  label: 'Automated news',
+                  description:
+                      'Find relevant articles for this community automatically',
+                  onTap: () => _openQueue(
+                    LocalNewsSettingsPage(
                       community: community,
                       repository: repository,
                     ),

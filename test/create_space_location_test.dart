@@ -83,6 +83,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Step 3 of 4'), findsOneWidget);
     expect(find.text('Organize your space'), findsOneWidget);
+    expect(
+      find.text(
+        'Suggestions are generated once for each new space. You can customize them before creating it.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Recommended'), findsWidgets);
     expect(find.byIcon(WicchuIcons.dotsThreeVertical), findsWidgets);
     await tester.tap(find.byTooltip('Rename category').first);

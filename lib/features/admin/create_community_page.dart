@@ -68,7 +68,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   bool get _isLocalBusiness =>
       _type == CommunityType.publicProfile &&
       _profileCategory == ProfileCategory.localBusiness;
-  List<String> get _creationCategories => _type == CommunityType.community
+  List<String> get _creationCategories => !_isLocalBusiness
       ? _categoryKeys.keys
             .where(_selectedCategories.contains)
             .toList(growable: false)
@@ -430,24 +430,19 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 ),
               ),
             ),
-            if (_type == CommunityType.community) ...[
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _subjectController,
-                maxLength: 120,
-                textCapitalization: TextCapitalization.sentences,
-                onChanged: (_) {
-                  _suggestionsLoaded = false;
-                  setState(() => _dirty = true);
-                },
-                decoration: InputDecoration(
-                  labelText: context.tr('Subject or purpose'),
-                  hintText: context.tr(
-                    'For example: football, gardening or technology',
-                  ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _subjectController,
+              maxLength: 120,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => setState(() => _dirty = true),
+              decoration: InputDecoration(
+                labelText: context.tr('Subject or purpose'),
+                hintText: context.tr(
+                  'For example: football, gardening or technology',
                 ),
               ),
-            ],
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _shortDescriptionController,
@@ -646,13 +641,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       ),
     ),
     Step(
-      title: Text(
-        context.tr(
-          _type == CommunityType.publicProfile && !_isLocalBusiness
-              ? 'Publishing'
-              : 'Organize your space',
-        ),
-      ),
+      title: Text(context.tr('Organize your space')),
       isActive: _step >= 2,
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -661,21 +650,21 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
             context.tr(
               _isLocalBusiness
                   ? 'Choose optional categories for your business posts, or add your own. You can change them later.'
-                  : _type == CommunityType.publicProfile
-                  ? 'Your updates will appear in one clear profile feed.'
-                  : 'Choose the topics for your community. You can change them later.',
+                  : 'Choose suggested topics for your space, or add your own. Category suggestions are free.',
             ),
           ),
+          if (!_isLocalBusiness) ...[
+            const SizedBox(height: 6),
+            Text(
+              context.tr(
+                'Suggestions are generated once for each new space. You can customize them before creating it.',
+              ),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: 16),
           if (_isLocalBusiness)
             _businessCategoryPicker()
-          else if (_type == CommunityType.publicProfile)
-            Card(
-              child: ListTile(
-                leading: const Icon(WicchuIcons.cards),
-                title: Text(context.tr('Posts')),
-              ),
-            )
           else ...[
             if (_loadingCategories) const LinearProgressIndicator(),
             if (!_loadingCategories) _communityCategoryOrganizer(),
@@ -702,7 +691,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
               ],
             ),
           ],
-          if (_type == CommunityType.community && _categoryError != null)
+          if (!_isLocalBusiness && _categoryError != null)
             Text(
               _categoryError!,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -1207,9 +1196,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       setState(() => _locationError = 'Choose a location to continue.');
       return;
     }
-    if (_step == 2 &&
-        _type == CommunityType.community &&
-        _selectedCategories.isEmpty) {
+    if (_step == 2 && !_isLocalBusiness && _selectedCategories.isEmpty) {
       setState(
         () => _categoryError = context.tr('Choose at least one category.'),
       );
@@ -1217,7 +1204,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     }
     if (_step < 3) {
       final nextStep = _step + 1;
-      if (nextStep == 2 && _type == CommunityType.community) {
+      if (nextStep == 2 && !_isLocalBusiness) {
         await _loadCategorySuggestions();
         if (!mounted) return;
       }

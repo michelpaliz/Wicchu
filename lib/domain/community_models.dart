@@ -1344,6 +1344,104 @@ class CommunityAboutTranslation {
   final bool cached;
 }
 
+class LocalNewsSource {
+  const LocalNewsSource({
+    required this.id,
+    required this.name,
+    required this.type,
+    this.siteUrl = '',
+    this.trusted = false,
+    this.authorizedForAutoPublish = false,
+  });
+
+  final String id;
+  final String name;
+  final String type;
+  final String siteUrl;
+  final bool trusted;
+  final bool authorizedForAutoPublish;
+}
+
+class LocalNewsSettings {
+  const LocalNewsSettings({
+    this.enabled = false,
+    this.sourceIds = const [],
+    this.categoryIds = const [],
+    this.language = 'es',
+    this.approvalMode = 'manual',
+    this.subscriptionTier = 'free',
+    this.monthlyLimit = 0,
+    this.tierLimits = const {'free': 0, 'pro': 60, 'business': 200},
+    this.plans = const [
+      LocalNewsPlan(tier: 'free', priceEur: 0, priceUsd: 0),
+      LocalNewsPlan(tier: 'pro', priceEur: 4.99, priceUsd: 4.99),
+      LocalNewsPlan(tier: 'business', priceEur: 9.99, priceUsd: 9.99),
+    ],
+  });
+
+  final bool enabled;
+  final List<String> sourceIds;
+  final List<String> categoryIds;
+  final String language;
+  final String approvalMode;
+  final String subscriptionTier;
+  final int monthlyLimit;
+  final Map<String, int> tierLimits;
+  final List<LocalNewsPlan> plans;
+
+  bool get entitled => monthlyLimit > 0;
+}
+
+class LocalNewsPlan {
+  const LocalNewsPlan({
+    required this.tier,
+    required this.priceEur,
+    required this.priceUsd,
+  });
+
+  final String tier;
+  final double priceEur;
+  final double priceUsd;
+}
+
+class LocalNewsArticle {
+  const LocalNewsArticle({
+    required this.id,
+    required this.title,
+    required this.status,
+    required this.createdAt,
+    this.sourceUrl = '',
+    this.skipReason = '',
+    this.errorCode = '',
+  });
+
+  final String id;
+  final String title;
+  final String status;
+  final DateTime createdAt;
+  final String sourceUrl;
+  final String skipReason;
+  final String errorCode;
+}
+
+class LocalNewsRunResult {
+  const LocalNewsRunResult({
+    this.collected = 0,
+    this.processed = 0,
+    this.pendingApproval = 0,
+    this.published = 0,
+    this.skipped = 0,
+    this.errors = 0,
+  });
+
+  final int collected;
+  final int processed;
+  final int pendingApproval;
+  final int published;
+  final int skipped;
+  final int errors;
+}
+
 enum PromotionStatus { pending, active, rejected, completed, cancelled }
 
 class PromotionEligibility {

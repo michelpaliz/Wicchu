@@ -490,6 +490,10 @@ const _spanish = <String, String>{
   'All new posts': 'Todas las publicaciones nuevas',
   'Selected categories': 'Categorías seleccionadas',
   'Organize your space': 'Organiza tu espacio',
+  'Choose suggested topics for your space, or add your own. Category suggestions are free.':
+      'Elige temas sugeridos para tu espacio o añade los tuyos. Las sugerencias de categorías son gratis.',
+  'Suggestions are generated once for each new space. You can customize them before creating it.':
+      'Las sugerencias se generan una sola vez para cada espacio nuevo. Puedes personalizarlas antes de crearlo.',
   'Subject or purpose': 'Tema o propósito',
   'For example: football, gardening or technology':
       'Por ejemplo: fútbol, jardinería o tecnología',
@@ -1890,6 +1894,67 @@ const _spanish = <String, String>{
   'Active yesterday at {time}': 'Activo ayer a las {time}',
   'Active {count} days ago': 'Activo hace {count} días',
   'Active over a week ago': 'Activo hace más de una semana',
+  'Automated news': 'Noticias automatizadas',
+  'Find relevant articles for this community automatically':
+      'Encuentra automáticamente artículos relevantes para esta comunidad',
+  'News matched to your community': 'Noticias adaptadas a tu comunidad',
+  'Limit: one automated news post per community each day, and never more than one in the same category.':
+      'Límite: una noticia automatizada por comunidad al día y nunca más de una en la misma categoría.',
+  'Wicchu checks approved sources and uses your community subject and categories to find relevant articles.':
+      'Wicchu revisa fuentes aprobadas y utiliza el tema y las categorías de tu comunidad para encontrar artículos relevantes.',
+  '{tier} · {count} posts per month': '{tier} · {count} publicaciones al mes',
+  'Available plans': 'Planes disponibles',
+  'Current plan': 'Plan actual',
+  'Free': 'Gratis',
+  '€{eur} / \${usd} per month': '€{eur} / \${usd} al mes',
+  'Automated news is not included.':
+      'Las noticias automatizadas no están incluidas.',
+  'Approved sources, category matching, and review before publishing.':
+      'Fuentes aprobadas, selección por categorías y revisión antes de publicar.',
+  'Higher monthly ceiling and automatic publishing from trusted sources.':
+      'Mayor límite mensual y publicación automática desde fuentes de confianza.',
+  'No automated posts': 'Sin publicaciones automatizadas',
+  'Up to {count} posts per month · daily limit applies':
+      'Hasta {count} publicaciones al mes · se aplica el límite diario',
+  'Contact Wicchu to activate or change a plan. Self-service billing is not available yet.':
+      'Contacta con Wicchu para activar o cambiar un plan. La facturación automática todavía no está disponible.',
+  'Local News access must be enabled for this community by Wicchu.':
+      'Wicchu debe habilitar el acceso a Noticias Locales para esta comunidad.',
+  'Enable automated news': 'Activar noticias automatizadas',
+  'The scheduler will check for relevant articles automatically.':
+      'El sistema buscará automáticamente artículos relevantes.',
+  'News language': 'Idioma de las noticias',
+  'Spanish': 'Español',
+  'English': 'Inglés',
+  'Publication approval': 'Aprobación de publicaciones',
+  'Review before publishing': 'Revisar antes de publicar',
+  'Recommended for every new source.': 'Recomendado para cada fuente nueva.',
+  'Publish automatically': 'Publicar automáticamente',
+  'Only sources trusted and authorized by Wicchu can publish automatically.':
+      'Solo las fuentes de confianza autorizadas por Wicchu pueden publicar automáticamente.',
+  'Approved sources': 'Fuentes aprobadas',
+  'No approved news sources are available.':
+      'No hay fuentes de noticias aprobadas disponibles.',
+  'Trusted for automatic publishing':
+      'Fuente de confianza para publicación automática',
+  'Review required': 'Revisión obligatoria',
+  'News categories': 'Categorías de noticias',
+  'The AI will only use the categories you select. It never creates new categories.':
+      'La IA solo utilizará las categorías seleccionadas y nunca creará categorías nuevas.',
+  'Save settings': 'Guardar configuración',
+  'Check for news now': 'Buscar noticias ahora',
+  'Select at least one news source and category.':
+      'Selecciona al menos una fuente y una categoría de noticias.',
+  'Local News settings saved.':
+      'La configuración de Noticias Locales se ha guardado.',
+  'Processed {count} news articles.':
+      'Se procesaron {count} artículos de noticias.',
+  'Recent news activity': 'Actividad reciente de noticias',
+  'Waiting for review': 'Pendiente de revisión',
+  'Processing error': 'Error de procesamiento',
+  'Not relevant': 'No relevante',
+  'Processing': 'Procesando',
+  'Collected': 'Recopilado',
   'Online now': 'En línea ahora',
   'Online in your communities': 'En línea en tus comunidades',
   'Neighbors online': 'Vecinos conectados',

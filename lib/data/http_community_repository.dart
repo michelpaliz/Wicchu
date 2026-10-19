@@ -2080,6 +2080,136 @@ class HttpCommunityRepository
   }
 
   @override
+  Future<List<LocalNewsSource>> listLocalNewsSources() async {
+    final body = await _api.get('/api/community/v1/news/sources');
+    return _list(body, 'sources')
+        .map(
+          (json) => LocalNewsSource(
+            id: json['_id']?.toString() ?? '',
+            name: json['name']?.toString() ?? '',
+            type: json['type']?.toString() ?? 'rss',
+            siteUrl: json['siteUrl']?.toString() ?? '',
+            trusted: json['trusted'] == true,
+            authorizedForAutoPublish: json['authorizedForAutoPublish'] == true,
+          ),
+        )
+        .where((source) => source.id.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  LocalNewsSettings _localNewsSettings(
+    Map<String, dynamic> json, {
+    Map<String, dynamic>? limits,
+    List<dynamic>? plans,
+  }) {
+    final tier = json['subscriptionTier']?.toString() ?? 'free';
+    return LocalNewsSettings(
+      enabled: json['enabled'] == true,
+      sourceIds: (json['sourceIds'] as List? ?? const [])
+          .map((value) => value.toString())
+          .toList(growable: false),
+      categoryIds: (json['categoryIds'] as List? ?? const [])
+          .map((value) => value.toString())
+          .toList(growable: false),
+      language: json['language']?.toString() ?? 'es',
+      approvalMode: json['approvalMode']?.toString() ?? 'manual',
+      subscriptionTier: tier,
+      monthlyLimit: (limits?[tier] as num?)?.toInt() ?? 0,
+      tierLimits: {
+        for (final entry in (limits ?? const <String, dynamic>{}).entries)
+          entry.key: (entry.value as num?)?.toInt() ?? 0,
+      },
+      plans: (plans ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (plan) => LocalNewsPlan(
+              tier: plan['tier']?.toString() ?? '',
+              priceEur: (plan['priceEur'] as num?)?.toDouble() ?? 0,
+              priceUsd: (plan['priceUsd'] as num?)?.toDouble() ?? 0,
+            ),
+          )
+          .where((plan) => plan.tier.isNotEmpty)
+          .toList(growable: false),
+    );
+  }
+
+  @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/admin/news-settings',
+    );
+    return _localNewsSettings(
+      _object(body, 'settings'),
+      limits: body['tierLimits'] is Map<String, dynamic>
+          ? body['tierLimits'] as Map<String, dynamic>
+          : null,
+      plans: body['plans'] as List?,
+    );
+  }
+
+  @override
+  Future<LocalNewsSettings> updateLocalNewsSettings(
+    String communityId, {
+    required bool enabled,
+    required List<String> sourceIds,
+    required List<String> categoryIds,
+    required String language,
+    required String approvalMode,
+  }) async {
+    await _api.put(
+      '/api/community/v1/communities/$communityId/admin/news-settings',
+      body: {
+        'enabled': enabled,
+        'sourceIds': sourceIds,
+        'categoryIds': categoryIds,
+        'language': language,
+        'approvalMode': approvalMode,
+      },
+    );
+    return getLocalNewsSettings(communityId);
+  }
+
+  @override
+  Future<List<LocalNewsArticle>> listLocalNewsArticles(
+    String communityId,
+  ) async {
+    final body = await _api.get(
+      '/api/community/v1/communities/$communityId/admin/news-articles',
+    );
+    return _list(body, 'articles')
+        .map(
+          (json) => LocalNewsArticle(
+            id: json['_id']?.toString() ?? '',
+            title: json['title']?.toString() ?? '',
+            status: json['status']?.toString() ?? 'collected',
+            createdAt:
+                _optionalDate(json['createdAt']) ??
+                DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+            sourceUrl: json['sourceUrl']?.toString() ?? '',
+            skipReason: json['skipReason']?.toString() ?? '',
+            errorCode: json['errorCode']?.toString() ?? '',
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<LocalNewsRunResult> runLocalNewsNow(String communityId) async {
+    final body = await _api.post(
+      '/api/community/v1/communities/$communityId/admin/news-collect',
+    );
+    int count(String key) => (body[key] as num?)?.toInt() ?? 0;
+    return LocalNewsRunResult(
+      collected: count('collected'),
+      processed: count('processed'),
+      pendingApproval: count('pendingApproval'),
+      published: count('published'),
+      skipped: count('skipped'),
+      errors: count('errors'),
+    );
+  }
+
+  @override
   Future<PostTranslation> translateComment(
     String commentId, {
     String targetLanguage = 'auto',

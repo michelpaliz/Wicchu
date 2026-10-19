@@ -1070,6 +1070,49 @@ class DemoCommunityRepository
   );
 
   @override
+  Future<List<LocalNewsSource>> listLocalNewsSources() async => const [
+    LocalNewsSource(
+      id: 'source-1',
+      name: 'Wicchu Local News',
+      type: 'rss',
+      siteUrl: 'https://wicchu.com',
+      trusted: true,
+      authorizedForAutoPublish: true,
+    ),
+  ];
+
+  @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
+      const LocalNewsSettings(subscriptionTier: 'pro', monthlyLimit: 60);
+
+  @override
+  Future<LocalNewsSettings> updateLocalNewsSettings(
+    String communityId, {
+    required bool enabled,
+    required List<String> sourceIds,
+    required List<String> categoryIds,
+    required String language,
+    required String approvalMode,
+  }) async => LocalNewsSettings(
+    enabled: enabled,
+    sourceIds: sourceIds,
+    categoryIds: categoryIds,
+    language: language,
+    approvalMode: approvalMode,
+    subscriptionTier: 'pro',
+    monthlyLimit: 60,
+  );
+
+  @override
+  Future<List<LocalNewsArticle>> listLocalNewsArticles(
+    String communityId,
+  ) async => const [];
+
+  @override
+  Future<LocalNewsRunResult> runLocalNewsNow(String communityId) async =>
+      const LocalNewsRunResult(processed: 1, pendingApproval: 1);
+
+  @override
   Future<PostTranslation> translateComment(
     String commentId, {
     String targetLanguage = 'auto',
