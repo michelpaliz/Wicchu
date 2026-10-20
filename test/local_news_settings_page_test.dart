@@ -72,10 +72,37 @@ class _DashboardRepository extends DemoCommunityRepository {
 }
 
 class _NoSourcesRepository extends _DashboardRepository {
-  _NoSourcesRepository() : super(_dashboard(status: 'paused', enabled: false));
+  _NoSourcesRepository()
+    : super(
+        _dashboard(
+          status: 'configuration_needed',
+          reason: 'missing_sources',
+          enabled: false,
+          noNext: true,
+        ),
+      );
 
   bool? savedEnabled;
   List<String>? savedCategoryIds;
+
+  @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
+      LocalNewsSettings(
+        enabled: savedEnabled ?? false,
+        categoryIds: savedCategoryIds ?? const [],
+        access: const LocalNewsAccess(
+          entitled: true,
+          source: 'pilot',
+          tier: 'pilot',
+          monthlyLimit: 60,
+        ),
+        dashboard: _dashboard(
+          status: 'configuration_needed',
+          reason: 'missing_sources',
+          enabled: savedEnabled ?? false,
+          noNext: true,
+        ),
+      );
 
   @override
   Future<List<LocalNewsSource>> listLocalNewsSources() async => const [];
@@ -341,46 +368,58 @@ void main() {
     },
   );
 
-  testWidgets(
-    'missing approved sources explains block and saves inactive settings',
-    (tester) async {
-      final repository = _NoSourcesRepository();
-      await _pump(tester, repository);
-      expect(find.text('Pilot access active'), findsOneWidget);
+  testWidgets('pilot can opt in while Wicchu prepares approved sources', (
+    tester,
+  ) async {
+    final repository = _NoSourcesRepository();
+    await _pump(tester, repository);
+    expect(find.text('Pilot access active'), findsOneWidget);
 
-      expect(find.text('Approved sources'), findsNothing);
-      expect(
-        find.text(
-          'News sources are unavailable for this community. Wicchu assigns verified sources automatically.',
-        ),
-        findsOneWidget,
-      );
+    expect(find.text('Approved sources'), findsNothing);
+    expect(
+      find.text(
+        'News sources are unavailable for this community. Wicchu assigns verified sources automatically.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
+      isNotNull,
+    );
 
-      await tester.scrollUntilVisible(
-        find.text('Enable automated news'),
-        -300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('Enable automated news'));
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-        isFalse,
-      );
-      expect(find.byType(SnackBar), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('Enable automated news'),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Enable automated news'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isFalse,
+    );
+    expect(find.byType(SnackBar), findsNothing);
 
-      await _expand(tester, 'News categories');
-      await tester.ensureVisible(find.text('General'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilterChip, 'General'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Save settings'));
-      await tester.pumpAndSettle();
+    await _expand(tester, 'News categories');
+    await tester.ensureVisible(find.text('General'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, 'General'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Enable automated news'),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Enable automated news'));
+    await tester.pumpAndSettle();
 
-      expect(repository.savedEnabled, isFalse);
-      expect(repository.savedCategoryIds, isNotEmpty);
-    },
-  );
+    expect(repository.savedEnabled, isTrue);
+    expect(repository.savedCategoryIds, isNotEmpty);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isTrue,
+    );
+  });
 
   testWidgets('older refresh cannot replace newer approved sources', (
     tester,
@@ -552,10 +591,10 @@ void main() {
     );
     await tester.tap(find.byTooltip('Refresh'));
     await tester.pumpAndSettle();
-    expect(find.text('Configuration needed'), findsOneWidget);
+    expect(find.text('Waiting for news sources'), findsOneWidget);
     expect(
       find.text(
-        'Wicchu must assign an approved news source before automated news can be enabled.',
+        'Wicchu is preparing verified news sources. Collection will start when a source is available.',
       ),
       findsOneWidget,
     );

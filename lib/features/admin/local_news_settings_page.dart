@@ -415,7 +415,9 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
           entitled: entitled,
           running: _running,
           hasUnsavedChanges: _dirty,
-          hasSources: data.sources.isNotEmpty,
+          hasSources: settings.isPilot
+              ? settings.sourceIds.isNotEmpty
+              : data.sources.isNotEmpty,
           sourcesError: data.sourcesError != null,
           isPilot: settings.isPilot,
           onEnabledChanged: _persist,
@@ -739,6 +741,10 @@ class _LocalNewsStatusSection extends StatelessWidget {
         : value.todayUsed - value.publishedToday;
     final statusTitle = value == null
         ? 'Scheduler unavailable'
+        : isPilot &&
+              value.status == 'configuration_needed' &&
+              value.reason == 'missing_sources'
+        ? 'Waiting for news sources'
         : _statusTitle(value.status);
     final statusDetail = value == null
         ? 'Scheduling information is temporarily unavailable. Refresh to try again.'
@@ -935,7 +941,7 @@ class _LocalNewsStatusSection extends StatelessWidget {
       'Select at least one active news category.',
     ('configuration_needed', _) =>
       isPilot
-          ? 'Wicchu must assign an approved news source before automated news can be enabled.'
+          ? 'Wicchu is preparing verified news sources. Collection will start when a source is available.'
           : 'Select at least one approved source.',
     ('paused', 'disabled') => 'Automated news is turned off.',
     ('paused', 'monthly_limit_reached') =>

@@ -2148,6 +2148,9 @@ const _spanish = <String, String>{
       'Selecciona al menos una fuente aprobada.',
   'Wicchu must assign an approved news source before automated news can be enabled.':
       'Wicchu debe asignar una fuente de noticias aprobada antes de activar las noticias automáticas.',
+  'Waiting for news sources': 'Esperando fuentes de noticias',
+  'Wicchu is preparing verified news sources. Collection will start when a source is available.':
+      'Wicchu está preparando fuentes de noticias verificadas. La recopilación comenzará cuando haya una fuente disponible.',
   'Wicchu must assign an approved news source before Local News can be enabled':
       'Wicchu debe asignar una fuente de noticias aprobada antes de activar las noticias automáticas.',
   'News sources are unavailable for this community. Wicchu assigns verified sources automatically.':
