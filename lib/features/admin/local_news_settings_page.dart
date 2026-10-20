@@ -80,14 +80,24 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
       final data = await _data;
       if (!mounted) return;
       if (data.sources.isEmpty) {
-        _showMessage(context.tr('Wicchu must approve a news source before automated news can be enabled.'));
+        _showMessage(
+          context.tr(
+            'No news sources are configured yet. Refresh sources to check again.',
+          ),
+        );
         return;
       }
-      if (_sourceIds.isEmpty || !_sourceIds.every((id) => data.sources.any((source) => source.id == id))) {
+      if (_sourceIds.isEmpty ||
+          !_sourceIds.every(
+            (id) => data.sources.any((source) => source.id == id),
+          )) {
         _showMessage(context.tr('Select an available approved news source.'));
         return;
       }
-      if (_categoryIds.isEmpty || !_categoryIds.every((id) => data.categories.any((category) => category.id == id))) {
+      if (_categoryIds.isEmpty ||
+          !_categoryIds.every(
+            (id) => data.categories.any((category) => category.id == id),
+          )) {
         _showMessage(context.tr('Select an available news category.'));
         return;
       }
@@ -202,6 +212,16 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
   Widget _settingsView(_LocalNewsData data) => ListView(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
     children: [
+      if (data.settings.isPilot) ...[
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Chip(
+            avatar: const Icon(WicchuIcons.checkCircle, size: 18),
+            label: Text(context.tr('Pilot access active')),
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
       if (data.settings.dashboard != null)
         _LocalNewsDashboardCard(
           dashboard: data.settings.dashboard!,
@@ -220,12 +240,23 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
         value: _enabled,
         onChanged: (value) {
           if (value && data.sources.isEmpty) {
-            _showMessage(context.tr('Wicchu must approve a news source before automated news can be enabled.'));
             return;
           }
           setState(() => _enabled = value);
         },
       ),
+      if (data.sources.isEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            context.tr(
+              'No news sources are configured yet. Refresh sources to check again.',
+            ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
       const Divider(),
       _title('News language'),
       SegmentedButton<String>(
@@ -272,7 +303,11 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(context.tr('Wicchu must approve a news source before automated news can be enabled.')),
+                Text(
+                  context.tr(
+                    'No news sources are configured yet. Refresh sources to check again.',
+                  ),
+                ),
                 const SizedBox(height: 8),
                 TextButton.icon(
                   onPressed: _reload,

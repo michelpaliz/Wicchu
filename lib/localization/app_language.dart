@@ -1933,6 +1933,9 @@ const _spanish = <String, String>{
   'Only sources trusted and authorized by Wicchu can publish automatically.':
       'Solo las fuentes de confianza autorizadas por Wicchu pueden publicar automáticamente.',
   'Approved sources': 'Fuentes aprobadas',
+  'Pilot access active': 'Acceso piloto activo',
+  'No news sources are configured yet. Refresh sources to check again.':
+      'Todavía no hay fuentes de noticias configuradas. Actualiza las fuentes para comprobarlo de nuevo.',
   'No approved news sources are available.':
       'No hay fuentes de noticias aprobadas disponibles.',
   'Wicchu must approve a news source before automated news can be enabled.':
@@ -1964,34 +1967,23 @@ const _spanish = <String, String>{
   'Collected': 'Recopilado',
   'Automated news is not available for this community.':
       'Las noticias automáticas no están disponibles para esta comunidad.',
-  'Refresh':
-      'Actualizar',
-  'Next review':
-      'Próxima revisión',
-  'Last review':
-      'Última revisión',
-  'Published today':
-      'Publicadas hoy',
-  '{used} of {limit}':
-      '{used} de {limit}',
-  'Manual approval':
-      'Aprobación manual',
+  'Refresh': 'Actualizar',
+  'Next review': 'Próxima revisión',
+  'Last review': 'Última revisión',
+  'Published today': 'Publicadas hoy',
+  '{used} of {limit}': '{used} de {limit}',
+  'Manual approval': 'Aprobación manual',
   "{count} waiting for approval already count toward today's limit.":
       '{count} en espera de aprobación ya cuentan para el límite de hoy.',
   'No news has been published today. Wicchu only publishes relevant articles from your sources, so a review does not always produce a post.':
       'Hoy no se ha publicado ninguna noticia. Wicchu solo publica artículos relevantes de tus fuentes, por lo que una revisión no siempre genera una publicación.',
   'Times in your timezone ({zone}). The daily limit resets at {time} (00:00 {quotaZone}).':
       'Horas en tu zona horaria ({zone}). El límite diario se reinicia a las {time} (00:00 {quotaZone}).',
-  'Review pending news ({count})':
-      'Revisar noticias pendientes ({count})',
-  'Collecting news':
-      'Buscando noticias',
-  'Configuration needed':
-      'Configuración necesaria',
-  'Paused':
-      'En pausa',
-  'Something needs attention':
-      'Algo necesita tu atención',
+  'Review pending news ({count})': 'Revisar noticias pendientes ({count})',
+  'Collecting news': 'Buscando noticias',
+  'Configuration needed': 'Configuración necesaria',
+  'Paused': 'En pausa',
+  'Something needs attention': 'Algo necesita tu atención',
   'Wicchu is checking your sources now.':
       'Wicchu está revisando tus fuentes ahora.',
   'News is waiting for your approval before it is published.':
@@ -2010,14 +2002,10 @@ const _spanish = <String, String>{
       'La última revisión falló. Wicchu lo intentará de nuevo.',
   'Wicchu will check your sources at the next review.':
       'Wicchu revisará tus fuentes en la próxima revisión.',
-  'Not run yet':
-      'Aún no se ha ejecutado',
-  'Awaiting approval':
-      'Esperando aprobación',
-  'Daily limit reached':
-      'Límite diario alcanzado',
-  'Next review not available':
-      'Próxima revisión no disponible',
+  'Not run yet': 'Aún no se ha ejecutado',
+  'Awaiting approval': 'Esperando aprobación',
+  'Daily limit reached': 'Límite diario alcanzado',
+  'Next review not available': 'Próxima revisión no disponible',
   'Recent activity': 'Actividad reciente',
   'Review completed': 'Revisión completada',
   'Review completed with problems': 'Revisión completada con problemas',
@@ -2028,72 +2016,51 @@ const _spanish = <String, String>{
   'No relevant news found': 'Sin noticias relevantes encontradas',
   'Next review scheduled': 'Próxima revisión programada',
   'Pending scheduling': 'Pendiente de programación',
-  'Your request was sent to Wicchu.':
-      'Tu solicitud se ha enviado a Wicchu.',
-  'Your request was cancelled.':
-      'Tu solicitud se ha cancelado.',
+  'Your request was sent to Wicchu.': 'Tu solicitud se ha enviado a Wicchu.',
+  'Your request was cancelled.': 'Tu solicitud se ha cancelado.',
   'No news articles are waiting for review.':
       'No hay noticias pendientes de revisión.',
   'Approve or reject them from the pending posts queue.':
       'Apruébalas o recházalas desde la cola de publicaciones pendientes.',
-  'Enabled':
-      'Activado',
-  'Disabled':
-      'Desactivado',
-  'Free pilot':
-      'Piloto gratuito',
-  '{tier} plan':
-      'Plan {tier}',
-  'This month':
-      'Este mes',
+  'Enabled': 'Activado',
+  'Disabled': 'Desactivado',
+  'Free pilot': 'Piloto gratuito',
+  '{tier} plan': 'Plan {tier}',
+  'This month': 'Este mes',
   'Never more than one automated news post in the same category each day.':
       'Nunca más de una noticia automática en la misma categoría al día.',
-  'Last collection':
-      'Última búsqueda',
-  'No collection has run yet.':
-      'Todavía no se ha realizado ninguna búsqueda.',
+  'Last collection': 'Última búsqueda',
+  'No collection has run yet.': 'Todavía no se ha realizado ninguna búsqueda.',
   '{processed} processed · {pending} waiting for review · {published} published':
       '{processed} procesadas · {pending} pendientes de revisión · {published} publicadas',
-  '{used} of {limit} posts':
-      '{used} de {limit} publicaciones',
+  '{used} of {limit} posts': '{used} de {limit} publicaciones',
   'Automatic Local News early access':
       'Acceso anticipado a Noticias automáticas',
   'Early access is opening community by community. Request it and Wicchu will review your community.':
       'El acceso anticipado se abre comunidad por comunidad. Solicítalo y Wicchu revisará tu comunidad.',
-  'Tell Wicchu about your community':
-      'Cuéntale a Wicchu sobre tu comunidad',
-  'Request early access':
-      'Solicitar acceso anticipado',
+  'Tell Wicchu about your community': 'Cuéntale a Wicchu sobre tu comunidad',
+  'Request early access': 'Solicitar acceso anticipado',
   'Only the community owner can request early access.':
       'Solo el propietario de la comunidad puede solicitar el acceso anticipado.',
   'Paid plans are activated by Wicchu after payment is verified. You are never charged automatically.':
       'Wicchu activa los planes de pago después de verificar el pago. Nunca se te cobrará automáticamente.',
   'Wicchu is reviewing your request. We will notify you when it is decided.':
       'Wicchu está revisando tu solicitud. Te avisaremos cuando haya una decisión.',
-  'Request approved':
-      'Solicitud aprobada',
+  'Request approved': 'Solicitud aprobada',
   'Wicchu will contact you to activate Automatic Local News.':
       'Wicchu se pondrá en contacto contigo para activar las Noticias automáticas.',
-  'Request not approved':
-      'Solicitud no aprobada',
+  'Request not approved': 'Solicitud no aprobada',
   'You can send a new request when your community is ready.':
       'Puedes enviar una nueva solicitud cuando tu comunidad esté lista.',
-  'Request cancelled':
-      'Solicitud cancelada',
+  'Request cancelled': 'Solicitud cancelada',
   'You can send a new request at any time.':
       'Puedes enviar una nueva solicitud en cualquier momento.',
-  'Note from Wicchu: {note}':
-      'Nota de Wicchu: {note}',
-  'Requested {date}':
-      'Solicitado el {date}',
-  'Completed with problems':
-      'Completada con incidencias',
-  "Today's limit was already reached":
-      'Ya se alcanzó el límite de hoy',
-  'Failed':
-      'Fallida',
-  'The monthly limit has been reached.':
-      'Se ha alcanzado el límite mensual.',
+  'Note from Wicchu: {note}': 'Nota de Wicchu: {note}',
+  'Requested {date}': 'Solicitado el {date}',
+  'Completed with problems': 'Completada con incidencias',
+  "Today's limit was already reached": 'Ya se alcanzó el límite de hoy',
+  'Failed': 'Fallida',
+  'The monthly limit has been reached.': 'Se ha alcanzado el límite mensual.',
   'The selected news sources could not be read.':
       'No se pudieron leer las fuentes de noticias seleccionadas.',
   'News processing is paused by Wicchu. It will resume automatically.':
