@@ -76,9 +76,21 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
   }
 
   Future<void> _save() async {
-    if (_enabled && (_sourceIds.isEmpty || _categoryIds.isEmpty)) {
-      _showMessage(context.tr('Select at least one news source and category.'));
-      return;
+    if (_enabled) {
+      final data = await _data;
+      if (!mounted) return;
+      if (data.sources.isEmpty) {
+        _showMessage(context.tr('Wicchu must approve a news source before automated news can be enabled.'));
+        return;
+      }
+      if (_sourceIds.isEmpty || !_sourceIds.every((id) => data.sources.any((source) => source.id == id))) {
+        _showMessage(context.tr('Select an available approved news source.'));
+        return;
+      }
+      if (_categoryIds.isEmpty || !_categoryIds.every((id) => data.categories.any((category) => category.id == id))) {
+        _showMessage(context.tr('Select an available news category.'));
+        return;
+      }
     }
     setState(() => _saving = true);
     try {
@@ -206,7 +218,13 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
           ),
         ),
         value: _enabled,
-        onChanged: (value) => setState(() => _enabled = value),
+        onChanged: (value) {
+          if (value && data.sources.isEmpty) {
+            _showMessage(context.tr('Wicchu must approve a news source before automated news can be enabled.'));
+            return;
+          }
+          setState(() => _enabled = value);
+        },
       ),
       const Divider(),
       _title('News language'),
@@ -248,7 +266,23 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
       const SizedBox(height: 12),
       _title('Approved sources'),
       if (data.sources.isEmpty)
-        Text(context.tr('No approved news sources are available.')),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.tr('Wicchu must approve a news source before automated news can be enabled.')),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: _reload,
+                  icon: const Icon(WicchuIcons.arrowsClockwise),
+                  label: Text(context.tr('Refresh approved sources')),
+                ),
+              ],
+            ),
+          ),
+        ),
       for (final source in data.sources)
         CheckboxListTile(
           contentPadding: EdgeInsets.zero,

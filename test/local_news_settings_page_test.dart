@@ -69,6 +69,37 @@ class _DashboardRepository extends DemoCommunityRepository {
   }
 }
 
+class _NoSourcesRepository extends _DashboardRepository {
+  _NoSourcesRepository() : super(_dashboard(status: 'paused', enabled: false));
+
+  bool? savedEnabled;
+  List<String>? savedCategoryIds;
+
+  @override
+  Future<List<LocalNewsSource>> listLocalNewsSources() async => const [];
+
+  @override
+  Future<LocalNewsSettings> updateLocalNewsSettings(
+    String communityId, {
+    required bool enabled,
+    required List<String> sourceIds,
+    required List<String> categoryIds,
+    required String language,
+    required String approvalMode,
+  }) async {
+    savedEnabled = enabled;
+    savedCategoryIds = categoryIds;
+    return super.updateLocalNewsSettings(
+      communityId,
+      enabled: enabled,
+      sourceIds: sourceIds,
+      categoryIds: categoryIds,
+      language: language,
+      approvalMode: approvalMode,
+    );
+  }
+}
+
 Community _community({CommunityRole role = CommunityRole.admin}) => Community(
   id: 'town-x-community',
   name: 'Denia',
@@ -111,6 +142,28 @@ String _localTime(DateTime value) => const DefaultMaterialLocalizations()
     .formatTimeOfDay(TimeOfDay.fromDateTime(value.toLocal()));
 
 void main() {
+  testWidgets('missing approved sources explains the block and still saves inactive settings', (tester) async {
+    final repository = _NoSourcesRepository();
+    await _pump(tester, repository);
+    await tester.scrollUntilVisible(find.text('Refresh approved sources'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Wicchu must approve a news source before automated news can be enabled.'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Enable automated news'), -300, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('Enable automated news'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value, false);
+    expect(find.byType(SnackBar), findsOneWidget);
+    ScaffoldMessenger.of(tester.element(find.byType(SwitchListTile))).removeCurrentSnackBar();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('General'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('General'));
+    await tester.scrollUntilVisible(find.text('Save settings'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Save settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save settings'));
+    await tester.pumpAndSettle();
+    expect(repository.savedEnabled, false);
+    expect(repository.savedCategoryIds, isNotEmpty);
+  });
   testWidgets('scheduled dashboard sits above settings with local times', (
     tester,
   ) async {

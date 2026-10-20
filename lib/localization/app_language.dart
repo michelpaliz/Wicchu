@@ -1935,6 +1935,13 @@ const _spanish = <String, String>{
   'Approved sources': 'Fuentes aprobadas',
   'No approved news sources are available.':
       'No hay fuentes de noticias aprobadas disponibles.',
+  'Wicchu must approve a news source before automated news can be enabled.':
+      'Wicchu debe aprobar una fuente de noticias antes de activar las noticias automáticas.',
+  'Refresh approved sources': 'Actualizar fuentes aprobadas',
+  'Select an available approved news source.':
+      'Selecciona una fuente de noticias aprobada y disponible.',
+  'Select an available news category.':
+      'Selecciona una categoría de noticias disponible.',
   'Trusted for automatic publishing':
       'Fuente de confianza para publicación automática',
   'Review required': 'Revisión obligatoria',
