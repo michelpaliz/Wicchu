@@ -388,7 +388,9 @@ class DemoCommunityRepository
     double radiusKm = 25,
     String? excludeTownId,
   }) async => List.unmodifiable(
-    _communities.where((community) => community.town.id != excludeTownId),
+    _communities.where(
+      (community) => !community.isGlobal && community.town.id != excludeTownId,
+    ),
   );
 
   @override
@@ -894,6 +896,7 @@ class DemoCommunityRepository
   }) async {
     final updated = Community(
       id: community.id,
+      scope: community.scope,
       name: name,
       shortDescription: shortDescription ?? community.shortDescription,
       description: description,
@@ -1083,31 +1086,35 @@ class DemoCommunityRepository
     ),
   ];
 
+  final Map<String, LocalNewsSettings> _localNewsSettings = {};
+
+  LocalNewsSettings _defaultLocalNewsSettings() => LocalNewsSettings(
+    monthlyLimit: 60,
+    access: const LocalNewsAccess(
+      entitled: true,
+      source: 'pilot',
+      tier: 'pilot',
+      monthlyLimit: 60,
+    ),
+    usage: const LocalNewsUsage(monthlyUsed: 3, monthlyLimit: 60),
+    dashboard: LocalNewsDashboard(
+      status: 'scheduled',
+      enabled: true,
+      nextCollectionAt: DateTime.now().toUtc().add(const Duration(minutes: 40)),
+      schedulerIntervalMinutes: 60,
+      quotaResetsAt: DateTime.utc(
+        DateTime.now().toUtc().year,
+        DateTime.now().toUtc().month,
+        DateTime.now().toUtc().day + 1,
+      ),
+      monthlyUsed: 3,
+      monthlyLimit: 60,
+    ),
+  );
+
   @override
   Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
-      LocalNewsSettings(
-        monthlyLimit: 60,
-        access: const LocalNewsAccess(
-          entitled: true,
-          source: 'pilot',
-          tier: 'pilot',
-          monthlyLimit: 60,
-        ),
-        usage: const LocalNewsUsage(monthlyUsed: 3, monthlyLimit: 60),
-        dashboard: LocalNewsDashboard(
-          status: 'scheduled',
-          enabled: true,
-          nextCollectionAt: DateTime.now().toUtc().add(const Duration(minutes: 40)),
-          schedulerIntervalMinutes: 60,
-          quotaResetsAt: DateTime.utc(
-            DateTime.now().toUtc().year,
-            DateTime.now().toUtc().month,
-            DateTime.now().toUtc().day + 1,
-          ),
-          monthlyUsed: 3,
-          monthlyLimit: 60,
-        ),
-      );
+      _localNewsSettings[communityId] ?? _defaultLocalNewsSettings();
 
   @override
   Future<LocalNewsSettings> updateLocalNewsSettings(
@@ -1117,20 +1124,20 @@ class DemoCommunityRepository
     required List<String> categoryIds,
     required String language,
     required String approvalMode,
-  }) async => LocalNewsSettings(
-    enabled: enabled,
-    sourceIds: sourceIds,
-    categoryIds: categoryIds,
-    language: language,
-    approvalMode: approvalMode,
-    monthlyLimit: 60,
-    access: const LocalNewsAccess(
-      entitled: true,
-      source: 'pilot',
-      tier: 'pilot',
-      monthlyLimit: 60,
-    ),
-  );
+  }) async {
+    final defaults = _defaultLocalNewsSettings();
+    return _localNewsSettings[communityId] = LocalNewsSettings(
+      enabled: enabled,
+      sourceIds: List.unmodifiable(sourceIds),
+      categoryIds: List.unmodifiable(categoryIds),
+      language: language,
+      approvalMode: approvalMode,
+      monthlyLimit: defaults.monthlyLimit,
+      access: defaults.access,
+      usage: defaults.usage,
+      dashboard: defaults.dashboard,
+    );
+  }
 
   @override
   Future<List<LocalNewsArticle>> listLocalNewsArticles(
@@ -1214,13 +1221,14 @@ class DemoCommunityRepository
   Future<void> setBusinessAcceptingOrders(
     String businessId, {
     required bool accepting,
+    List<BusinessFulfillmentOption>? fulfillmentOptions,
   }) async {
     final current = await getBusinessCatalog(businessId, manage: true);
     _businessCatalogs[businessId] = BusinessCatalog(
       businessId: current.businessId,
       businessName: current.businessName,
       acceptingOrders: accepting,
-      fulfillmentOptions: current.fulfillmentOptions,
+      fulfillmentOptions: fulfillmentOptions ?? current.fulfillmentOptions,
       whatsapp: current.whatsapp,
       categories: current.categories,
       products: current.products,
@@ -1783,6 +1791,7 @@ class DemoCommunityRepository
         destinationType: post.destinationType,
         shareCaption: post.shareCaption,
         isCommunityShare: post.isCommunityShare,
+        sourceCommunityId: post.sourceCommunityId,
         importantAnnouncement: post.importantAnnouncement,
         pinned: pinned,
         canPin: post.canPin,
@@ -2078,6 +2087,7 @@ class DemoCommunityRepository
       destinationType: post.destinationType,
       shareCaption: post.shareCaption,
       isCommunityShare: post.isCommunityShare,
+      sourceCommunityId: post.sourceCommunityId,
       importantAnnouncement: post.importantAnnouncement,
     );
   }

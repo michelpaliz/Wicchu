@@ -6,6 +6,10 @@ import 'package:wicchu/features/admin/admin_management_pages.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
 
 class _BanFlowRepository extends DemoCommunityRepository {
+  Community? current;
+  @override
+  Future<Community> getCommunity(String id) async =>
+      current ?? await super.getCommunity(id);
   MembershipStatus memberStatus = MembershipStatus.active;
   String? action;
   String? publicReason;
@@ -67,7 +71,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Unban'));
+    await tester.tap(find.byKey(const ValueKey('member-actions-member-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Unban member'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Unban').last);
     await tester.pumpAndSettle();
@@ -91,7 +97,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Test member'));
+    await tester.tap(find.byKey(const ValueKey('member-actions-member-1')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Ban member'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ban member'));
     await tester.pumpAndSettle();
@@ -143,6 +151,7 @@ void main() {
       banExpiresAt: DateTime.now().add(const Duration(days: 7)),
     );
 
+    repository.current = community;
     await tester.pumpWidget(
       MaterialApp(
         home: CommunityProfilePage(

@@ -4,6 +4,13 @@ import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
 
+class _LinksRepository extends DemoCommunityRepository {
+  Community? current;
+  @override
+  Future<Community> getCommunity(String id) async =>
+      current ?? await super.getCommunity(id);
+}
+
 void main() {
   for (final role in CommunityRole.values) {
     testWidgets('useful link management controls respect $role', (
@@ -11,7 +18,7 @@ void main() {
     ) async {
       await tester.binding.setSurfaceSize(const Size(320, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final repository = DemoCommunityRepository();
+      final repository = _LinksRepository();
       final original = (await repository.listJoinedCommunities()).first;
       final community = Community(
         id: original.id,
@@ -29,6 +36,7 @@ void main() {
           ),
         ],
       );
+      repository.current = community;
       await tester.pumpWidget(
         MaterialApp(
           builder: (context, child) => MediaQuery(

@@ -1,3 +1,5 @@
+import '../../theme/wicchu_theme.dart';
+import '../../widgets/translation_action.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
@@ -63,6 +65,7 @@ class _PostCommentsState extends State<PostComments> {
   final _expandedThreads = <String>{};
   final _translatedComments = <String, String>{};
   final _translatingComments = <String>{};
+  final _commentTranslationCache = <String, (String, PostTranslation)>{};
   late Future<List<Comment>> _comments;
   late int _count = widget.post.commentCount;
   bool _saving = false;
@@ -83,24 +86,41 @@ class _PostCommentsState extends State<PostComments> {
 
   Future<List<Comment>> _loadComments() async {
     final comments = await widget.repository.listComments(widget.post.id);
-    if (mounted) setState(() => _count = comments.length);
+    if (!mounted) return comments;
+    setState(() => _count = comments.length);
     widget.onCountChanged(_count);
     return comments;
   }
 
-  void _retry() => setState(() => _comments = _loadComments());
+  void _retry() => setState(() {
+    _comments = _loadComments();
+  });
 
   Future<void> _translateComment(Comment comment) async {
     if (_translatedComments.containsKey(comment.id)) {
       setState(() => _translatedComments.remove(comment.id));
       return;
     }
-    if (!_translatingComments.add(comment.id)) return;
+    if (_translatingComments.contains(comment.id)) return;
+    final cached = _commentTranslationCache[comment.id];
+    if (cached != null && cached.$1 == comment.text) {
+      setState(
+        () => _translatedComments[comment.id] = cached.$2.translatedText,
+      );
+      return;
+    }
+    _translatingComments.add(comment.id);
     setState(() {});
     try {
       final result = await widget.repository.translateComment(comment.id);
+      if (result.translatedText.trim().isEmpty) {
+        throw Exception('Translation is temporarily unavailable');
+      }
       if (mounted) {
-        setState(() => _translatedComments[comment.id] = result.translatedText);
+        setState(() {
+          _commentTranslationCache[comment.id] = (comment.text, result);
+          _translatedComments[comment.id] = result.translatedText;
+        });
       }
     } catch (error) {
       if (mounted) {
@@ -120,8 +140,17 @@ class _PostCommentsState extends State<PostComments> {
       mainAxisSize: widget.inline ? MainAxisSize.min : MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (widget.inline)
+          Divider(
+            key: const ValueKey('post-comments-divider'),
+            height: 25,
+            indent: 16,
+            endIndent: 16,
+            thickness: .5,
+            color: theme.colorScheme.onSurface.withValues(alpha: .12),
+          ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 2, 12, 12),
+          padding: EdgeInsets.fromLTRB(16, widget.inline ? 0 : 2, 12, 10),
           child: Row(
             children: [
               Expanded(
@@ -130,8 +159,8 @@ class _PostCommentsState extends State<PostComments> {
                     Text(
                       context.tr('Comments'),
                       style: theme.textTheme.titleLarge?.copyWith(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
+                        fontSize: widget.inline ? 17 : 20,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -233,6 +262,9 @@ class _PostCommentsState extends State<PostComments> {
                       _CommentItem(
                         comment: root,
                         translatedText: _translatedComments[root.id],
+                        translationLanguage: _commentTranslationCache[root.id]
+                            ?.$2
+                            .targetLanguage,
                         translating: _translatingComments.contains(root.id),
                         onTranslate: () => _translateComment(root),
                         canReply: widget.post.canInteract,
@@ -315,6 +347,10 @@ class _PostCommentsState extends State<PostComments> {
                                     comment: reply,
                                     translatedText:
                                         _translatedComments[reply.id],
+                                    translationLanguage:
+                                        _commentTranslationCache[reply.id]
+                                            ?.$2
+                                            .targetLanguage,
                                     translating: _translatingComments.contains(
                                       reply.id,
                                     ),
@@ -545,8 +581,8 @@ class _PostCommentsState extends State<PostComments> {
 
   Future<bool> _ensureRulesAccepted() async {
     final result = await widget.repository.listRules(widget.post.communityId);
-    if (!result.acceptanceRequired) return true;
     if (!mounted) return false;
+    if (!result.acceptanceRequired) return true;
     final accepted = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -580,7 +616,7 @@ class _PostCommentsState extends State<PostComments> {
         ],
       ),
     );
-    if (accepted != true) return false;
+    if (!mounted || accepted != true) return false;
     await widget.repository.acceptRules(
       widget.post.communityId,
       result.rulesVersion,
@@ -616,7 +652,7 @@ class _PostCommentsState extends State<PostComments> {
 
   Future<void> _submit() async {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
+    if (_saving || text.isEmpty) return;
     FocusScope.of(context).unfocus();
     setState(() => _saving = true);
     try {
@@ -640,11 +676,13 @@ class _PostCommentsState extends State<PostComments> {
         if (mounted) setState(() => _saving = false);
         return;
       }
+      if (!mounted) return;
       await widget.repository.createComment(
         widget.post.id,
         text,
         parentCommentId: _replyingTo?.id,
       );
+      if (!mounted) return;
       _controller.clear();
       _count++;
       widget.onCountChanged(_count);
@@ -674,6 +712,7 @@ class _CommentItem extends StatelessWidget {
     this.onReply,
     this.onReport,
     this.translatedText,
+    this.translationLanguage,
     this.translating = false,
     this.onTranslate,
   });
@@ -686,6 +725,7 @@ class _CommentItem extends StatelessWidget {
   final VoidCallback? onReply;
   final VoidCallback? onReport;
   final String? translatedText;
+  final String? translationLanguage;
   final bool translating;
   final VoidCallback? onTranslate;
 
@@ -778,36 +818,20 @@ class _CommentItem extends StatelessWidget {
                     height: 1.3,
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: translating ? null : onTranslate,
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                  ),
-                  icon: translating
-                      ? const SizedBox.square(
-                          dimension: 13,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(WicchuIcons.globe, size: 15),
-                  label: Text(
-                    context.tr(
-                      translatedText == null ? 'Translate' : 'View original',
-                    ),
-                  ),
-                ),
-                Row(
+                if (translatedText != null) ...[
+                  const SizedBox(height: 4),
+                  TranslationAttribution(languageCode: translationLanguage),
+                ],
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     TextButton.icon(
                       style: TextButton.styleFrom(
                         foregroundColor: comment.reactedByMe
                             ? const Color(0xFFE53945)
                             : theme.colorScheme.onSurfaceVariant,
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        visualDensity: VisualDensity.compact,
+                        textStyle: WicchuPostTypography.action(context),
+                        minimumSize: const Size(48, 48),
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
                       onPressed: savingReaction ? null : onReaction,
@@ -815,7 +839,7 @@ class _CommentItem extends StatelessWidget {
                         comment.reactedByMe
                             ? WicchuIcons.heartFill
                             : WicchuIcons.heart,
-                        size: 17,
+                        size: 16,
                       ),
                       label: Text(
                         comment.reactionCount == 0
@@ -827,15 +851,18 @@ class _CommentItem extends StatelessWidget {
                       TextButton(
                         style: TextButton.styleFrom(
                           foregroundColor: theme.colorScheme.onSurfaceVariant,
-                          textStyle: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          visualDensity: VisualDensity.compact,
+                          textStyle: WicchuPostTypography.action(context),
+                          minimumSize: const Size(48, 48),
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
                         onPressed: onReply,
                         child: Text(context.tr('Reply')),
+                      ),
+                    if (comment.text.trim().isNotEmpty)
+                      TranslationAction(
+                        translating: translating,
+                        translated: translatedText != null,
+                        onPressed: onTranslate,
                       ),
                   ],
                 ),

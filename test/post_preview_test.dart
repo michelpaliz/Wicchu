@@ -97,11 +97,65 @@ void main() {
     painter.dispose();
     await tester.tap(find.byKey(const ValueKey('expand-post')));
     await tester.pumpAndSettle();
-    expect(find.byType(SelectableText), findsWidgets);
+    expect(find.byType(SelectableText), findsNothing);
     await tester.tap(find.byType(TextButton));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('expand-post')), findsOneWidget);
   });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('expanded text lets the feed scroll on $platform', (
+      tester,
+    ) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      String? openedUser;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: platform),
+          home: Scaffold(
+            body: SizedBox(
+              width: 320,
+              child: ListView(
+                controller: controller,
+                children: [
+                  PostMarkdown(
+                    data:
+                        '[**@Ana**](wicchu://user/ana)\n\n'
+                        '${List.filled(80, 'Community news and updates.').join(' ')}',
+                    collapsible: true,
+                    onUserTap: (id) => openedUser = id,
+                  ),
+                  const SizedBox(height: 800),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('expand-post')));
+      await tester.pumpAndSettle();
+      expect(find.byType(SelectableText), findsNothing);
+
+      await tester.tapAt(const Offset(24, 12));
+      await tester.pumpAndSettle();
+      expect(openedUser, 'ana');
+
+      // A finger resting on the description must not start selecting text
+      // and take over the subsequent vertical drag from the feed.
+      final gesture = await tester.startGesture(const Offset(140, 280));
+      await tester.pump(const Duration(milliseconds: 700));
+      await gesture.moveBy(const Offset(0, -160));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(controller.offset, greaterThan(80));
+      expect(find.byKey(const ValueKey('expand-post')), findsNothing);
+
+      await tester.dragFrom(const Offset(140, 120), const Offset(0, 100));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('preview decodes escapes and preserves literal punctuation', (
     tester,

@@ -1,3 +1,5 @@
+import 'package:geolocator/geolocator.dart';
+import '../../widgets/app_update_scope.dart';
 import '../onboarding/preferences_page.dart';
 import '../../widgets/wicchu_list_tile.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
@@ -28,23 +30,69 @@ class AccountSettingsPage extends StatefulWidget {
   State<AccountSettingsPage> createState() => _AccountSettingsPageState();
 }
 
-class _AccountSettingsPageState extends State<AccountSettingsPage> {
+class _AccountSettingsPageState extends State<AccountSettingsPage>
+    with WidgetsBindingObserver {
+  String? _locationStatus;
   bool _postNotifications = true;
   bool _communityNotifications = true;
   bool _promotionNotifications = true;
   bool _locationDiscovery = true;
   bool _showOnlineStatus = true;
   bool _facebookLinked = false;
-  MessagingPrivacy _messagingPrivacy = MessagingPrivacy.everyone;
   bool _linkingFacebook = false;
   bool _deletingAccount = false;
   bool _accountDeleted = false;
   bool _loaded = false;
+  bool _checkingForUpdate = false;
+
+  Future<void> _checkForUpdates() async {
+    final scope = AppUpdateScope.maybeOf(context);
+    if (_checkingForUpdate || scope == null) return;
+    setState(() => _checkingForUpdate = true);
+    try {
+      await scope.checkForUpdates();
+    } finally {
+      if (mounted) setState(() => _checkingForUpdate = false);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshLocationStatus();
     _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshLocationStatus();
+  }
+
+  Future<void> _refreshLocationStatus() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      final status = !enabled
+          ? 'Device location is turned off'
+          : switch (permission) {
+              LocationPermission.always || LocationPermission.whileInUse =>
+                'Location access allowed on this device',
+              LocationPermission.deniedForever =>
+                'Location access blocked in device settings',
+              _ =>
+                'Location permission will be requested when you use nearby discovery',
+            };
+      if (mounted) setState(() => _locationStatus = status);
+    } catch (_) {
+      // Platforms without location support keep the on-demand explanation.
+    }
   }
 
   Future<void> _load() async {
@@ -56,13 +104,11 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         widget.authGateway is FacebookAccountLinker
             ? (widget.authGateway as FacebookAccountLinker).isFacebookLinked()
             : Future<bool?>.value(null),
-        widget.repository.getMessagingPrivacy(),
       ]);
       final preferences = results[0] as SharedPreferences;
       final notifications = results[1] as NotificationPreferences;
       final socialLinks = results[2] as SocialLinks;
       final facebookLinked = results[3] as bool?;
-      final messagingPrivacy = results[4] as MessagingPrivacy;
       if (!mounted) return;
       setState(() {
         _postNotifications = notifications.postActivity;
@@ -71,7 +117,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         _locationDiscovery = preferences.getBool('location_discovery') ?? true;
         _showOnlineStatus = socialLinks.showOnlineStatus;
         _facebookLinked = facebookLinked ?? false;
-        _messagingPrivacy = messagingPrivacy;
         _loaded = true;
       });
     } catch (error) {
@@ -120,6 +165,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         : ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              _sectionHeader('Preferences'),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(WicchuIcons.globe),
@@ -131,12 +177,9 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ),
               ),
               _settingsCard([
-                _sectionHeader(
-                  WicchuIcons.bell,
-                  'Notifications',
-                  'Choose which activity you receive.',
-                ),
+                _sectionHeader('Notifications'),
                 SwitchListTile(
+                  visualDensity: VisualDensity.compact,
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(WicchuIcons.article),
                   title: Text(context.tr('Post activity')),
@@ -150,6 +193,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   },
                 ),
                 SwitchListTile(
+                  visualDensity: VisualDensity.compact,
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(WicchuIcons.usersThree),
                   title: Text(context.tr('Community activity')),
@@ -163,6 +207,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   },
                 ),
                 SwitchListTile(
+                  visualDensity: VisualDensity.compact,
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(WicchuIcons.megaphone),
                   title: Text(context.tr('Promotions')),
@@ -173,35 +218,19 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                     _set('promotions', value);
                   },
                 ),
-                const Divider(height: 20),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(WicchuIcons.at),
-                  title: Text(context.tr('Social and contact links')),
-                  subtitle: Text(
-                    context.tr('WhatsApp, Facebook, Instagram and email'),
-                  ),
-                  trailing: const Icon(WicchuIcons.caretRight),
-                  onTap: () async {
-                    await editProfileLinks(context, widget.repository);
-                    if (mounted) await _load();
-                  },
-                ),
               ]),
-              const SizedBox(height: 16),
               _settingsCard([
-                _sectionHeader(
-                  WicchuIcons.shield,
-                  'Privacy',
-                  'Control your information and visibility.',
-                ),
+                _sectionHeader('Privacy'),
                 SwitchListTile(
+                  visualDensity: VisualDensity.compact,
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(WicchuIcons.mapPin),
                   title: Text(context.tr('Nearby discovery')),
                   subtitle: Text(
                     context.tr(
-                      'Allow location use when you request nearby communities',
+                      _locationDiscovery && _locationStatus != null
+                          ? _locationStatus!
+                          : 'Allow location use when you request nearby communities',
                     ),
                   ),
                   value: _locationDiscovery,
@@ -211,6 +240,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   },
                 ),
                 SwitchListTile(
+                  visualDensity: VisualDensity.compact,
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(WicchuIcons.eye),
                   title: Text(context.tr('Activity status')),
@@ -221,35 +251,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   ),
                   value: _showOnlineStatus,
                   onChanged: _setOnlineVisibility,
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(WicchuIcons.chatCircle),
-                  trailing: const Icon(WicchuIcons.caretRight),
-                  title: Text(context.tr('Messages')),
-                  subtitle: Text(context.tr('Private conversations')),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          ConversationListPage(repository: widget.repository),
-                    ),
-                  ),
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(WicchuIcons.chatCircleDots),
-                  title: Text(context.tr('Who can message me')),
-                  subtitle: Text(
-                    context.tr(switch (_messagingPrivacy) {
-                      MessagingPrivacy.everyone => 'Everyone',
-                      MessagingPrivacy.sharedCommunities =>
-                        'People in my communities',
-                      MessagingPrivacy.nobody => 'Nobody',
-                    }),
-                  ),
-                  trailing: const Icon(WicchuIcons.caretRight),
-                  onTap: _chooseMessagingPrivacy,
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -264,7 +265,41 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                     ),
                   ),
                 ),
-                const Divider(height: 20),
+              ]),
+              _settingsCard([
+                _sectionHeader('Communication'),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(WicchuIcons.chatCircle),
+                  trailing: const Icon(WicchuIcons.caretRight),
+                  title: Text(context.tr('Messages')),
+                  subtitle: Text(
+                    context.tr('Private conversations and permissions'),
+                  ),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          _MessageSettingsPage(repository: widget.repository),
+                    ),
+                  ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(WicchuIcons.at),
+                  title: Text(context.tr('Social and contact links')),
+                  subtitle: Text(
+                    context.tr('WhatsApp, Facebook, Instagram and email'),
+                  ),
+                  trailing: const Icon(WicchuIcons.caretRight),
+                  onTap: () async {
+                    await editProfileLinks(context, widget.repository);
+                    if (mounted) await _load();
+                  },
+                ),
+              ]),
+              _settingsCard([
+                _sectionHeader('Account security'),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(WicchuIcons.lockKey),
@@ -355,6 +390,26 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               ]),
               const SizedBox(height: 16),
               _settingsCard([
+                if (AppUpdateScope.maybeOf(context) != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: _headerIcon(WicchuIcons.downloadSimple),
+                    title: Text(
+                      context.tr(
+                        _checkingForUpdate
+                            ? 'Checking for updates…'
+                            : 'Check for updates',
+                      ),
+                    ),
+                    trailing: _checkingForUpdate
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(WicchuIcons.caretRight),
+                    onTap: _checkingForUpdate ? null : _checkForUpdates,
+                  ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: _headerIcon(WicchuIcons.info),
@@ -430,58 +485,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     ),
   );
 
-  Future<void> _chooseMessagingPrivacy() async {
-    final selected = await showDialog<MessagingPrivacy>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: Text(dialogContext.tr('Who can message me')),
-        children: MessagingPrivacy.values
-            .map(
-              (value) => SimpleDialogOption(
-                onPressed: () => Navigator.pop(dialogContext, value),
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    value == _messagingPrivacy
-                        ? WicchuIcons.radioButton
-                        : WicchuIcons.circle,
-                  ),
-                  title: Text(
-                    dialogContext.tr(switch (value) {
-                      MessagingPrivacy.everyone => 'Everyone',
-                      MessagingPrivacy.sharedCommunities =>
-                        'People in my communities',
-                      MessagingPrivacy.nobody => 'Nobody',
-                    }),
-                  ),
-                  subtitle: value == MessagingPrivacy.sharedCommunities
-                      ? Text(
-                          dialogContext.tr(
-                            'Only people who share a community with you can start a new conversation.',
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-    if (selected == null || selected == _messagingPrivacy) return;
-    final previous = _messagingPrivacy;
-    setState(() => _messagingPrivacy = selected);
-    try {
-      final saved = await widget.repository.updateMessagingPrivacy(selected);
-      if (mounted) setState(() => _messagingPrivacy = saved);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _messagingPrivacy = previous);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
-    }
-  }
-
   Widget _headerIcon(IconData icon) => CircleAvatar(
     radius: 22,
     backgroundColor: Theme.of(
@@ -490,43 +493,26 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     child: Icon(icon, color: Theme.of(context).colorScheme.primary),
   );
 
-  Widget _sectionHeader(IconData icon, String title, String subtitle) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Row(
-          children: [
-            _headerIcon(icon),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.tr(title),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    context.tr(subtitle),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontSize: 13,
-                      height: 1.35,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+  Widget _sectionHeader(String title) => Padding(
+    padding: const EdgeInsets.only(top: 16, bottom: 8),
+    child: Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Text(
+        context.tr(title).toUpperCase(),
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _settingsCard(List<Widget> children) => WicchuListTile.custom(
     variant: WicchuListVariant.settings,
-    child: Column(children: children),
+    child: ListTileTheme.merge(
+      visualDensity: VisualDensity.compact,
+      child: Column(children: children),
+    ),
   );
 
   Future<void> _setLocationDiscovery(bool value) async {
@@ -769,8 +755,9 @@ class BlockedUsersPage extends StatefulWidget {
 class _BlockedUsersPageState extends State<BlockedUsersPage> {
   late Future<List<BlockedUser>> _users = widget.repository.listBlockedUsers();
 
-  void _reload() =>
-      setState(() => _users = widget.repository.listBlockedUsers());
+  void _reload() => setState(() {
+    _users = widget.repository.listBlockedUsers();
+  });
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1165,4 +1152,137 @@ class _HelpPageState extends State<HelpPage> {
       ),
     );
   }
+}
+
+class _MessageSettingsPage extends StatefulWidget {
+  const _MessageSettingsPage({required this.repository});
+  final CommunityRepository repository;
+  @override
+  State<_MessageSettingsPage> createState() => _MessageSettingsPageState();
+}
+
+class _MessageSettingsPageState extends State<_MessageSettingsPage> {
+  MessagingPrivacy _messagingPrivacy = MessagingPrivacy.everyone;
+  bool _loading = true;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final privacy = await widget.repository.getMessagingPrivacy();
+      if (mounted) setState(() => _messagingPrivacy = privacy);
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _chooseMessagingPrivacy() async {
+    final selected = await showDialog<MessagingPrivacy>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(dialogContext.tr('Who can message me')),
+        children: MessagingPrivacy.values
+            .map(
+              (value) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(dialogContext, value),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    value == _messagingPrivacy
+                        ? WicchuIcons.radioButton
+                        : WicchuIcons.circle,
+                  ),
+                  title: Text(
+                    dialogContext.tr(switch (value) {
+                      MessagingPrivacy.everyone => 'Everyone',
+                      MessagingPrivacy.sharedCommunities =>
+                        'People in my communities',
+                      MessagingPrivacy.nobody => 'Nobody',
+                    }),
+                  ),
+                  subtitle: value == MessagingPrivacy.sharedCommunities
+                      ? Text(
+                          dialogContext.tr(
+                            'Only people who share a community with you can start a new conversation.',
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (selected == null || selected == _messagingPrivacy) return;
+    final previous = _messagingPrivacy;
+    setState(() => _messagingPrivacy = selected);
+    try {
+      final saved = await widget.repository.updateMessagingPrivacy(selected);
+      if (mounted) setState(() => _messagingPrivacy = saved);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _messagingPrivacy = previous);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(context.tr('Messages'))),
+    body: _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+        ? Center(
+            child: TextButton(
+              onPressed: _load,
+              child: Text(context.tr('Retry')),
+            ),
+          )
+        : ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(WicchuIcons.chatCircle),
+                title: Text(context.tr('Private conversations')),
+                trailing: const Icon(WicchuIcons.caretRight),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ConversationListPage(repository: widget.repository),
+                  ),
+                ),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(WicchuIcons.chatCircleDots),
+                title: Text(context.tr('Who can message me')),
+                subtitle: Text(
+                  context.tr(switch (_messagingPrivacy) {
+                    MessagingPrivacy.everyone => 'Everyone',
+                    MessagingPrivacy.sharedCommunities =>
+                      'People in my communities',
+                    MessagingPrivacy.nobody => 'Nobody',
+                  }),
+                ),
+                trailing: const Icon(WicchuIcons.caretRight),
+                onTap: _chooseMessagingPrivacy,
+              ),
+            ],
+          ),
+  );
 }

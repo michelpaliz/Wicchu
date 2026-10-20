@@ -784,6 +784,12 @@ class _MyCommunityInvitationsPageState
       .listMyCommunityInvitations();
   final Set<String> _respondingInvitationIds = {};
 
+  void _reload() {
+    setState(() {
+      _items = widget.repository.listMyCommunityInvitations();
+    });
+  }
+
   String _responseMessage(CommunityInvitation invitation, bool accept) {
     if (!accept) return 'Invitation declined.';
     if (invitation.isOwnershipTransfer) return 'Ownership transfer accepted.';
@@ -835,6 +841,13 @@ class _MyCommunityInvitationsPageState
         context.tr('Invitations'),
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
+      actions: [
+        IconButton(
+          tooltip: context.tr('Refresh'),
+          onPressed: _reload,
+          icon: const Icon(WicchuIcons.arrowsClockwise),
+        ),
+      ],
     ),
     body: FutureBuilder<List<CommunityInvitation>>(
       future: _items,
@@ -843,7 +856,26 @@ class _MyCommunityInvitationsPageState
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text(context.trError(snapshot.error!)));
+          return Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    context.trError(snapshot.error!),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _reload,
+                    icon: const Icon(WicchuIcons.arrowsClockwise),
+                    label: Text(context.tr('Retry')),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
         final items = snapshot.data ?? const [];
         if (items.isEmpty) {
@@ -858,51 +890,61 @@ class _MyCommunityInvitationsPageState
             final ownershipTransfer = item.isOwnershipTransfer;
             final adminInvitation = item.isAdminInvitation;
             final responding = _respondingInvitationIds.contains(item.id);
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                child: Icon(
-                  ownershipTransfer
-                      ? WicchuIcons.arrowsLeftRight
-                      : adminInvitation
-                      ? WicchuIcons.shieldPlus
-                      : WicchuIcons.usersThree,
-                ),
-              ),
-              title: Text(item.communityName ?? context.tr('Community')),
-              subtitle: Text(
-                context.tr(
-                  ownershipTransfer
-                      ? (item.isPublicProfile
-                            ? 'The page owner invited you to take ownership of this page.'
-                            : 'The community owner invited you to take ownership of this community.')
-                      : adminInvitation
-                      ? (item.isPublicProfile
-                            ? 'The page owner invited you to become a page administrator.'
-                            : 'The community owner invited you to become a community administrator.')
-                      : item.isPublicProfile
-                      ? 'You were invited to follow this page.'
-                      : 'You were invited to join this community.',
-                ),
-              ),
-              trailing: responding
-                  ? const SizedBox.square(
-                      dimension: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Wrap(
-                      spacing: 4,
-                      children: [
-                        TextButton(
-                          onPressed: () => _respond(item, false),
-                          child: Text(context.tr('Decline')),
-                        ),
-                        FilledButton(
-                          onPressed: () => _respond(item, true),
-                          child: Text(context.tr('Accept')),
-                        ),
-                      ],
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    child: Icon(
+                      ownershipTransfer
+                          ? WicchuIcons.arrowsLeftRight
+                          : adminInvitation
+                          ? WicchuIcons.shieldPlus
+                          : WicchuIcons.usersThree,
                     ),
+                  ),
+                  title: Text(item.communityName ?? context.tr('Community')),
+                  subtitle: Text(
+                    context.tr(
+                      ownershipTransfer
+                          ? (item.isPublicProfile
+                                ? 'The page owner invited you to take ownership of this page.'
+                                : 'The community owner invited you to take ownership of this community.')
+                          : adminInvitation
+                          ? (item.isPublicProfile
+                                ? 'The page owner invited you to become a page administrator.'
+                                : 'The community owner invited you to become a community administrator.')
+                          : item.isPublicProfile
+                          ? 'You were invited to follow this page.'
+                          : 'You were invited to join this community.',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: responding
+                      ? const SizedBox.square(
+                          dimension: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Wrap(
+                          spacing: 4,
+                          children: [
+                            TextButton(
+                              onPressed: () => _respond(item, false),
+                              child: Text(context.tr('Decline')),
+                            ),
+                            FilledButton(
+                              onPressed: () => _respond(item, true),
+                              child: Text(context.tr('Accept')),
+                            ),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 8),
+              ],
             );
           },
         );

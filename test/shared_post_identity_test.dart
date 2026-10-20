@@ -7,17 +7,35 @@ import 'package:wicchu/features/community/community_profile_page.dart';
 
 class SourceRepository extends DemoCommunityRepository {
   final requests = <String>[];
+  final memberRequests = <String>[];
+
   @override
   Future<Community> getCommunity(String id) async {
     requests.add(id);
     return Community(
       id: id,
-      name: 'Mantenimiento Michel S.L',
+      name: id == 'wicchu-organization' ? 'Wicchu' : 'Mantenimiento Michel S.L',
       description: '',
       town: const Town(id: 'town', name: 'Town', countryCode: 'EC'),
       visibility: CommunityVisibility.public,
       createdBy: 'michel',
       createdAt: DateTime(2026),
+      type: CommunityType.publicProfile,
+      profileCategory: id == 'wicchu-organization'
+          ? ProfileCategory.organization
+          : ProfileCategory.localBusiness,
+    );
+  }
+
+  @override
+  Future<PublicMemberProfile> getMemberProfile(String userId) async {
+    memberRequests.add(userId);
+    return PublicMemberProfile(
+      id: userId,
+      name: userId == 'wicchu-user' ? 'Wicchu account' : 'Michel',
+      userName: userId == 'wicchu-user' ? 'wicchu' : 'michel',
+      postCount: 1,
+      communityCount: 1,
     );
   }
 }
@@ -43,6 +61,7 @@ void main() {
                 status: PostStatus.published,
                 createdAt: DateTime(2026),
                 sourceCommunityId: 'source-business',
+                isCommunityShare: true,
                 isAnonymous: anonymous,
               ),
               category: 'Negocios locales',
@@ -61,13 +80,18 @@ void main() {
       await tester.pumpAndSettle();
       if (anonymous) {
         expect(repository.requests, isEmpty);
+        expect(repository.memberRequests, isEmpty);
         expect(find.text('Anonymous Member'), findsOneWidget);
         expect(find.text('Michel'), findsNothing);
         expect(find.text('Mantenimiento Michel S.L'), findsNothing);
       } else {
         expect(repository.requests, ['source-business']);
+        expect(repository.memberRequests, ['michel']);
         expect(find.text('Mantenimiento Michel S.L'), findsOneWidget);
-        await tester.tap(find.text('Michel'));
+        expect(find.text('Local business · 6 days'), findsOneWidget);
+        expect(find.text(' · Negocios locales'), findsOneWidget);
+        expect(find.text('Shared by @michel'), findsOneWidget);
+        await tester.tap(find.text('Shared by @michel'));
         expect(authorTaps, 1);
         await tester.tap(find.text('Mantenimiento Michel S.L'));
         await tester.pump();
@@ -83,4 +107,56 @@ void main() {
       }
     });
   }
+
+  testWidgets('organization posts use the page as primary identity', (
+    tester,
+  ) async {
+    final repository = SourceRepository();
+    var authorTaps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PostCard(
+            repository: repository,
+            post: CommunityPost(
+              id: 'organization-post',
+              communityId: 'wicchu-organization',
+              categoryId: 'updates',
+              authorId: 'wicchu-user',
+              authorName: 'Wicchu account',
+              text: 'Wicchu keeps improving',
+              status: PostStatus.published,
+              createdAt: DateTime(2026),
+            ),
+            category: 'General',
+            icon: '',
+            community: 'Wicchu',
+            author: 'Wicchu account',
+            time: '9 h',
+            text: 'Wicchu keeps improving',
+            showActions: false,
+            onAuthorTap: () => authorTaps++,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wicchu'), findsOneWidget);
+    expect(find.text('Organization · 9 h'), findsOneWidget);
+    expect(find.text('Published by @wicchu'), findsOneWidget);
+    await tester.tap(find.text('Published by @wicchu'));
+    expect(authorTaps, 1);
+
+    await tester.tap(find.text('Wicchu'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      tester
+          .widget<CommunityProfilePage>(find.byType(CommunityProfilePage))
+          .community
+          .id,
+      'wicchu-organization',
+    );
+  });
 }

@@ -39,8 +39,8 @@ void main() {
     );
     expect(find.text('2 members'), findsOneWidget);
     expect(find.text('2 followers'), findsOneWidget);
-    expect(find.byTooltip('Following'), findsOneWidget);
-    expect(find.byTooltip('Owner'), findsOneWidget);
+    expect(find.byTooltip('Follower'), findsOneWidget);
+    expect(find.byTooltip('Community owner'), findsOneWidget);
     await tester.tap(find.text('Public profiles'));
     await tester.pumpAndSettle();
     expect(find.text('Neighbors'), findsNothing);

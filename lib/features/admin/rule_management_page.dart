@@ -1,3 +1,4 @@
+import '../../widgets/community_rules_list.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
@@ -161,13 +162,7 @@ class _RuleManagementPageState extends State<RuleManagementPage> {
               style: Theme.of(sheetContext).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
-            for (final (index, rule) in rules.indexed)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(child: Text('${index + 1}')),
-                title: Text(rule.title),
-                subtitle: Text(rule.description),
-              ),
+            CommunityRulesList(rules: rules),
           ],
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wicchu/theme/wicchu_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/community_models.dart';
@@ -34,6 +35,74 @@ Future<Community> update(
 );
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'compact settings at enlarged text (${dark ? "dark" : "light"})',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 740);
+        tester.view.devicePixelRatio = 1;
+        tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final repository = DemoCommunityRepository();
+        final community = (await repository.listJoinedCommunities()).first;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: dark ? WicchuTheme.dark : WicchuTheme.light,
+            home: CommunitySettingsPage(
+              community: community,
+              repository: repository,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final save = find.byKey(const ValueKey('community-settings-save'));
+        expect(tester.widget<TextButton>(save).onPressed, isNull);
+        expect(find.byType(Card), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('edit-community-cover')));
+        await tester.pumpAndSettle();
+        expect(find.text('Change cover photo'), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        final description = find.widgetWithText(TextFormField, 'About');
+        await tester.scrollUntilVisible(
+          description,
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.enterText(
+          description,
+          'A long community description. ' * 25,
+        );
+        await tester.pumpAndSettle();
+        final field = tester.widget<TextField>(
+          find.descendant(of: description, matching: find.byType(TextField)),
+        );
+        expect(field.maxLines, 5);
+        final fullEditor = find.text('Edit full description');
+        await tester.ensureVisible(fullEditor);
+        await tester.tap(fullEditor);
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('community-full-description')),
+          'Edited in full screen',
+        );
+        await tester.tap(find.text('Done'));
+        await tester.pumpAndSettle();
+        expect(find.text('Edited in full screen'), findsOneWidget);
+
+        expect(tester.widget<TextButton>(save).onPressed, isNotNull);
+        expect(save.hitTestable(), findsOneWidget);
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('appearance-color')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(Card), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   test(
     'contour meets the cover boundary and follows both existing cutouts',
     () {
@@ -136,15 +205,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('appearance-border')), findsNothing);
       expect(find.text('Decorative border'), findsNothing);
-      final save = find.text('Save changes');
+      final save = find.byKey(const ValueKey('community-settings-save'));
+      expect(tester.widget<TextButton>(save).onPressed, isNull);
+      final description = find.widgetWithText(TextFormField, 'About');
       await tester.scrollUntilVisible(
-        save,
-        250,
+        description,
+        -180,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.enterText(description, 'Updated description');
       await tester.pumpAndSettle();
-      await tester.ensureVisible(save);
-      await tester.pumpAndSettle();
+      expect(tester.widget<TextButton>(save).onPressed, isNotNull);
       await tester.tap(save);
       await tester.pumpAndSettle();
       final saved = await repository.getCommunity(community.id);

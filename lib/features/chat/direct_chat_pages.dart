@@ -545,7 +545,9 @@ class _ConversationListPageState extends State<ConversationListPage> {
       body: RefreshIndicator(
         onRefresh: () async {
           final next = _load();
-          setState(() => _conversations = next);
+          setState(() {
+            _conversations = next;
+          });
           await next;
         },
         child: FutureBuilder<List<DirectConversation>>(
@@ -562,7 +564,9 @@ class _ConversationListPageState extends State<ConversationListPage> {
                   Text(context.trError(snapshot.error!)),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: () => setState(() => _conversations = _load()),
+                    onPressed: () => setState(() {
+                      _conversations = _load();
+                    }),
                     child: Text(context.tr('Try again')),
                   ),
                 ],

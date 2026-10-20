@@ -53,7 +53,7 @@ class _PostDetailPageState extends State<PostDetailPage>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Post'))),
+    appBar: AppBar(title: Text(context.tr('Publication'))),
     body: FutureBuilder<CommunityPost>(
       future: _post,
       initialData: widget.initialPost,

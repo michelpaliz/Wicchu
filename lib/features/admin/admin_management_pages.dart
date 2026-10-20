@@ -1,3 +1,4 @@
+import '../../widgets/wicchu_list_tile.dart';
 import '../../widgets/category_symbol.dart';
 import 'dart:convert';
 import 'package:wicchu/theme/wicchu_icons.dart';
@@ -47,10 +48,21 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(context.tr('Categories'))),
-    floatingActionButton: FloatingActionButton.extended(
-      onPressed: () => _edit(),
-      icon: const Icon(WicchuIcons.plus),
-      label: Text(context.tr('Add category')),
+    bottomNavigationBar: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Align(
+          heightFactor: 1,
+          alignment: Alignment.centerRight,
+          child: FilledButton.icon(
+            key: const ValueKey('add-managed-category'),
+            onPressed: _reordering ? null : () => _edit(),
+            icon: const Icon(WicchuIcons.plus, size: 20),
+            label: Text(context.tr('Add category')),
+          ),
+        ),
+      ),
     ),
     body: FutureBuilder<List<CommunityCategory>>(
       future: _categories,
@@ -81,11 +93,9 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                   const SizedBox(height: 4),
                   Text(
                     context.tr(
-                      widget.community.isPublicProfile
-                          ? 'Organize posts on your page. Drag categories to reorder them or tap one to edit it.'
-                          : 'Organize conversations in your community. Drag categories to reorder them or tap one to edit it.',
+                      'Drag the handle to reorder. Tap a category to edit.',
                     ),
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -98,7 +108,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
             ),
             Expanded(
               child: ReorderableListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 buildDefaultDragHandles: false,
                 itemCount: items.length,
                 onReorderItem: (oldIndex, newIndex) =>
@@ -107,67 +117,81 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                   final category = items[index];
                   return Material(
                     key: ValueKey('managed-category-${category.id}'),
-                    color: theme.colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    clipBehavior: Clip.antiAlias,
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 4,
-                      ),
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        child: CategorySymbol(category.icon),
-                      ),
-                      title: Text(
-                        context.tr(category.name),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: category.description.isEmpty
-                          ? null
-                          : Text(
-                              category.description,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                    color: Colors.transparent,
+                    child: Column(
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          minTileHeight: 64,
+                          minLeadingWidth: 22,
+                          leading: CategorySymbol(
+                            category.icon,
+                            size: 22,
+                            color: theme.colorScheme.primary,
+                          ),
+                          title: Text(
+                            context.tr(category.name),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
                             ),
-                      onTap: () => _edit(category),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          PopupMenuButton<String>(
-                            tooltip: context.tr('Category options'),
-                            onSelected: (value) => value == 'edit'
-                                ? _edit(category)
-                                : _delete(category),
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Text(context.tr('Edit category')),
+                          ),
+                          onTap: _reordering ? null : () => _edit(category),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PopupMenuButton<String>(
+                                enabled: !_reordering,
+                                icon: const Icon(
+                                  WicchuIcons.dotsThreeVertical,
+                                  size: 20,
+                                ),
+                                tooltip: context.tr('Category options'),
+                                onSelected: (value) => value == 'edit'
+                                    ? _edit(category)
+                                    : _delete(category),
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Text(context.tr('Edit category')),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text(
+                                      context.tr('Delete'),
+                                      style: TextStyle(
+                                        color: theme.colorScheme.error,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Text(
-                                  context.tr('Delete'),
-                                  style: TextStyle(
-                                    color: theme.colorScheme.error,
+                              ReorderableDragStartListener(
+                                index: index,
+                                enabled:
+                                    !_reordering &&
+                                    widget.repository
+                                        is CategoryReorderRepository,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Icon(
+                                    WicchuIcons.dotsSixVertical,
+                                    size: 20,
+                                    semanticLabel: context.tr(
+                                      'Reorder category',
+                                    ),
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          ReorderableDragStartListener(
-                            index: index,
-                            enabled: !_reordering,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Icon(
-                                WicchuIcons.dotsThreeVertical,
-                                semanticLabel: context.tr('Reorder category'),
-                              ),
-                            ),
+                        ),
+                        if (index < items.length - 1)
+                          Divider(
+                            height: 1,
+                            indent: 38,
+                            color: theme.dividerColor,
                           ),
-                        ],
-                      ),
+                      ],
                     ),
                   );
                 },
@@ -198,10 +222,16 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
             widget.community.id,
             reordered.map((item) => item.id).toList(growable: false),
           );
-      if (mounted) setState(() => _categories = Future.value(saved));
+      if (mounted) {
+        setState(() {
+          _categories = Future.value(saved);
+        });
+      }
     } catch (error) {
       if (mounted) {
-        setState(() => _categories = Future.value(current));
+        setState(() {
+          _categories = Future.value(current);
+        });
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.trError(error))));
@@ -212,6 +242,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
   }
 
   Future<void> _edit([CommunityCategory? category]) async {
+    if (_reordering) return;
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -227,6 +258,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
   }
 
   Future<void> _delete(CommunityCategory category) async {
+    if (_reordering) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -255,9 +287,15 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
       if (mounted) _reload();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is FormatException
+                  ? context.tr(error.message)
+                  : context.trError(error),
+            ),
+          ),
+        );
       }
     }
   }
@@ -893,7 +931,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
           Flexible(
             child: Text(
               context.tr(label),
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
@@ -934,6 +972,8 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -1143,7 +1183,13 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(
+                  member.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
                 Text(
                   context.tr(
                     'Financial support, payouts, ownership transfers and team permissions always remain owner-only.',
@@ -1158,47 +1204,41 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ActionChip(
-                      label: Text(context.tr('Content manager')),
-                      onPressed: () => setDialogState(() {
-                        messages = false;
-                        orders = false;
-                        services = false;
-                        analytics = false;
-                      }),
-                    ),
-                    ActionChip(
-                      label: Text(context.tr('Customer support')),
-                      onPressed: () => setDialogState(() {
-                        messages = true;
-                        orders = false;
-                        services = true;
-                        analytics = false;
-                      }),
-                    ),
-                    ActionChip(
-                      label: Text(context.tr('Sales manager')),
-                      onPressed: () => setDialogState(() {
-                        messages = true;
-                        orders = true;
-                        services = false;
-                        analytics = true;
-                      }),
-                    ),
-                    ActionChip(
-                      label: Text(context.tr('Analytics viewer')),
-                      onPressed: () => setDialogState(() {
-                        messages = false;
-                        orders = false;
-                        services = false;
-                        analytics = true;
-                      }),
-                    ),
-                  ],
+                RadioGroup<String>(
+                  groupValue: !messages && !orders && !services && !analytics
+                      ? 'Content manager'
+                      : messages && !orders && services && !analytics
+                      ? 'Customer support'
+                      : messages && orders && !services && analytics
+                      ? 'Sales manager'
+                      : !messages && !orders && !services && analytics
+                      ? 'Analytics viewer'
+                      : null,
+                  onChanged: (preset) => setDialogState(() {
+                    messages =
+                        preset == 'Customer support' ||
+                        preset == 'Sales manager';
+                    orders = preset == 'Sales manager';
+                    services = preset == 'Customer support';
+                    analytics =
+                        preset == 'Sales manager' ||
+                        preset == 'Analytics viewer';
+                  }),
+                  child: Column(
+                    children: [
+                      for (final preset in [
+                        'Content manager',
+                        'Customer support',
+                        'Sales manager',
+                        'Analytics viewer',
+                      ])
+                        RadioListTile<String>(
+                          value: preset,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(context.tr(preset)),
+                        ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -1208,6 +1248,8 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.trailing,
                   value: messages,
                   onChanged: (value) =>
                       setDialogState(() => messages = value ?? false),
@@ -1217,6 +1259,8 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   ),
                 ),
                 CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.trailing,
                   value: orders,
                   onChanged: (value) =>
                       setDialogState(() => orders = value ?? false),
@@ -1226,6 +1270,8 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   ),
                 ),
                 CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.trailing,
                   value: services,
                   onChanged: (value) =>
                       setDialogState(() => services = value ?? false),
@@ -1237,6 +1283,8 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   ),
                 ),
                 CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.trailing,
                   value: analytics,
                   onChanged: (value) =>
                       setDialogState(() => analytics = value ?? false),
@@ -1442,6 +1490,20 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
     }
   }
 
+  String _memberLabel(String label) {
+    if (!widget.community.isPublicProfile) return label;
+    return switch (label) {
+      'Search members' => 'Search followers',
+      'Filter members' => 'Filter followers',
+      'Sort members' => 'Sort followers',
+      'All members' => 'All followers',
+      'Active members' => 'Active followers',
+      'No members match your search or filter.' =>
+        'No followers match your search or filter.',
+      _ => label,
+    };
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -1463,7 +1525,9 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
           ),
         ),
         IconButton(
-          tooltip: context.tr(_searching ? 'Close' : 'Search members'),
+          tooltip: context.tr(
+            _searching ? 'Close' : _memberLabel('Search members'),
+          ),
           icon: Icon(_searching ? WicchuIcons.x : WicchuIcons.magnifyingGlass),
           onPressed: () => setState(() {
             _searching = !_searching;
@@ -1471,7 +1535,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
           }),
         ),
         PopupMenuButton<String>(
-          tooltip: context.tr('Filter members'),
+          tooltip: context.tr(_memberLabel('Filter members')),
           initialValue: _filter,
           onSelected: (value) => setState(() => _filter = value),
           itemBuilder: (_) => [
@@ -1479,7 +1543,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
               CheckedPopupMenuItem(
                 value: value,
                 checked: _filter == value,
-                child: Text(context.tr(value)),
+                child: Text(context.tr(_memberLabel(value))),
               ),
           ],
         ),
@@ -1538,7 +1602,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                 autofocus: true,
                 onChanged: (value) => setState(() => _query = value),
                 decoration: InputDecoration(
-                  hintText: context.tr('Search members'),
+                  hintText: context.tr(_memberLabel('Search members')),
                   prefixIcon: const Icon(WicchuIcons.magnifyingGlass),
                 ),
               ),
@@ -1567,12 +1631,14 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                 ),
               ],
             ),
-            if (_showInviteHint) ...[
+            if (_showInviteHint && activeCount > 0) ...[
               const SizedBox(height: 16),
               _memberNotice(
                 WicchuIcons.usersThree,
                 'Invite more people',
-                'More neighbors, a better community.',
+                widget.community.isPublicProfile
+                    ? 'Invite people to follow your page and discover your updates.'
+                    : 'More neighbors, a better community.',
                 () => setState(() => _showInviteHint = false),
               ),
             ],
@@ -1581,12 +1647,12 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
               children: [
                 Expanded(
                   child: Text(
-                    '${context.tr(_filter == 'All members' ? 'Members' : _filter)} (${members.length})',
+                    '${context.tr(_filter == 'All members' ? (widget.community.isPublicProfile ? 'Followers' : 'Members') : _memberLabel(_filter))} (${members.length})',
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
                 ),
                 PopupMenuButton<String>(
-                  tooltip: context.tr('Sort members'),
+                  tooltip: context.tr(_memberLabel('Sort members')),
                   initialValue: _sort,
                   onSelected: (value) => setState(() => _sort = value),
                   itemBuilder: (_) => [
@@ -1594,7 +1660,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                       CheckedPopupMenuItem(
                         value: value,
                         checked: _sort == value,
-                        child: Text(context.tr(value)),
+                        child: Text(context.tr(_memberLabel(value))),
                       ),
                   ],
                   child: Padding(
@@ -1616,24 +1682,21 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                 ),
               ],
             ),
-            if (members.isEmpty)
+            if (members.isEmpty &&
+                (activeCount > 0 ||
+                    _query.isNotEmpty ||
+                    _filter != 'All members'))
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  context.tr('No members match your search or filter.'),
+                  context.tr(
+                    _memberLabel('No members match your search or filter.'),
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
             for (final member in members)
-              Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: colors.onSurface.withValues(alpha: .06),
-                  ),
-                ),
+              WicchuListTile.custom(
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Padding(
@@ -1676,7 +1739,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                             children: [
                               Text(
                                 member.name,
-                                maxLines: 1,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context).textTheme.titleSmall,
                               ),
@@ -1737,7 +1800,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   ),
                 ),
               ),
-            if (activeCount <= 1 &&
+            if (activeCount == 0 &&
                 _query.isEmpty &&
                 _filter == 'All members') ...[
               const SizedBox(height: 40),
@@ -1772,7 +1835,11 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
               ),
               const SizedBox(height: 24),
               Text(
-                context.tr('Grow your community'),
+                context.tr(
+                  widget.community.isPublicProfile
+                      ? 'Grow your page'
+                      : 'Grow your community',
+                ),
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
@@ -1781,7 +1848,9 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
               const SizedBox(height: 8),
               Text(
                 context.tr(
-                  'Invite neighbors to start connecting and taking part.',
+                  widget.community.isPublicProfile
+                      ? 'Invite people to follow your page and discover your updates.'
+                      : 'Invite neighbors to start connecting and taking part.',
                 ),
                 textAlign: TextAlign.center,
                 style: Theme.of(
@@ -1796,12 +1865,18 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   ),
                   onPressed: _invite,
                   icon: const Icon(WicchuIcons.userPlus),
-                  label: Text(context.tr('Invite members')),
+                  label: Text(
+                    context.tr(
+                      widget.community.isPublicProfile
+                          ? 'Invite followers'
+                          : 'Invite members',
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
             ],
-            if (_showTip) ...[
+            if (_showTip && !widget.community.isPublicProfile) ...[
               const SizedBox(height: 20),
               _memberNotice(
                 WicchuIcons.lightbulb,
@@ -2291,8 +2366,10 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   late final List<CommunityLink> _links = [...widget.community.links];
   late String? _imageUrl = widget.community.imageUrl;
   String? _imageBlobName;
+  Uint8List? _imagePreviewBytes;
   late String? _coverImageUrl = widget.community.coverImageUrl;
   String? _coverImageBlobName;
+  Uint8List? _coverImagePreviewBytes;
   bool _editingName = false;
   bool _saving = false;
   bool _uploadingImage = false;
@@ -2415,51 +2492,108 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
     color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .4),
   );
 
-  Widget _settingsSection(String title, IconData icon, List<Widget> children) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Icon(icon, size: 20, color: theme.colorScheme.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    context.tr(title),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Card(
-            margin: EdgeInsets.zero,
-            elevation: 0,
-            color: theme.colorScheme.surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(
-                color: theme.colorScheme.onSurface.withValues(alpha: .08),
+  Widget _settingsSection(String title, IconData icon, List<Widget> children) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                context.tr(title),
+                style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
+            ...children,
+          ],
+        ),
+      );
+
+  Future<void> _editFullDescription() async {
+    if (_saving || _uploadingImage) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (editorContext) => Scaffold(
+          appBar: AppBar(
+            title: Text(context.tr('About')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(editorContext),
+                child: Text(context.tr('Done')),
+              ),
+            ],
+          ),
+          body: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: children,
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                key: const ValueKey('community-full-description'),
+                controller: _description,
+                autofocus: true,
+                expands: true,
+                minLines: null,
+                maxLines: null,
+                textAlignVertical: TextAlignVertical.top,
+                maxLength: CommunityInputLimits.description,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                decoration: InputDecoration(
+                  labelText: context.tr('About'),
+                  alignLabelWithHint: true,
+                ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  Future<void> _photoActions({required bool cover}) async {
+    if (_saving || _uploadingImage) return;
+    final hasPhoto = cover ? _coverImageUrl != null : _imageUrl != null;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(WicchuIcons.camera),
+              title: Text(
+                context.tr(cover ? 'Change cover photo' : 'Change photo'),
+              ),
+              onTap: () => Navigator.pop(sheetContext, 'change'),
+            ),
+            if (hasPhoto)
+              ListTile(
+                leading: const Icon(WicchuIcons.trash),
+                title: Text(
+                  context.tr(cover ? 'Remove cover photo' : 'Remove photo'),
+                ),
+                onTap: () => Navigator.pop(sheetContext, 'remove'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || _saving || _uploadingImage) return;
+    if (action == 'change') await _pickImage(cover: cover);
+    if (action == 'remove') {
+      setState(() {
+        if (cover) {
+          _coverImageUrl = null;
+          _coverImageBlobName = '';
+          _coverImagePreviewBytes = null;
+        } else {
+          _imageUrl = null;
+          _imageBlobName = '';
+          _imagePreviewBytes = null;
+        }
+      });
+    }
   }
 
   @override
@@ -2478,9 +2612,23 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                 ? (_profileCategory == ProfileCategory.localBusiness
                       ? 'Business settings'
                       : 'Profile settings')
-                : 'Community settings',
+                : 'Edit community',
           ),
         ),
+        actions: [
+          TextButton(
+            key: const ValueKey('community-settings-save'),
+            onPressed: _saving || _uploadingImage || _draft == _initialDraft
+                ? null
+                : _save,
+            child: _saving
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(context.tr('Save')),
+          ),
+        ],
       ),
       body: Form(
         key: _form,
@@ -2498,39 +2646,29 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                       color: Theme.of(context).colorScheme.primaryContainer,
                     ),
                     if (_coverImageUrl != null)
-                      Image.network(
-                        _coverImageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            const Icon(WicchuIcons.mountains, size: 32),
-                      ),
+                      _coverImagePreviewBytes != null
+                          ? Image.memory(
+                              _coverImagePreviewBytes!,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.network(
+                              _coverImageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) =>
+                                  const Icon(WicchuIcons.mountains, size: 32),
+                            ),
                     Positioned(
                       right: 8,
                       bottom: 8,
-                      child: FilledButton.tonalIcon(
+                      child: IconButton.filledTonal(
                         key: const ValueKey('edit-community-cover'),
                         onPressed: _uploadingImage || _saving
                             ? null
-                            : () => _pickImage(cover: true),
+                            : () => _photoActions(cover: true),
                         icon: const Icon(WicchuIcons.camera, size: 18),
-                        label: Text(context.tr('Change cover photo')),
+                        tooltip: context.tr('Change cover photo'),
                       ),
                     ),
-                    if (_coverImageUrl != null)
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: IconButton.filledTonal(
-                          tooltip: context.tr('Remove cover photo'),
-                          onPressed: _uploadingImage || _saving
-                              ? null
-                              : () => setState(() {
-                                  _coverImageUrl = null;
-                                  _coverImageBlobName = '';
-                                }),
-                          icon: const Icon(WicchuIcons.x, size: 18),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -2545,39 +2683,49 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        ClipOval(
-                          child: SizedBox.square(
-                            dimension: 64,
-                            child: _imageUrl == null
-                                ? ColoredBox(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primaryContainer,
-                                    child: Icon(
-                                      !widget.community.isPublicProfile
-                                          ? WicchuIcons.usersThree
-                                          : _profileCategory ==
-                                                ProfileCategory.localBusiness
-                                          ? WicchuIcons.storefront
-                                          : _profileCategory ==
-                                                ProfileCategory.organization
-                                          ? WicchuIcons.buildings
-                                          : WicchuIcons.user,
-                                      size: 30,
-                                    ),
-                                  )
-                                : Image.network(
-                                    _imageUrl!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => ColoredBox(
+                        InkWell(
+                          onTap: _saving || _uploadingImage
+                              ? null
+                              : () => _photoActions(cover: false),
+                          child: ClipOval(
+                            child: SizedBox.square(
+                              dimension: 64,
+                              child: _imageUrl == null
+                                  ? ColoredBox(
                                       color: Theme.of(
                                         context,
-                                      ).colorScheme.errorContainer,
-                                      child: const Icon(
-                                        WicchuIcons.imageBroken,
+                                      ).colorScheme.primaryContainer,
+                                      child: Icon(
+                                        !widget.community.isPublicProfile
+                                            ? WicchuIcons.usersThree
+                                            : _profileCategory ==
+                                                  ProfileCategory.localBusiness
+                                            ? WicchuIcons.storefront
+                                            : _profileCategory ==
+                                                  ProfileCategory.organization
+                                            ? WicchuIcons.buildings
+                                            : WicchuIcons.user,
+                                        size: 30,
+                                      ),
+                                    )
+                                  : _imagePreviewBytes != null
+                                  ? Image.memory(
+                                      _imagePreviewBytes!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Image.network(
+                                      _imageUrl!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => ColoredBox(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.errorContainer,
+                                        child: const Icon(
+                                          WicchuIcons.imageBroken,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                            ),
                           ),
                         ),
                         Positioned(
@@ -2589,9 +2737,9 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                                   ? 'Change page photo'
                                   : 'Change community photo',
                             ),
-                            onPressed: _uploadingImage
+                            onPressed: _uploadingImage || _saving
                                 ? null
-                                : () => _pickImage(cover: false),
+                                : () => _photoActions(cover: false),
                             icon: _uploadingImage
                                 ? const SizedBox.square(
                                     dimension: 18,
@@ -2611,49 +2759,33 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _name,
-                        builder: (context, value, _) => Text(
-                          value.text,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _name,
+                              builder: (context, value, _) => Text(
+                                value.text,
+                                style: Theme.of(context).textTheme.titleLarge,
                               ),
-                        ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: context.tr('Edit name'),
+                            onPressed: _saving
+                                ? null
+                                : () => setState(
+                                    () => _editingName = !_editingName,
+                                  ),
+                            icon: const Icon(WicchuIcons.pencilSimple),
+                          ),
+                        ],
                       ),
                       Text(
                         context.tr(widget.community.spaceTypeLabel),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
-                      ),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          TextButton.icon(
-                            onPressed: _saving
-                                ? null
-                                : () => setState(
-                                    () => _editingName = !_editingName,
-                                  ),
-                            icon: const Icon(
-                              WicchuIcons.pencilSimple,
-                              size: 16,
-                            ),
-                            label: Text(context.tr('Edit')),
-                          ),
-                          if (_imageUrl != null)
-                            TextButton(
-                              onPressed: _uploadingImage || _saving
-                                  ? null
-                                  : () => setState(() {
-                                      _imageUrl = null;
-                                      _imageBlobName = '';
-                                    }),
-                              child: Text(context.tr('Remove photo')),
-                            ),
-                        ],
                       ),
                     ],
                   ),
@@ -2693,11 +2825,12 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                       'count': '${CommunityInputLimits.shortDescription}',
                     })
                   : null,
-              minLines: 1,
-              maxLines: 2,
+              minLines: 2,
+              maxLines: 3,
               decoration: InputDecoration(
                 labelText: context.tr('Short description'),
                 helperText: context.tr('Shown near the top of the profile.'),
+                helperMaxLines: 2,
               ),
             ),
             const SizedBox(height: 16),
@@ -2713,14 +2846,29 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                       'count': '${CommunityInputLimits.description}',
                     })
                   : null,
-              minLines: 3,
-              maxLines: 8,
+              minLines: 4,
+              maxLines: 5,
               decoration: InputDecoration(
                 labelText: context.tr('About'),
-                helperText: context.tr('The full description shown in About.'),
+                helper: Text(
+                  context.tr(
+                    widget.community.isPublicProfile
+                        ? 'Visible in profile information'
+                        : 'Visible in community information',
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: _saving || _uploadingImage
+                    ? null
+                    : _editFullDescription,
+                child: Text(context.tr('Edit full description')),
+              ),
+            ),
             _settingsSection('Appearance', WicchuIcons.palette, [
               for (final section in const [
                 PageAppearanceSection.color,
@@ -2729,6 +2877,11 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                 ListTile(
                   key: ValueKey('appearance-${section.name}'),
                   contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    section == PageAppearanceSection.color
+                        ? WicchuIcons.palette
+                        : WicchuIcons.sparkle,
+                  ),
                   title: Text(context.tr(section.title)),
                   subtitle: Text(
                     context.tr(switch (section) {
@@ -2790,9 +2943,15 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(WicchuIcons.mapPin),
                 title: Text(context.tr('Location')),
-                subtitle: Text('${_town.name} · ${_town.countryCode}'),
+                subtitle: Text(
+                  widget.community.isGlobal
+                      ? context.tr('Open to people everywhere')
+                      : '${_town.name} · ${_town.countryCode}',
+                ),
                 trailing: const Icon(WicchuIcons.caretRight),
-                onTap: _saving ? null : _openLocationSettings,
+                onTap: _saving || widget.community.isGlobal
+                    ? null
+                    : _openLocationSettings,
               ),
             ]),
             const SizedBox(height: 12),
@@ -2807,20 +2966,21 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                       setState(() => _approvalRequired = value),
                 ),
               ]),
-              _settingsSection('Additional information', WicchuIcons.info, [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(WicchuIcons.cloud),
-                  title: Text(context.tr('Show local weather')),
-                  subtitle: Text(
-                    context.tr(
-                      'Display current conditions for the community town.',
+              if (!widget.community.isGlobal)
+                _settingsSection('Additional information', WicchuIcons.info, [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    secondary: const Icon(WicchuIcons.cloud),
+                    title: Text(context.tr('Show local weather')),
+                    subtitle: Text(
+                      context.tr(
+                        'Display current conditions for the community town.',
+                      ),
                     ),
+                    value: _showWeather,
+                    onChanged: (value) => setState(() => _showWeather = value),
                   ),
-                  value: _showWeather,
-                  onChanged: (value) => setState(() => _showWeather = value),
-                ),
-              ]),
+                ]),
             ],
             const SizedBox(height: 8),
             _settingsSection('Content', WicchuIcons.linkSimple, [
@@ -3003,24 +3163,6 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
                 ),
               ],
             ]),
-            const SizedBox(height: 12),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              onPressed: _saving || _uploadingImage ? null : _save,
-              icon: _saving
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(WicchuIcons.floppyDisk),
-              label: Text(context.tr('Save changes')),
-            ),
           ],
         ),
       ),
@@ -3081,7 +3223,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
   );
 
   Future<void> _save() async {
-    if (_saving || !_form.currentState!.validate()) return;
+    if (_saving || _uploadingImage || !_form.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
       final updated = await widget.repository.updateCommunity(
@@ -3338,7 +3480,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
       requestFullMetadata: false,
     );
     if (file == null || !mounted) return;
-    if (await file.length() > 25 * 1024 * 1024) {
+    if (!isWithinMediaUploadLimit(await file.length())) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.tr('The file must be under 25 MB.'))),
@@ -3352,7 +3494,7 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         await file.readAsBytes(),
         file.name,
       );
-      if (prepared.bytes.length > 25 * 1024 * 1024) {
+      if (!isWithinMediaUploadLimit(prepared.bytes.length)) {
         throw const FormatException('The file must be under 25 MB.');
       }
       final media = await widget.repository.uploadPostMedia(
@@ -3368,9 +3510,11 @@ class _CommunitySettingsPageState extends State<CommunitySettingsPage> {
         if (cover) {
           _coverImageUrl = media.url;
           _coverImageBlobName = media.blobName;
+          _coverImagePreviewBytes = prepared.bytes;
         } else {
           _imageUrl = media.url;
           _imageBlobName = media.blobName;
+          _imagePreviewBytes = prepared.bytes;
         }
       });
     } catch (error) {

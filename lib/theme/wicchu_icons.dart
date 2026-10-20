@@ -30,6 +30,7 @@ abstract final class WicchuIcons {
   static const bus = PhosphorIconsRegular.bus;
   static const calendarBlank = PhosphorIconsRegular.calendarBlank;
   static const camera = PhosphorIconsRegular.camera;
+  static const files = PhosphorIconsRegular.files;
   static const cards = PhosphorIconsRegular.cards;
   static const caretDown = PhosphorIconsRegular.caretDown;
   static const caretLeft = PhosphorIconsRegular.caretLeft;
@@ -64,6 +65,7 @@ abstract final class WicchuIcons {
   static const crosshair = PhosphorIconsRegular.crosshair;
   static const currencyDollar = PhosphorIconsRegular.currencyDollar;
   static const dotsThree = PhosphorIconsRegular.dotsThree;
+  static const dotsSixVertical = PhosphorIconsRegular.dotsSixVertical;
   static const dotsThreeVertical = PhosphorIconsRegular.dotsThreeVertical;
   static const downloadSimple = PhosphorIconsRegular.downloadSimple;
   static const drop = PhosphorIconsRegular.drop;
@@ -106,6 +108,7 @@ abstract final class WicchuIcons {
   static const listNumbers = PhosphorIconsRegular.listNumbers;
   static const lockKey = PhosphorIconsRegular.lockKey;
   static const lockOpen = PhosphorIconsRegular.lockOpen;
+  static const magnifyingGlassFill = PhosphorIconsFill.magnifyingGlass;
   static const magnifyingGlass = PhosphorIconsRegular.magnifyingGlass;
   static const magnifyingGlassMinus = PhosphorIconsRegular.magnifyingGlassMinus;
   static const mapPin = PhosphorIconsRegular.mapPin;

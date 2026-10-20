@@ -1001,7 +1001,10 @@ void main() {
     final repository = HttpCommunityRepository(apiClient: _NewsPostApiClient());
     final posts = await repository.listPosts('pilot-community');
     expect(posts.single.newsSource?.sourceName, 'Council');
-    expect(posts.single.newsSource?.articleUrl, 'https://publisher.example/article?ref=Original');
+    expect(
+      posts.single.newsSource?.articleUrl,
+      'https://publisher.example/article?ref=Original',
+    );
     expect(posts.single.newsSource?.publishedAt, DateTime.utc(2026, 10, 19, 8));
   });
 
@@ -2414,53 +2417,65 @@ void main() {
     expect(result.skipped, 1);
   });
 
-  test('Local News settings map access, usage, last run and application', () async {
-    final api = _RecordingApiClient();
-    final repository = HttpCommunityRepository(apiClient: api);
+  test(
+    'Local News settings map access, usage, last run and application',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
 
-    final settings = await repository.getLocalNewsSettings('community-2');
-    expect(settings.entitled, isTrue);
-    expect(settings.isPilot, isTrue);
-    expect(settings.subscriptionTier, 'free');
-    expect(settings.monthlyLimit, 60);
-    expect(settings.access?.dailyLimit, 2);
-    expect(settings.usage.monthlyUsed, 5);
-    expect(settings.usage.todayUsed, 1);
-    expect(settings.usage.dailyLimit, 2);
-    expect(settings.lastRun?.status, 'partial');
-    expect(settings.lastRun?.trigger, 'scheduler');
-    expect(settings.lastRun?.sourceErrors, 1);
-    expect(settings.lastRun?.finishedAt, DateTime.utc(2026, 10, 19, 8));
-    expect(settings.lastRun?.errorReason, 'sources_unavailable');
-    final dashboard = settings.dashboard!;
-    expect(dashboard.status, 'awaiting_approval');
-    expect(dashboard.nextCollectionAt, DateTime.utc(2026, 10, 19, 21, 16, 31));
-    expect(dashboard.nextCollectionAt!.isUtc, isTrue);
-    expect(dashboard.quotaResetsAt, DateTime.utc(2026, 10, 20));
-    expect(dashboard.timezone, 'UTC');
-    expect(dashboard.pendingApproval, 2);
-    expect(dashboard.todayUsed, 1);
-    expect(dashboard.publishedToday, 0);
-    expect(dashboard.dailyLimitReached, isTrue);
-    expect(dashboard.lastRun, isNull);
-    expect(settings.application?.isApproved, isTrue);
-    expect(settings.application?.reviewNote, 'Welcome');
+      final settings = await repository.getLocalNewsSettings('community-2');
+      expect(settings.entitled, isTrue);
+      expect(settings.isPilot, isTrue);
+      expect(settings.subscriptionTier, 'free');
+      expect(settings.monthlyLimit, 60);
+      expect(settings.access?.dailyLimit, 2);
+      expect(settings.usage.monthlyUsed, 5);
+      expect(settings.usage.todayUsed, 1);
+      expect(settings.usage.dailyLimit, 2);
+      expect(settings.lastRun?.status, 'partial');
+      expect(settings.lastRun?.trigger, 'scheduler');
+      expect(settings.lastRun?.sourceErrors, 1);
+      expect(settings.lastRun?.finishedAt, DateTime.utc(2026, 10, 19, 8));
+      expect(settings.lastRun?.errorReason, 'sources_unavailable');
+      final dashboard = settings.dashboard!;
+      expect(dashboard.status, 'awaiting_approval');
+      expect(
+        dashboard.nextCollectionAt,
+        DateTime.utc(2026, 10, 19, 21, 16, 31),
+      );
+      expect(dashboard.nextCollectionAt!.isUtc, isTrue);
+      expect(dashboard.quotaResetsAt, DateTime.utc(2026, 10, 20));
+      expect(dashboard.timezone, 'UTC');
+      expect(dashboard.pendingApproval, 2);
+      expect(dashboard.todayUsed, 1);
+      expect(dashboard.publishedToday, 0);
+      expect(dashboard.dailyLimitReached, isTrue);
+      expect(dashboard.lastRun, isNull);
+      expect(settings.application?.isApproved, isTrue);
+      expect(settings.application?.reviewNote, 'Welcome');
 
-    final legacy = await repository.getLocalNewsSettings('community-1');
-    expect(legacy.dashboard, isNull);
-    expect(legacy.access, isNull);
-    expect(legacy.entitled, isTrue, reason: 'older responses still work');
-    expect(legacy.lastRun, isNull);
-    expect(legacy.application, isNull);
-  });
+      final legacy = await repository.getLocalNewsSettings('community-1');
+      expect(legacy.dashboard, isNull);
+      expect(legacy.access, isNull);
+      expect(legacy.entitled, isTrue, reason: 'older responses still work');
+      expect(legacy.lastRun, isNull);
+      expect(legacy.application, isNull);
+    },
+  );
 
   test('Local News visibility comes from the server capability flag', () async {
-    final repository = HttpCommunityRepository(apiClient: _RecordingApiClient());
+    final repository = HttpCommunityRepository(
+      apiClient: _RecordingApiClient(),
+    );
     final pilot = await repository.getCommunity('pilot-community');
     final other = await repository.getCommunity('other-community');
     expect(pilot.canManageLocalNews, isTrue);
     expect(other.myRole, CommunityRole.admin);
-    expect(other.canManageLocalNews, isFalse, reason: 'missing flag means hidden');
+    expect(
+      other.canManageLocalNews,
+      isFalse,
+      reason: 'missing flag means hidden',
+    );
   });
 
   test('Local News access applications use owner endpoints', () async {

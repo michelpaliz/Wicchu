@@ -38,7 +38,9 @@ class _PromotionsPageState extends State<PromotionsPage> {
     );
   }
 
-  void _reload() => setState(() => _data = _load());
+  void _reload() => setState(() {
+    _data = _load();
+  });
 
   @override
   Widget build(BuildContext context) => Scaffold(

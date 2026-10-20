@@ -159,9 +159,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Private personal content'), findsOneWidget);
     final loads = repository.postLoads;
-    await tester.ensureVisible(find.text('Following'));
+    final followButton = find.byKey(const ValueKey('profile-follow-button'));
+    await tester.ensureVisible(followButton);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Following'));
+    await tester.tap(followButton);
     await tester.pumpAndSettle();
     expect(repository.postLoads, greaterThan(loads));
     expect(find.text('Private personal content'), findsNothing);
@@ -169,34 +170,22 @@ void main() {
   });
 
   testWidgets(
-    'returning from account settings refreshes the short description',
+    'own profile menu offers sharing and discovery without account navigation',
     (tester) async {
-      final repository = DemoCommunityRepository();
       await tester.pumpWidget(
         MaterialApp(
           home: MemberProfilePage(
             userId: 'current-user',
-            repository: repository,
-            onAccountMenu: () async {
-              final current = await repository.getEditableProfile();
-              await repository.updateEditableProfile(
-                EditableMemberProfile(
-                  name: current.name,
-                  userName: current.userName,
-                  shortDescription: 'A new short description',
-                ),
-              );
-            },
+            repository: DemoCommunityRepository(),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('A new short description'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('personal-profile-options')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('You'));
-      await tester.pumpAndSettle();
-      expect(find.text('A new short description'), findsOneWidget);
+      expect(find.text('You'), findsNothing);
+      expect(find.text('Share profile'), findsOneWidget);
+      expect(find.text('Find people'), findsOneWidget);
     },
   );
 

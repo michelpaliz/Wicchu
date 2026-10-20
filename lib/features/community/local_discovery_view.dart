@@ -72,7 +72,6 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
     } else if (!_categories.remove(value)) {
       _categories.add(value);
     }
-    _showFoodBusinesses = false;
     if (!_includes(_DiscoveryCategory.food) &&
         !_includes(_DiscoveryCategory.retail)) {
       _delivery = false;
@@ -115,7 +114,6 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
   int _departureDay = 0;
   String _listingType = '';
   double? _maxPrice;
-  bool _showFoodBusinesses = false;
 
   @override
   void didUpdateWidget(covariant LocalDiscoveryView oldWidget) {
@@ -204,12 +202,6 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
             savedCategories.contains(item.name),
       ),
     );
-    _delivery = preferences.getBool('business_filter_delivery') ?? false;
-    _pickup = preferences.getBool('business_filter_pickup') ?? false;
-    _openNow = preferences.getBool('business_filter_open') ?? false;
-    _departureDay = preferences.getInt('business_filter_departure') ?? 0;
-    _listingType = preferences.getString('business_filter_listing') ?? '';
-    _maxPrice = preferences.getDouble('business_filter_price');
     _townId = preferences.getString('business_discovery_town_id');
     _radiusKm = preferences.getDouble('business_discovery_radius_km') ?? 10;
     _locationMode = switch (preferences.getString(
@@ -652,44 +644,9 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
                 ),
               if (!widget.externalCategories) buildCategoryBar(),
               SizedBox(height: widget.externalCategories ? 2 : 8),
-              if (_category == _DiscoveryCategory.food) ...[
-                if (!_showFoodBusinesses)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: IconButton(
-                      key: const ValueKey('discovery-filters'),
-                      tooltip: context.tr('Filters'),
-                      onPressed: () => openFilters(),
-                      icon: const Icon(WicchuIcons.slidersHorizontal),
-                    ),
-                  ),
-                SegmentedButton<bool>(
-                  segments: [
-                    ButtonSegment(
-                      value: false,
-                      icon: const Icon(WicchuIcons.forkKnife),
-                      label: Text(context.tr("Today's menus")),
-                    ),
-                    ButtonSegment(
-                      value: true,
-                      icon: const Icon(WicchuIcons.storefront),
-                      label: Text(context.tr('Restaurants')),
-                    ),
-                  ],
-                  selected: {_showFoodBusinesses},
-                  onSelectionChanged: (value) =>
-                      setState(() => _showFoodBusinesses = value.first),
-                ),
-                const SizedBox(height: 16),
-                if (_showFoodBusinesses)
-                  ..._businessDirectory(businesses)
-                else if (posts.isEmpty)
-                  _emptyPublications()
-                else
-                  ...posts.map(
-                    (post) => _postCard(post, communityById[post.communityId]),
-                  ),
-              ] else ...[
+              if (_category == _DiscoveryCategory.food)
+                ..._businessDirectory(businesses, restaurants: true)
+              else ...[
                 ..._businessDirectory(businesses),
                 if (_category == _DiscoveryCategory.all)
                   ..._overviewSections(posts, communityById)
@@ -752,25 +709,15 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
     };
   }
 
-  bool _matchesBusinessFilters(Community business) {
-    if (_openNow && !_isOpenNow(business)) return false;
-    if (_delivery &&
-        !business.businessFulfillmentOptions.contains(
-          BusinessFulfillmentOption.delivery,
-        )) {
-      return false;
-    }
-    if (_pickup &&
-        !business.businessFulfillmentOptions.contains(
-          BusinessFulfillmentOption.pickup,
-        )) {
-      return false;
-    }
-    return true;
-  }
-
-  List<Widget> _businessDirectory(List<Community> businesses) {
-    final filtered = businesses.where(_matchesBusinessFilters).toList();
+  List<Widget> _businessDirectory(
+    List<Community> businesses, {
+    bool restaurants = false,
+  }) {
+    final sorted = [...businesses]
+      ..sort(
+        (first, second) =>
+            first.name.toLowerCase().compareTo(second.name.toLowerCase()),
+      );
     return [
       Padding(
         padding: EdgeInsets.zero,
@@ -778,7 +725,7 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
           children: [
             Expanded(
               child: Text(
-                '${context.trCount(filtered.length, singular: '{count} business found', plural: '{count} businesses found')}'
+                '${context.trCount(sorted.length, singular: restaurants ? '{count} restaurant available' : '{count} result found', plural: restaurants ? '{count} restaurants available' : '{count} results found')}'
                 '${_locationMode == _DiscoveryLocationMode.town && _townName != null
                     ? ' · $_townName'
                     : _locationMode == _DiscoveryLocationMode.nearby
@@ -791,26 +738,10 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
                 ),
               ),
             ),
-            IconButton(
-              key: const ValueKey('discovery-filters'),
-              tooltip: context.tr('Filters'),
-              onPressed: () => openFilters(),
-              icon: Badge(
-                isLabelVisible: _activeFilters > 0,
-                label: Text('$_activeFilters'),
-                child: Icon(
-                  WicchuIcons.slidersHorizontal,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
           ],
         ),
       ),
-      if (filtered.isEmpty)
-        _emptyBusinesses()
-      else
-        ...filtered.map(_businessCard),
+      if (sorted.isEmpty) _emptyBusinesses() else ...sorted.map(_businessCard),
     ];
   }
 
@@ -922,29 +853,6 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
           if (context.mounted) sheetState(() {});
         }
 
-        Widget location(
-          String label,
-          IconData icon,
-          bool selected,
-          VoidCallback? action,
-        ) => OutlinedButton.icon(
-          onPressed: action,
-          icon: Icon(icon, size: 18),
-          label: Text(label, textAlign: TextAlign.center),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 46),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            foregroundColor: selected ? colors.onPrimary : colors.primary,
-            backgroundColor: selected ? colors.primary : colors.surface,
-            side: BorderSide(
-              color: selected ? colors.primary : colors.outlineVariant,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            textStyle: theme.textTheme.labelMedium,
-          ),
-        );
         return Theme(
           data: theme.copyWith(
             chipTheme: theme.chipTheme.copyWith(
@@ -960,10 +868,16 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             ),
           ),
-          child: SizedBox(
-            height:
-                MediaQuery.sizeOf(context).height * (locationOnly ? .58 : .45),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight:
+                  MediaQuery.sizeOf(context).height * (locationOnly ? .5 : .45),
+              minHeight: locationOnly
+                  ? 0
+                  : MediaQuery.sizeOf(context).height * .45,
+            ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1002,60 +916,85 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
                     ],
                   ),
                 ),
-                Expanded(
+                Flexible(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (locationOnly) ...[
-                          heading('Location'),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: location(
-                                  context.tr('Near me'),
-                                  WicchuIcons.crosshair,
-                                  _locationMode ==
-                                      _DiscoveryLocationMode.nearby,
-                                  _locating
-                                      ? null
-                                      : () =>
-                                            mode(_DiscoveryLocationMode.nearby),
+                          RadioGroup<_DiscoveryLocationMode>(
+                            groupValue: _locationMode,
+                            onChanged: (value) async {
+                              if (value == null || _locating) return;
+                              if (value == _DiscoveryLocationMode.town) {
+                                await _chooseLocation(towns);
+                                if (context.mounted) sheetState(() {});
+                              } else {
+                                await mode(value);
+                              }
+                            },
+                            child: Column(
+                              children: [
+                                RadioListTile<_DiscoveryLocationMode>(
+                                  value: _DiscoveryLocationMode.nearby,
+                                  enabled: !_locating,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(context.tr('Near me')),
+                                  subtitle: Text(
+                                    context.tr('Discover places around you'),
+                                  ),
+                                  controlAffinity:
+                                      ListTileControlAffinity.trailing,
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: location(
-                                  towns
-                                          .where((town) => town.id == _townId)
-                                          .firstOrNull
-                                          ?.name ??
-                                      context.tr('Choose town'),
-                                  WicchuIcons.mapPin,
-                                  _locationMode == _DiscoveryLocationMode.town,
-                                  () async {
-                                    await _chooseLocation(towns);
-                                    if (context.mounted) sheetState(() {});
-                                  },
+                                RadioListTile<_DiscoveryLocationMode>(
+                                  value: _DiscoveryLocationMode.town,
+                                  enabled: !_locating,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    '${context.tr('My town')}${_townName == null ? '' : ' · $_townName'}',
+                                  ),
+                                  subtitle: Text(
+                                    context.tr(
+                                      'Content from your city or town',
+                                    ),
+                                  ),
+                                  controlAffinity:
+                                      ListTileControlAffinity.trailing,
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: location(
-                                  context.tr('Anywhere'),
-                                  WicchuIcons.globe,
-                                  _locationMode ==
-                                      _DiscoveryLocationMode.anywhere,
-                                  () => mode(_DiscoveryLocationMode.anywhere),
+                                RadioListTile<_DiscoveryLocationMode>(
+                                  value: _DiscoveryLocationMode.anywhere,
+                                  enabled: !_locating,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(context.tr('Anywhere')),
+                                  subtitle: Text(
+                                    context.tr(
+                                      'Explore without geographic limits',
+                                    ),
+                                  ),
+                                  controlAffinity:
+                                      ListTileControlAffinity.trailing,
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                           if (_locating) const LinearProgressIndicator(),
-                          if (_locationError != null)
-                            Text(context.tr(_locationError!)),
+                          if (_locationError != null) ...[
+                            Text(
+                              context.tr(_locationError!),
+                              style: theme.textTheme.bodySmall,
+                            ),
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: TextButton(
+                                onPressed: () async {
+                                  await _chooseLocation(towns);
+                                  if (context.mounted) sheetState(() {});
+                                },
+                                child: Text(context.tr('Choose town')),
+                              ),
+                            ),
+                          ],
                         ],
                         if (!locationOnly) ...[
                           heading('Services'),
@@ -1470,7 +1409,13 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
         : (business.coverImageUrl ?? '');
     Widget fallback() => Container(
       color: colors.primary.withValues(alpha: .09),
-      child: Icon(WicchuIcons.storefront, color: colors.primary, size: 30),
+      child: Icon(
+        business.profileCategory == ProfileCategory.organization
+            ? WicchuIcons.buildings
+            : WicchuIcons.storefront,
+        color: colors.primary,
+        size: 30,
+      ),
     );
     return WicchuListTile(
       variant: WicchuListVariant.business,
@@ -1513,28 +1458,10 @@ class LocalDiscoveryViewState extends State<LocalDiscoveryView> {
     );
   }
 
-  Widget _emptyPublications() => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 36),
-    child: Column(
-      children: [
-        Icon(
-          WicchuIcons.forkKnife,
-          size: 56,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        const SizedBox(height: 12),
-        Text(
-          context.tr('No menus are available today.'),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    ),
-  );
-
   Widget _emptyBusinesses() => Padding(
     padding: const EdgeInsets.symmetric(vertical: 36),
     child: Text(
-      context.tr('No businesses match this category.'),
+      context.tr('No results match this category.'),
       textAlign: TextAlign.center,
     ),
   );

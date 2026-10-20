@@ -1,3 +1,4 @@
+import '../../widgets/community_rules_list.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
@@ -68,11 +69,9 @@ class _PostRulesReviewPageState extends State<PostRulesReviewPage> {
                     textAlign: TextAlign.center,
                   ),
                   TextButton(
-                    onPressed: () => setState(
-                      () => _rules = widget.repository.listRules(
-                        widget.community.id,
-                      ),
-                    ),
+                    onPressed: () => setState(() {
+                      _rules = widget.repository.listRules(widget.community.id);
+                    }),
                     child: Text(context.tr('Retry')),
                   ),
                 ],
@@ -102,36 +101,7 @@ class _PostRulesReviewPageState extends State<PostRulesReviewPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  for (final (index, rule) in rules.rules.indexed)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CircleAvatar(radius: 17, child: Text('${index + 1}')),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  rule.title,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                if (rule.description.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    rule.description,
-                                    style: const TextStyle(height: 1.5),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  CommunityRulesList(rules: rules.rules),
                 ],
               ),
             ),

@@ -11,6 +11,7 @@ void main() {
     bool isOnline = false,
     DateTime? lastActiveAt,
     Locale locale = const Locale('en'),
+    DateTime? currentTime,
   }) async {
     String? result;
     await tester.pumpWidget(
@@ -24,7 +25,7 @@ void main() {
               context,
               isOnline: isOnline,
               lastActiveAt: lastActiveAt,
-              now: now,
+              now: currentTime ?? now,
             );
             return const SizedBox.shrink();
           },
@@ -59,6 +60,27 @@ void main() {
       'Active over a week ago',
     );
     expect(await status(tester), isNull);
+  });
+
+  testWidgets('uses calendar dates across daylight saving changes', (
+    tester,
+  ) async {
+    expect(
+      await status(
+        tester,
+        currentTime: DateTime(2026, 3, 30, 12),
+        lastActiveAt: DateTime(2026, 3, 29, 12),
+      ),
+      startsWith('Active yesterday at'),
+    );
+    expect(
+      await status(
+        tester,
+        currentTime: DateTime(2026, 10, 26, 12),
+        lastActiveAt: DateTime(2026, 10, 25, 12),
+      ),
+      startsWith('Active yesterday at'),
+    );
   });
 
   testWidgets('localizes activity status and yesterday time', (tester) async {

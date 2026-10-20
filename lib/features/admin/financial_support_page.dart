@@ -4,6 +4,8 @@ import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import '../../theme/wicchu_icons.dart';
+import '../../widgets/wicchu_list_tile.dart';
+import '../community/community_avatar.dart';
 
 class FinancialSupportPage extends StatefulWidget {
   const FinancialSupportPage({
@@ -29,8 +31,29 @@ class _FinancialSupportPageState extends State<FinancialSupportPage> {
   String _recipientType = 'individual';
   bool _saving = false;
 
-  Future<FinancialSupportApplication?> _load() =>
-      widget.repository.getFinancialSupportApplication(widget.page.id);
+  Future<FinancialSupportApplication?> _load() async {
+    final application = await widget.repository.getFinancialSupportApplication(
+      widget.page.id,
+    );
+    if (mounted && application?.status == 'rejected') {
+      _countryCode = application!.countryCode;
+      _countryName.text = application.countryName;
+      _recipientType = application.recipientType;
+      _email.text = application.contactEmail;
+      _purpose.text = application.purpose;
+    }
+    return application;
+  }
+
+  Future<void> _refresh() async {
+    final request = _load();
+    setState(() => _application = request);
+    try {
+      await request;
+    } catch (_) {
+      /* Display retry in the page. */
+    }
+  }
 
   @override
   void dispose() {
@@ -43,38 +66,71 @@ class _FinancialSupportPageState extends State<FinancialSupportPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(context.tr('Financial support'))),
-    body: FutureBuilder<FinancialSupportApplication?>(
-      future: _application,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(
-            child: FilledButton.icon(
-              onPressed: () => setState(() => _application = _load()),
-              icon: const Icon(WicchuIcons.arrowsClockwise),
-              label: Text(context.trError(snapshot.error!)),
-            ),
-          );
-        }
-        final application = snapshot.data;
-        if (application != null && application.status != 'rejected') {
-          return _StatusView(application: application);
-        }
-        return _applicationForm(application);
-      },
+    body: SafeArea(
+      top: false,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: FutureBuilder<FinancialSupportApplication?>(
+            future: _application,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        context.trError(snapshot.error!),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: _refresh,
+                        icon: const Icon(WicchuIcons.arrowsClockwise),
+                        label: Text(context.tr('Retry')),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              final application = snapshot.data;
+              if (application != null && application.status != 'rejected') {
+                return RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: _StatusView(
+                    application: application,
+                    pageName: widget.page.name,
+                  ),
+                );
+              }
+              return _applicationForm(application);
+            },
+          ),
+        ),
+      ),
     ),
   );
 
   Widget _applicationForm(FinancialSupportApplication? previous) => ListView(
+    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
     padding: const EdgeInsets.all(20),
     children: [
+      WicchuListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: CommunityAvatar(community: widget.page, radius: 24),
+        title: Text(widget.page.name),
+        subtitle: Text(context.tr('Financial support')),
+      ),
+      const SizedBox(height: 16),
       Text(
         context.tr('Apply for financial support'),
         style: Theme.of(
           context,
-        ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
       ),
       const SizedBox(height: 8),
       Text(
@@ -88,16 +144,23 @@ class _FinancialSupportPageState extends State<FinancialSupportPage> {
           color: Theme.of(context).colorScheme.errorContainer,
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('${context.tr('Reason')}: ${previous!.reviewNote}'),
+            child: Text(
+              '${context.tr('Reason')}: ${previous!.reviewNote}',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onErrorContainer,
+              ),
+            ),
           ),
         ),
       ],
       const SizedBox(height: 20),
       Form(
         key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(
           children: [
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _countryCode,
               decoration: InputDecoration(labelText: context.tr('Country')),
               items: [
@@ -111,13 +174,16 @@ class _FinancialSupportPageState extends State<FinancialSupportPage> {
                   child: Text(context.tr('Other country')),
                 ),
               ],
-              onChanged: (value) =>
-                  setState(() => _countryCode = value ?? 'ES'),
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(() => _countryCode = value ?? 'ES'),
             ),
             if (_countryCode == 'OT') ...[
               const SizedBox(height: 12),
               TextFormField(
                 controller: _countryName,
+                enabled: !_saving,
+                textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: context.tr('Country name'),
                 ),
@@ -128,6 +194,7 @@ class _FinancialSupportPageState extends State<FinancialSupportPage> {
             ],
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _recipientType,
               decoration: InputDecoration(
                 labelText: context.tr('Recipient type'),
@@ -150,15 +217,20 @@ class _FinancialSupportPageState extends State<FinancialSupportPage> {
                   child: Text(context.tr('Community project')),
                 ),
               ],
-              onChanged: (value) =>
-                  setState(() => _recipientType = value ?? 'individual'),
+              onChanged: _saving
+                  ? null
+                  : (value) =>
+                        setState(() => _recipientType = value ?? 'individual'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _email,
+              enabled: !_saving,
+              autofillHints: const [AutofillHints.email],
+              textInputAction: TextInputAction.next,
               keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
-                labelText: context.tr('Contact email'),
+                label: Text(context.tr('Contact email'), maxLines: 2),
               ),
               validator: (value) =>
                   RegExp(
@@ -170,11 +242,16 @@ class _FinancialSupportPageState extends State<FinancialSupportPage> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _purpose,
+              enabled: !_saving,
               minLines: 4,
               maxLines: 7,
               maxLength: 1000,
               decoration: InputDecoration(
-                labelText: context.tr('How will financial support be used?'),
+                alignLabelWithHint: true,
+                label: Text(
+                  context.tr('How will financial support be used?'),
+                  maxLines: 3,
+                ),
               ),
               validator: (value) => (value?.trim().length ?? 0) < 20
                   ? context.tr('Please provide at least 20 characters.')
@@ -187,7 +264,9 @@ class _FinancialSupportPageState extends State<FinancialSupportPage> {
                 onPressed: _saving ? null : _submit,
                 child: Text(
                   context.tr(
-                    previous == null
+                    _saving
+                        ? 'Saving…'
+                        : previous == null
                         ? 'Submit application'
                         : 'Resubmit application',
                   ),
@@ -201,7 +280,8 @@ class _FinancialSupportPageState extends State<FinancialSupportPage> {
   );
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_saving || !_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     setState(() => _saving = true);
     try {
       final application = await widget.repository
@@ -227,7 +307,9 @@ class _FinancialSupportPageState extends State<FinancialSupportPage> {
 }
 
 class _StatusView extends StatelessWidget {
-  const _StatusView({required this.application});
+  const _StatusView({required this.application, required this.pageName});
+
+  final String pageName;
 
   final FinancialSupportApplication application;
 
@@ -235,9 +317,18 @@ class _StatusView extends StatelessWidget {
   Widget build(BuildContext context) {
     final approved = application.status == 'approved';
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
       children: [
-        Icon(approved ? WicchuIcons.checkCircle : WicchuIcons.clock, size: 64),
+        WicchuListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(
+            approved ? WicchuIcons.checkCircle : WicchuIcons.clock,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          title: Text(pageName),
+          subtitle: Text(context.tr('Financial support')),
+        ),
         const SizedBox(height: 16),
         Text(
           context.tr(
@@ -246,7 +337,7 @@ class _StatusView extends StatelessWidget {
           textAlign: TextAlign.center,
           style: Theme.of(
             context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 12),
         Text(
@@ -258,12 +349,10 @@ class _StatusView extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        Card(
-          child: ListTile(
-            title: Text(context.tr('Payments')),
-            subtitle: Text(context.tr('Not enabled yet')),
-            trailing: const Icon(WicchuIcons.lockKey),
-          ),
+        WicchuListTile(
+          title: Text(context.tr('Payments')),
+          subtitle: Text(context.tr('Not enabled yet')),
+          trailing: const Icon(WicchuIcons.lockKey),
         ),
       ],
     );

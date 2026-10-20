@@ -1,3 +1,5 @@
+import 'home_pinned_posts.dart';
+import 'pages_hub_page.dart';
 import '../onboarding/preferences_page.dart';
 import '../../data/authenticated_api_client.dart';
 import '../../widgets/wicchu_search_field.dart';
@@ -25,6 +27,7 @@ import '../../localization/app_language.dart';
 import '../../services/push_notification_service.dart';
 import '../../services/presence_service.dart';
 import '../admin/create_community_page.dart';
+import '../admin/community_rewards_page.dart';
 import '../admin/managed_communities_page.dart';
 import '../admin/pending_posts_page.dart';
 import '../admin/platform_moderation_page.dart';
@@ -66,19 +69,16 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
   WicchuProfile? _navigationProfile;
-  Community? _navigationSpace;
-  final _profilePostRequest = ValueNotifier<int>(0);
   final _homeKey = GlobalKey<_HomeTabState>();
-  final _profileKey = GlobalKey<_ProfileTabState>();
+  final _pagesKey = GlobalKey<PagesHubPageState>();
+  final _communityKey = GlobalKey<_ActiveCommunityTabState>();
   final _communityPostRequest = ValueNotifier<int>(0);
   int _exploreRevision = 0;
   int _profileRevision = 0;
-  int _communitiesRevision = 0;
 
   @override
   void dispose() {
     _communityPostRequest.dispose();
-    _profilePostRequest.dispose();
     super.dispose();
   }
 
@@ -91,7 +91,6 @@ class _MainShellState extends State<MainShell> {
         repository: widget.repository,
         onCommunitiesChanged: () => setState(() {
           _exploreRevision++;
-          _communitiesRevision++;
           _profileRevision++;
         }),
       ),
@@ -102,26 +101,32 @@ class _MainShellState extends State<MainShell> {
           _homeKey.currentState?.refresh();
           setState(() {
             _profileRevision++;
-            _communitiesRevision++;
           });
         },
       ),
       if (_index == 2)
         _ActiveCommunityTab(
-          key: ValueKey('communities-$_communitiesRevision'),
+          key: _communityKey,
           repository: widget.repository,
           loadCommunities: _loadMyCommunities,
           postRequest: _communityPostRequest,
-          onExplore: () => _selectDestination(1),
+          onExplore: _exploreCommunities,
           onChanged: () => _homeKey.currentState?.refresh(),
         )
       else
         const SizedBox.shrink(),
+      PagesHubPage(
+        key: _pagesKey,
+        repository: widget.repository,
+        onChanged: () {
+          _homeKey.currentState?.refresh();
+          setState(() {
+            _profileRevision++;
+          });
+        },
+      ),
       _ProfileTab(
-        key: _profileKey,
         onExploreCommunities: () => _selectDestination(1),
-        postRequest: _profilePostRequest,
-        onSpaceSelected: (space) => setState(() => _navigationSpace = space),
         repository: widget.repository,
         authGateway: widget.authGateway,
         onSignedOut: widget.onSignedOut,
@@ -138,8 +143,8 @@ class _MainShellState extends State<MainShell> {
     ];
     final content = IndexedStack(index: _index, children: pages);
     void createPost() {
-      if (_index == 3) {
-        _profilePostRequest.value++;
+      if (_index == 4) {
+        openPersonalPostComposer(context, repository: widget.repository);
       } else if (_index == 2) {
         _communityPostRequest.value++;
       } else {
@@ -157,7 +162,6 @@ class _MainShellState extends State<MainShell> {
                 _DesktopNavigation(
                   selectedIndex: _index,
                   profile: _navigationProfile,
-                  space: _navigationSpace,
                   onSelected: _openDesktopDestination,
                   onCreatePost: createPost,
                 ),
@@ -183,10 +187,9 @@ class _MainShellState extends State<MainShell> {
           bottomNavigationBar: _CompactBottomNavigation(
             selectedIndex: _index,
             profile: _navigationProfile,
-            space: _navigationSpace,
             onSelected: _selectDestination,
-            onProfileLongPress: _openProfileSwitcher,
-            onCreatePost: createPost,
+            onCommunityLongPress: _openCommunitySwitcher,
+            onPagesLongPress: _openPageSwitcher,
           ),
         );
       },
@@ -205,7 +208,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _openDesktopDestination(int value) async {
-    if (value < 2) {
+    if (value < 2 || value == 3) {
       _selectDestination(value);
       return;
     }
@@ -219,7 +222,7 @@ class _MainShellState extends State<MainShell> {
           postRequest: _communityPostRequest,
           onExplore: () {
             Navigator.of(context, rootNavigator: true).maybePop();
-            _selectDestination(1);
+            _exploreCommunities();
           },
           onChanged: () => _homeKey.currentState?.refresh(),
         ),
@@ -230,8 +233,6 @@ class _MainShellState extends State<MainShell> {
       context,
       width: 760,
       builder: (_) => _ProfileTab(
-        postRequest: _profilePostRequest,
-        onSpaceSelected: (space) => setState(() => _navigationSpace = space),
         repository: widget.repository,
         authGateway: widget.authGateway,
         onSignedOut: widget.onSignedOut,
@@ -251,18 +252,33 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  void _exploreCommunities() => setState(() {
+    _exploreRevision++;
+    _index = 1;
+  });
+
   void _selectDestination(int value) {
     if (value == 0) _homeKey.currentState?.refresh();
+    if (value == 2) _communityKey.currentState?.refresh();
+    if (value == 3) _pagesKey.currentState?.refreshPages();
     setState(() {
       _index = value;
-      if (value == 2) _communitiesRevision++;
-      if (value == 3) _profileRevision++;
+      if (value == 3) _exploreRevision++;
+      if (value == 4) _profileRevision++;
     });
   }
 
-  Future<void> _openProfileSwitcher() async {
+  Future<void> _openPageSwitcher() async {
     _selectDestination(3);
-    await _profileKey.currentState?.showProfileSwitcher();
+    await _pagesKey.currentState?.showPageSwitcher();
+  }
+
+  Future<void> _openCommunitySwitcher() async {
+    if (_index != 2) {
+      _selectDestination(2);
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    await _communityKey.currentState?.showCommunitySwitcher();
   }
 }
 
@@ -270,14 +286,12 @@ class _DesktopNavigation extends StatelessWidget {
   const _DesktopNavigation({
     required this.selectedIndex,
     required this.profile,
-    required this.space,
     required this.onSelected,
     required this.onCreatePost,
   });
 
   final int selectedIndex;
   final WicchuProfile? profile;
-  final Community? space;
   final ValueChanged<int> onSelected;
   final VoidCallback onCreatePost;
 
@@ -325,8 +339,8 @@ class _DesktopNavigation extends StatelessWidget {
                 ),
                 _DesktopNavigationItem(
                   selected: selectedIndex == 1,
-                  icon: WicchuIcons.compass,
-                  selectedIcon: WicchuIcons.compassFill,
+                  icon: WicchuIcons.magnifyingGlass,
+                  selectedIcon: WicchuIcons.magnifyingGlassFill,
                   label: context.tr('Explore'),
                   onTap: () => onSelected(1),
                 ),
@@ -337,15 +351,21 @@ class _DesktopNavigation extends StatelessWidget {
                   label: context.tr('Community'),
                   onTap: () => onSelected(2),
                 ),
+                _DesktopNavigationItem(
+                  selected: selectedIndex == 3,
+                  icon: WicchuIcons.files,
+                  selectedIcon: WicchuIcons.files,
+                  label: context.tr('Pages'),
+                  onTap: () => onSelected(3),
+                ),
                 const Spacer(),
                 Divider(color: scheme.outlineVariant),
                 const SizedBox(height: 8),
                 _DesktopAccountItem(
-                  selected: selectedIndex == 3,
+                  selected: selectedIndex == 4,
                   profile: profile,
-                  space: space,
                   label: context.tr('You'),
-                  onTap: () => onSelected(3),
+                  onTap: () => onSelected(4),
                 ),
               ],
             ),
@@ -430,21 +450,19 @@ class _DesktopAccountItem extends StatelessWidget {
   const _DesktopAccountItem({
     required this.selected,
     required this.profile,
-    required this.space,
     required this.label,
     required this.onTap,
   });
 
   final bool selected;
   final WicchuProfile? profile;
-  final Community? space;
   final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final name = space?.name ?? profile?.name ?? label;
+    final name = profile?.name ?? label;
 
     return Semantics(
       selected: selected,
@@ -462,7 +480,7 @@ class _DesktopAccountItem extends StatelessWidget {
               children: [
                 UserAvatar(
                   name: name,
-                  imageUrl: space?.imageUrl ?? profile?.avatarUrl,
+                  imageUrl: profile?.avatarUrl,
                   radius: 20,
                 ),
                 const SizedBox(width: 12),
@@ -538,7 +556,9 @@ class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
   }
 
   Future<List<Community>> _load() async {
-    final communities = await widget.loadCommunities();
+    final communities = (await widget.loadCommunities())
+        .where((community) => !community.isPublicProfile)
+        .toList();
     final profile = await widget.repository.getProfile();
     final preferences = await SharedPreferences.getInstance();
     _preferenceKey = 'currentCommunityId:${profile.id}';
@@ -554,27 +574,85 @@ class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
     return communities;
   }
 
+  void refresh() {
+    if (!mounted) return;
+    setState(() {
+      _data = _load();
+    });
+  }
+
+  Future<void> showCommunitySwitcher() async {
+    try {
+      final communities = await _data;
+      if (!mounted) return;
+      await _choose(communities);
+    } catch (_) {
+      // The tab shows the load error with a retry action.
+    }
+  }
+
   Future<void> _choose(List<Community> communities) async {
-    final selected = await showModalBottomSheet<Community>(
+    final selected = await showModalBottomSheet<Object>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: ListView(
           shrinkWrap: true,
           children: [
-            _CommunitySwitcherHeading(count: communities.length),
+            _CommunitySwitcherHeading(
+              count: communities.length,
+              communitiesOnly: true,
+            ),
             for (final community in communities)
               _CommunitySwitcherRow(
                 community: community,
                 selected: community.id == _selectedId,
+                showCurrentLabel: true,
                 onTap: () => Navigator.pop(sheetContext, community),
               ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              leading: const Icon(WicchuIcons.plus),
+              title: Text(context.tr('Create community')),
+              onTap: () => Navigator.pop(sheetContext, 'create'),
+            ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              leading: const Icon(WicchuIcons.compass),
+              title: Text(context.tr('Explore communities')),
+              onTap: () => Navigator.pop(sheetContext, 'explore'),
+            ),
             const SizedBox(height: 12),
           ],
         ),
       ),
     );
     if (selected == null || !mounted) return;
+    if (selected == 'explore') {
+      widget.onExplore();
+      return;
+    }
+    if (selected == 'create') {
+      final created = await Navigator.push<Community>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreateCommunityPage(repository: widget.repository),
+        ),
+      );
+      if (created == null || !mounted) return;
+      if (!created.isPublicProfile) {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(_preferenceKey!, created.id);
+      }
+      if (!mounted) return;
+      setState(() {
+        _data = _load();
+      });
+      widget.onChanged();
+      return;
+    }
+    if (selected is! Community) return;
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_preferenceKey!, selected.id);
     if (!mounted) return;
@@ -592,7 +670,9 @@ class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
       if (snapshot.hasError) {
         return _LoadError(
           error: snapshot.error!,
-          onRetry: () => setState(() => _data = _load()),
+          onRetry: () => setState(() {
+            _data = _load();
+          }),
         );
       }
       final communities = snapshot.data ?? [];
@@ -634,9 +714,7 @@ class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
         repository: widget.repository,
         embedded: true,
         postRequest: widget.postRequest,
-        onSwitchCommunity: communities.length > 1
-            ? () => _choose(communities)
-            : null,
+        onSwitchCommunity: () => _choose(communities),
       );
     },
   );
@@ -649,119 +727,108 @@ class _CompactBottomNavigation extends StatelessWidget {
   const _CompactBottomNavigation({
     required this.selectedIndex,
     this.profile,
-    this.space,
     required this.onSelected,
-    required this.onProfileLongPress,
-    required this.onCreatePost,
+    required this.onCommunityLongPress,
+    required this.onPagesLongPress,
   });
 
   final int selectedIndex;
   final WicchuProfile? profile;
-  final Community? space;
   final ValueChanged<int> onSelected;
-  final VoidCallback onProfileLongPress;
-  final VoidCallback onCreatePost;
+  final VoidCallback onCommunityLongPress;
+  final VoidCallback onPagesLongPress;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 68 + MediaQuery.paddingOf(context).bottom,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            top: 8,
-            child: Material(
-              color: scheme.brightness == Brightness.light
-                  ? const Color(0xFFEDF5F2)
-                  : _darkNavigationSurface,
-              elevation: 1,
-              shadowColor: scheme.shadow.withValues(alpha: 0.08),
-              shape: RoundedRectangleBorder(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(14),
+    return Material(
+      color: scheme.brightness == Brightness.light
+          ? const Color(0xFFEDF5F2)
+          : _darkNavigationSurface,
+      elevation: 1,
+      shadowColor: scheme.shadow.withValues(alpha: 0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        side: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: .15),
+          width: .5,
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              children: [
+                _CompactNavigationItem(
+                  icon: WicchuIcons.house,
+                  selectedIcon: WicchuIcons.houseFill,
+                  label: context.tr('Home'),
+                  selected: selectedIndex == 0,
+                  onTap: () => onSelected(0),
                 ),
-                side: BorderSide(
-                  color: scheme.outlineVariant.withValues(alpha: .15),
-                  width: .5,
+                _CompactNavigationItem(
+                  icon: WicchuIcons.magnifyingGlass,
+                  selectedIcon: WicchuIcons.magnifyingGlassFill,
+                  label: context.tr('Explore'),
+                  selected: selectedIndex == 1,
+                  onTap: () => onSelected(1),
                 ),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      _CompactNavigationItem(
-                        icon: WicchuIcons.house,
-                        selectedIcon: WicchuIcons.houseFill,
-                        label: context.tr('Home'),
-                        selected: selectedIndex == 0,
-                        onTap: () => onSelected(0),
-                      ),
-                      _CompactNavigationItem(
-                        icon: WicchuIcons.compass,
-                        selectedIcon: WicchuIcons.compassFill,
-                        label: context.tr('Explore'),
-                        selected: selectedIndex == 1,
-                        onTap: () => onSelected(1),
-                      ),
-                      const Spacer(),
-                      _CompactNavigationItem(
-                        icon: WicchuIcons.users,
-                        selectedIcon: WicchuIcons.usersFill,
-                        label: context.tr('Community'),
-                        selected: selectedIndex == 2,
-                        onTap: () => onSelected(2),
-                      ),
-                      _CompactNavigationItem(
-                        key: const ValueKey('bottom-profile-navigation'),
-                        icon: WicchuIcons.user,
-                        selectedIcon: WicchuIcons.userFill,
-                        customIcon: profile == null
-                            ? null
-                            : ExcludeSemantics(
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: selectedIndex == 3
-                                          ? scheme.brightness == Brightness.dark
-                                                ? _darkNavigationAccent
-                                                : const Color(0xFF176F5B)
-                                          : Colors.transparent,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: UserAvatar(
-                                    name: space?.name ?? profile!.name,
-                                    imageUrl: space == null
-                                        ? profile!.avatarUrl
-                                        : space!.imageUrl,
-                                    radius: 11,
-                                  ),
-                                ),
+                _CompactNavigationItem(
+                  key: const ValueKey('bottom-community-navigation'),
+                  onLongPress: onCommunityLongPress,
+                  icon: WicchuIcons.users,
+                  selectedIcon: WicchuIcons.usersFill,
+                  label: context.tr('Community'),
+                  selected: selectedIndex == 2,
+                  onTap: () => onSelected(2),
+                ),
+                _CompactNavigationItem(
+                  key: const ValueKey('bottom-pages-navigation'),
+                  onLongPress: onPagesLongPress,
+                  icon: WicchuIcons.files,
+                  selectedIcon: WicchuIcons.files,
+                  label: context.tr('Pages'),
+                  selected: selectedIndex == 3,
+                  onTap: () => onSelected(3),
+                ),
+                _CompactNavigationItem(
+                  key: const ValueKey('bottom-profile-navigation'),
+                  icon: WicchuIcons.user,
+                  selectedIcon: WicchuIcons.userFill,
+                  customIcon: profile == null
+                      ? null
+                      : ExcludeSemantics(
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: selectedIndex == 4
+                                    ? scheme.brightness == Brightness.dark
+                                          ? _darkNavigationAccent
+                                          : const Color(0xFF176F5B)
+                                    : Colors.transparent,
+                                width: 1.5,
                               ),
-                        label: context.tr('You'),
-                        selected: selectedIndex == 3,
-                        onTap: () => onSelected(3),
-                        onLongPress: onProfileLongPress,
-                      ),
-                    ],
-                  ),
+                            ),
+                            child: UserAvatar(
+                              name: profile!.name,
+                              imageUrl: profile!.avatarUrl,
+                              radius: 11,
+                            ),
+                          ),
+                        ),
+                  label: context.tr('You'),
+                  selected: selectedIndex == 4,
+                  onTap: () => onSelected(4),
                 ),
-              ),
+              ],
             ),
           ),
-          Align(
-            alignment: Alignment.topCenter,
-            child: _CreatePostNavigationItem(
-              label: context.tr('Post'),
-              onTap: onCreatePost,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -847,44 +914,6 @@ class _CompactNavigationItem extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CreatePostNavigationItem extends StatelessWidget {
-  const _CreatePostNavigationItem({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Semantics(
-      button: true,
-      label: label,
-      child: Material(
-        color: scheme.brightness == Brightness.dark
-            ? _darkNavigationAccent
-            : scheme.primary,
-        elevation: 3,
-        shadowColor: scheme.shadow.withValues(alpha: 0.18),
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onTap,
-          child: SizedBox.square(
-            dimension: 54,
-            child: Icon(
-              WicchuIcons.plus,
-              color: scheme.brightness == Brightness.dark
-                  ? _darkNavigationSurface
-                  : scheme.onPrimary,
-              size: 26,
-            ),
           ),
         ),
       ),
@@ -1610,6 +1639,39 @@ class _HomeTabState extends State<_HomeTab>
             return matchesTown && matchesCategory && matchesQuery;
           }).toList();
 
+          final pinnedPosts = filteredPosts
+              .where((post) => post.pinned)
+              .toList();
+          final recentPosts = filteredPosts
+              .where((post) => !post.pinned)
+              .toList();
+
+          Future<void> openFeedPost(CommunityPost post) async {
+            await Navigator.push<void>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PostCollectionPage(
+                  title: _followingOnly ? 'Following' : 'For you',
+                  initialPostId: post.id,
+                  initialPosts: filteredPosts,
+                  repository: widget.repository,
+                  loadPosts: () async {
+                    final refreshed = await _loadData();
+                    final ids = filteredPosts.map((p) => p.id).toSet();
+                    return refreshed.posts
+                        .where((p) => ids.contains(p.id))
+                        .toList();
+                  },
+                  categories: data.categories,
+                  communityNames: {
+                    for (final c in data.communities) c.id: c.name,
+                  },
+                ),
+              ),
+            );
+            if (mounted) setState(_reload);
+          }
+
           final windowWidth = MediaQuery.sizeOf(context).width;
           final viewportWidth = math.min(
             windowWidth >= 800 ? windowWidth - 249 : windowWidth,
@@ -1672,11 +1734,30 @@ class _HomeTabState extends State<_HomeTab>
                       ),
                     ),
                   ),
+                  if (pinnedPosts.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: HomePinnedPosts(
+                        key: ValueKey('pinned-$_followingOnly'),
+                        posts: pinnedPosts,
+                        communities: communityById,
+                        onOpen: openFeedPost,
+                      ),
+                    ),
+                  if (pinnedPosts.isNotEmpty && recentPosts.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        child: Text(
+                          context.tr('Recent posts'),
+                          style: textTheme.titleMedium,
+                        ),
+                      ),
+                    ),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                     sliver: SliverList.list(
                       children: [
-                        for (final post in filteredPosts) ...[
+                        for (final post in recentPosts) ...[
                           PostCard(
                             repository: widget.repository,
                             post: post,
@@ -1695,36 +1776,7 @@ class _HomeTabState extends State<_HomeTab>
                                       repository: widget.repository,
                                     ),
                                   ),
-                            onTap: () =>
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => PostCollectionPage(
-                                      title: _followingOnly
-                                          ? 'Following'
-                                          : 'For you',
-                                      initialPostId: post.id,
-                                      initialPosts: filteredPosts,
-                                      repository: widget.repository,
-                                      loadPosts: () async {
-                                        final refreshed = await _loadData();
-                                        final ids = filteredPosts
-                                            .map((p) => p.id)
-                                            .toSet();
-                                        return refreshed.posts
-                                            .where((p) => ids.contains(p.id))
-                                            .toList();
-                                      },
-                                      categories: data.categories,
-                                      communityNames: {
-                                        for (final c in data.communities)
-                                          c.id: c.name,
-                                      },
-                                    ),
-                                  ),
-                                ).then((_) {
-                                  if (mounted) setState(_reload);
-                                }),
+                            onTap: () => openFeedPost(post),
                             category:
                                 data.categories[post.categoryId]?.name ??
                                 'Post',
@@ -1969,8 +2021,8 @@ class _ExploreTabState extends State<_ExploreTab> {
     }
   }
 
-  Future<void> _findNearby() async {
-    if (_locating) return;
+  Future<(Position, Town)?> _findNearby({bool apply = true}) async {
+    if (_locating) return null;
     setState(() => _locating = true);
     try {
       final preferences = await SharedPreferences.getInstance();
@@ -1986,7 +2038,7 @@ class _ExploreTabState extends State<_ExploreTab> {
             ),
           ),
         );
-        return;
+        return null;
       }
       if (!await Geolocator.isLocationServiceEnabled()) {
         _showLocationIssue(
@@ -1994,7 +2046,7 @@ class _ExploreTabState extends State<_ExploreTab> {
           actionLabel: 'Open settings',
           onAction: Geolocator.openLocationSettings,
         );
-        return;
+        return null;
       }
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -2006,13 +2058,13 @@ class _ExploreTabState extends State<_ExploreTab> {
           actionLabel: 'Open settings',
           onAction: Geolocator.openAppSettings,
         );
-        return;
+        return null;
       }
       if (permission == LocationPermission.denied) {
         _showLocationIssue(
           'Location permission is required for nearby discovery.',
         );
-        return;
+        return null;
       }
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
@@ -2023,7 +2075,8 @@ class _ExploreTabState extends State<_ExploreTab> {
         latitude: position.latitude,
         longitude: position.longitude,
       );
-      if (!mounted) return;
+      if (!mounted) return null;
+      if (!apply) return (position, detectedTown);
       final nearbyCommunities = _filter == 6
           ? null
           : await widget.repository.listNearbyCommunities(
@@ -2041,7 +2094,7 @@ class _ExploreTabState extends State<_ExploreTab> {
               radiusKm: _discoveryRadius,
             )
           : null;
-      if (!mounted) return;
+      if (!mounted) return null;
       setState(() {
         _usingLocation = true;
         _position = position;
@@ -2052,6 +2105,7 @@ class _ExploreTabState extends State<_ExploreTab> {
           _people = Future.value(nearbyPeople!);
         }
       });
+      return (position, detectedTown);
     } on TimeoutException {
       _showLocationIssue('Could not get your location. Try again.');
     } catch (error) {
@@ -2063,6 +2117,7 @@ class _ExploreTabState extends State<_ExploreTab> {
     } finally {
       if (mounted) setState(() => _locating = false);
     }
+    return null;
   }
 
   void _showLocationIssue(
@@ -2415,7 +2470,7 @@ class _ExploreTabState extends State<_ExploreTab> {
       ),
       title: Text(community.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
-        '${community.town.name} · ${context.trCount(community.memberCount, singular: community.isPublicProfile ? '{count} follower' : '{count} member', plural: community.isPublicProfile ? '{count} followers' : '{count} members')}${community.visibility == CommunityVisibility.private ? ' · ${context.tr('Private')}' : ''}',
+        '${community.isGlobal ? context.tr('Anywhere') : community.town.name} · ${context.trCount(community.memberCount, singular: community.isPublicProfile ? '{count} follower' : '{count} member', plural: community.isPublicProfile ? '{count} followers' : '{count} members')}${community.visibility == CommunityVisibility.private ? ' · ${context.tr('Private')}' : ''}',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
@@ -2494,8 +2549,38 @@ class _ExploreTabState extends State<_ExploreTab> {
     var audience = _audienceRange;
     var townId = _discoveryTownId;
     var nearby = _usingLocation;
+    var position = _position;
     final peopleOnly = _filter == 6;
-    final towns = await widget.repository.listTowns();
+    var locating = false;
+    var locationMode = nearby
+        ? 2
+        : townId != null
+        ? 1
+        : 0;
+    final towns = [...await widget.repository.listTowns()];
+    Future<void> detectTown(
+      BuildContext sheetContext,
+      StateSetter update, {
+      required bool surrounding,
+    }) async {
+      update(() => locating = true);
+      try {
+        final located = await _findNearby(apply: false);
+        if (!sheetContext.mounted || located == null) return;
+        update(() {
+          position = located.$1;
+          townId = located.$2.id;
+          nearby = surrounding;
+          locationMode = surrounding ? 2 : 1;
+          if (!towns.any((town) => town.id == located.$2.id)) {
+            towns.add(located.$2);
+          }
+        });
+      } finally {
+        if (sheetContext.mounted) update(() => locating = false);
+      }
+    }
+
     if (!mounted) return;
     final apply = await showModalBottomSheet<bool>(
       context: context,
@@ -2503,104 +2588,177 @@ class _ExploreTabState extends State<_ExploreTab> {
       showDragHandle: true,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) => SafeArea(
-          child: SingleChildScrollView(
+          child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  context.tr('Location'),
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  context.tr('Location'),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                Row(
                   children: [
-                    ChoiceChip(
-                      label: Text(context.tr('Nearby towns')),
-                      avatar: const Icon(WicchuIcons.crosshair, size: 18),
-                      selected: nearby,
-                      onSelected: (_) async {
-                        await _findNearby();
-                        if (sheetContext.mounted) {
-                          setSheetState(() => nearby = _usingLocation);
-                        }
-                      },
-                    ),
-                    ChoiceChip(
-                      label: Text(context.tr('My town')),
-                      avatar: const Icon(WicchuIcons.mapPin, size: 18),
-                      selected: !nearby && townId != null,
-                      onSelected: (_) async {
-                        if (townId == null) {
-                          await _findNearby();
-                          townId = _discoveryTownId;
-                        }
-                        if (sheetContext.mounted) {
-                          setSheetState(() => nearby = false);
-                        }
-                      },
-                    ),
-                    ChoiceChip(
-                      label: Text(context.tr('Anywhere')),
-                      selected: !nearby && townId == null,
-                      onSelected: (_) => setSheetState(() {
-                        nearby = false;
-                        townId = null;
-                      }),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: towns.any((town) => town.id == townId)
-                      ? townId
-                      : null,
-                  decoration: InputDecoration(
-                    labelText: context.tr('Change location'),
-                    prefixIcon: const Icon(WicchuIcons.mapPin),
-                  ),
-                  items: [
-                    for (final town in towns)
-                      DropdownMenuItem(value: town.id, child: Text(town.name)),
-                  ],
-                  onChanged: (value) => setSheetState(() {
-                    townId = value;
-                    nearby = false;
-                  }),
-                ),
-                if (nearby)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(
-                      context.tr(
-                        'Nearby towns are ranked by distance automatically.',
+                    Expanded(
+                      child: Text(
+                        context.tr('Filter by location'),
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
+                    IconButton(
+                      tooltip: context.tr('Close'),
+                      onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(WicchuIcons.x),
+                    ),
+                  ],
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        RadioGroup<int>(
+                          groupValue: locationMode,
+                          onChanged: (value) {
+                            if (locating || value == null) return;
+                            if (value == 2) {
+                              detectTown(
+                                sheetContext,
+                                setSheetState,
+                                surrounding: true,
+                              );
+                            } else {
+                              setSheetState(() {
+                                locationMode = value;
+                                nearby = false;
+                                if (value == 0) townId = null;
+                              });
+                            }
+                          },
+                          child: Column(
+                            children: [
+                              for (final option in [
+                                (
+                                  0,
+                                  'Anywhere',
+                                  'Explore without geographic limits',
+                                ),
+                                (
+                                  1,
+                                  'My town',
+                                  'Content from your city or town',
+                                ),
+                                (
+                                  2,
+                                  peopleOnly ? 'Near me' : 'Nearby towns',
+                                  peopleOnly
+                                      ? 'Find people around you'
+                                      : 'Discover communities around you',
+                                ),
+                              ])
+                                RadioListTile<int>(
+                                  value: option.$1,
+                                  enabled: !locating,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(context.tr(option.$2)),
+                                  subtitle: Text(context.tr(option.$3)),
+                                  controlAffinity:
+                                      ListTileControlAffinity.trailing,
+                                ),
+                            ],
+                          ),
+                        ),
+                        if (locating) ...[
+                          const SizedBox(height: 12),
+                          const LinearProgressIndicator(),
+                          const SizedBox(height: 8),
+                          Text(
+                            context.tr('Finding your current town…'),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                        if (locationMode == 1) ...[
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            key: ValueKey(townId),
+                            isExpanded: true,
+                            initialValue: towns.any((town) => town.id == townId)
+                                ? townId
+                                : null,
+                            decoration: InputDecoration(
+                              labelText: context.tr('Choose town'),
+                              prefixIcon: const Icon(WicchuIcons.mapPin),
+                            ),
+                            items: [
+                              for (final town in towns)
+                                DropdownMenuItem(
+                                  value: town.id,
+                                  child: Text(
+                                    town.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                            onChanged: locating
+                                ? null
+                                : (value) =>
+                                      setSheetState(() => townId = value),
+                          ),
+                          Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: TextButton.icon(
+                              onPressed: locating
+                                  ? null
+                                  : () => detectTown(
+                                      sheetContext,
+                                      setSheetState,
+                                      surrounding: false,
+                                    ),
+                              icon: const Icon(WicchuIcons.crosshair),
+                              label: Text(
+                                context.tr('Use my current location'),
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (locationMode == 2 && !peopleOnly)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              context.tr(
+                                'Communities within 50 km, excluding your selected town. Nearest first.',
+                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
-                const SizedBox(height: 24),
+                ),
                 FilledButton(
-                  onPressed: () => Navigator.pop(sheetContext, true),
+                  onPressed: locating || (locationMode == 1 && townId == null)
+                      ? null
+                      : () => Navigator.pop(sheetContext, true),
                   child: Text(context.tr('Apply filters')),
                 ),
-                TextButton(
-                  onPressed: () {
-                    scope = peopleOnly ? 6 : 3;
-                    townId = null;
-                    nearby = false;
-                    days = 0;
-                    audience = 0;
-                    Navigator.pop(sheetContext, true);
-                  },
-                  child: Text(context.tr('Reset filters')),
-                ),
+                if (locationMode != 0 || days != 0 || audience != 0)
+                  TextButton(
+                    onPressed: locating
+                        ? null
+                        : () => setSheetState(() {
+                            scope = peopleOnly ? 6 : 3;
+                            locationMode = 0;
+                            townId = null;
+                            nearby = false;
+                            days = 0;
+                            audience = 0;
+                          }),
+                    child: Text(context.tr('Reset filters')),
+                  ),
               ],
             ),
           ),
@@ -2613,7 +2771,7 @@ class _ExploreTabState extends State<_ExploreTab> {
       _audienceRange = audience;
       _discoveryTownId = townId;
       _usingLocation = nearby;
-      if (!nearby) _position = null;
+      _position = nearby ? position : null;
     });
     if (!peopleOnly) {
       final preferences = await SharedPreferences.getInstance();
@@ -2627,6 +2785,8 @@ class _ExploreTabState extends State<_ExploreTab> {
       );
       if (townId != null) {
         await preferences.setString('business_discovery_town_id', townId!);
+      } else {
+        await preferences.remove('business_discovery_town_id');
       }
     }
     if (!mounted) return;
@@ -3541,6 +3701,50 @@ class _ActivityTabState extends State<_ActivityTab> {
       if (mounted) setState(_reload);
       return;
     }
+    if (notification.type == CommunityNotificationType.rewardRequest) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlatformModerationPage(
+            repository: widget.repository,
+            initialTab: 2,
+          ),
+        ),
+      );
+      if (mounted) setState(_reload);
+      return;
+    }
+    if ({
+      CommunityNotificationType.rewardRequestApproved,
+      CommunityNotificationType.rewardRequestRejected,
+      CommunityNotificationType.rewardPayoutApproved,
+      CommunityNotificationType.rewardPayoutRejected,
+      CommunityNotificationType.rewardPayoutPaid,
+    }.contains(notification.type)) {
+      try {
+        final community = await widget.repository.getCommunity(
+          notification.communityId,
+        );
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CommunityRewardsPage(
+              community: community,
+              repository: widget.repository,
+            ),
+          ),
+        );
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+        }
+      }
+      if (mounted) setState(_reload);
+      return;
+    }
     if (notification.type == CommunityNotificationType.businessOrder) {
       try {
         final community = await widget.repository.getCommunity(
@@ -3670,11 +3874,7 @@ class _ActivityTabState extends State<_ActivityTab> {
 
 class _ProfileTab extends StatefulWidget {
   const _ProfileTab({
-    super.key,
-    this.accountHub = false,
     this.onExploreCommunities,
-    this.onSpaceSelected,
-    this.postRequest,
     required this.repository,
     required this.authGateway,
     required this.onSignedOut,
@@ -3684,9 +3884,6 @@ class _ProfileTab extends StatefulWidget {
     required this.onBrowsePosts,
   });
   final VoidCallback? onExploreCommunities;
-  final bool accountHub;
-  final ValueChanged<Community?>? onSpaceSelected;
-  final Listenable? postRequest;
   final CommunityRepository repository;
   final AuthGateway authGateway;
   final VoidCallback onSignedOut;
@@ -3700,7 +3897,6 @@ class _ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<_ProfileTab> {
-  Community? _selectedSpace;
   bool _signingOut = false;
   late Future<WicchuProfile> _profile = _loadProfile();
 
@@ -3719,15 +3915,6 @@ class _ProfileTabState extends State<_ProfileTab> {
     } catch (_) {}
   }
 
-  Future<void> showProfileSwitcher() async {
-    try {
-      final profile = await _profile;
-      if (mounted) await _switchProfile(profile);
-    } catch (_) {
-      // The profile screen already renders its loading error and retry action.
-    }
-  }
-
   @override
   void didUpdateWidget(covariant _ProfileTab oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -3739,8 +3926,11 @@ class _ProfileTabState extends State<_ProfileTab> {
   Future<void> _openMyProfile(String userId) async {
     await openResponsiveSidePanel<void>(
       context,
-      builder: (_) =>
-          MemberProfilePage(userId: userId, repository: widget.repository),
+      builder: (_) => MemberProfilePage(
+        userId: userId,
+        repository: widget.repository,
+        onExploreCommunities: widget.onExploreCommunities,
+      ),
     );
     if (mounted) await _refreshProfile();
   }
@@ -3756,196 +3946,11 @@ class _ProfileTabState extends State<_ProfileTab> {
     ),
   );
 
-  Future<void> _openAccountMenu() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _ProfileTab(
-          accountHub: true,
-          repository: widget.repository,
-          authGateway: widget.authGateway,
-          onSignedOut: widget.onSignedOut,
-          onCommunityCreated: widget.onCommunityCreated,
-          refreshVersion: widget.refreshVersion,
-          onProfileLoaded: widget.onProfileLoaded,
-          onBrowsePosts: () {
-            Navigator.pop(context);
-            widget.onBrowsePosts();
-          },
-        ),
-      ),
-    ).then((_) {
-      if (mounted) {
-        setState(() {
-          _profile = _loadProfile();
-        });
-      }
-    });
-  }
-
-  Future<void> _switchProfile(WicchuProfile profile) async {
-    try {
-      final managed = (await widget.repository.listManagedCommunities())
-          .where(
-            (c) =>
-                c.isPublicProfile &&
-                (c.myRole == CommunityRole.owner ||
-                    c.myRole == CommunityRole.admin),
-          )
-          .toList();
-      if (!mounted) return;
-      final choice = await showModalBottomSheet<String>(
-        context: context,
-        showDragHandle: true,
-        useSafeArea: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (context) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(
-                leading: UserAvatar(
-                  name: profile.name,
-                  imageUrl: profile.avatarUrl,
-                  radius: 20,
-                ),
-                title: Text(profile.name),
-                subtitle: Text(context.tr('Personal profile')),
-                selected: _selectedSpace == null,
-                onTap: () => Navigator.pop(context, 'personal'),
-              ),
-              for (final space in managed)
-                ListTile(
-                  leading: UserAvatar(
-                    name: space.name,
-                    imageUrl: space.imageUrl,
-                    radius: 20,
-                  ),
-                  title: Text(space.name),
-                  subtitle: Text(context.tr(space.roleLabel(space.myRole!))),
-                  selected: _selectedSpace?.id == space.id,
-                  onTap: () => Navigator.pop(context, space.id),
-                ),
-              ListTile(
-                leading: const Icon(WicchuIcons.plus),
-                title: Text(context.tr('Create a public profile')),
-                onTap: () => Navigator.pop(context, 'create'),
-              ),
-            ],
-          ),
-        ),
-      );
-      if (!mounted || choice == null) return;
-      if (choice == 'create') {
-        final created = await Navigator.push<Community>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CreateCommunityPage(
-              repository: widget.repository,
-              initialType: CommunityType.publicProfile,
-            ),
-          ),
-        );
-        if (!mounted || created == null) return;
-        setState(() => _selectedSpace = created);
-        widget.onSpaceSelected?.call(created);
-        widget.onCommunityCreated();
-        return;
-      }
-      final selected = choice == 'personal'
-          ? null
-          : managed.firstWhere((c) => c.id == choice);
-      setState(() => _selectedSpace = selected);
-      widget.onSpaceSelected?.call(selected);
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.trError(error))));
-      }
-    }
-  }
-
   @override
-  Widget build(BuildContext context) {
-    if (widget.accountHub) return _accountHub(context);
-    return FutureBuilder<WicchuProfile>(
-      future: _profile,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Scaffold(
-            body: _LoadError(
-              error: snapshot.error!,
-              onRetry: () => setState(() {
-                _profile = _loadProfile();
-              }),
-            ),
-          );
-        }
-        final profile = snapshot.data;
-        if (profile == null) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final space = _selectedSpace;
-        if (space != null) {
-          return CommunityProfilePage(
-            key: ValueKey(space.id),
-            community: space,
-            repository: widget.repository,
-            embedded: true,
-            postRequest: widget.postRequest,
-            onSwitchCommunity: () => _switchProfile(profile),
-            onAccountMenu: _openAccountMenu,
-          );
-        }
-        return MemberProfilePage(
-          key: ValueKey(profile.id),
-          userId: profile.id,
-          onExploreCommunities: widget.onExploreCommunities,
-          repository: widget.repository,
-          postRequest: widget.postRequest,
-          embedded: true,
-          onAccountMenu: _openAccountMenu,
-          header: InkWell(
-            onTap: () => _switchProfile(profile),
-            child: Tooltip(
-              message: context.tr('Switch profile'),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      profile.userName.isNotEmpty
-                          ? '@${profile.userName}'
-                          : profile.name,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(WicchuIcons.caretDown, size: 18),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) => _accountHub(context);
 
   Widget _accountHub(BuildContext context) => Scaffold(
-    backgroundColor: Color.alphaBlend(
-      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.025),
-      Theme.of(context).colorScheme.surface,
-    ),
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     appBar: AppBar(
       title: Text(context.tr('You')),
       actions: [
@@ -3979,69 +3984,74 @@ class _ProfileTabState extends State<_ProfileTab> {
                   );
                 }
                 final profile = snapshot.data!;
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Semantics(
-                      button: true,
-                      label: context.tr('View profile'),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () => _openMyProfile(profile.id),
-                        child: UserAvatar(
-                          name: profile.name,
-                          imageUrl: profile.avatarUrl,
-                          radius: 36,
+                return InkWell(
+                  key: const ValueKey('account-profile-identity'),
+                  onTap: () => _openMyProfile(profile.id),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Semantics(
+                        button: true,
+                        label: context.tr('View profile'),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => _openMyProfile(profile.id),
+                          child: UserAvatar(
+                            name: profile.name,
+                            imageUrl: profile.avatarUrl,
+                            radius: 36,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            profile.name,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          Text(
-                            '@${profile.userName}',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${context.trCount(profile.communityCount, singular: '{count} space', plural: '{count} spaces')} · '
-                            '${context.trCount(profile.postCount, singular: '{count} post', plural: '{count} posts')}',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.name,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            Text(
+                              '@${profile.userName}',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${context.trCount(profile.communityCount, singular: '{count} space', plural: '{count} spaces')} · '
+                              '${context.trCount(profile.postCount, singular: '{count} post', plural: '{count} posts')}',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      IconButton(
+                        key: const ValueKey('account-edit-profile'),
+                        tooltip: context.tr('Edit profile'),
+                        icon: const Icon(WicchuIcons.pencilSimple),
+                        onPressed: () async {
+                          await editProfileLinks(context, widget.repository);
+                          if (mounted) await _refreshProfile();
+                        },
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
-            _accountSection('My content'),
+            _accountSection('My activity'),
             _accountCard([
-              _ProfileRow(
-                icon: WicchuIcons.pencilSimple,
-                label: 'Edit profile',
-                onTap: () async {
-                  await editProfileLinks(context, widget.repository);
-                  if (mounted) await _refreshProfile();
-                },
-              ),
               _ProfileRow(
                 icon: WicchuIcons.usersThree,
                 label: 'My spaces',
@@ -4127,12 +4137,14 @@ class _ProfileTabState extends State<_ProfileTab> {
               _ProfileRow(
                 icon: WicchuIcons.plusCircle,
                 label: 'Create a community',
+                accent: true,
                 subtitle: 'For neighborhoods and local groups',
                 onTap: () => _createCommunity(),
               ),
               _ProfileRow(
                 icon: WicchuIcons.userPlus,
                 label: 'Create a public profile',
+                accent: true,
                 subtitle: 'For businesses, creators, clubs, and organizations',
                 onTap: () => _createCommunity(CommunityType.publicProfile),
               ),
@@ -4427,8 +4439,10 @@ class _ProfileRow extends StatelessWidget {
     required this.icon,
     required this.label,
     this.subtitle,
+    this.accent = false,
     this.onTap,
   });
+  final bool accent;
   final String? subtitle;
   final IconData icon;
   final String label;
@@ -4438,7 +4452,10 @@ class _ProfileRow extends StatelessWidget {
     contentPadding: EdgeInsets.zero,
     minTileHeight: 48,
     visualDensity: const VisualDensity(vertical: -1),
-    leading: Icon(icon),
+    leading: Icon(
+      icon,
+      color: accent ? Theme.of(context).colorScheme.primary : null,
+    ),
     title: Text(context.tr(label)),
     subtitle: subtitle == null ? null : Text(context.tr(subtitle!)),
     trailing: const Icon(WicchuIcons.caretRight),
@@ -4514,8 +4531,12 @@ class _LoadErrorState extends State<_LoadError> {
 }
 
 class _CommunitySwitcherHeading extends StatelessWidget {
-  const _CommunitySwitcherHeading({required this.count});
+  const _CommunitySwitcherHeading({
+    required this.count,
+    this.communitiesOnly = false,
+  });
   final int count;
+  final bool communitiesOnly;
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -4528,7 +4549,9 @@ class _CommunitySwitcherHeading extends StatelessWidget {
             children: [
               Flexible(
                 child: Text(
-                  context.tr('Your spaces'),
+                  context.tr(
+                    communitiesOnly ? 'My communities' : 'Your spaces',
+                  ),
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
@@ -4557,7 +4580,11 @@ class _CommunitySwitcherHeading extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            context.tr('Switch between your communities and profiles.'),
+            context.tr(
+              communitiesOnly
+                  ? 'Switch between your communities.'
+                  : 'Switch between your communities and profiles.',
+            ),
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
@@ -4573,7 +4600,9 @@ class _CommunitySwitcherRow extends StatelessWidget {
     required this.community,
     required this.selected,
     required this.onTap,
+    this.showCurrentLabel = false,
   });
+  final bool showCurrentLabel;
   final Community community;
   final bool selected;
   final VoidCallback onTap;
@@ -4601,7 +4630,9 @@ class _CommunitySwitcherRow extends StatelessWidget {
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           subtitle: Text(
-            '${context.tr(community.spaceTypeLabel)} · ${context.trCount(community.memberCount, singular: community.isPublicProfile ? '{count} follower' : '{count} member', plural: community.isPublicProfile ? '{count} followers' : '{count} members')}',
+            selected && showCurrentLabel
+                ? context.tr('Current')
+                : '${context.tr(community.spaceTypeLabel)} · ${context.trCount(community.memberCount, singular: community.isPublicProfile ? '{count} follower' : '{count} member', plural: community.isPublicProfile ? '{count} followers' : '{count} members')}',
             style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
           ),
           trailing: selected

@@ -14,11 +14,13 @@ class FeedFilterBar extends StatefulWidget {
     this.style = FeedNavigationStyle.pills,
     this.height = 48,
     this.compact = false,
+    this.fillWidth = false,
     this.unreadCounts = const [],
     this.pulsingIndexes = const {},
   });
 
   final bool compact;
+  final bool fillWidth;
   final FeedNavigationStyle style;
   final double height;
   final List<String> labels;
@@ -63,6 +65,24 @@ class _FeedFilterBarState extends State<FeedFilterBar> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.fillWidth && widget.style == FeedNavigationStyle.underline) {
+      return SizedBox(
+        height: widget.height,
+        child: Row(
+          children: [
+            for (var index = 0; index < widget.labels.length; index++)
+              Expanded(
+                child: _SectionTab(
+                  height: widget.height,
+                  label: widget.labels[index],
+                  selected: widget.selectedIndex == index,
+                  onSelected: () => widget.onSelected(index),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     if (widget.compact && widget.style == FeedNavigationStyle.underline) {
       return LayoutBuilder(
         builder: (context, constraints) {

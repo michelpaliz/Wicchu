@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
+import '../../config/business_features.dart';
 import '../../localization/app_language.dart';
 import '../../theme/wicchu_icons.dart';
 import '../../widgets/wicchu_network_image.dart';
@@ -29,26 +30,126 @@ class BusinessTransactionsPage extends StatefulWidget {
       _BusinessTransactionsPageState();
 }
 
-class _BusinessTransactionsPageState extends State<BusinessTransactionsPage> {
-  late Future<(List<BusinessOrder>, List<BusinessRequest>)> _transactions =
-      _load();
+typedef _DashboardData = ({
+  bool canManageOrders,
+  bool canManageServices,
+  List<BusinessOrder> orders,
+  List<BusinessRequest> requests,
+  Community business,
+  BusinessCatalog catalog,
+  BusinessRequestSettings settings,
+});
 
-  Future<(List<BusinessOrder>, List<BusinessRequest>)> _load() async => (
-    await widget.repository.listManagedBusinessOrders(widget.businessId),
-    await widget.repository.listManagedBusinessRequests(widget.businessId),
+class _BusinessTransactionsPageState extends State<BusinessTransactionsPage> {
+  late Future<_DashboardData> _transactions = _load();
+
+  Future<_DashboardData> _load() async {
+    final business = await widget.repository.getCommunity(widget.businessId);
+    final owner = business.myRole == CommunityRole.owner && !business.isBanned;
+    final admin = business.myRole == CommunityRole.admin && !business.isBanned;
+    final canManageOrders = owner || (admin && business.canManagePageOrders);
+    final canManageServices =
+        owner || (admin && business.canManagePageServices);
+    final values = await Future.wait<Object>([
+      canManageOrders && businessOrderingEnabled
+          ? widget.repository.listManagedBusinessOrders(widget.businessId)
+          : Future.value(<BusinessOrder>[]),
+      canManageServices
+          ? widget.repository.listManagedBusinessRequests(widget.businessId)
+          : Future.value(<BusinessRequest>[]),
+      canManageOrders
+          ? widget.repository.getBusinessCatalog(
+              widget.businessId,
+              manage: true,
+            )
+          : Future.value(
+              BusinessCatalog(
+                businessId: widget.businessId,
+                businessName: business.name,
+              ),
+            ),
+      canManageServices
+          ? widget.repository.getBusinessRequestSettings(widget.businessId)
+          : Future.value(
+              BusinessRequestSettings(
+                businessId: widget.businessId,
+                businessName: business.name,
+              ),
+            ),
+    ]);
+    return (
+      canManageOrders: canManageOrders,
+      canManageServices: canManageServices,
+      orders: values[0] as List<BusinessOrder>,
+      requests: values[1] as List<BusinessRequest>,
+      business: business,
+      catalog: values[2] as BusinessCatalog,
+      settings: values[3] as BusinessRequestSettings,
+    );
+  }
+
+  Future<void> _reload() async {
+    if (!mounted) return;
+    final next = _load();
+    setState(() {
+      _transactions = next;
+    });
+    try {
+      await next;
+    } catch (_) {
+      // FutureBuilder displays the load error and retry action.
+    }
+  }
+
+  Future<void> _open(Widget page) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+    if (mounted) await _reload();
+  }
+
+  Widget _catalogPage() => BusinessCatalogManagementPage(
+    businessId: widget.businessId,
+    businessName: widget.businessName,
+    repository: widget.repository,
   );
 
-  void _reload() {
-    if (!mounted) return;
-    setState(() {
-      _transactions = _load();
-    });
+  Widget _requestsPage() => BusinessRequestManagementPage(
+    businessId: widget.businessId,
+    businessName: widget.businessName,
+    repository: widget.repository,
+  );
+
+  String _requestTitle(List<BusinessRequestType> types) {
+    if (types.length != 1) return 'Service requests';
+    return switch (types.single) {
+      BusinessRequestType.quote => 'Quotes and services',
+      BusinessRequestType.appointment => 'Appointments and bookings',
+      BusinessRequestType.taxi => 'Ride requests',
+      BusinessRequestType.service => 'Service requests',
+    };
+  }
+
+  String _requestSubtitle(List<BusinessRequestType> types) {
+    if (types.isEmpty) return 'Manage existing requests';
+    if (types.length != 1) {
+      return 'Manage customer requests and their status.';
+    }
+    return switch (types.single) {
+      BusinessRequestType.quote => 'Manage quotes and services',
+      BusinessRequestType.appointment => 'Manage appointments',
+      BusinessRequestType.taxi => 'Manage ride requests',
+      BusinessRequestType.service => 'Manage service requests',
+    };
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Business dashboard'))),
-    body: FutureBuilder<(List<BusinessOrder>, List<BusinessRequest>)>(
+    appBar: AppBar(
+      title: Text(
+        context.tr('Business dashboard'),
+        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
+      ),
+    ),
+    body: FutureBuilder<_DashboardData>(
       future: _transactions,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -57,85 +158,166 @@ class _BusinessTransactionsPageState extends State<BusinessTransactionsPage> {
         if (snapshot.hasError) {
           return _RequestError(error: snapshot.error, onRetry: _reload);
         }
-        final (orders, requests) = snapshot.data!;
+        final data = snapshot.data!;
+        if (!data.canManageOrders && !data.canManageServices) {
+          return Center(
+            child: Text(
+              context.tr('You do not have permission to manage this business.'),
+            ),
+          );
+        }
+        final orders = businessOrderingEnabled
+            ? data.orders
+            : const <BusinessOrder>[];
+        final requests = data.requests;
+        final food = data.business.businessServices.contains(
+          BusinessService.food,
+        );
+        final retail = data.business.businessServices.contains(
+          BusinessService.retail,
+        );
+        final productsEnabled =
+            food ||
+            retail ||
+            data.catalog.products.isNotEmpty ||
+            (businessOrderingEnabled && data.catalog.acceptingOrders);
+        final requestsEnabled =
+            data.settings.capabilities.isNotEmpty || requests.isNotEmpty;
+        final productTitle = food
+            ? (businessOrderingEnabled ? 'Menu and orders' : 'Menu')
+            : (businessOrderingEnabled ? 'Products and sales' : 'Catalog');
         final pending =
             orders
-                .where((order) => order.status == BusinessOrderStatus.pending)
+                .where((o) => o.status == BusinessOrderStatus.pending)
                 .length +
             requests
-                .where(
-                  (request) => request.status == BusinessRequestStatus.pending,
-                )
+                .where((r) => r.status == BusinessRequestStatus.pending)
                 .length;
         final scheduled = requests
-            .where(
-              (request) => request.status == BusinessRequestStatus.scheduled,
-            )
+            .where((r) => r.status == BusinessRequestStatus.scheduled)
             .length;
         final completed =
             orders
-                .where((order) => order.status == BusinessOrderStatus.completed)
+                .where((o) => o.status == BusinessOrderStatus.completed)
                 .length +
             requests
-                .where(
-                  (request) =>
-                      request.status == BusinessRequestStatus.completed,
-                )
+                .where((r) => r.status == BusinessRequestStatus.completed)
                 .length;
+        final theme = Theme.of(context);
+        Widget heading(String text) => Text(
+          context.tr(text),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        );
         return RefreshIndicator(
-          onRefresh: () async => _reload(),
+          onRefresh: _reload,
           child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
+              heading(
+                businessOrderingEnabled
+                    ? 'Overall activity'
+                    : 'Request activity',
+              ),
+              const SizedBox(height: 4),
+              Text(
+                context.tr(
+                  businessOrderingEnabled
+                      ? 'Orders and service requests combined'
+                      : 'Service requests and bookings',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
+              ),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
                     child: _DashboardCount(
-                      label: context.tr('Pending'),
+                      label: context.tr('Pending items'),
                       count: pending,
                     ),
                   ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: _DashboardCount(
-                      label: context.tr('Scheduled'),
+                      label: context.tr('Scheduled items'),
                       count: scheduled,
                     ),
                   ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: _DashboardCount(
-                      label: context.tr('Completed'),
+                      label: context.tr('Completed items'),
                       count: completed,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              _transactionDestination(
-                context,
-                icon: WicchuIcons.receipt,
-                title: 'Products and orders',
-                count: orders.length,
-                subtitle: 'Manage menus, products and customer orders.',
-                page: BusinessCatalogManagementPage(
-                  businessId: widget.businessId,
-                  businessName: widget.businessName,
-                  repository: widget.repository,
+              if (orders.isEmpty && requests.isEmpty) ...[
+                const SizedBox(height: 20),
+                heading('No requests yet'),
+                const SizedBox(height: 4),
+                Text(
+                  context.tr(
+                    businessOrderingEnabled
+                        ? 'Customer orders and service requests will appear here.'
+                        : 'Customer requests will appear here.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 13),
                 ),
-              ),
-              _transactionDestination(
-                context,
-                icon: WicchuIcons.clipboardText,
-                title: 'Service requests',
-                count: requests.length,
-                subtitle: 'Manage quotes, bookings and taxi requests.',
-                page: BusinessRequestManagementPage(
-                  businessId: widget.businessId,
-                  businessName: widget.businessName,
-                  repository: widget.repository,
+              ],
+              const SizedBox(height: 24),
+              heading('Manage business'),
+              const SizedBox(height: 8),
+              if (data.canManageOrders && productsEnabled)
+                _destination(
+                  icon: food ? WicchuIcons.forkKnife : WicchuIcons.receipt,
+                  title: productTitle,
+                  subtitle: food
+                      ? (businessOrderingEnabled
+                            ? 'Menus, catalog and orders'
+                            : 'Menus, categories and availability')
+                      : (businessOrderingEnabled
+                            ? 'Catalog and customer orders'
+                            : 'Products, categories and availability'),
+                  count: businessOrderingEnabled ? orders.length : null,
+                  page: _catalogPage(),
                 ),
-              ),
+              if (data.canManageServices && requestsEnabled)
+                _destination(
+                  icon: WicchuIcons.clipboardText,
+                  title: _requestTitle(data.settings.capabilities),
+                  subtitle: _requestSubtitle(data.settings.capabilities),
+                  count: requests.length,
+                  page: _requestsPage(),
+                ),
+              if ((data.canManageOrders && !productsEnabled) ||
+                  (data.canManageServices && !requestsEnabled)) ...[
+                const SizedBox(height: 16),
+                heading('Set up business features'),
+                if (data.canManageOrders && !productsEnabled)
+                  _destination(
+                    icon: WicchuIcons.receipt,
+                    title: businessOrderingEnabled
+                        ? 'Set up product sales'
+                        : 'Set up catalog',
+                    subtitle: businessOrderingEnabled
+                        ? 'Enable only if your business sells products.'
+                        : 'Add products or menu items customers can browse.',
+                    page: _catalogPage(),
+                  ),
+                if (data.canManageServices && !requestsEnabled)
+                  _destination(
+                    icon: WicchuIcons.clipboardText,
+                    title: 'Set up service requests',
+                    subtitle: 'Choose the services customers can request.',
+                    page: BusinessRequestSettingsPage(
+                      businessId: widget.businessId,
+                      repository: widget.repository,
+                    ),
+                  ),
+              ],
             ],
           ),
         );
@@ -143,25 +325,50 @@ class _BusinessTransactionsPageState extends State<BusinessTransactionsPage> {
     ),
   );
 
-  Widget _transactionDestination(
-    BuildContext context, {
+  Widget _destination({
     required IconData icon,
     required String title,
-    required int count,
     required String subtitle,
+    int? count,
     required Widget page,
-  }) => Card(
-    child: ListTile(
-      leading: CircleAvatar(child: Icon(icon)),
-      title: Text(context.tr(title)),
-      subtitle: Text('$count · ${context.tr(subtitle)}'),
-      trailing: const Icon(WicchuIcons.caretRight),
-      onTap: () async {
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-        _reload();
-      },
-    ),
-  );
+  }) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          minVerticalPadding: 12,
+          minTileHeight: 48,
+          leading: Icon(icon, size: 22, color: theme.colorScheme.primary),
+          title: Text(
+            context.tr(title),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            context.tr(subtitle),
+            style: const TextStyle(fontSize: 12, height: 1.4),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (count != null && count > 0) ...[
+                Text('$count'),
+                const SizedBox(width: 8),
+              ],
+              const Icon(WicchuIcons.caretRight, size: 18),
+            ],
+          ),
+          onTap: () => _open(page),
+        ),
+        Divider(
+          height: 1,
+          thickness: .5,
+          indent: 38,
+          color: theme.colorScheme.onSurface.withValues(alpha: .1),
+        ),
+      ],
+    );
+  }
 }
 
 class _DashboardCount extends StatelessWidget {
@@ -170,25 +377,24 @@ class _DashboardCount extends StatelessWidget {
   final int count;
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-      child: Column(
-        children: [
-          Text(
-            '$count',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+    child: Column(
+      children: [
+        Text(
+          '$count',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
           ),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ],
     ),
   );
 }
@@ -252,8 +458,11 @@ class _BusinessRequestComposerPageState
           ? settings.capabilities
           : widget.initialCapabilities;
       _type ??= capabilities.isEmpty ? null : capabilities.first;
+      final businessName = settings.businessName == 'Local business'
+          ? context.tr('Local business')
+          : settings.businessName;
       return Scaffold(
-        appBar: AppBar(title: Text(settings.businessName)),
+        appBar: AppBar(title: Text(businessName)),
         body: !settings.acceptingRequests || capabilities.isEmpty
             ? _RequestEmpty(
                 icon: WicchuIcons.clock,
@@ -629,9 +838,20 @@ class BusinessRequestManagementPage extends StatefulWidget {
 
 class _BusinessRequestManagementPageState
     extends State<BusinessRequestManagementPage> {
-  late Future<List<BusinessRequest>> _requests = _load();
-  Future<List<BusinessRequest>> _load() =>
-      widget.repository.listManagedBusinessRequests(widget.businessId);
+  late Future<(List<BusinessRequest>, BusinessRequestSettings)> _requests =
+      _load();
+  BusinessRequestStatus? _filter;
+  Future<(List<BusinessRequest>, BusinessRequestSettings)> _load() async {
+    final values = await Future.wait<Object>([
+      widget.repository.listManagedBusinessRequests(widget.businessId),
+      widget.repository.getBusinessRequestSettings(widget.businessId),
+    ]);
+    return (
+      values[0] as List<BusinessRequest>,
+      values[1] as BusinessRequestSettings,
+    );
+  }
+
   void _reload() {
     if (!mounted) return;
     setState(() {
@@ -639,60 +859,186 @@ class _BusinessRequestManagementPageState
     });
   }
 
+  Future<void> _configure() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BusinessRequestSettingsPage(
+          businessId: widget.businessId,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    _reload();
+  }
+
+  Widget _empty(String title, String body, {bool configure = false}) => Center(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            WicchuIcons.clipboardText,
+            size: 32,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.tr(title),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.tr(body),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, height: 1.4),
+          ),
+          if (configure) ...[
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _configure,
+              child: Text(context.tr('Configure requests')),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(context.tr('Business requests')),
+      title: Text(
+        context.tr('Business requests'),
+        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
+      ),
       actions: [
         IconButton(
           tooltip: context.tr('Request settings'),
-          onPressed: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => BusinessRequestSettingsPage(
-                  businessId: widget.businessId,
-                  repository: widget.repository,
-                ),
-              ),
-            );
-            _reload();
-          },
+          onPressed: _configure,
           icon: const Icon(WicchuIcons.gearSix),
         ),
       ],
     ),
-    body: FutureBuilder<List<BusinessRequest>>(
+    body: FutureBuilder<(List<BusinessRequest>, BusinessRequestSettings)>(
       future: _requests,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return _RequestError(error: snapshot.error, onRetry: _reload);
-        }
-        final requests = snapshot.data!;
-        if (requests.isEmpty) {
-          return _RequestEmpty(
-            icon: WicchuIcons.clipboardText,
-            title: context.tr('No requests yet'),
-            body: context.tr(
-              'Enable request types in settings so customers can contact you.',
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(context.tr('Could not load requests')),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _reload,
+                  child: Text(context.tr('Retry')),
+                ),
+              ],
             ),
           );
         }
-        return RefreshIndicator(
-          onRefresh: () async => _reload(),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              for (final request in requests)
-                _BusinessRequestCard(
-                  request: request,
-                  onAction: (status) => _changeStatus(request, status),
-                ),
-            ],
-          ),
+        final (requests, settings) = snapshot.data!;
+        if (requests.isEmpty) {
+          if (settings.capabilities.isEmpty) {
+            return _empty(
+              'Enable your services to receive requests',
+              'Choose which services to offer to start receiving customer requests.',
+              configure: true,
+            );
+          }
+          if (!settings.acceptingRequests) {
+            return _empty(
+              'Requests are paused',
+              'Enable requests when you are ready to receive customers.',
+              configure: true,
+            );
+          }
+          return _empty(
+            'You have not received any requests yet',
+            settings.capabilities
+                .map((type) => context.tr(type.actionLabel))
+                .join(' · '),
+          );
+        }
+        final visible = requests
+            .where((r) => _filter == null || r.status == _filter)
+            .toList();
+        return Column(
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  for (final entry in <BusinessRequestStatus?, String>{
+                    null: 'All',
+                    BusinessRequestStatus.pending: 'Pending items',
+                    BusinessRequestStatus.scheduled: 'Scheduled items',
+                  }.entries)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Builder(
+                        builder: (context) {
+                          final selected = _filter == entry.key;
+                          final colors = Theme.of(context).colorScheme;
+                          return ChoiceChip(
+                            label: Text(context.tr(entry.value)),
+                            labelStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: selected
+                                  ? colors.onPrimaryContainer
+                                  : colors.onSurfaceVariant,
+                            ),
+                            selected: selected,
+                            showCheckmark: false,
+                            side: BorderSide.none,
+                            backgroundColor: Colors.transparent,
+                            selectedColor: colors.primaryContainer,
+                            visualDensity: VisualDensity.compact,
+                            shape: const StadiumBorder(),
+                            onSelected: (_) =>
+                                setState(() => _filter = entry.key),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: visible.isEmpty
+                  ? _empty(
+                      'No requests in this category',
+                      'Choose another status to see your requests.',
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        _reload();
+                        await _requests;
+                      },
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          for (final request in visible)
+                            _BusinessRequestCard(
+                              request: request,
+                              onAction: (status) =>
+                                  _changeStatus(request, status),
+                            ),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
         );
       },
     ),

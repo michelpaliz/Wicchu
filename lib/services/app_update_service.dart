@@ -56,36 +56,54 @@ class AppUpdateService {
 
   static const _lastCheckKey = 'app_update_last_check';
   static const _cachedPolicyKey = 'app_update_cached_policy';
+  static const _checkedPackageKey = 'app_update_checked_package';
   static const _apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://hexora.dev',
   );
 
-  Future<AppUpdateInfo?> check({required String languageCode}) async {
-    if (kIsWeb) return null;
+  Future<AppUpdateInfo?> check({
+    required String languageCode,
+    bool force = false,
+  }) async {
+    if (kIsWeb) throw UnsupportedError('Updates are not supported on web.');
     final platform = switch (defaultTargetPlatform) {
       TargetPlatform.android => 'android',
       TargetPlatform.iOS => 'ios',
       _ => null,
     };
-    if (platform == null) return null;
+    if (platform == null) {
+      throw UnsupportedError('Updates are not supported on this platform.');
+    }
 
     final preferences = await SharedPreferences.getInstance();
+    final package = await PackageInfo.fromPlatform();
+    final checkedPackage =
+        '$platform:${package.version}:${package.buildNumber}';
     final now = DateTime.now();
     final lastCheck = DateTime.tryParse(
       preferences.getString(_lastCheckKey) ?? '',
     );
-    if (lastCheck != null &&
+    if (!force &&
+        preferences.getString(_checkedPackageKey) == checkedPackage &&
+        lastCheck != null &&
+        !now.isBefore(lastCheck) &&
         now.difference(lastCheck) < const Duration(days: 1)) {
       final cached = preferences.getString(_cachedPolicyKey);
       if (cached == null) return null;
-      final decoded = jsonDecode(cached);
-      if (decoded is! Map<String, dynamic>) return null;
-      final info = AppUpdateInfo.fromJson(decoded);
-      return info?.required == true ? info : null;
+      try {
+        final decoded = jsonDecode(cached);
+        if (decoded is Map<String, dynamic>) {
+          final info = AppUpdateInfo.fromJson(decoded);
+          if (decoded['updateAvailable'] == false || info != null) {
+            return info?.required == true ? info : null;
+          }
+        }
+      } on FormatException {
+        // A damaged cache must not prevent a fresh update check.
+      }
     }
 
-    final package = await PackageInfo.fromPlatform();
     final uri = Uri.parse('$_apiBaseUrl/wicchu/app-update').replace(
       queryParameters: {
         'platform': platform,
@@ -96,6 +114,8 @@ class AppUpdateService {
     );
     Map<String, dynamic>? decoded;
     AppUpdateInfo? serverUpdate;
+    var serverChecked = false;
+    var playChecked = false;
     try {
       final response = await _client
           .get(uri, headers: const {'Accept': 'application/json'})
@@ -103,8 +123,10 @@ class AppUpdateService {
       if (response.statusCode == 200) {
         final value = jsonDecode(response.body);
         if (value is Map<String, dynamic>) {
-          decoded = value;
           serverUpdate = AppUpdateInfo.fromJson(value);
+          serverChecked =
+              value['updateAvailable'] == false || serverUpdate != null;
+          if (serverChecked) decoded = value;
         }
       }
     } catch (error) {
@@ -114,12 +136,18 @@ class AppUpdateService {
     AppUpdateInfo? playUpdate;
     if (platform == 'android') {
       try {
-        final info = await _checkGooglePlay();
+        final info = await _checkGooglePlay().timeout(
+          const Duration(seconds: 8),
+        );
         final available =
             info.updateAvailability ==
                 play.UpdateAvailability.updateAvailable ||
             info.updateAvailability ==
                 play.UpdateAvailability.developerTriggeredUpdateInProgress;
+        playChecked =
+            available ||
+            info.updateAvailability ==
+                play.UpdateAvailability.updateNotAvailable;
         if (available) {
           final required = serverUpdate?.required == true;
           final mode = required && info.immediateUpdateAllowed
@@ -147,6 +175,10 @@ class AppUpdateService {
       }
     }
 
+    if (!serverChecked && !playChecked) {
+      throw StateError('Could not check for updates. Please try again.');
+    }
+    await preferences.setString(_checkedPackageKey, checkedPackage);
     await preferences.setString(_lastCheckKey, now.toIso8601String());
     if (decoded != null) {
       await preferences.setString(_cachedPolicyKey, jsonEncode(decoded));

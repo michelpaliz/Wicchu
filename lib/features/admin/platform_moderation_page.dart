@@ -1,3 +1,4 @@
+import '../../widgets/wicchu_list_tile.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 
@@ -6,9 +7,14 @@ import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 
 class PlatformModerationPage extends StatefulWidget {
-  const PlatformModerationPage({super.key, required this.repository});
+  const PlatformModerationPage({
+    super.key,
+    required this.repository,
+    this.initialTab = 0,
+  }) : assert(initialTab >= 0 && initialTab < 6);
 
   final CommunityRepository repository;
+  final int initialTab;
 
   @override
   State<PlatformModerationPage> createState() => _PlatformModerationPageState();
@@ -16,10 +22,11 @@ class PlatformModerationPage extends StatefulWidget {
 
 class _PlatformModerationPageState extends State<PlatformModerationPage>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 6, vsync: this)
-    ..addListener(() {
-      if (!_tabs.indexIsChanging) _reload();
-    });
+  late final TabController _tabs =
+      TabController(length: 6, initialIndex: widget.initialTab, vsync: this)
+        ..addListener(() {
+          if (!_tabs.indexIsChanging) _reload();
+        });
   late Future<List<PlatformReport>> _reports = _load();
   late Future<List<CommunityRewardRequest>> _rewardRequests = widget.repository
       .listCommunityRewardRequests();
@@ -137,10 +144,23 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
       }
       if (snapshot.hasError) {
         return Center(
-          child: FilledButton.icon(
-            onPressed: _reload,
-            icon: const Icon(WicchuIcons.arrowsClockwise),
-            label: Text(context.trError(snapshot.error!)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  context.trError(snapshot.error!),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _reload,
+                  icon: const Icon(WicchuIcons.arrowsClockwise),
+                  label: Text(context.tr('Retry')),
+                ),
+              ],
+            ),
           ),
         );
       }
@@ -160,7 +180,7 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
           itemCount: applications.length,
           itemBuilder: (context, index) {
             final item = applications[index];
-            return Card(
+            return WicchuListTile.custom(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -169,7 +189,7 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                     Text(
                       item.pageName ?? context.tr('Page'),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -179,14 +199,18 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                     Text(
                       '${context.tr('Recipient type')}: ${context.tr(_recipientTypeLabel(item.recipientType))}',
                     ),
-                    Text(
+                    SelectableText(
                       '${context.tr('Contact email')}: ${item.contactEmail}',
                     ),
                     const SizedBox(height: 10),
                     Text(item.purpose),
                     const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    if (_saving.contains(item.id))
+                      const LinearProgressIndicator(),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         OutlinedButton(
                           onPressed: _saving.contains(item.id)
@@ -194,7 +218,6 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                               : () => _reviewSupport(item, false),
                           child: Text(context.tr('Reject')),
                         ),
-                        const SizedBox(width: 8),
                         FilledButton(
                           onPressed: _saving.contains(item.id)
                               ? null
@@ -224,31 +247,43 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
     FinancialSupportApplication application,
     bool approve,
   ) async {
-    final note = TextEditingController();
+    if (_saving.contains(application.id)) return;
+    var reviewNote = "";
+    final formKey = GlobalKey<FormState>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(
           context.tr(approve ? 'Approve application' : 'Reject application'),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              context.tr(
-                approve
-                    ? 'Approval does not enable payments. Recipient verification is still required.'
-                    : 'Explain why the application was rejected.',
+        scrollable: true,
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.tr(
+                  approve
+                      ? 'Approval does not enable payments. Recipient verification is still required.'
+                      : 'Explain why the application was rejected.',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: note,
-              maxLength: 500,
-              maxLines: 3,
-              decoration: InputDecoration(labelText: context.tr('Review note')),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextFormField(
+                validator: (value) =>
+                    !approve && (value?.trim().isEmpty ?? true)
+                    ? context.tr('Explain why the application was rejected.')
+                    : null,
+                onChanged: (value) => reviewNote = value,
+                maxLength: 500,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: context.tr('Review note'),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -257,21 +292,27 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
           ),
           FilledButton(
             onPressed: () {
-              if (!approve && note.text.trim().isEmpty) return;
+              if (!formKey.currentState!.validate()) return;
               Navigator.pop(dialogContext, true);
             },
-            child: Text(context.tr('Confirm')),
+            child: Text(
+              context.tr(
+                approve ? 'Approve application' : 'Reject application',
+              ),
+            ),
           ),
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted) {
+      return;
+    }
     setState(() => _saving.add(application.id));
     try {
       await widget.repository.reviewFinancialSupportApplication(
         application.id,
         approve: approve,
-        note: note.text,
+        note: reviewNote.trim(),
       );
       if (mounted) _reload();
     } catch (error) {
@@ -281,7 +322,6 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
         ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     } finally {
-      note.dispose();
       if (mounted) setState(() => _saving.remove(application.id));
     }
   }
@@ -324,39 +364,57 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                 : request.countryCode;
             return Card(
               child: Padding(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      country,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      context.tr('Reward request'),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    Text(request.contactEmail),
-                    Text(
-                      '${context.tr('Submitted')}: ${MaterialLocalizations.of(context).formatMediumDate(request.requestedAt.toLocal())}',
+                    const SizedBox(height: 10),
+                    _ModerationInfoRow(
+                      icon: WicchuIcons.mapPin,
+                      label: context.tr('Country'),
+                      value: country,
+                    ),
+                    _ModerationInfoRow(
+                      icon: WicchuIcons.envelope,
+                      label: context.tr('Contact email'),
+                      value: request.contactEmail,
+                    ),
+                    _ModerationInfoRow(
+                      icon: WicchuIcons.calendarBlank,
+                      label: context.tr('Submitted'),
+                      value: MaterialLocalizations.of(
+                        context,
+                      ).formatMediumDate(request.requestedAt.toLocal()),
                     ),
                     if (request.note?.isNotEmpty ?? false) ...[
-                      const SizedBox(height: 10),
+                      const Divider(height: 24),
                       Text(request.note!),
                     ],
                     const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 8,
+                    Row(
                       children: [
-                        OutlinedButton(
-                          onPressed: _saving.contains(request.id)
-                              ? null
-                              : () => _reviewReward(request, false),
-                          child: Text(context.tr('Reject')),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _saving.contains(request.id)
+                                ? null
+                                : () => _reviewReward(request, false),
+                            child: Text(context.tr('Reject')),
+                          ),
                         ),
-                        FilledButton(
-                          onPressed: _saving.contains(request.id)
-                              ? null
-                              : () => _reviewReward(request, true),
-                          child: Text(context.tr('Approve')),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: _saving.contains(request.id)
+                                ? null
+                                : () => _reviewReward(request, true),
+                            child: Text(context.tr('Approve')),
+                          ),
                         ),
                       ],
                     ),
@@ -404,48 +462,25 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _AnalyticsCard(
-                  label: 'Registered users',
-                  value: '${data.registeredUsers}',
-                ),
-                _AnalyticsCard(
-                  label: 'New registrations',
-                  value: '${data.newRegistrations}',
-                ),
-                _AnalyticsCard(
-                  label: 'Daily active users',
-                  value: '${data.dailyActiveUsers}',
-                ),
-                _AnalyticsCard(
-                  label: 'Weekly active users',
-                  value: '${data.weeklyActiveUsers}',
-                ),
-                _AnalyticsCard(
-                  label: 'Monthly active users',
-                  value: '${data.monthlyActiveUsers}',
-                ),
-                _AnalyticsCard(
-                  label: 'Monthly retention',
-                  value: data.monthlyRetentionPercent == null
+            _AnalyticsGrid(
+              items: [
+                ('Registered users', '${data.registeredUsers}'),
+                ('New registrations', '${data.newRegistrations}'),
+                ('Daily active users', '${data.dailyActiveUsers}'),
+                ('Weekly active users', '${data.weeklyActiveUsers}'),
+                ('Monthly active users', '${data.monthlyActiveUsers}'),
+                (
+                  'Monthly retention',
+                  data.monthlyRetentionPercent == null
                       ? '—'
                       : '${data.monthlyRetentionPercent}%',
                 ),
-                _AnalyticsCard(
-                  label: 'Active communities',
-                  value: '${data.activeCommunities}',
+                ('Active communities', '${data.activeCommunities}'),
+                (
+                  'Participating communities',
+                  '${data.participatingCommunities}',
                 ),
-                _AnalyticsCard(
-                  label: 'Participating communities',
-                  value: '${data.participatingCommunities}',
-                ),
-                _AnalyticsCard(
-                  label: 'Pending reviews',
-                  value: '${data.pendingReviews}',
-                ),
+                ('Pending reviews', '${data.pendingReviews}'),
               ],
             ),
             const SizedBox(height: 24),
@@ -456,34 +491,29 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _AnalyticsCard(
-                  label: 'Translation requests (30d)',
-                  value: '${data.translationRequests}',
-                ),
-                _AnalyticsCard(
-                  label: 'Translation errors (30d)',
-                  value: '${data.translationErrors}',
-                ),
-                _AnalyticsCard(
-                  label: 'Average translation latency',
-                  value: '${data.translationAverageLatencyMs.round()} ms',
-                ),
-                _AnalyticsCard(
-                  label: 'Estimated translation cost (30d)',
-                  value:
-                      '\$${data.translationEstimatedCostUsd.toStringAsFixed(2)}',
-                ),
-                _AnalyticsCard(
-                  label: 'Monthly translation budget',
-                  value:
-                      '\$${data.translationMonthlyBudgetUsedUsd.toStringAsFixed(2)} / \$${data.translationMonthlyBudgetLimitUsd.toStringAsFixed(2)}',
-                ),
-              ],
-            ),
+            if (!data.translationAnalyticsAvailable)
+              Text(
+                context.tr('Translation analytics are temporarily unavailable'),
+              )
+            else
+              _AnalyticsGrid(
+                items: [
+                  ('Translation requests (30d)', '${data.translationRequests}'),
+                  ('Translation errors (30d)', '${data.translationErrors}'),
+                  (
+                    'Average translation latency',
+                    '${data.translationAverageLatencyMs.round()} ms',
+                  ),
+                  (
+                    'Estimated translation cost (30d)',
+                    '\$${data.translationEstimatedCostUsd.toStringAsFixed(2)}',
+                  ),
+                  (
+                    'Monthly translation budget',
+                    '\$${data.translationMonthlyBudgetUsedUsd.toStringAsFixed(2)} / \$${data.translationMonthlyBudgetLimitUsd.toStringAsFixed(2)}',
+                  ),
+                ],
+              ),
             if (data.registrationsByLocation.isNotEmpty) ...[
               const SizedBox(height: 24),
               Text(
@@ -493,15 +523,10 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
+              _AnalyticsGrid(
+                items: [
                   for (final item in data.registrationsByLocation)
-                    _AnalyticsCard(
-                      label: item.location,
-                      value: '${item.users}',
-                    ),
+                    (item.location, '${item.users}'),
                 ],
               ),
             ],
@@ -573,7 +598,7 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
     CommunityRewardRequest request,
     bool approve,
   ) async {
-    final note = TextEditingController();
+    var reviewNote = '';
     var currency = request.countryCode == 'ES' ? 'EUR' : 'USD';
     final confirmed = await showDialog<bool>(
       context: context,
@@ -599,9 +624,9 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                       setDialogState(() => currency = value ?? currency),
                 ),
               TextField(
-                controller: note,
                 maxLength: 500,
                 maxLines: 3,
+                onChanged: (value) => setDialogState(() => reviewNote = value),
                 decoration: InputDecoration(
                   labelText: context.tr('Review note'),
                 ),
@@ -614,15 +639,15 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
               child: Text(context.tr('Cancel')),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: approve || reviewNote.trim().isNotEmpty
+                  ? () => Navigator.pop(context, true)
+                  : null,
               child: Text(context.tr(approve ? 'Approve' : 'Reject')),
             ),
           ],
         ),
       ),
     );
-    final reviewNote = note.text;
-    note.dispose();
     if (!mounted) return;
     if (confirmed != true) return;
     if (!approve && reviewNote.trim().isEmpty) {
@@ -685,61 +710,117 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
                 : '${(payout.rewardCents / 100).toStringAsFixed(2)} €';
             return Card(
               child: Padding(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            payout.communityName,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        _StatusPill(
+                          label: context.tr(
+                            payout.status == 'pending_review'
+                                ? 'Pending review'
+                                : 'Approved',
+                          ),
+                        ),
+                      ],
+                    ),
                     Text(
-                      payout.communityName,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      amount,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    _ModerationInfoRow(
+                      icon: WicchuIcons.envelope,
+                      label: context.tr('Contact email'),
+                      value: payout.contactEmail,
+                    ),
+                    _ModerationInfoRow(
+                      icon: WicchuIcons.calendarBlank,
+                      label: context.tr('Month'),
+                      value: MaterialLocalizations.of(
+                        context,
+                      ).formatMonthYear(payout.periodStart.toLocal()),
+                    ),
+                    _ModerationInfoRow(
+                      icon: WicchuIcons.money,
+                      label: context.tr('Approved balance'),
+                      value:
+                          '${payout.currency == 'USD' ? '\$' : ''}${(payout.availableBalanceCents / 100).toStringAsFixed(2)}${payout.currency == 'EUR' ? ' €' : ''}',
+                    ),
+                    const Divider(height: 24),
+                    Text(
+                      context.tr('Attributed activity'),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    Text(payout.contactEmail),
-                    Text(
-                      '${context.tr('Month')}: ${MaterialLocalizations.of(context).formatMonthYear(payout.periodStart.toLocal())}',
-                    ),
-                    Text('${context.tr('Amount')}: $amount'),
-                    Text(
-                      '${context.tr('Approved balance')}: ${payout.currency == 'USD' ? '\$' : ''}${(payout.availableBalanceCents / 100).toStringAsFixed(2)}${payout.currency == 'EUR' ? ' €' : ''}',
-                    ),
-                    Text(
-                      '${context.tr('Status')}: ${context.tr(payout.status == 'pending_review' ? 'Pending review' : 'Approved')}',
-                    ),
                     const SizedBox(height: 8),
-                    Text(
-                      '${context.tr('Attributed users')}: ${payout.attributedJoins} · ${context.tr('New Wicchu users')}: ${payout.attributedNewUsers}',
-                    ),
-                    Text(
-                      '${context.tr('Active after 7 days')}: ${payout.attributedActive7d} · ${context.tr('Active after 30 days')}: ${payout.attributedActive30d}',
+                    _CompactMetrics(
+                      items: [
+                        (
+                          context.tr('Attributed users'),
+                          payout.attributedJoins,
+                        ),
+                        (
+                          context.tr('New Wicchu users'),
+                          payout.attributedNewUsers,
+                        ),
+                        (
+                          context.tr('Active after 7 days'),
+                          payout.attributedActive7d,
+                        ),
+                        (
+                          context.tr('Active after 30 days'),
+                          payout.attributedActive30d,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 8,
+                    Row(
                       children: payout.status == 'approved'
                           ? [
-                              FilledButton(
-                                onPressed:
-                                    _saving.contains(payout.id) ||
-                                        payout.availableBalanceCents <
-                                            payout.minimumPayoutCents
-                                    ? null
-                                    : () => _actOnPayout(payout, 'mark_paid'),
-                                child: Text(context.tr('Mark paid')),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed:
+                                      _saving.contains(payout.id) ||
+                                          payout.availableBalanceCents <
+                                              payout.minimumPayoutCents
+                                      ? null
+                                      : () => _actOnPayout(payout, 'mark_paid'),
+                                  child: Text(context.tr('Mark paid')),
+                                ),
                               ),
                             ]
                           : [
-                              OutlinedButton(
-                                onPressed: _saving.contains(payout.id)
-                                    ? null
-                                    : () => _actOnPayout(payout, 'reject'),
-                                child: Text(context.tr('Reject')),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _saving.contains(payout.id)
+                                      ? null
+                                      : () => _actOnPayout(payout, 'reject'),
+                                  child: Text(context.tr('Reject')),
+                                ),
                               ),
-                              FilledButton(
-                                onPressed: _saving.contains(payout.id)
-                                    ? null
-                                    : () => _actOnPayout(payout, 'approve'),
-                                child: Text(context.tr('Approve')),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: _saving.contains(payout.id)
+                                      ? null
+                                      : () => _actOnPayout(payout, 'approve'),
+                                  child: Text(context.tr('Approve')),
+                                ),
                               ),
                             ],
                     ),
@@ -756,38 +837,73 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
   Future<void> _actOnPayout(PlatformRewardPayout payout, String action) async {
     String? note;
     if (action == 'reject') {
-      final controller = TextEditingController();
-      note = await showDialog<String>(
+      var rejectionReason = '';
+      final confirmed = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(context.tr('Reject payout')),
-          content: TextField(
-            controller: controller,
-            maxLength: 500,
-            maxLines: 3,
-            decoration: InputDecoration(labelText: context.tr('Reason')),
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(context.tr('Reject payout')),
+            content: TextField(
+              maxLength: 500,
+              maxLines: 3,
+              onChanged: (value) =>
+                  setDialogState(() => rejectionReason = value),
+              decoration: InputDecoration(labelText: context.tr('Reason')),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(context.tr('Cancel')),
+              ),
+              FilledButton(
+                onPressed: rejectionReason.trim().isEmpty
+                    ? null
+                    : () => Navigator.pop(dialogContext, true),
+                child: Text(context.tr('Reject')),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(context.tr('Cancel')),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext, controller.text.trim()),
-              child: Text(context.tr('Reject')),
-            ),
-          ],
         ),
       );
-      controller.dispose();
-      if (!mounted || note == null) return;
+      if (!mounted || confirmed != true) return;
+      note = rejectionReason.trim();
       if (note.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.tr('Add a reason before rejecting.'))),
         );
         return;
       }
+    } else {
+      final amount = payout.currency == 'USD'
+          ? '\$${(payout.rewardCents / 100).toStringAsFixed(2)}'
+          : '${(payout.rewardCents / 100).toStringAsFixed(2)} €';
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            dialogContext.tr(
+              action == 'mark_paid' ? 'Mark payout as paid' : 'Approve payout',
+            ),
+          ),
+          content: Text(
+            dialogContext.tr('Confirm {amount} for {community}.', {
+              'amount': amount,
+              'community': payout.communityName,
+            }),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(dialogContext.tr('Cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(dialogContext.tr('Confirm')),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || confirmed != true) return;
     }
     setState(() => _saving.add(payout.id));
     try {
@@ -1078,15 +1194,148 @@ class _PlatformModerationPageState extends State<PlatformModerationPage>
   };
 }
 
-class _AnalyticsCard extends StatelessWidget {
-  const _AnalyticsCard({required this.label, required this.value});
+class _ModerationInfoRow extends StatelessWidget {
+  const _ModerationInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
+  final IconData icon;
   final String label;
   final String value;
 
   @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(
+            icon,
+            size: 17,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                TextSpan(text: value),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(
+      label,
+      style: Theme.of(
+        context,
+      ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+    ),
+  );
+}
+
+class _CompactMetrics extends StatelessWidget {
+  const _CompactMetrics({required this.items});
+
+  final List<(String, int)> items;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      const spacing = 8.0;
+      final width = (constraints.maxWidth - spacing) / 2;
+      return Wrap(
+        spacing: spacing,
+        runSpacing: 8,
+        children: [
+          for (final item in items)
+            SizedBox(
+              width: width,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${item.$2}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      item.$1,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      );
+    },
+  );
+}
+
+class _AnalyticsGrid extends StatelessWidget {
+  const _AnalyticsGrid({required this.items});
+
+  final List<(String, String)> items;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      const spacing = 10.0;
+      final columns = constraints.maxWidth >= 340 ? 2 : 1;
+      final width = (constraints.maxWidth - spacing * (columns - 1)) / columns;
+      return Wrap(
+        spacing: spacing,
+        runSpacing: spacing,
+        children: [
+          for (final item in items)
+            _AnalyticsCard(label: item.$1, value: item.$2, width: width),
+        ],
+      );
+    },
+  );
+}
+
+class _AnalyticsCard extends StatelessWidget {
+  const _AnalyticsCard({
+    required this.label,
+    required this.value,
+    required this.width,
+  });
+
+  final String label;
+  final String value;
+  final double width;
+
+  @override
   Widget build(BuildContext context) => SizedBox(
-    width: 180,
+    width: width,
     child: Card(
       child: Padding(
         padding: const EdgeInsets.all(16),

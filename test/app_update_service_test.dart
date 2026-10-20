@@ -12,6 +12,187 @@ import 'package:wicchu/services/app_update_service.dart';
 void main() {
   tearDown(() => debugDefaultTargetPlatformOverride = null);
 
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    PackageInfo.setMockInitialValues(
+      appName: 'Wicchu',
+      packageName: 'com.wicchu.wicchu',
+      version: '1.0.1',
+      buildNumber: '28',
+      buildSignature: '',
+    );
+  });
+
+  test('failed checks retry immediately and preserve cached policy', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'app_update_cached_policy',
+      '{"updateAvailable":false}',
+    );
+    var calls = 0;
+    final service = AppUpdateService(
+      client: MockClient((_) async {
+        calls++;
+        return http.Response('unavailable', 503);
+      }),
+    );
+    for (var attempt = 0; attempt < 2; attempt++) {
+      await expectLater(service.check(languageCode: 'en'), throwsStateError);
+    }
+    expect(calls, 2);
+    expect(prefs.getString('app_update_last_check'), isNull);
+    expect(
+      prefs.getString('app_update_cached_policy'),
+      '{"updateAvailable":false}',
+    );
+  });
+
+  test('malformed policies do not start cooldown', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    for (final body in [
+      'not json',
+      '{}',
+      '{"updateAvailable":true,"updateUrl":"http://bad"}',
+    ]) {
+      final service = AppUpdateService(
+        client: MockClient((_) async => http.Response(body, 200)),
+      );
+      await expectLater(service.check(languageCode: 'en'), throwsStateError);
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          'app_update_last_check',
+        ),
+        isNull,
+      );
+    }
+  });
+
+  test(
+    'manual check bypasses cooldown and can detect a newly available update',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      var calls = 0;
+      final service = AppUpdateService(
+        client: MockClient((_) async {
+          calls++;
+          return http.Response(
+            jsonEncode(
+              calls == 1
+                  ? {'updateAvailable': false}
+                  : {
+                      'updateAvailable': true,
+                      'latestVersion': '1.0.2',
+                      'latestBuild': 29,
+                      'updateUrl': 'https://apps.apple.com/app/wicchu',
+                    },
+            ),
+            200,
+          );
+        }),
+      );
+      expect(await service.check(languageCode: 'en'), isNull);
+      expect(await service.check(languageCode: 'en'), isNull);
+      expect(calls, 1);
+      expect(
+        (await service.check(languageCode: 'en', force: true))?.latestBuild,
+        29,
+      );
+      expect(calls, 2);
+    },
+  );
+
+  test('Android retries if both backend and Google Play fail', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    final service = AppUpdateService(
+      client: MockClient((_) async => http.Response('', 503)),
+      checkGooglePlay: () async => throw StateError('Play unavailable'),
+    );
+    await expectLater(service.check(languageCode: 'en'), throwsStateError);
+    expect(
+      (await SharedPreferences.getInstance()).getString(
+        'app_update_last_check',
+      ),
+      isNull,
+    );
+  });
+
+  test(
+    'installing a new build invalidates a cached mandatory update',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      var calls = 0;
+      final service = AppUpdateService(
+        client: MockClient((_) async {
+          calls++;
+          return http.Response(
+            jsonEncode(
+              calls == 1
+                  ? {
+                      'updateAvailable': true,
+                      'updateRequired': true,
+                      'latestVersion': '1.0.2',
+                      'latestBuild': 29,
+                      'updateUrl': 'https://apps.apple.com/app/wicchu',
+                    }
+                  : {'updateAvailable': false},
+            ),
+            200,
+          );
+        }),
+      );
+      expect((await service.check(languageCode: 'en'))?.required, isTrue);
+      expect((await service.check(languageCode: 'en'))?.required, isTrue);
+      expect(calls, 1);
+      PackageInfo.setMockInitialValues(
+        appName: 'Wicchu',
+        packageName: 'com.wicchu.wicchu',
+        version: '1.0.2',
+        buildNumber: '29',
+        buildSignature: '',
+      );
+      expect(await service.check(languageCode: 'en'), isNull);
+      expect(calls, 2);
+    },
+  );
+
+  test('corrupt cached policy triggers a fresh check', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    SharedPreferences.setMockInitialValues({
+      'app_update_checked_package': 'ios:1.0.1:28',
+      'app_update_last_check': DateTime.now().toIso8601String(),
+      'app_update_cached_policy': 'broken json',
+    });
+    var calls = 0;
+    final service = AppUpdateService(
+      client: MockClient((_) async {
+        calls++;
+        return http.Response('{"updateAvailable":false}', 200);
+      }),
+    );
+    expect(await service.check(languageCode: 'en'), isNull);
+    expect(calls, 1);
+  });
+
+  test('future check timestamps do not suppress new checks', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    SharedPreferences.setMockInitialValues({
+      'app_update_checked_package': 'ios:1.0.1:28',
+      'app_update_last_check': DateTime.now()
+          .add(const Duration(days: 3))
+          .toIso8601String(),
+    });
+    var calls = 0;
+    final service = AppUpdateService(
+      client: MockClient((_) async {
+        calls++;
+        return http.Response('{"updateAvailable":false}', 200);
+      }),
+    );
+    expect(await service.check(languageCode: 'en'), isNull);
+    expect(calls, 1);
+  });
+
   test('maps an optional application update', () {
     final update = AppUpdateInfo.fromJson({
       'updateAvailable': true,

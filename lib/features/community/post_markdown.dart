@@ -294,7 +294,9 @@ class _PostMarkdownState extends State<PostMarkdown> {
     final theme = Theme.of(context);
     return MarkdownBody(
       data: _displayMarkdown,
-      selectable: true,
+      // SelectableText captures held drags for selection on mobile, preventing
+      // the surrounding feed from scrolling when a description is expanded.
+      selectable: false,
       softLineBreak: true,
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
         p: (widget.bodyStyle ?? WicchuPostTypography.body(context)),

@@ -26,6 +26,11 @@ Future<Uint8List> png(int width, int height) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('accepts files up to 25 MB and rejects anything larger', () {
+    expect(isWithinMediaUploadLimit(maxMediaUploadBytes), isTrue);
+    expect(isWithinMediaUploadLimit(maxMediaUploadBytes + 1), isFalse);
+  });
+
   test(
     'uses image contents despite a misleading downloaded filename',
     () async {

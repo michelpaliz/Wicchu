@@ -35,7 +35,6 @@ class MemberProfilePage extends StatefulWidget {
     required this.userId,
     required this.repository,
     this.header,
-    this.onAccountMenu,
     this.embedded = false,
     this.postRequest,
     this.onExploreCommunities,
@@ -44,7 +43,6 @@ class MemberProfilePage extends StatefulWidget {
   final VoidCallback? onExploreCommunities;
   final Listenable? postRequest;
   final Widget? header;
-  final FutureOr<void> Function()? onAccountMenu;
   final bool embedded;
   final String userId;
   final CommunityRepository repository;
@@ -509,11 +507,6 @@ class _MemberProfilePageState extends State<MemberProfilePage>
     _posts = _loadPosts();
   });
 
-  Future<void> _openAccountMenu() async {
-    await widget.onAccountMenu?.call();
-    if (mounted) _reload();
-  }
-
   Future<void> _showProfileOptions(
     PublicMemberProfile profile, {
     required bool own,
@@ -564,8 +557,6 @@ class _MemberProfilePageState extends State<MemberProfilePage>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (own && widget.onAccountMenu != null)
-                    option('account', 'You', WicchuIcons.user),
                   option('share', 'Share profile', WicchuIcons.export),
                   if (!profile.socialLinks.isEmpty)
                     option('links', 'Social links', WicchuIcons.linkSimple),
@@ -594,8 +585,6 @@ class _MemberProfilePageState extends State<MemberProfilePage>
     );
     if (!mounted) return;
     switch (value) {
-      case 'account':
-        await _openAccountMenu();
       case 'share':
         _shareProfile(profile);
       case 'links':
@@ -630,9 +619,10 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                     : '@$username',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               );
             },
           ),
@@ -654,6 +644,19 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                         tooltip: context.tr('Message'),
                         onPressed: _openChat,
                         icon: const Icon(WicchuIcons.chatCircle, size: 22),
+                      ),
+                    if (own)
+                      IconButton(
+                        key: const ValueKey('personal-profile-create-post'),
+                        tooltip: context.tr('Create post'),
+                        onPressed: _createPersonalPost,
+                        style: IconButton.styleFrom(
+                          fixedSize: const Size.square(44),
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                        ),
+                        icon: const Icon(WicchuIcons.plus, size: 22),
                       ),
                     IconButton(
                       key: const ValueKey('personal-profile-options'),
@@ -998,10 +1001,10 @@ class _MemberProfilePageState extends State<MemberProfilePage>
         ),
         _ => context.tr('{count} following', {'count': '$count'}),
       };
-      final icon = switch (label) {
-        'Communities' => WicchuIcons.usersThree,
-        'Followers' => WicchuIcons.users,
-        _ => WicchuIcons.userCheck,
+      final shortLabel = switch (label) {
+        'Communities' => 'Commun.',
+        'Followers' => 'Followers',
+        _ => 'Following',
       };
       return Tooltip(
         message: description,
@@ -1010,17 +1013,28 @@ class _MemberProfilePageState extends State<MemberProfilePage>
         child: Semantics(
           label: description,
           excludeSemantics: true,
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: colors.onSurfaceVariant),
-              const SizedBox(width: 5),
               Text(
                 '$count',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                  height: 1.05,
+                  fontWeight: FontWeight.w700,
                   color: colors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                context.tr(shortLabel),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontSize: 10,
+                  height: 1.05,
+                  fontWeight: FontWeight.w500,
+                  color: colors.onSurfaceVariant,
                 ),
               ),
             ],
@@ -1041,13 +1055,9 @@ class _MemberProfilePageState extends State<MemberProfilePage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Tooltip(
-              message: own && widget.onAccountMenu != null
-                  ? context.tr('Account menu')
-                  : profile.name,
+              message: profile.name,
               child: InkWell(
-                onTap: own && widget.onAccountMenu != null
-                    ? _openAccountMenu
-                    : profile.socialLinks.isEmpty
+                onTap: profile.socialLinks.isEmpty
                     ? null
                     : () => _openSocialLinks(profile),
                 borderRadius: BorderRadius.circular(14),
@@ -1075,15 +1085,18 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                             Positioned(
                               right: 2,
                               bottom: 2,
-                              child: Container(
-                                width: 13,
-                                height: 13,
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: colors.surface,
-                                    width: 2,
+                              child: Semantics(
+                                label: context.tr('Online'),
+                                child: Container(
+                                  width: 13,
+                                  height: 13,
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: colors.surface,
+                                      width: 2,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1101,8 +1114,8 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           if (activityStatusText(
@@ -1126,12 +1139,12 @@ class _MemberProfilePageState extends State<MemberProfilePage>
                           ],
                           Padding(
                             padding: const EdgeInsets.only(top: 6, bottom: 4),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              width: double.infinity,
                               child: Wrap(
-                                alignment: WrapAlignment.start,
+                                alignment: WrapAlignment.spaceEvenly,
                                 crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 28,
+                                spacing: 0,
                                 runSpacing: 0,
                                 children:
                                     [

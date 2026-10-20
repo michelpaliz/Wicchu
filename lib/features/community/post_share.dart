@@ -1,7 +1,8 @@
 import 'post_rules_review_page.dart';
 import 'community_avatar.dart';
 import '../../data/authenticated_api_client.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart'
+    show kDebugMode, debugPrint, debugPrintStack, visibleForTesting;
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -33,11 +34,23 @@ String socialPostCaption(CommunityPost post) {
   return caption.isEmpty ? link : '$caption\n\n$link';
 }
 
-Rect? _shareOrigin(BuildContext context) {
-  final box = context.findRenderObject() as RenderBox?;
-  if (box == null || !box.hasSize) return null;
-  return box.localToGlobal(Offset.zero) & box.size;
+@visibleForTesting
+Rect postShareOrigin(BuildContext context) {
+  final viewport = Offset.zero & MediaQuery.sizeOf(context);
+  final renderObject = context.findRenderObject();
+  if (renderObject is RenderBox &&
+      renderObject.hasSize &&
+      renderObject.attached) {
+    final bounds = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    final visibleBounds = bounds.intersect(viewport);
+    if (visibleBounds.isFinite && !visibleBounds.isEmpty) return visibleBounds;
+  }
+  // Feed item builders can expose RenderSliverList rather than RenderBox.
+  // A small on-screen anchor also supports off-screen posts and iPad popovers.
+  return Rect.fromCenter(center: viewport.center, width: 1, height: 1);
 }
+
+Rect _shareOrigin(BuildContext context) => postShareOrigin(context);
 
 /// Confirm the clipboard write before the native sheet obscures Wicchu.
 Future<bool> confirmCopiedShareCaption(
@@ -167,7 +180,11 @@ Future<void> _shareMedia(BuildContext context, CommunityPost post) async {
         sharePositionOrigin: _shareOrigin(context),
       ),
     );
-  } catch (error) {
+  } catch (error, stack) {
+    if (kDebugMode) {
+      debugPrint('Post sharing failed: $error');
+      debugPrintStack(stackTrace: stack);
+    }
     if (context.mounted) {
       if (progressOpen) Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(
@@ -294,7 +311,11 @@ Future<void> sharePostTo(
           ).showSnackBar(SnackBar(content: Text(context.tr('Link copied'))));
         }
     }
-  } catch (error) {
+  } catch (error, stack) {
+    if (kDebugMode) {
+      debugPrint('Post sharing failed: $error');
+      debugPrintStack(stackTrace: stack);
+    }
     if (context.mounted) {
       if (progressOpen) Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(
@@ -540,37 +561,100 @@ Future<void> _shareToCommunities(
   await showDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: Text(dialogContext.tr('Sharing results')),
+      title: Row(
+        children: [
+          Icon(
+            failed.isEmpty
+                ? WicchuIcons.checkCircleFill
+                : WicchuIcons.warningCircle,
+            size: 24,
+            color: failed.isEmpty
+                ? Theme.of(dialogContext).colorScheme.primary
+                : Theme.of(dialogContext).colorScheme.error,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              dialogContext.tr(
+                failed.isEmpty ? 'Publication shared' : 'Sharing results',
+              ),
+              style: Theme.of(
+                dialogContext,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (published > 0)
-            Text(
-              dialogContext.tr('{count} published', {'count': '$published'}),
+            _ShareResultLine(
+              icon: WicchuIcons.checkCircle,
+              text: dialogContext.trCount(
+                published,
+                singular: 'Published in {count} community',
+                plural: 'Published in {count} communities',
+              ),
             ),
           if (pending > 0)
-            Text(
-              dialogContext.tr('{count} awaiting community approval', {
-                'count': '$pending',
-              }),
+            _ShareResultLine(
+              icon: WicchuIcons.clock,
+              text: dialogContext.trCount(
+                pending,
+                singular: 'Awaiting approval in {count} community',
+                plural: 'Awaiting approval in {count} communities',
+              ),
             ),
           for (final item in failed)
-            Text(
-              item.message.isEmpty
+            _ShareResultLine(
+              icon: WicchuIcons.warningCircle,
+              error: true,
+              text: item.message.isEmpty
                   ? dialogContext.tr('Sharing failed')
                   : dialogContext.tr(item.message),
             ),
         ],
       ),
       actions: [
-        TextButton(
+        FilledButton(
           onPressed: () => Navigator.pop(dialogContext),
           child: Text(dialogContext.tr('Done')),
         ),
       ],
     ),
   );
+}
+
+class _ShareResultLine extends StatelessWidget {
+  const _ShareResultLine({
+    required this.icon,
+    required this.text,
+    this.error = false,
+  });
+
+  final IconData icon;
+  final String text;
+  final bool error;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: error ? colors.error : colors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _CommunityShareSheet extends StatefulWidget {
@@ -596,12 +680,16 @@ class _CommunityShareSheetState extends State<_CommunityShareSheet> {
   Object? _shareError;
 
   Future<List<Community>> _load() async {
-    final sourceCommunityId =
-        widget.post.sourceCommunityId?.trim().isNotEmpty == true
-        ? widget.post.sourceCommunityId
-        : (widget.post.isPersonal ? null : widget.post.communityId);
+    final excludedCommunityIds = <String>{
+      if (!widget.post.isPersonal) widget.post.communityId,
+      if (widget.post.sourceCommunityId?.trim().isNotEmpty == true)
+        widget.post.sourceCommunityId!,
+    };
     final communities = (await widget.repository.listCommunities())
-        .where((item) => !item.isPublicProfile && item.id != sourceCommunityId)
+        .where(
+          (item) =>
+              !item.isPublicProfile && !excludedCommunityIds.contains(item.id),
+        )
         .toList(growable: false);
     if (mounted) setState(() => _communityCount = communities.length);
     return communities;
@@ -730,246 +818,256 @@ class _CommunityShareSheetState extends State<_CommunityShareSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight:
-            (MediaQuery.sizeOf(context).height -
-                    MediaQuery.viewInsetsOf(context).bottom -
-                    MediaQuery.paddingOf(context).top -
-                    40)
-                .clamp(0, double.infinity) *
-            (MediaQuery.viewInsetsOf(context).bottom > 0
-                ? .98
-                : (_communityCount > 4 ? .9 : .7)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            title: Text(
-              context.tr('Share to Community'),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final needsExpandedSheet =
+        media.viewInsets.bottom > 0 ||
+        media.size.height < 750 ||
+        media.textScaler.scale(1) > 1.2;
+    final heightFactor = needsExpandedSheet
+        ? .98
+        : (_communityCount > 4 ? .9 : .7);
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight:
+              (media.size.height -
+                      media.viewInsets.bottom -
+                      media.padding.top -
+                      40)
+                  .clamp(0, double.infinity) *
+              heightFactor,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(
+                context.tr('Share to Community'),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                context.tr(
+                  'Choose a community and category. Rules and approval still apply.',
+                ),
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: IconButton(
+                tooltip: context.tr('Close'),
+                onPressed: _sharing ? null : () => Navigator.pop(context),
+                icon: const Icon(WicchuIcons.x),
               ),
             ),
-            subtitle: Text(
-              context.tr(
-                'Choose a community and category. Rules and approval still apply.',
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(WicchuIcons.magnifyingGlass),
+                  hintText: context.tr('Search communities'),
+                ),
+                onChanged: (value) =>
+                    setState(() => _query = value.trim().toLowerCase()),
               ),
-              style: const TextStyle(fontSize: 12),
             ),
-            trailing: IconButton(
-              tooltip: context.tr('Close'),
-              onPressed: _sharing ? null : () => Navigator.pop(context),
-              icon: const Icon(WicchuIcons.x),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              decoration: InputDecoration(
-                prefixIcon: const Icon(WicchuIcons.magnifyingGlass),
-                hintText: context.tr('Search communities'),
-              ),
-              onChanged: (value) =>
-                  setState(() => _query = value.trim().toLowerCase()),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Flexible(
-            child: FutureBuilder<List<Community>>(
-              future: _communities,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(context.trError(snapshot.error!)),
-                        TextButton(
-                          onPressed: () =>
-                              setState(() => _communities = _load()),
-                          child: Text(context.tr('Retry')),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final communities = snapshot.data!
-                    .where(
-                      (item) =>
-                          _query.isEmpty ||
-                          item.name.toLowerCase().contains(_query),
-                    )
-                    .toList();
-                if (communities.isEmpty) {
-                  return Center(
-                    child: Text(context.tr('No communities found')),
-                  );
-                }
-                return ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: communities.length,
-                  itemBuilder: (context, index) {
-                    final community = communities[index];
-                    final pending =
-                        community.membershipStatus == MembershipStatus.pending;
-                    final banned =
-                        community.membershipStatus == MembershipStatus.banned;
-                    return CheckboxListTile(
-                      value: _selected.containsKey(community.id),
-                      onChanged:
-                          community.canPublish &&
-                              !pending &&
-                              !banned &&
-                              !_sharing &&
-                              !_choosing.contains(community.id)
-                          ? (_) => _toggle(community)
-                          : null,
-                      title: Text(
-                        community.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 8),
+            Flexible(
+              child: FutureBuilder<List<Community>>(
+                future: _communities,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            context.tr(
-                              banned
-                                  ? 'Sharing unavailable'
-                                  : pending
-                                  ? 'Membership pending'
-                                  : community.canPublish
-                                  ? (community.approvalRequired
-                                        ? 'Publication approval required'
-                                        : 'Ready to publish')
-                                  : community.isJoined
-                                  ? 'Sharing unavailable'
-                                  : 'Join to share',
-                            ),
-                            style: const TextStyle(fontSize: 12),
+                          Text(context.trError(snapshot.error!)),
+                          TextButton(
+                            onPressed: () =>
+                                setState(() => _communities = _load()),
+                            child: Text(context.tr('Retry')),
                           ),
-                          if (_selected.containsKey(community.id))
-                            TextButton(
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                alignment: Alignment.centerLeft,
-                              ),
-                              onPressed: _sharing
-                                  ? null
-                                  : () => _toggle(
-                                      community,
-                                      changeCategory: true,
-                                    ),
-                              child: Text(
-                                '${context.tr(_categoryNames[community.id] ?? '')} · ${context.tr('Change category')}',
-                              ),
-                            ),
                         ],
                       ),
-                      secondary: !community.isJoined && !pending && !banned
-                          ? TextButton(
-                              onPressed:
-                                  _sharing || _joining.contains(community.id)
-                                  ? null
-                                  : () => _join(community),
-                              child: _joining.contains(community.id)
-                                  ? const SizedBox.square(
-                                      dimension: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(context.tr('Join')),
-                            )
-                          : CommunityAvatar(community: community, radius: 20),
                     );
-                  },
-                );
-              },
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final communities = snapshot.data!
+                      .where(
+                        (item) =>
+                            _query.isEmpty ||
+                            item.name.toLowerCase().contains(_query),
+                      )
+                      .toList();
+                  if (communities.isEmpty) {
+                    return Center(
+                      child: Text(context.tr('No communities found')),
+                    );
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: communities.length,
+                    itemBuilder: (context, index) {
+                      final community = communities[index];
+                      final pending =
+                          community.membershipStatus ==
+                          MembershipStatus.pending;
+                      final banned =
+                          community.membershipStatus == MembershipStatus.banned;
+                      return CheckboxListTile(
+                        value: _selected.containsKey(community.id),
+                        onChanged:
+                            community.canPublish &&
+                                !pending &&
+                                !banned &&
+                                !_sharing &&
+                                !_choosing.contains(community.id)
+                            ? (_) => _toggle(community)
+                            : null,
+                        title: Text(
+                          community.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.tr(
+                                banned
+                                    ? 'Sharing unavailable'
+                                    : pending
+                                    ? 'Membership pending'
+                                    : community.canPublish
+                                    ? (community.approvalRequired
+                                          ? 'Publication approval required'
+                                          : 'Ready to publish')
+                                    : community.isJoined
+                                    ? 'Sharing unavailable'
+                                    : 'Join to share',
+                              ),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            if (_selected.containsKey(community.id))
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  alignment: Alignment.centerLeft,
+                                ),
+                                onPressed: _sharing
+                                    ? null
+                                    : () => _toggle(
+                                        community,
+                                        changeCategory: true,
+                                      ),
+                                child: Text(
+                                  '${context.tr(_categoryNames[community.id] ?? '')} · ${context.tr('Change category')}',
+                                ),
+                              ),
+                          ],
+                        ),
+                        secondary: !community.isJoined && !pending && !banned
+                            ? TextButton(
+                                onPressed:
+                                    _sharing || _joining.contains(community.id)
+                                    ? null
+                                    : () => _join(community),
+                                child: _joining.contains(community.id)
+                                    ? const SizedBox.square(
+                                        dimension: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Text(context.tr('Join')),
+                              )
+                            : CommunityAvatar(community: community, radius: 20),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              children: [
-                ListenableBuilder(
-                  listenable: Listenable.merge([_captionFocus, _caption]),
-                  builder: (context, _) => TextField(
-                    controller: _caption,
-                    focusNode: _captionFocus,
-                    style: const TextStyle(fontSize: 14),
-                    maxLength: 1000,
-                    minLines: 1,
-                    maxLines: _captionFocus.hasFocus || _caption.text.isNotEmpty
-                        ? 3
-                        : 1,
-                    buildCounter:
-                        (
-                          context, {
-                          required currentLength,
-                          required isFocused,
-                          required maxLength,
-                        }) => isFocused || currentLength > 0
-                        ? Text(
-                            '$currentLength/$maxLength',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          )
-                        : null,
-                    enabled: !_sharing,
-                    decoration: InputDecoration(
-                      labelText: context.tr('Optional sharing caption'),
-                      isDense: true,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
+                children: [
+                  ListenableBuilder(
+                    listenable: Listenable.merge([_captionFocus, _caption]),
+                    builder: (context, _) => TextField(
+                      controller: _caption,
+                      focusNode: _captionFocus,
+                      style: const TextStyle(fontSize: 14),
+                      maxLength: 1000,
+                      minLines: 1,
+                      maxLines:
+                          _captionFocus.hasFocus || _caption.text.isNotEmpty
+                          ? 3
+                          : 1,
+                      buildCounter:
+                          (
+                            context, {
+                            required currentLength,
+                            required isFocused,
+                            required maxLength,
+                          }) => isFocused || currentLength > 0
+                          ? Text(
+                              '$currentLength/$maxLength',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            )
+                          : null,
+                      enabled: !_sharing,
+                      decoration: InputDecoration(
+                        labelText: context.tr('Optional sharing caption'),
+                        isDense: true,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                if (_shareError != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Semantics(
-                      liveRegion: true,
+                  const SizedBox(height: 8),
+                  if (_shareError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          context.trError(_shareError!),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed:
+                          _selected.isEmpty || _sharing || _choosing.isNotEmpty
+                          ? null
+                          : _submit,
                       child: Text(
-                        context.trError(_shareError!),
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                        context.tr(
+                          _sharing
+                              ? 'Sharing…'
+                              : _selected.length == 1
+                              ? 'Share to 1 community'
+                              : 'Share to {count} communities',
+                          {'count': '${_selected.length}'},
                         ),
                       ),
                     ),
                   ),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed:
-                        _selected.isEmpty || _sharing || _choosing.isNotEmpty
-                        ? null
-                        : _submit,
-                    child: Text(
-                      context.tr(
-                        _sharing
-                            ? 'Sharing…'
-                            : _selected.length == 1
-                            ? 'Share to 1 community'
-                            : 'Share to {count} communities',
-                        {'count': '${_selected.length}'},
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

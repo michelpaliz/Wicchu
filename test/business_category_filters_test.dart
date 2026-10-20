@@ -8,6 +8,10 @@ import 'package:wicchu/widgets/profile_post_grid.dart';
 import 'package:wicchu/features/admin/admin_management_pages.dart';
 
 class _Repository extends DemoCommunityRepository {
+  _Repository(this.community);
+  final Community community;
+  @override
+  Future<Community> getCommunity(String id) async => community;
   @override
   Future<List<CommunityCategory>> listCategories(String id) async => [
     for (final name in ['Products', 'Offers', 'News'])
@@ -54,7 +58,7 @@ void main() {
         MaterialApp(
           home: CommunityProfilePage(
             community: community,
-            repository: _Repository(),
+            repository: _Repository(community),
             screen: CommunityScreen.information,
           ),
         ),
@@ -62,6 +66,8 @@ void main() {
       await tester.pumpAndSettle();
       final entry = find.byKey(const ValueKey('information-edit-categories'));
       if (role == CommunityRole.owner || role == CommunityRole.admin) {
+        await tester.tap(find.text('Manage'));
+        await tester.pumpAndSettle();
         await tester.ensureVisible(entry);
         await tester.tap(entry);
         await tester.pumpAndSettle();
@@ -99,10 +105,12 @@ void main() {
         MaterialApp(
           home: CommunityProfilePage(
             community: community,
-            repository: _Repository(),
+            repository: _Repository(community),
           ),
         ),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Grid'));
       await tester.pumpAndSettle();
       final filters = find.byKey(const ValueKey('business-category-filters'));
       expect(filters, findsOneWidget);
@@ -121,6 +129,10 @@ void main() {
             .map((tile) => tile.post.categoryId),
         ['Products'],
       );
+      await tester.ensureVisible(
+        find.descendant(of: filters, matching: find.text('News')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(of: filters, matching: find.text('News')),
       );
@@ -131,6 +143,10 @@ void main() {
             .category,
         'News',
       );
+      await tester.ensureVisible(
+        find.descendant(of: filters, matching: find.text('All')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(of: filters, matching: find.text('All')),
       );

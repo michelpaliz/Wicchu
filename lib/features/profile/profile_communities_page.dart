@@ -19,7 +19,9 @@ class _ProfileCommunitiesPageState extends State<ProfileCommunitiesPage> {
       .listJoinedCommunities();
   Future<void> _refresh() async {
     final request = widget.repository.listJoinedCommunities();
-    setState(() => _communities = request);
+    setState(() {
+      _communities = request;
+    });
     try {
       await request;
     } catch (_) {

@@ -52,9 +52,36 @@ void main() {
         find.byKey(const ValueKey('community-header-invite')),
         findsNothing,
       );
+      expect(
+        find.byKey(const ValueKey('public-profile-message')),
+        findsNothing,
+      );
+      if (scenario.$2 != null) {
+        expect(
+          find.byKey(const ValueKey('space-profile-create-post')),
+          findsNothing,
+        );
+        expect(find.byTooltip('Search posts'), findsOneWidget);
+      }
       await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
       await tester.pumpAndSettle();
       expect(find.text('Share'), findsOneWidget);
+      expect(
+        find.text('Create post'),
+        scenario.$2 != null ? findsOneWidget : findsNothing,
+      );
+      expect(
+        find.text('Community messages'),
+        scenario.$2 != null ? findsOneWidget : findsNothing,
+      );
+      expect(
+        find.text('Notifications'),
+        scenario.$2 != null ? findsOneWidget : findsNothing,
+      );
+      expect(
+        find.text('Manage community'),
+        scenario.$2 == CommunityRole.admin ? findsOneWidget : findsNothing,
+      );
       final invite = find.text('Invite people');
       expect(invite, scenario.$3 ? findsOneWidget : findsNothing);
       if (scenario.$2 == CommunityRole.admin) {

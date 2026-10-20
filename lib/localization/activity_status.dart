@@ -11,7 +11,7 @@ String? activityStatusText(
   if (isOnline) return context.tr('Active now');
   if (lastActiveAt == null) return null;
 
-  final current = now ?? DateTime.now();
+  final current = (now ?? DateTime.now()).toLocal();
   final active = lastActiveAt.toLocal();
   final difference = current.difference(active);
   if (difference.inMinutes < 60) {
@@ -29,8 +29,8 @@ String? activityStatusText(
     });
   }
 
-  final activeDay = DateTime(active.year, active.month, active.day);
-  final currentDay = DateTime(current.year, current.month, current.day);
+  final activeDay = DateTime.utc(active.year, active.month, active.day);
+  final currentDay = DateTime.utc(current.year, current.month, current.day);
   final dayDifference = currentDay.difference(activeDay).inDays;
   if (dayDifference == 1) {
     final time = MaterialLocalizations.of(

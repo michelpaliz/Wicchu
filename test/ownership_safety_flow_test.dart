@@ -141,7 +141,46 @@ class _DelayedInvitationRepository extends _AdminInvitationRepository {
   }
 }
 
+class _RecoveringInvitationsRepository extends DemoCommunityRepository {
+  int loads = 0;
+  @override
+  Future<List<CommunityInvitation>> listMyCommunityInvitations() async {
+    loads++;
+    if (loads == 1) throw Exception('Connection unavailable');
+    if (loads == 2) return [];
+    return [
+      CommunityInvitation(
+        id: 'new-invitation',
+        communityId: 'community',
+        communityName: 'New community',
+        status: 'pending',
+        createdAt: DateTime.now(),
+        expiresAt: DateTime.now().add(const Duration(days: 7)),
+      ),
+    ];
+  }
+}
+
 void main() {
+  testWidgets(
+    'invitations recover from load failure and refresh an empty inbox',
+    (tester) async {
+      final repository = _RecoveringInvitationsRepository();
+      await tester.pumpWidget(
+        MaterialApp(home: MyCommunityInvitationsPage(repository: repository)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(find.text('You have no invitations'), findsOneWidget);
+      await tester.tap(find.byTooltip('Refresh'));
+      await tester.pumpAndSettle();
+      expect(find.text('New community'), findsOneWidget);
+      expect(repository.loads, 3);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'invitation response prevents duplicate submissions and confirms success',
     (tester) async {
@@ -162,7 +201,10 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       repository.response.complete();
       await tester.pumpAndSettle();
-      expect(find.text('Administrator invitation accepted.'), findsOneWidget);
+      expect(
+        find.text('Community administrator invitation accepted.'),
+        findsOneWidget,
+      );
       expect(repository.acceptedInvitationId, 'admin-invite-1');
       expect(tester.takeException(), isNull);
     },
@@ -185,9 +227,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Future administrator'));
+    await tester.tap(find.byKey(const ValueKey('member-actions-member-2')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Invite as administrator'));
+    await tester.tap(find.text('Invite as community administrator'));
     await tester.pumpAndSettle();
     expect(find.textContaining('only after accepting'), findsOneWidget);
     await tester.tap(find.text('Send invitation'));
@@ -195,7 +237,9 @@ void main() {
 
     expect(repository.invitedUserId, 'member-2');
     expect(
-      find.text('Administrator invitation sent. The member must accept it.'),
+      find.text(
+        'Community administrator invitation sent. The member must accept it.',
+      ),
       findsOneWidget,
     );
   });
@@ -211,7 +255,7 @@ void main() {
 
     expect(
       find.text(
-        'The owner invited you to become an administrator of this space.',
+        'The community owner invited you to become a community administrator.',
       ),
       findsOneWidget,
     );
@@ -237,7 +281,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Test administrator'));
+    await tester.tap(find.byKey(const ValueKey('member-actions-admin-2')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Transfer ownership'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Transfer ownership'));
     await tester.pumpAndSettle();
@@ -264,7 +310,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('The owner invited you to take ownership of this space.'),
+      find.text(
+        'The community owner invited you to take ownership of this community.',
+      ),
       findsOneWidget,
     );
     await tester.tap(find.text('Accept'));

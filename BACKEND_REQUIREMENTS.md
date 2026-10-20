@@ -280,3 +280,23 @@ available), and exception type without tokens or response content. Capture that
 failure with the matching non-member account on the server to identify the
 rejected access rule. The observed failure is API rejection, not a JSON parsing
 exception. The server source is not in this repo.
+
+## Community role-management authorization
+
+The compact role selector is a client UI; the backend must enforce each request
+using the authenticated actor's current active membership.
+
+- Reject role mutations by members and moderators with 403.
+- Protect the owner from role changes and removal, including requests made by
+  the owner; ownership transfers must use the separate acceptance flow.
+- Administrator appointments use owner-created invitations and take effect only
+  after acceptance. A direct role PATCH must not bypass that flow.
+- Administrators may assign moderator/member roles only within their server
+  permissions. No delegated administrator-appointment capability is currently
+  exposed by the client; it keeps invitations owner-only.
+- Reject unauthorized and stale-role requests, and log the actor, target,
+  previous role and new role. Recheck permissions when accepting invitations.
+- Demotions must remove the previous role's effective permissions immediately.
+
+Verify these rules with API tests that submit requests directly, bypassing the
+Flutter UI. The backend implementation is not included in this repository.

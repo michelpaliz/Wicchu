@@ -76,6 +76,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                     child: Row(
+                      key: ValueKey('pending-actions-${post.id}'),
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
@@ -301,6 +302,14 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
     final reason = approve ? null : await _rejectionReason();
     if (!approve && reason == null) return;
     if (!mounted || _saving.isNotEmpty) return;
+    final livePosts = await widget.repository.listPendingPosts(
+      widget.community.id,
+    );
+    if (!livePosts.any((candidate) => candidate.id == post.id)) {
+      final replacement = livePosts.isEmpty ? null : livePosts.first;
+      if (replacement == null) return;
+      post = replacement;
+    }
     setState(() => _saving.add(post.id));
     try {
       await widget.repository.moderatePost(
@@ -310,10 +319,14 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
         reason: reason,
       );
       if (mounted) {
+        final remaining = (await _posts)
+            .where((candidate) => candidate.id != post.id)
+            .toList(growable: false);
         setState(() {
           _changed = true;
           _saving.remove(post.id);
-          _reload();
+          _index = 0;
+          _posts = Future.value(remaining);
         });
       }
     } catch (error) {
@@ -342,11 +355,15 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
               onChanged: (_) => setDialogState(() {}),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(context.tr('Cancel'))),
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(context.tr('Cancel')),
+              ),
               FilledButton(
                 onPressed: controller.text.trim().isEmpty
                     ? null
-                    : () => Navigator.pop(dialogContext, controller.text.trim()),
+                    : () =>
+                          Navigator.pop(dialogContext, controller.text.trim()),
                 child: Text(context.tr('Reject')),
               ),
             ],

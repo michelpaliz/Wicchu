@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:wicchu/theme/wicchu_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
@@ -106,7 +108,7 @@ class _LocalDiscoveryRepository extends DemoCommunityRepository {
     String? query,
   }) async {
     requestedAnywhere = townId == null;
-    return businesses;
+    return businesses.reversed.toList(growable: false);
   }
 
   @override
@@ -123,6 +125,53 @@ class _LocalDiscoveryRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets('denied nearby location offers manual town in theme $dark', (
+      tester,
+    ) async {
+      const channel = MethodChannel('flutter.baseflow.com/geolocator');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        if (call.method == 'isLocationServiceEnabled') return true;
+        return 0;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      await tester.binding.setSurfaceSize(const Size(320, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: dark ? WicchuTheme.dark : WicchuTheme.light,
+          home: Scaffold(
+            body: LocalDiscoveryView(repository: _LocalDiscoveryRepository()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('discovery-location-filters')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Near me').last);
+      await tester.pumpAndSettle();
+      final manual = find.widgetWithText(TextButton, 'Choose town').last;
+      await tester.ensureVisible(manual);
+      await tester.tap(manual);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Echeandía').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Show results').hitTestable(), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('business_discovery_location_mode'), 'town');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('multiple categories are combined and retained after reopening', (
@@ -165,7 +214,7 @@ void main() {
   });
 
   testWidgets(
-    'local discovery groups structured posts and filters categories',
+    'local discovery lists businesses alphabetically and filters categories',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -176,26 +225,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('discovery-filters')), findsOneWidget);
+      expect(find.byKey(const ValueKey('discovery-filters')), findsNothing);
       expect(find.text('Como en Casa'), findsWidgets);
       expect(find.widgetWithText(FilterChip, 'Delivery'), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('Como en Casa').first).dy,
+        lessThan(tester.getTopLeft(find.text('Transporte Express').first).dy),
+      );
 
       await tester.tap(find.widgetWithText(ChoiceChip, 'Food'));
       await tester.pumpAndSettle();
-      expect(find.text('Seco de carne'), findsOneWidget);
+      expect(find.text('Como en Casa'), findsOneWidget);
       expect(find.text('Echeandía → Guayaquil'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('discovery-filters')));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(FilterChip, 'Delivery'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilterChip, 'Delivery'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Show results'));
-      await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byKey(const ValueKey('discovery-filters')), findsNothing);
     },
   );
 
-  testWidgets('food discovery switches from menus to restaurants', (
+  testWidgets('food discovery directly shows available restaurants', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -209,11 +255,11 @@ void main() {
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Food'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Restaurants'));
-    await tester.pumpAndSettle();
 
     expect(find.text('Como en Casa'), findsOneWidget);
     expect(find.text('Transporte Express'), findsNothing);
+    expect(find.text('1 restaurant available'), findsOneWidget);
+    expect(find.text("Today's menus"), findsNothing);
   });
 
   testWidgets('organization pages appear in all and services discovery', (
@@ -230,11 +276,13 @@ void main() {
 
     expect(find.text('Wicchu'), findsOneWidget);
     expect(find.textContaining('Organization'), findsOneWidget);
+    expect(find.text('3 results found'), findsOneWidget);
     await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Services'));
     await tester.tap(find.widgetWithText(ChoiceChip, 'Services'));
     await tester.pumpAndSettle();
 
     expect(find.text('Wicchu'), findsOneWidget);
+    expect(find.text('1 result found'), findsOneWidget);
     expect(find.text('Como en Casa'), findsNothing);
     expect(find.text('Transporte Express'), findsNothing);
   });
@@ -242,6 +290,9 @@ void main() {
   testWidgets('business discovery remembers an anywhere location mode', (
     tester,
   ) async {
+    SharedPreferences.setMockInitialValues({
+      'business_discovery_location_mode': 'town',
+    });
     final repository = _LocalDiscoveryRepository();
     await tester.pumpWidget(
       MaterialApp(
@@ -252,7 +303,17 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('discovery-location-filters')));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Anywhere'));
+    expect(find.text('Location'), findsOneWidget);
+    expect(find.text('My town · Echeandía'), findsOneWidget);
+    expect(find.text('Show results').hitTestable(), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(BottomSheet)).height,
+      lessThan(
+        tester.view.physicalSize.height / tester.view.devicePixelRatio * .6,
+      ),
+    );
+    await tester.ensureVisible(find.text('Anywhere').last);
+    await tester.tap(find.text('Anywhere').last);
     await tester.pumpAndSettle();
 
     expect(repository.requestedAnywhere, isTrue);

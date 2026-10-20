@@ -6,6 +6,10 @@ import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
 
 class _WeatherRepository extends DemoCommunityRepository {
+  _WeatherRepository(this.community);
+  final Community community;
+  @override
+  Future<Community> getCommunity(String id) async => community;
   @override
   Future<CommunityWeather?> getCommunityWeather(String communityId) async =>
       const CommunityWeather(
@@ -53,25 +57,32 @@ void main() {
             ),
             home: CommunityProfilePage(
               community: community,
-              repository: _WeatherRepository(),
+              repository: _WeatherRepository(community),
               screen: CommunityScreen.information,
             ),
           ),
         );
         await tester.pumpAndSettle();
         await tester.scrollUntilVisible(
-          find.text('Mayormente despejado'),
+          find.text('Echeandía, EC · 31°C · Mayormente despejado'),
           180,
           scrollable: find.byType(Scrollable).first,
         );
         await Scrollable.ensureVisible(
-          tester.element(find.text('Mayormente despejado')),
+          tester.element(
+            find.text('Echeandía, EC · 31°C · Mayormente despejado'),
+          ),
           alignment: 0.5,
         );
         await tester.pumpAndSettle();
-        expect(find.text('Mayormente despejado'), findsOneWidget);
+        expect(
+          find.text('Echeandía, EC · 31°C · Mayormente despejado'),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
-        await tester.tap(find.text('Mayormente despejado'));
+        await tester.tap(
+          find.text('Echeandía, EC · 31°C · Mayormente despejado'),
+        );
         await tester.pumpAndSettle();
         expect(find.text('31°C · Mayormente despejado'), findsOneWidget);
         expect(tester.takeException(), isNull);

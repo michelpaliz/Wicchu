@@ -222,6 +222,8 @@ const _spanish = <String, String>{
   'Remove access': 'Quitar acceso',
   'Management access removed.': 'Se eliminó el acceso de gestión.',
   'Translate to Spanish': 'Traducir al español',
+  'Translation analytics are temporarily unavailable':
+      'Las estadísticas de traducción no están disponibles temporalmente',
   'Translate': 'Traducir',
   'Community reach': 'Alcance de la comunidad',
   'Location-based': 'Basada en ubicación',
@@ -236,6 +238,10 @@ const _spanish = <String, String>{
   'Translating…': 'Traduciendo…',
   'View original': 'Ver original',
   'Translated automatically': 'Traducido automáticamente',
+  'Automatically translated to Spanish': 'Traducido automáticamente al español',
+  'Automatically translated to English': 'Traducido automáticamente al inglés',
+  'Translation is temporarily unavailable':
+      'La traducción no está disponible temporalmente',
   'Post translation is temporarily unavailable':
       'La traducción de publicaciones no está disponible temporalmente',
   'This post has no text to translate':
@@ -364,6 +370,13 @@ const _spanish = <String, String>{
   "Sharing…": "Compartiendo…",
   "Sharing failed": "No se pudo compartir",
   "Sharing results": "Resultado de la publicación",
+  'Publication shared': 'Publicación compartida',
+  'Published in {count} community': 'Publicada en {count} comunidad',
+  'Published in {count} communities': 'Publicada en {count} comunidades',
+  'Awaiting approval in {count} community':
+      'Pendiente de aprobación en {count} comunidad',
+  'Awaiting approval in {count} communities':
+      'Pendiente de aprobación en {count} comunidades',
   "Optional sharing caption": "Añade un comentario (opcional)",
   "Publication approval required": "Requiere aprobación de la comunidad",
   "Ready to publish": "Lista para publicar",
@@ -390,6 +403,27 @@ const _spanish = <String, String>{
   '{count} communities found': '{count} comunidades encontradas',
   '{count} business found': '{count} negocio encontrado',
   '{count} businesses found': '{count} negocios encontrados',
+  '{count} result found': '{count} resultado encontrado',
+  '{count} results found': '{count} resultados encontrados',
+  'Menu': 'Menú',
+  'View menu': 'Ver menú',
+  'View products': 'Ver productos',
+  'Manage categories, products and availability.':
+      'Gestiona categorías, productos y disponibilidad.',
+  'Service terms and business policies':
+      'Condiciones del servicio y políticas del negocio',
+  'Request activity': 'Actividad de solicitudes',
+  'Service requests and bookings': 'Solicitudes de servicios y reservas',
+  'Customer requests will appear here.':
+      'Las solicitudes de clientes aparecerán aquí.',
+  'Menus, categories and availability': 'Menús, categorías y disponibilidad',
+  'Products, categories and availability':
+      'Productos, categorías y disponibilidad',
+  'Set up catalog': 'Configurar catálogo',
+  'Add products or menu items customers can browse.':
+      'Añade productos o elementos del menú que los clientes puedan consultar.',
+  '{count} restaurant available': '{count} restaurante disponible',
+  '{count} restaurants available': '{count} restaurantes disponibles',
   'View profile and posts': 'Ver perfil y publicaciones',
   'Choose inbox': 'Elegir bandeja de entrada',
   'Personal messages': 'Mensajes personales',
@@ -407,7 +441,7 @@ const _spanish = <String, String>{
   'Conversation label': 'Etiqueta de conversación',
   'Change label': 'Cambiar etiqueta',
   'New': 'Nuevo',
-  'In progress': 'En curso',
+  'In progress': 'En progreso',
   'Customer': 'Cliente',
   'Quote': 'Presupuesto',
   'Completed': 'Completado',
@@ -608,6 +642,7 @@ const _spanish = <String, String>{
   'Submit report': 'Enviar denuncia',
   'Wicchu Safety': 'Seguridad de Wicchu',
   'Contact Wicchu Safety': 'Contactar a Seguridad de Wicchu',
+  'Community options': 'Opciones de comunidad',
   'Safety request': 'Solicitud de seguridad',
   'Safety issue': 'Problema de seguridad',
   'Resolve request': 'Resolver solicitud',
@@ -789,6 +824,9 @@ const _spanish = <String, String>{
 
   'Edit cover': 'Editar portada',
   'Manage profile': 'Administrar perfil',
+  'Your page is ready to publish': 'Tu página está lista para publicar',
+  'Share news, photos and offers with your followers.':
+      'Comparte novedades, fotos y ofertas con tus seguidores.',
   'Share your first post': 'Comparte tu primera publicación',
   'Keep your followers updated with news, photos and announcements.':
       'Mantén a tus seguidores al día con noticias, fotos y anuncios.',
@@ -803,8 +841,36 @@ const _spanish = <String, String>{
   'Local business': 'Negocio local',
   'Local businesses': 'Negocios locales',
   'Person': 'Persona',
+  'Pages': 'Páginas',
+  '{count} page': '{count} página',
+  '{count} pages': '{count} páginas',
+  'Explore pages': 'Explorar páginas',
+  'Search pages': 'Buscar páginas',
+  'You do not follow any pages yet': 'Todavía no sigues páginas',
+  'Discover businesses, organizations and creators that interest you and follow them to keep up with their news.':
+      'Descubre negocios, organizaciones y creadores que te interesen y síguelos para no perderte sus novedades.',
+  'My pages': 'Mis páginas',
+  'Pages I follow': 'Páginas que sigo',
+  'View all pages': 'Ver todas',
+  'Create a page': 'Crear una página',
+  'Your pages and the ones you follow': 'Tus páginas y las que sigues',
+  'Create and manage your public pages': 'Crea y gestiona tus páginas públicas',
+  '{count} managed page': '{count} página administrada',
+  '{count} managed pages': '{count} páginas administradas',
+  '{count} followed page': '{count} página seguida',
+  '{count} followed pages': '{count} páginas seguidas',
+  'Create, manage and follow public pages.':
+      'Crea, administra y sigue páginas públicas.',
+  'Create a public page for your business, organization or creator profile and share your news.':
+      'Crea una página pública para tu negocio, organización o perfil de creador y comparte tus novedades.',
+  'You do not manage any public pages yet.':
+      'Todavía no administras ninguna página pública.',
+  'Pages you follow will appear here.':
+      'Las páginas que sigues aparecerán aquí.',
   'Creator': 'Creador',
   'Organization': 'Organización',
+  'Published by {user}': 'Publicado por {user}',
+  'Shared by {user}': 'Compartido por {user}',
   'Profile category': 'Tipo de perfil',
   'Business services': 'Servicios del negocio',
   'Choose up to 10 services shown on your page.':
@@ -863,10 +929,19 @@ const _spanish = <String, String>{
   'Search food, services, transport…': 'Buscar comida, servicios, transporte…',
   'Discover local businesses': 'Descubre negocios locales',
   'Near me': 'Cerca de mí',
+  'Discover places around you': 'Descubre lugares a tu alrededor',
   'Choose town': 'Elegir localidad',
   'Anywhere': 'Cualquier lugar',
   'My town': 'Mi localidad',
+  'Filter by location': 'Filtrar por ubicación',
+  'Explore without geographic limits': 'Explora sin límites geográficos',
+  'Content from your city or town': 'Contenido de tu ciudad o pueblo',
+  'Discover communities around you': 'Descubre comunidades a tu alrededor',
+  'Find people around you': 'Encuentra personas cerca de ti',
+
   'Nearby towns': 'Localidades cercanas',
+  'Communities within 50 km, excluding your selected town. Nearest first.':
+      'Comunidades a menos de 50 km, sin incluir tu localidad seleccionada. Las más cercanas primero.',
   'Change location': 'Cambiar ubicación',
   'Nearby towns are ranked by distance automatically.':
       'Las localidades cercanas se ordenan automáticamente por distancia.',
@@ -888,6 +963,8 @@ const _spanish = <String, String>{
   'No menus are available today.': 'No hay menús disponibles hoy.',
   'No businesses match this category.':
       'No hay negocios que coincidan con esta categoría.',
+  'No results match this category.':
+      'No hay resultados que coincidan con esta categoría.',
   'Explore {town}': 'Explora {town}',
   "Find what's happening around you": 'Encuentra lo que ocurre cerca de ti',
   'Shops': 'Tiendas',
@@ -910,6 +987,7 @@ const _spanish = <String, String>{
   'bedrooms': 'dormitorios',
   'Activity': 'Actividad',
   'Communities': 'Comunidades',
+  'Commun.': 'Comun.',
   'You': 'Tú',
   'Close search': 'Cerrar búsqueda',
   'Search posts': 'Buscar publicaciones',
@@ -972,7 +1050,10 @@ const _spanish = <String, String>{
   'Open settings': 'Abrir ajustes',
   'Could not get your location. Try again.':
       'No se pudo obtener tu ubicación. Inténtalo de nuevo.',
+  'You do not have permission to manage this business.':
+      'No tienes permiso para administrar este negocio.',
   'Your communities': 'Tus comunidades',
+  'Switch between your communities.': 'Cambia entre tus comunidades.',
   'Join a community to see local updates here.':
       'Únete a una comunidad para ver novedades locales aquí.',
   'Join a community before creating a post.':
@@ -1062,7 +1143,6 @@ const _spanish = <String, String>{
       'Quítala de la parte superior de su categoría',
   'You can pin up to 3 publications': 'Puedes fijar hasta 3 publicaciones',
   'Edit': 'Editar',
-  'Edit community': 'Editar comunidad',
   'Profile type and services': 'Tipo de perfil y servicios',
   'Edit business': 'Editar negocio',
   'Edit page information and appearance.':
@@ -1132,6 +1212,20 @@ const _spanish = <String, String>{
   'Announcements': 'Avisos',
   'Category options': 'Opciones de categoría',
   'Choose a short, clear name.': 'Elige un nombre breve y claro.',
+  'You can add up to 20 categories.': 'Puedes añadir hasta 20 categorías.',
+  'Edit community': 'Editar comunidad',
+  'Edit name': 'Editar nombre',
+  'Unable to load news settings. Please try again.':
+      'No se pudo cargar la configuración de noticias. Inténtalo de nuevo.',
+  'Drag the handle to reorder. Tap a category to edit.':
+      'Arrastra el asa para reordenar. Toca una categoría para editarla.',
+  'Pricing unavailable': 'Precio no disponible',
+  'Save your changes before checking for news.':
+      'Guarda los cambios antes de buscar noticias.',
+  'Edit full description': 'Editar descripción completa',
+  'Visible in community information':
+      'Visible en la información de la comunidad',
+  'Visible in profile information': 'Visible en la información del perfil',
   'Enter a category name.': 'Introduce un nombre para la categoría.',
   'What should neighbors post here?': '¿Qué pueden publicar los vecinos aquí?',
   'Choose a category and add text.':
@@ -1150,6 +1244,8 @@ const _spanish = <String, String>{
   'This image could not be read. Try downloading the original as PNG or JPEG.':
       'No se pudo leer esta imagen. Prueba a descargar el original en PNG o JPEG.',
   'The file must be under 25 MB.': 'El archivo debe ocupar menos de 25 MB.',
+  'Choose a supported image file.':
+      'Selecciona un archivo de imagen compatible.',
   'No posts need approval': 'No hay publicaciones pendientes de aprobación',
   'Approve': 'Aprobar',
   'No open reports': 'No hay denuncias abiertas',
@@ -1210,6 +1306,16 @@ const _spanish = <String, String>{
   '43 min': 'hace 43 min',
   '4 Communities · 23 Posts': '4 comunidades · 23 publicaciones',
   'My communities': 'Mis comunidades',
+  'Current': 'Actual',
+  'Administrators': 'Administradores',
+  'Opening update…': 'Abriendo actualización…',
+  'Check for updates': 'Buscar actualizaciones',
+  'Checking for updates…': 'Buscando actualizaciones…',
+  'Wicchu is up to date.': 'Wicchu está actualizado.',
+  'Could not check for updates. Please try again.':
+      'No se pudieron buscar actualizaciones. Inténtalo de nuevo.',
+  'Update checks are available on Android and iOS.':
+      'La búsqueda de actualizaciones está disponible en Android e iOS.',
   'My posts': 'Mis publicaciones',
   'Saved posts': 'Publicaciones guardadas',
   'Communities I manage': 'Comunidades que administro',
@@ -1374,8 +1480,21 @@ const _spanish = <String, String>{
   'View all online neighbors': 'Ver todos los vecinos conectados',
   'Publication': 'Publicación',
   'View my profile': 'Ver mi perfil',
+  'My activity': 'Mi actividad',
   'My content': 'Mi contenido',
   'Management': 'Gestión',
+  'Translation is unavailable. Please try again.':
+      'La traducción no está disponible. Inténtalo de nuevo.',
+  'Communication': 'Comunicación',
+  'Private conversations and permissions': 'Conversaciones privadas y permisos',
+  'Device location is turned off':
+      'La ubicación del dispositivo está desactivada',
+  'Location access allowed on this device':
+      'Acceso a la ubicación permitido en este dispositivo',
+  'Location access blocked in device settings':
+      'Acceso a la ubicación bloqueado en los ajustes del dispositivo',
+  'Location permission will be requested when you use nearby discovery':
+      'Se solicitará permiso de ubicación cuando uses el descubrimiento cercano',
   'Preferences': 'Preferencias',
   'Profile': 'Perfil',
   'Posts': 'Publicaciones',
@@ -1501,6 +1620,15 @@ const _spanish = <String, String>{
   'Discover new communities': 'Descubre nuevas comunidades',
   'Create your own community': 'Crea tu propia comunidad',
   'Member': 'Miembro',
+  'Current role: {role}': 'Rol actual: {role}',
+  'Manages the community and its members.':
+      'Gestiona la comunidad y sus miembros.',
+  'Moderates posts, comments and reports.':
+      'Modera publicaciones, comentarios y reportes.',
+  'Participates according to community rules.':
+      'Participa según las normas de la comunidad.',
+  'Change {name} to {role}? Permissions from the current role will be removed.':
+      '¿Cambiar a {name} a {role}? Se retirarán los permisos de su rol actual.',
   'Administrator': 'Administrador',
   'Moderator': 'Moderador',
   'You have no invitations': 'No tienes invitaciones',
@@ -1927,6 +2055,7 @@ const _spanish = <String, String>{
   'Spanish': 'Español',
   'English': 'Inglés',
   'Publication approval': 'Aprobación de publicaciones',
+  'Approval mode': 'Modo de aprobación',
   'Review before publishing': 'Revisar antes de publicar',
   'Recommended for every new source.': 'Recomendado para cada fuente nueva.',
   'Publish automatically': 'Publicar automáticamente',
@@ -1952,6 +2081,13 @@ const _spanish = <String, String>{
   'Wicchu must approve a news source before automated news can be enabled.':
       'Wicchu debe aprobar una fuente de noticias antes de activar las noticias automáticas.',
   'Refresh approved sources': 'Actualizar fuentes aprobadas',
+  'Scheduler unavailable': 'Programación no disponible',
+  'Scheduling information is temporarily unavailable. Refresh to try again.':
+      'La información de programación no está disponible temporalmente. Actualiza para volver a intentarlo.',
+  'Pending approvals': 'Pendientes de aprobación',
+  '{selected} of {total} selected':
+      '{selected} de {total} seleccionadas',
+  '{count} recent items': '{count} elementos recientes',
   'Select an available approved news source.':
       'Selecciona una fuente de noticias aprobada y disponible.',
   'Select an available news category.':
@@ -1962,6 +2098,8 @@ const _spanish = <String, String>{
   'News categories': 'Categorías de noticias',
   'The AI will only use the categories you select. It never creates new categories.':
       'La IA solo utilizará las categorías seleccionadas y nunca creará categorías nuevas.',
+  'No news categories are available.':
+      'No hay categorías de noticias disponibles.',
   'Save settings': 'Guardar configuración',
   'Check for news now': 'Buscar noticias ahora',
   'Select at least one news source and category.':
@@ -2116,6 +2254,7 @@ const _spanish = <String, String>{
       'Únete para ver las publicaciones de la comunidad.',
   'Nothing needs your attention.': 'No hay nada que requiera tu atención.',
   'All caught up': 'Todo al día',
+  'No pending tasks': 'Sin tareas pendientes',
   'Content': 'Contenido',
   'People': 'Personas',
   'Security': 'Seguridad',
@@ -2190,7 +2329,63 @@ const _spanish = <String, String>{
       'No hay miembros que coincidan con la búsqueda o el filtro.',
   'Offline': 'Sin conexión',
   'Pending': 'Pendiente',
+  'Pinned posts': 'Publicaciones fijadas',
+  'Guidelines for a safe and respectful community.':
+      'Normas para mantener una comunidad segura y respetuosa.',
+  'Search followers': 'Buscar seguidores',
+  'Filter followers': 'Filtrar seguidores',
+  'Sort followers': 'Ordenar seguidores',
+  'All followers': 'Todos los seguidores',
+  'Active followers': 'Seguidores activos',
+  'No followers match your search or filter.':
+      'No hay seguidores que coincidan con tu búsqueda o filtro.',
+  'Grow your page': 'Haz crecer tu página',
+  'Invite followers': 'Invitar seguidores',
+  'Invite people to follow your page and discover your updates.':
+      'Invita a más personas a seguir tu página y descubrir tus novedades.',
   'Grow your community': 'Haz crecer tu comunidad',
+  'Your path to Community Rewards':
+      'Tu camino hacia las Recompensas de la comunidad',
+  'Your rewards journey': 'Tu camino de recompensas',
+  'Starting level': 'Nivel inicial',
+  '{count} of 5 requirement completed': '{count} de 5 requisitos completados',
+  '{count} of 5 requirements completed': '{count} de 5 requisitos completados',
+  'View my objectives': 'Ver mis objetivos',
+  'Complete these objectives to request access.':
+      'Completa estos objetivos para solicitar acceso.',
+  'Eligibility and monthly rewards require Wicchu review. Completing goals does not guarantee payment.':
+      'La elegibilidad y las recompensas mensuales requieren la revisión de Wicchu. Completar los objetivos no garantiza un pago.',
+  'Complete stage 1 to unlock the application. Eligibility and monthly rewards still require Wicchu review and are not guaranteed.':
+      'Completa la etapa 1 para desbloquear la solicitud. Wicchu todavía debe revisar la elegibilidad y las recompensas mensuales no están garantizadas.',
+  'Stage': 'Etapa',
+  'Stage 1 of 4 · Active community': 'Etapa 1 de 4 · Comunidad activa',
+  'Progress': 'Progreso',
+  'Rewards are evaluated monthly and remain subject to approval.':
+      'Las recompensas se evalúan cada mes y siguen sujetas a aprobación.',
+  'Complete the previous stage to continue.':
+      'Completa la etapa anterior para continuar.',
+  'Objectives are not available yet.':
+      'Los objetivos todavía no están disponibles.',
+  'Pending setup': 'Pendiente de configuración',
+  'Follow these steps to understand when your community can apply and start earning rewards.':
+      'Sigue estos pasos para saber cuándo tu comunidad podrá solicitar acceso y empezar a obtener recompensas.',
+  'Build an active community': 'Construye una comunidad activa',
+  'Active community': 'Comunidad activa',
+  'Wicchu review': 'Revisión de Wicchu',
+  'Monthly rewards': 'Recompensas mensuales',
+  'Reach the first activity milestone to unlock the application.':
+      'Alcanza el primer objetivo de actividad para desbloquear la solicitud.',
+  'First milestone progress': 'Progreso del primer objetivo',
+  'The owner can apply after the first milestone is complete.':
+      'El propietario podrá enviar la solicitud cuando complete el primer objetivo.',
+  'Review and accept terms': 'Revisión y aceptación de condiciones',
+  'Wicchu confirms availability before the owner accepts the pilot terms.':
+      'Wicchu confirma la disponibilidad antes de que el propietario acepte las condiciones del piloto.',
+  'Monthly evaluation and rewards': 'Evaluación mensual y recompensas',
+  'Eligible activity is reviewed each month before rewards are approved.':
+      'La actividad válida se revisa cada mes antes de aprobar las recompensas.',
+  'The application unlocks after step 1.':
+      'La solicitud se desbloquea después del paso 1.',
   'Invite neighbors to start connecting and taking part.':
       'Invita a vecinos para empezar a conectar y participar.',
   'Invite members': 'Invitar miembros',
@@ -2749,6 +2944,110 @@ const _spanish = <String, String>{
   'Catalog categories': 'Categorías del catálogo',
   'Product variants (optional)': 'Variantes (opcional)',
   'Add size or color option': 'Añadir talla o color',
+  'Add product photo': 'Añadir foto del producto',
+  'Change photo': 'Cambiar foto',
+  'JPG, PNG or WebP': 'JPG, PNG o WebP',
+  'Track stock': 'Controlar stock',
+  'Stock quantity': 'Cantidad disponible',
+  'Variants and options': 'Variantes y opciones',
+  'Sizes, extras, flavors and colors': 'Tamaños, extras, sabores y colores',
+  'Add variant': 'Añadir variante',
+  'Visible to customers': 'Visible para los clientes',
+  'Save product': 'Guardar producto',
+  'Enter a product name.': 'Introduce el nombre del producto.',
+  'Enter a valid price.': 'Introduce un precio válido.',
+  'Business policies': 'Políticas del negocio',
+  'No business policies have been added yet.':
+      'Todavía no se han añadido políticas del negocio.',
+  'Ordering, cancellations and service conditions':
+      'Pedidos, cancelaciones y condiciones del servicio',
+  '{count} more rating to show the score.':
+      '{count} valoración más para mostrar la puntuación.',
+  '{count} more ratings to show the score.':
+      '{count} valoraciones más para mostrar la puntuación.',
+  'There are not enough ratings yet.':
+      'Todavía no hay suficientes valoraciones.',
+  'Manage': 'Administrar',
+  'Manage opening hours': 'Administrar horarios',
+  'Set the weekly schedule customers can see.':
+      'Configura el horario semanal que verán los clientes.',
+  'Operations': 'Operaciones',
+  'Public information': 'Información pública',
+  'Manage catalog, availability and customer orders.':
+      'Gestiona el catálogo, la disponibilidad y los pedidos.',
+  'Manage catalog': 'Administrar catálogo',
+  'Manage requests': 'Administrar solicitudes',
+  'Manage quotes and services': 'Administrar presupuestos y servicios',
+  'Manage appointments': 'Administrar citas',
+  'Manage ride requests': 'Administrar solicitudes de viajes',
+  'Manage service requests': 'Administrar solicitudes de servicios',
+  'Manage customer requests and their status.':
+      'Gestiona las solicitudes de clientes y su estado.',
+  'Edit business policies': 'Editar políticas del negocio',
+  'Edit useful links': 'Editar enlaces útiles',
+  'Overall activity': 'Actividad general',
+  'Orders and service requests combined':
+      'Pedidos y solicitudes de servicios combinados',
+  'Pending items': 'Pendientes',
+  'Scheduled items': 'Programados',
+  'Completed items': 'Completados',
+  'Customer orders and service requests will appear here.':
+      'Cuando un cliente haga un pedido o solicite un servicio, aparecerá aquí.',
+  'Products and sales': 'Productos y ventas',
+  'Quotes and services': 'Presupuestos y servicios',
+  'Appointments and bookings': 'Citas y reservas',
+  'Ride requests': 'Solicitudes de viajes',
+  'Menus, catalog and orders': 'Menús, catálogo y pedidos',
+  'Catalog and customer orders': 'Catálogo y pedidos de clientes',
+  'Manage existing requests': 'Gestionar solicitudes existentes',
+  'Set up business features': 'Configurar funciones del negocio',
+  'Set up product sales': 'Configurar venta de productos',
+  'Enable only if your business sells products.':
+      'Actívalo solo si tu negocio vende productos.',
+  'Set up service requests': 'Configurar solicitudes de servicios',
+  'Choose the services customers can request.':
+      'Elige qué servicios pueden solicitar tus clientes.',
+  'Accept orders': 'Aceptar pedidos',
+  'Order methods': 'Métodos de entrega',
+  'Choose how customers can receive their orders.':
+      'Elige cómo pueden recibir sus pedidos los clientes.',
+  'Select at least one order method.':
+      'Selecciona al menos un método de entrega.',
+  'Select at least one method before accepting orders.':
+      'Selecciona al menos un método antes de aceptar pedidos.',
+  'Ordering setup incomplete': 'Configuración de pedidos incompleta',
+  'Delivery, pickup or eat-in must be configured before customers can order.':
+      'Configura entrega, recogida o consumo en el local antes de aceptar pedidos.',
+  'Configure order methods': 'Configurar métodos de entrega',
+  'Ordering temporarily unavailable': 'Pedidos temporalmente no disponibles',
+  'Ordering is temporarily unavailable because delivery and pickup are not configured.':
+      'Los pedidos no están disponibles porque la entrega y la recogida no están configuradas.',
+  'Catalog': 'Catálogo',
+  'Customers can view the catalog but cannot order.':
+      'Los clientes pueden ver tu catálogo, pero no realizar pedidos.',
+  'No categories yet. Add one to organize your products.':
+      'Todavía no hay categorías. Añade una para organizar tus productos.',
+  '{count} product': '{count} producto',
+  '{count} products': '{count} productos',
+  'Your catalog is empty': 'Tu catálogo está vacío',
+  'Add products with photos, prices and availability for customers to discover.':
+      'Añade productos con fotos, precios y disponibilidad para que tus clientes puedan descubrirlos.',
+  'Configure requests': 'Configurar solicitudes',
+  'Could not load requests': 'No se pudieron cargar las solicitudes',
+  'Enable your services to receive requests':
+      'Activa tus servicios para recibir solicitudes',
+  'Choose which services to offer to start receiving customer requests.':
+      'Activa los servicios que quieres ofrecer para empezar a recibir solicitudes de clientes.',
+  'Requests are paused': 'Las solicitudes están pausadas',
+  'Enable requests when you are ready to receive customers.':
+      'Activa las solicitudes cuando estés listo para recibir clientes.',
+  'You have not received any requests yet':
+      'Todavía no has recibido solicitudes',
+  'No requests in this category': 'No hay solicitudes en esta categoría',
+  'Choose another status to see your requests.':
+      'Elige otro estado para ver tus solicitudes.',
+  'View catalog': 'Ver catálogo',
+  'About the business': 'Acerca del negocio',
   'Stock (optional)': 'Stock (opcional)',
   'Add product option': 'Añadir variante',
   'Edit option': 'Editar variante',
@@ -2912,6 +3211,8 @@ const _spanish = <String, String>{
   'Your reward journey': 'Tu recorrido de recompensas',
   'Locked': 'Bloqueado',
   '{amount}/month': '{amount}/mes',
+  '{completed} of {total} requirements completed':
+      '{completed} de {total} requisitos completados',
   'How rewards work': 'Cómo funcionan las recompensas',
   'Wicchu checks the previous 30 days. Meet every requirement and remain in good standing. Approved rewards are paid the following month.':
       'Wicchu revisa los 30 días anteriores. Cumple todos los requisitos y mantén la comunidad en regla. Las recompensas aprobadas se pagan el mes siguiente.',
@@ -2920,9 +3221,16 @@ const _spanish = <String, String>{
       'Es obligatoria antes del primer pago. Wicchu solicitará datos de pago verificados cuando cumplas los requisitos.',
   'View reward details': 'Ver detalles de recompensas',
   'Community rewards': 'Recompensas de la comunidad',
+  'View my progress': 'Ver mi progreso',
+  'Statistics and activity': 'Estadísticas y actividad',
+  'Growth, posts and interactions':
+      'Crecimiento, publicaciones e interacciones',
+  'Members, roles and permissions': 'Miembros, roles y permisos',
+  'Invite people and manage requests': 'Invita personas y gestiona solicitudes',
   'Current evaluation period': 'Periodo de evaluación actual',
   '{days} days remaining': 'Quedan {days} días',
-  'No reward unlocked yet': 'Aún no has desbloqueado una recompensa',
+  'No reward unlocked for this evaluation period yet':
+      'Sin recompensa desbloqueada en este periodo',
   'Progress toward {level}': 'Progreso hacia {level}',
   'Active accounts that currently belong to this community.':
       'Cuentas activas que actualmente pertenecen a esta comunidad.',
@@ -2971,6 +3279,19 @@ const _spanish = <String, String>{
       'Solo el propietario de la comunidad puede aceptar estas condiciones.',
   'Accept and join pilot': 'Aceptar y unirse al piloto',
   'Community Rewards pilot': 'Piloto de Recompensas de la comunidad',
+  'Rewards roadmap': 'Camino de recompensas',
+  'Stage 1 of 4 · {progress}% completed':
+      'Etapa 1 de 4 · {progress}% completado',
+  '{progress}% completed': '{progress}% completado',
+  'Your rewards roadmap': 'Tu ruta hacia las recompensas',
+  'First milestone complete': 'Primer objetivo completado',
+  'Update your rewards request': 'Actualiza tu solicitud de recompensas',
+  'Review the feedback and send the request again.':
+      'Revisa los comentarios y vuelve a enviar la solicitud.',
+  'See the steps and progress required before applying.':
+      'Consulta los pasos y el progreso necesarios antes de solicitar acceso.',
+  'The community owner can now request access to the pilot.':
+      'El propietario de la comunidad ya puede solicitar acceso al piloto.',
   'View the reward levels and choose Spain or Ecuador to join the pilot.':
       'Consulta los niveles de recompensa y elige España o Ecuador para unirte al piloto.',
   'Review pilot terms': 'Revisar condiciones del piloto',
@@ -2983,11 +3304,15 @@ const _spanish = <String, String>{
   'Another country': 'Otro país',
   'Country name': 'Nombre del país',
   'Contact email': 'Correo electrónico de contacto',
+  'Reward request': 'Solicitud de recompensa',
+  'Attributed activity': 'Actividad atribuida',
   'Enter a valid email': 'Introduce un correo electrónico válido',
   'Message (optional)': 'Mensaje (opcional)',
   'Only the community owner can send this request.':
       'Solo el propietario de la comunidad puede enviar esta solicitud.',
   'Request under review': 'Solicitud en revisión',
+  'Why it was not approved': 'Motivo por el que no se aprobó',
+  'Resubmit request': 'Volver a enviar solicitud',
   'Wicchu will contact you at {email} after reviewing availability in your country.':
       'Wicchu te contactará en {email} después de revisar la disponibilidad en tu país.',
   'Wicchu will contact the community owner after reviewing availability.':
@@ -3002,6 +3327,8 @@ const _spanish = <String, String>{
   'Your request was approved. Accept the terms to join.':
       'Tu solicitud fue aprobada. Acepta las condiciones para unirte.',
   'View request': 'Ver solicitud',
+  'Review request': 'Revisar solicitud',
+  'View roadmap': 'Ver ruta',
   'Request access': 'Solicitar acceso',
   'Rewards': 'Recompensas',
   'No pending reward requests.':
@@ -3017,6 +3344,9 @@ const _spanish = <String, String>{
   'Amount': 'Importe',
   'Status': 'Estado',
   'Mark paid': 'Marcar como pagado',
+  'Approve payout': 'Aprobar pago',
+  'Mark payout as paid': 'Marcar pago como realizado',
+  'Confirm {amount} for {community}.': 'Confirma {amount} para {community}.',
   'Reject payout': 'Rechazar pago',
   'Reason': 'Motivo',
   'Paid on': 'Pagado el',

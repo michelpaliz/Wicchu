@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:wicchu/features/community/community_invitations_page.dart';
 import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/community/create_post_page.dart';
@@ -135,7 +136,107 @@ class CategoryApi extends AuthenticatedApiClient {
   }) => post(path, body: body);
 }
 
+class _PendingReorderRepository extends DemoCommunityRepository {
+  var pending = Completer<List<CommunityCategory>>();
+  List<String>? submitted;
+  @override
+  Future<List<CommunityCategory>> reorderCategories(
+    String communityId,
+    List<String> categoryIds,
+  ) {
+    submitted = categoryIds;
+    return pending.future;
+  }
+}
+
 void main() {
+  testWidgets(
+    'category reorder blocks concurrent edits and restores controls',
+    (tester) async {
+      final repository = _PendingReorderRepository();
+      final community = (await repository.listJoinedCommunities()).first;
+      final categories = await repository.listCategories(community.id);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CategoryManagementPage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final list = tester.widget<ReorderableListView>(
+        find.byType(ReorderableListView),
+      );
+      list.onReorderItem!(0, 1);
+      await tester.pump();
+      await tester.pump();
+      expect(repository.submitted!.first, categories[1].id);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('add-managed-category')),
+            )
+            .onPressed,
+        isNull,
+      );
+      for (final menu in tester.widgetList<PopupMenuButton<String>>(
+        find.byType(PopupMenuButton<String>),
+      )) {
+        expect(menu.enabled, isFalse);
+      }
+      repository.pending.completeError(Exception('Unable to save order'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('add-managed-category')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(find.textContaining('Unable to save order'), findsOneWidget);
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(ValueKey('managed-category-${categories[0].id}')),
+            )
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(ValueKey('managed-category-${categories[1].id}')),
+              )
+              .dy,
+        ),
+      );
+      repository.pending = Completer<List<CommunityCategory>>();
+      tester
+          .widget<ReorderableListView>(find.byType(ReorderableListView))
+          .onReorderItem!(0, 1);
+      await tester.pump();
+      final saved = [...categories];
+      saved.insert(1, saved.removeAt(0));
+      repository.pending.complete(saved);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(ValueKey('managed-category-${categories[1].id}')),
+            )
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(ValueKey('managed-category-${categories[0].id}')),
+              )
+              .dy,
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('report queue shows reporter and post or comment evidence', (
     tester,
   ) async {
@@ -552,7 +653,12 @@ void main() {
     expect(find.byType(PostCard), findsWidgets);
     await tester.drag(find.byType(NestedScrollView), const Offset(0, 900));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('community-information-entry')));
+    final informationEntry = find.byKey(
+      const ValueKey('community-information-entry'),
+    );
+    await tester.ensureVisible(informationEntry);
+    await tester.pumpAndSettle();
+    tester.widget<InkWell>(informationEntry).onTap!.call();
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('community-information-content')),

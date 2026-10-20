@@ -255,6 +255,7 @@ class PlatformAnalytics {
     this.registrationsByLocation = const [],
     this.currencySummary = const [],
     this.communityPerformance = const [],
+    this.translationAnalyticsAvailable = true,
     this.translationRequests = 0,
     this.translationErrors = 0,
     this.translationAverageLatencyMs = 0,
@@ -275,6 +276,7 @@ class PlatformAnalytics {
   final List<PlatformLocationRegistration> registrationsByLocation;
   final List<PlatformCurrencySummary> currencySummary;
   final List<PlatformCommunityPerformance> communityPerformance;
+  final bool translationAnalyticsAvailable;
   final int translationRequests;
   final int translationErrors;
   final double translationAverageLatencyMs;
@@ -702,6 +704,7 @@ abstract interface class CommunityRepository {
   Future<void> setBusinessAcceptingOrders(
     String businessId, {
     required bool accepting,
+    List<BusinessFulfillmentOption>? fulfillmentOptions,
   });
   Future<BusinessCatalogCategory> createBusinessCatalogCategory(
     String businessId,

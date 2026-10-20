@@ -5,7 +5,96 @@ import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/domain/community_repository.dart';
 import 'package:wicchu/features/community/comments_sheet.dart';
 
+class _TranslationRepository extends DemoCommunityRepository {
+  int calls = 0;
+  bool empty = false;
+  @override
+  Future<PostTranslation> translateComment(
+    String commentId, {
+    String targetLanguage = 'auto',
+  }) async {
+    calls++;
+    return PostTranslation(
+      postId: commentId,
+      targetLanguage: 'es',
+      translatedText: empty ? '   ' : 'Comentario de demostración',
+    );
+  }
+}
+
 void main() {
+  testWidgets('comments translate and return to their original text', (
+    tester,
+  ) async {
+    final repository = _TranslationRepository();
+    final community = (await repository.listJoinedCommunities()).first;
+    final category = (await repository.listCategories(community.id)).first;
+    final post = await repository.createPost(
+      community.id,
+      CreatePostInput(categoryId: category.id, text: 'Test post'),
+    );
+    await repository.createComment(post.id, 'Original comment');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PostComments(
+            repository: repository,
+            post: post,
+            onCountChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Translate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Comentario de demostración'), findsOneWidget);
+    expect(find.text('Automatically translated to Spanish'), findsOneWidget);
+    expect(find.text('Original comment'), findsNothing);
+    await tester.tap(find.text('View original'));
+    await tester.pumpAndSettle();
+    expect(find.text('Original comment'), findsOneWidget);
+    await tester.tap(find.text('Translate'));
+    await tester.pumpAndSettle();
+    expect(repository.calls, 1);
+    expect(find.text('Comentario de demostración'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty comment translation keeps the original and allows retry', (
+    tester,
+  ) async {
+    final repository = _TranslationRepository()..empty = true;
+    final community = (await repository.listJoinedCommunities()).first;
+    final category = (await repository.listCategories(community.id)).first;
+    final post = await repository.createPost(
+      community.id,
+      CreatePostInput(categoryId: category.id, text: 'Test post'),
+    );
+    await repository.createComment(post.id, 'Original comment');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PostComments(
+            repository: repository,
+            post: post,
+            onCountChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Translate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Original comment'), findsOneWidget);
+    expect(find.text('View original'), findsNothing);
+    repository.empty = false;
+    await tester.tap(find.text('Translate'));
+    await tester.pumpAndSettle();
+    expect(repository.calls, 2);
+    expect(find.text('Comentario de demostración'), findsOneWidget);
+  });
+
   testWidgets('nested replies stay visible and replying focuses the composer', (
     tester,
   ) async {

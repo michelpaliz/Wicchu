@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../domain/community_models.dart';
 import '../../localization/app_language.dart';
+import '../../theme/wicchu_theme.dart';
 import '../../widgets/wicchu_network_image.dart';
 
 Future<void> openPostMediaViewer(
@@ -125,9 +126,11 @@ class _PostMediaGalleryState extends State<PostMediaGallery> {
     if (widget.media.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) {
-        final ratio = (_ratios[widget.media[_index].previewUrl] ?? 4 / 3).clamp(
+        // Preserve the natural width of landscape banners; keep the existing
+        // portrait height limit without adding empty bands to wide images.
+        final ratio = math.max(
           .8,
-          1.91,
+          _ratios[widget.media[_index].previewUrl] ?? 4 / 3,
         );
         final height = math.min(
           constraints.maxWidth / ratio,
@@ -370,11 +373,11 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
       colorScheme: ColorScheme.fromSeed(
         seedColor: const Color(0xFF80CBC4),
         brightness: Brightness.dark,
-        surface: const Color(0xFF151A1A),
+        surface: WicchuColors.backgroundDark,
       ),
-      scaffoldBackgroundColor: Colors.black,
+      scaffoldBackgroundColor: WicchuColors.backgroundDark,
       cardTheme: const CardThemeData(
-        color: Color(0xFF151A1A),
+        color: WicchuColors.backgroundDark,
         elevation: 0,
         margin: EdgeInsets.zero,
       ),
@@ -385,11 +388,11 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
         data: dark,
         child: Builder(
           builder: (context) => Scaffold(
-            backgroundColor: Colors.black,
+            backgroundColor: WicchuColors.backgroundDark,
             appBar: _immersive
                 ? null
                 : AppBar(
-                    backgroundColor: const Color(0xFF151A1A),
+                    backgroundColor: WicchuColors.backgroundDark,
                     foregroundColor: Colors.white,
                     surfaceTintColor: Colors.transparent,
                     leading: IconButton(
@@ -435,42 +438,45 @@ class _PostMediaViewerState extends State<PostMediaViewer> {
                         );
                   final media = SizedBox(
                     height: _mediaHeight,
-                    child: PageView.builder(
-                      controller: _pages,
-                      physics: _zoomed
-                          ? const NeverScrollableScrollPhysics()
-                          : null,
-                      itemCount: widget.media.length,
-                      onPageChanged: (index) => setState(() {
-                        _index = index;
-                        _zoomed = false;
-                        _resolveImageSize();
-                      }),
-                      itemBuilder: (context, index) {
-                        final item = widget.media[index];
-                        return item.type == 'video'
-                            ? _MediaVideo(
-                                key: ValueKey('video-$index-${item.url}'),
-                                url: item.url,
-                                active: index == _index && _mediaVisible,
-                                immersive: _immersive,
-                                onTap: _toggleChrome,
-                              )
-                            : _ZoomableImage(
-                                key: ValueKey('image-$index-${item.url}'),
-                                url: item.url,
-                                cacheKey: item.blobName,
-                                active: index == _index,
-                                onTap: _toggleChrome,
-                                onZoomChanged: (zoomed) {
-                                  if (mounted &&
-                                      index == _index &&
-                                      zoomed != _zoomed) {
-                                    setState(() => _zoomed = zoomed);
-                                  }
-                                },
-                              );
-                      },
+                    child: ColoredBox(
+                      color: Colors.black,
+                      child: PageView.builder(
+                        controller: _pages,
+                        physics: _zoomed
+                            ? const NeverScrollableScrollPhysics()
+                            : null,
+                        itemCount: widget.media.length,
+                        onPageChanged: (index) => setState(() {
+                          _index = index;
+                          _zoomed = false;
+                          _resolveImageSize();
+                        }),
+                        itemBuilder: (context, index) {
+                          final item = widget.media[index];
+                          return item.type == 'video'
+                              ? _MediaVideo(
+                                  key: ValueKey('video-$index-${item.url}'),
+                                  url: item.url,
+                                  active: index == _index && _mediaVisible,
+                                  immersive: _immersive,
+                                  onTap: _toggleChrome,
+                                )
+                              : _ZoomableImage(
+                                  key: ValueKey('image-$index-${item.url}'),
+                                  url: item.url,
+                                  cacheKey: item.blobName,
+                                  active: index == _index,
+                                  onTap: _toggleChrome,
+                                  onZoomChanged: (zoomed) {
+                                    if (mounted &&
+                                        index == _index &&
+                                        zoomed != _zoomed) {
+                                      setState(() => _zoomed = zoomed);
+                                    }
+                                  },
+                                );
+                        },
+                      ),
                     ),
                   );
                   return Stack(

@@ -102,66 +102,133 @@ class _NoSourcesRepository extends _DashboardRepository {
   }
 }
 
-class _SwitchRepository extends DemoCommunityRepository {
-  bool enabled = false;
-  bool rejectUpdate = false;
-  bool failSources = false;
-  int updates = 0;
-  Completer<void>? updateGate;
-
-  @override
-  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
-      LocalNewsSettings(
-        enabled: enabled,
-        sourceIds: const ['source-1'],
-        categoryIds: const ['category-1'],
-        access: const LocalNewsAccess(
-          entitled: true,
-          source: 'pilot',
-          monthlyLimit: 60,
-        ),
-        dashboard: _dashboard(
-          status: enabled ? 'scheduled' : 'paused',
-          enabled: enabled,
-        ),
-      );
+class _RacingSourcesRepository extends _NoSourcesRepository {
+  final olderRefresh = Completer<List<LocalNewsSource>>();
+  var sourceLoads = 0;
 
   @override
   Future<List<LocalNewsSource>> listLocalNewsSources() async {
-    if (failSources) {
-      throw const ApiException('Source registry unavailable', statusCode: 503);
-    }
-    return super.listLocalNewsSources();
+    sourceLoads += 1;
+    if (sourceLoads == 1) return const [];
+    if (sourceLoads == 2) return olderRefresh.future;
+    return const [
+      LocalNewsSource(
+        id: 'new-source',
+        name: 'New approved source',
+        type: 'rss',
+        trusted: true,
+        authorizedForAutoPublish: true,
+      ),
+    ];
   }
+}
+
+class _PendingNewsRepository extends DemoCommunityRepository {
+  final pending = Completer<LocalNewsSettings>();
+  int saves = 0;
+  LocalNewsSettings? saved;
 
   @override
-  Future<List<CommunityCategory>> listCategories(String communityId) async =>
-      const [
-        CommunityCategory(
-          id: 'category-1',
-          communityId: 'town-x-community',
-          name: 'General',
-          icon: 'article',
-        ),
-      ];
+  Future<LocalNewsSettings> getLocalNewsSettings(String id) async =>
+      saved ??
+      const LocalNewsSettings(
+        enabled: true,
+        sourceIds: ['source'],
+        categoryIds: ['category'],
+        subscriptionTier: 'pro',
+        monthlyLimit: 60,
+      );
 
   @override
   Future<LocalNewsSettings> updateLocalNewsSettings(
-    String communityId, {
+    String id, {
     required bool enabled,
     required List<String> sourceIds,
     required List<String> categoryIds,
     required String language,
     required String approvalMode,
   }) async {
-    updates++;
-    if (updateGate != null) await updateGate!.future;
-    if (rejectUpdate) {
-      throw const ApiException('Activation rejected', statusCode: 400);
-    }
-    this.enabled = enabled;
-    return getLocalNewsSettings(communityId);
+    saves++;
+    return saved = await pending.future;
   }
+}
+
+class _RefreshingNewsRepository extends DemoCommunityRepository {
+  int loads = 0;
+  int runs = 0;
+  bool stale = false;
+  final refresh = Completer<LocalNewsSettings>();
+
+  @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String id) async {
+    loads++;
+    if (loads == 2 && !stale) return refresh.future;
+    return LocalNewsSettings(
+      enabled: true,
+      sourceIds: [
+        stale ? 'removed-source' : (await listLocalNewsSources()).first.id,
+      ],
+      categoryIds: [
+        stale ? 'removed-category' : (await listCategories(id)).first.id,
+      ],
+      subscriptionTier: 'pro',
+      monthlyLimit: 60,
+    );
+  }
+
+  @override
+  Future<LocalNewsRunResult> runLocalNewsNow(String id) async {
+    runs++;
+    return const LocalNewsRunResult(processed: 1);
+  }
+}
+
+class _SourceTrustRepository extends DemoCommunityRepository {
+  @override
+  Future<List<LocalNewsSource>> listLocalNewsSources() async => [
+    for (final trusted in [false, true])
+      for (final authorized in [false, true])
+        LocalNewsSource(
+          id: '$trusted-$authorized',
+          name: '$trusted-$authorized',
+          type: 'rss',
+          trusted: trusted,
+          authorizedForAutoPublish: authorized,
+        ),
+  ];
+}
+
+class _NoDashboardRepository extends DemoCommunityRepository {
+  @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
+      const LocalNewsSettings(
+        enabled: false,
+        subscriptionTier: 'pro',
+        monthlyLimit: 60,
+        access: LocalNewsAccess(
+          entitled: true,
+          source: 'plan',
+          tier: 'pro',
+          monthlyLimit: 60,
+        ),
+      );
+}
+
+class _RestrictedRepository extends DemoCommunityRepository {
+  @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
+      LocalNewsSettings(
+        enabled: false,
+        subscriptionTier: 'none',
+        monthlyLimit: 0,
+        access: const LocalNewsAccess(
+          entitled: false,
+          source: 'none',
+          tier: 'none',
+          monthlyLimit: 0,
+        ),
+        dashboard: _dashboard(status: 'paused', enabled: false),
+      );
 }
 
 Community _community({CommunityRole role = CommunityRole.admin}) => Community(
@@ -205,98 +272,28 @@ Future<void> _pump(
 String _localTime(DateTime value) => const DefaultMaterialLocalizations()
     .formatTimeOfDay(TimeOfDay.fromDateTime(value.toLocal()));
 
+Future<void> _expand(WidgetTester tester, String title) async {
+  final label = find.text(title).first;
+  for (var attempt = 0; attempt < 8 && label.evaluate().isEmpty; attempt++) {
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -250));
+    await tester.pumpAndSettle();
+  }
+  expect(label, findsOneWidget);
+  await tester.ensureVisible(label);
+  await tester.pumpAndSettle();
+  await tester.tap(label);
+  await tester.pumpAndSettle();
+}
+
 void main() {
-  testWidgets('rapid taps do not queue competing setting writes', (
-    tester,
-  ) async {
-    final repository = _SwitchRepository()..updateGate = Completer<void>();
-    await _pump(tester, repository);
-    final tile = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
-    tile.onChanged!(true);
-    tile.onChanged!(true);
-    await tester.pump();
-    expect(repository.updates, 1);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
-      isNull,
-    );
-    repository.updateGate!.complete();
-    await tester.pumpAndSettle();
-    expect(repository.enabled, true);
-    expect(repository.updates, 1);
-  });
-
-  testWidgets('switch activates, pauses, and reloads persisted state', (
-    tester,
-  ) async {
-    final repository = _SwitchRepository();
-    await _pump(tester, repository);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      false,
-    );
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pumpAndSettle();
-    expect(repository.enabled, true);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      true,
-    );
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pumpAndSettle();
-    expect(repository.enabled, false);
-    expect(repository.updates, 2);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      false,
-    );
-    await _pump(tester, repository);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      false,
-    );
-  });
-
-  testWidgets('rejected activation leaves switch off with the server reason', (
-    tester,
-  ) async {
-    final repository = _SwitchRepository()..rejectUpdate = true;
-    await _pump(tester, repository);
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pumpAndSettle();
-    expect(repository.enabled, false);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      false,
-    );
-    expect(find.textContaining('Activation rejected'), findsOneWidget);
-  });
-
-  testWidgets('source API failure is not shown as an empty registry', (
-    tester,
-  ) async {
-    final repository = _SwitchRepository()..failSources = true;
-    await _pump(tester, repository);
-    expect(find.textContaining('Could not load news sources'), findsWidgets);
-    expect(
-      find.textContaining('No news sources are configured yet'),
-      findsNothing,
-    );
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pumpAndSettle();
-    expect(repository.updates, 0);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      false,
-    );
-  });
-
   testWidgets(
-    'pilot access is distinct from missing sources and inactive settings still save',
+    'missing approved sources explains block and saves inactive settings',
     (tester) async {
       final repository = _NoSourcesRepository();
       await _pump(tester, repository);
       expect(find.text('Pilot access active'), findsOneWidget);
+
+      await _expand(tester, 'Approved sources');
       await tester.scrollUntilVisible(
         find.text('Refresh approved sources'),
         300,
@@ -308,12 +305,7 @@ void main() {
         ),
         findsWidgets,
       );
-      expect(
-        find.text(
-          'Wicchu must approve a news source before automated news can be enabled.',
-        ),
-        findsNothing,
-      );
+
       await tester.scrollUntilVisible(
         find.text('Enable automated news'),
         -300,
@@ -323,28 +315,55 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-        false,
+        isFalse,
       );
       expect(find.byType(SnackBar), findsNothing);
-      await tester.scrollUntilVisible(
-        find.text('General'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('General'));
-      await tester.scrollUntilVisible(
-        find.text('Save settings'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.ensureVisible(find.text('Save settings'));
+
+      await _expand(tester, 'News categories');
+      await tester.ensureVisible(find.text('General'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilterChip, 'General'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Save settings'));
       await tester.pumpAndSettle();
-      expect(repository.savedEnabled, false);
+
+      expect(repository.savedEnabled, isFalse);
       expect(repository.savedCategoryIds, isNotEmpty);
     },
   );
+
+  testWidgets('older refresh cannot replace newer approved sources', (
+    tester,
+  ) async {
+    final repository = _RacingSourcesRepository();
+    await _pump(tester, repository);
+
+    await _expand(tester, 'Approved sources');
+    final refresh = find.text('Refresh approved sources');
+    await tester.scrollUntilVisible(
+      refresh,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -160));
+    await tester.pumpAndSettle();
+    final refreshButton = find.widgetWithText(
+      TextButton,
+      'Refresh approved sources',
+    );
+    await tester.tap(refreshButton);
+    await tester.pump();
+    await tester.tap(refreshButton);
+    await tester.pump();
+
+    expect(find.text('New approved source'), findsOneWidget);
+    repository.olderRefresh.complete(const []);
+    await tester.pumpAndSettle();
+
+    expect(find.text('New approved source'), findsOneWidget);
+    expect(find.text('Refresh approved sources'), findsNothing);
+  });
+
   testWidgets('scheduled dashboard sits above settings with local times', (
     tester,
   ) async {
@@ -352,20 +371,18 @@ void main() {
     await _pump(tester, repository);
 
     expect(find.text('Scheduled'), findsOneWidget);
-    expect(find.text('Enabled'), findsOneWidget);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isTrue,
+    );
     expect(find.text('Next review not available'), findsNothing);
     expect(find.textContaining(_localTime(_next)), findsOneWidget);
     expect(find.text('Not run yet'), findsOneWidget);
     expect(find.text('0 of 1'), findsOneWidget);
-    expect(find.text('Recent activity'), findsOneWidget);
-    expect(find.text('No activity yet'), findsOneWidget);
-    expect(find.text('Next review scheduled'), findsOneWidget);
-    expect(find.text('Manual approval'), findsOneWidget);
-    expect(
-      find.textContaining('a review does not always produce a post'),
-      findsOneWidget,
-      reason: 'empty state explains that a review is not a publication',
-    );
+    expect(find.text('Review before publishing'), findsOneWidget);
+    expect(find.text('Pending approvals'), findsOneWidget);
+    expect(find.text('Published today'), findsOneWidget);
+    expect(find.text('Save settings'), findsNothing);
     expect(
       find.textContaining('resets at ${_localTime(_reset)} (00:00 UTC)'),
       findsOneWidget,
@@ -373,7 +390,44 @@ void main() {
     expect(find.textContaining('Review pending news'), findsNothing);
     expect(
       tester.getTopLeft(find.text('Next review')).dy,
-      lessThan(tester.getTopLeft(find.text('Enable automated news')).dy),
+      greaterThan(tester.getTopLeft(find.text('Enable automated news')).dy),
+    );
+  });
+
+  testWidgets('unavailable scheduler is explicit and settings remain usable', (
+    tester,
+  ) async {
+    await _pump(tester, _NoDashboardRepository());
+
+    expect(find.text('Scheduler unavailable'), findsOneWidget);
+    expect(
+      find.text(
+        'Scheduling information is temporarily unavailable. Refresh to try again.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Next review not available'), findsOneWidget);
+    expect(find.text('Not run yet'), findsOneWidget);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
+      isNotNull,
+    );
+  });
+
+  testWidgets('backend restriction disables activation and explains why', (
+    tester,
+  ) async {
+    await _pump(tester, _RestrictedRepository());
+
+    expect(
+      find.text(
+        'Local News access must be enabled for this community by Wicchu.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
+      isNull,
     );
   });
 
@@ -385,7 +439,8 @@ void main() {
     );
     await _pump(tester, repository);
 
-    expect(find.text('Awaiting approval'), findsNWidgets(2)); // title and row
+    expect(find.text('Awaiting approval'), findsOneWidget);
+    expect(find.text('Pending approvals'), findsOneWidget);
     expect(
       find.textContaining('1 waiting for approval already count'),
       findsOneWidget,
@@ -448,10 +503,7 @@ void main() {
     await tester.tap(find.byTooltip('Refresh'));
     await tester.pumpAndSettle();
     expect(find.text('Configuration needed'), findsOneWidget);
-    expect(
-      find.text('No approved news sources are available for collection.'),
-      findsOneWidget,
-    );
+    expect(find.text('Select at least one approved source.'), findsOneWidget);
 
     repository.dashboard = _dashboard(
       status: 'paused',
@@ -462,7 +514,10 @@ void main() {
     await tester.tap(find.byTooltip('Refresh'));
     await tester.pumpAndSettle();
     expect(find.text('Paused'), findsOneWidget);
-    expect(find.text('Disabled'), findsOneWidget);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isFalse,
+    );
     expect(find.text('Automated news is turned off.'), findsOneWidget);
   });
 
@@ -480,9 +535,8 @@ void main() {
     expect(find.text('Límite diario alcanzado'), findsOneWidget);
     expect(find.text('Próxima revisión no disponible'), findsOneWidget);
     expect(find.text('Aún no se ha ejecutado'), findsOneWidget);
-    expect(find.text('Esperando aprobación'), findsOneWidget);
-    expect(find.text('Actividad reciente'), findsOneWidget);
-    expect(find.text('Pendiente de programación'), findsOneWidget);
+    expect(find.text('Pendientes de aprobación'), findsOneWidget);
+    expect(find.text('Publicadas hoy'), findsOneWidget);
   });
 
   testWidgets('dashboard refreshes after settings changes and collection', (
@@ -501,21 +555,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.settingsLoads, greaterThan(loads));
 
-    // Turn it off so the demo settings (no sources selected) can be saved.
+    // Turning it off persists immediately and refreshes the dashboard.
     loads = repository.settingsLoads;
-    await tester.scrollUntilVisible(
-      find.text('Enable automated news'),
-      -300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Enable automated news'));
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 4000));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Save settings'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Save settings'));
+    await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
     expect(repository.settingsLoads, greaterThan(loads));
   });
@@ -529,5 +573,274 @@ void main() {
     );
     expect(find.text('Next review'), findsNothing);
     expect(find.text('Save settings'), findsNothing);
+  });
+
+  testWidgets(
+    'automatic publication label requires both trust and authorization',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 2600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _SourceTrustRepository();
+      final community = await repository.getCommunity('town-x-community');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocalNewsSettingsPage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _expand(tester, 'Approved sources');
+      for (final trusted in [false, true]) {
+        for (final authorized in [false, true]) {
+          final row = find.widgetWithText(
+            CheckboxListTile,
+            '$trusted-$authorized',
+          );
+          await tester.scrollUntilVisible(
+            row,
+            200,
+            scrollable: find.byType(Scrollable).first,
+          );
+          expect(
+            find.descendant(
+              of: row,
+              matching: find.text(
+                trusted && authorized
+                    ? 'Trusted for automatic publishing'
+                    : 'Review required',
+              ),
+            ),
+            findsOneWidget,
+          );
+        }
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('failed save keeps draft and releases busy state', (
+    tester,
+  ) async {
+    final repository = _PendingNewsRepository();
+    final community = await repository.getCommunity('town-x-community');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocalNewsSettingsPage(
+          community: community,
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byType(SwitchListTile),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pump();
+    repository.pending.completeError(Exception('Save failed'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Save failed'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byType(SwitchListTile),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isFalse,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'news refresh blocks repeated runs and recovers from refresh failure',
+    (tester) async {
+      final repository = _RefreshingNewsRepository();
+      final community = await repository.getCommunity('town-x-community');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocalNewsSettingsPage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final run = find.widgetWithText(OutlinedButton, 'Check for news now');
+      await tester.scrollUntilVisible(
+        run,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(run);
+      await tester.pumpAndSettle();
+      final action = tester.widget<OutlinedButton>(run).onPressed!;
+      await tester.tap(run);
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      action();
+      await tester.pump();
+      expect(repository.runs, 1);
+      repository.refresh.completeError(Exception('Refresh failed'));
+      await tester.pumpAndSettle();
+      expect(find.text('Retry'), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('News categories'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('News categories'), findsOneWidget);
+      expect(repository.loads, 3);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'removed news sources and categories cannot pass enabled validation',
+    (tester) async {
+      final repository = _RefreshingNewsRepository()..stale = true;
+      final community = await repository.getCommunity('town-x-community');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocalNewsSettingsPage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final save = find.widgetWithText(FilledButton, 'Save settings');
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Select an available approved news source.'),
+        findsOneWidget,
+      );
+      final run = find.widgetWithText(OutlinedButton, 'Check for news now');
+      await tester.scrollUntilVisible(
+        run,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<OutlinedButton>(run).onPressed, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'unsaved news changes block collection and saving blocks conflicting edits',
+    (tester) async {
+      final repository = _PendingNewsRepository();
+      final community = await repository.getCommunity('town-x-community');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocalNewsSettingsPage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('English'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('English'));
+      await tester.pumpAndSettle();
+      expect(find.text('Save settings'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Check for news now'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'Check for news now'),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 1200));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved changes'), findsOneWidget);
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      final save = find.widgetWithText(FilledButton, 'Save settings');
+      await tester.tap(save);
+      await tester.pump();
+      expect(repository.saves, 1);
+      expect(
+        tester
+            .widget<AbsorbPointer>(
+              find.byWidgetPredicate((w) => w is AbsorbPointer && w.absorbing),
+            )
+            .absorbing,
+        isTrue,
+      );
+      repository.pending.complete(
+        const LocalNewsSettings(
+          enabled: false,
+          subscriptionTier: 'pro',
+          monthlyLimit: 60,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Save settings'), findsNothing);
+      expect(find.text('Check for news now'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('refresh keeps an in-progress draft intact', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 2500));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = DemoCommunityRepository();
+    final community = await repository.getCommunity('town-x-community');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocalNewsSettingsPage(
+          community: community,
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+
+    await _expand(tester, 'News categories');
+    final newsCategory = find.widgetWithText(FilterChip, 'News');
+    await tester.tap(newsCategory);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isTrue,
+    );
+    expect(tester.widget<FilterChip>(newsCategory).selected, isTrue);
+
+    // A refresh (dashboard refresh icon) must not discard the draft.
+    await tester.tap(find.byTooltip('Refresh').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isTrue,
+    );
+    expect(tester.widget<FilterChip>(newsCategory).selected, isTrue);
+    expect(tester.takeException(), isNull);
   });
 }

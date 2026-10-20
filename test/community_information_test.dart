@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'package:wicchu/localization/app_language.dart';
+import 'package:wicchu/theme/wicchu_theme.dart';
+import 'package:wicchu/features/admin/admin_dashboard_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
@@ -62,6 +66,8 @@ class _RatingRepository extends DemoCommunityRepository {
 
 class _AboutTranslationRepository extends DemoCommunityRepository {
   int translationRequests = 0;
+  final requestedLanguages = <String>[];
+  Future<CommunityAboutTranslation>? pendingTranslation;
   Community? current;
 
   @override
@@ -74,6 +80,8 @@ class _AboutTranslationRepository extends DemoCommunityRepository {
     String targetLanguage = 'auto',
   }) async {
     translationRequests++;
+    requestedLanguages.add(targetLanguage);
+    if (pendingTranslation != null) return pendingTranslation!;
     return CommunityAboutTranslation(
       communityId: communityId,
       sourceLanguage: 'en',
@@ -85,50 +93,342 @@ class _AboutTranslationRepository extends DemoCommunityRepository {
 }
 
 void main() {
-  testWidgets('About information can switch between translation and original', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(430, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final repository = _AboutTranslationRepository();
-    final original = (await repository.listJoinedCommunities()).first;
-    final community = Community(
-      id: original.id,
-      name: original.name,
-      shortDescription: 'Original summary',
-      description: 'Original description',
-      town: original.town,
-      visibility: original.visibility,
-      createdBy: original.createdBy,
-      createdAt: original.createdAt,
-      myRole: CommunityRole.member,
-    );
-    repository.current = community;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CommunityProfilePage(
-          community: community,
-          repository: repository,
-          screen: CommunityScreen.information,
+  testWidgets(
+    'About ignores stale language responses and preserves untranslated fields',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _AboutTranslationRepository();
+      final original = (await repository.listJoinedCommunities()).first;
+      final community = Community(
+        id: original.id,
+        name: original.name,
+        shortDescription: 'Original summary',
+        description: 'Original description',
+        town: original.town,
+        visibility: original.visibility,
+        createdBy: original.createdBy,
+        createdAt: original.createdAt,
+        myRole: CommunityRole.member,
+      );
+      repository.current = community;
+      var language = 'es';
+      late StateSetter updateLanguage;
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            updateLanguage = setState;
+            return AppLanguageScope(
+              languageCode: language,
+              onLanguageChanged: (_) {},
+              child: MaterialApp(
+                home: CommunityProfilePage(
+                  community: community,
+                  repository: repository,
+                  screen: CommunityScreen.information,
+                ),
+              ),
+            );
+          },
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('about-translation-button')),
-    );
-    await tester.tap(find.byKey(const ValueKey('about-translation-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('Descripción traducida'), findsOneWidget);
-    expect(repository.translationRequests, 1);
+      );
+      await tester.pumpAndSettle();
+      final pending = Completer<CommunityAboutTranslation>();
+      repository.pendingTranslation = pending.future;
+      final button = find.byKey(const ValueKey('about-translation-button'));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pump();
+      updateLanguage(() => language = 'en');
+      await tester.pump();
+      pending.complete(
+        CommunityAboutTranslation(
+          communityId: community.id,
+          targetLanguage: 'es',
+          translatedShortDescription: '',
+          translatedDescription: 'Stale Spanish response',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Stale Spanish response', findRichText: true),
+        findsNothing,
+      );
+      expect(
+        find.text('Original description', findRichText: true),
+        findsOneWidget,
+      );
+      repository.pendingTranslation = Future.value(
+        CommunityAboutTranslation(
+          communityId: community.id,
+          targetLanguage: 'en',
+          translatedShortDescription: '',
+          translatedDescription: 'Translated description',
+        ),
+      );
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(repository.requestedLanguages, ['es', 'en']);
+      expect(
+        find.text('Translated description', findRichText: true),
+        findsOneWidget,
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('community-information-content')),
+        const Offset(0, 900),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Original summary'), findsOneWidget);
+      updateLanguage(() => language = 'fr');
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Original description', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Translated description', findRichText: true),
+        findsNothing,
+      );
+    },
+  );
 
-    await tester.tap(find.byKey(const ValueKey('about-translation-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('Original description'), findsOneWidget);
-    expect(repository.translationRequests, 1);
-    expect(tester.takeException(), isNull);
-  });
+  for (final business in [false, true]) {
+    testWidgets(
+      'About translation works with compact layout business=$business',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(430, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final repository = _AboutTranslationRepository();
+        final original = (await repository.listJoinedCommunities()).first;
+        final community = Community(
+          id: original.id,
+          name: original.name,
+          shortDescription: 'Original summary',
+          description: 'Original description',
+          town: original.town,
+          visibility: original.visibility,
+          createdBy: original.createdBy,
+          createdAt: original.createdAt,
+          myRole: CommunityRole.member,
+          type: business
+              ? CommunityType.publicProfile
+              : CommunityType.community,
+          profileCategory: business ? ProfileCategory.localBusiness : null,
+        );
+        repository.current = community;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CommunityProfilePage(
+              community: community,
+              repository: repository,
+              screen: CommunityScreen.information,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('about-translation-button')),
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('about-translation-button')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Descripción traducida', findRichText: true),
+          findsOneWidget,
+        );
+        expect(repository.translationRequests, 1);
+
+        await tester.tap(
+          find.byKey(const ValueKey('about-translation-button')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Original description', findRichText: true),
+          findsOneWidget,
+        );
+        expect(repository.translationRequests, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  for (final role in [
+    null,
+    CommunityRole.member,
+    CommunityRole.moderator,
+    CommunityRole.admin,
+    CommunityRole.owner,
+  ]) {
+    testWidgets('community information management tabs respect role $role', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _PreviewRepository();
+      final community = Community(
+        id: 'role-community',
+        name: 'Community',
+        description: '🌿 Community\n\nPublic description',
+        town: const Town(id: 'town-1', name: 'Town X', countryCode: 'EC'),
+        visibility: CommunityVisibility.public,
+        createdBy: 'owner',
+        createdAt: DateTime(2026),
+        myRole: role,
+      );
+      repository.previewCommunity = community;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: role == CommunityRole.owner || role == CommunityRole.moderator
+              ? WicchuTheme.dark
+              : WicchuTheme.light,
+          home: CommunityProfilePage(
+            community: community,
+            repository: repository,
+            screen: CommunityScreen.information,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final tabs = find.byKey(const ValueKey('community-information-tabs'));
+      final manages = [
+        CommunityRole.owner,
+        CommunityRole.admin,
+        CommunityRole.moderator,
+      ].contains(role);
+      expect(tabs, manages ? findsOneWidget : findsNothing);
+      expect(find.byTooltip('Manage community'), findsNothing);
+      expect(find.text('🌿 Community'), findsNothing);
+      expect(find.text('Public description'), findsOneWidget);
+      if (manages) {
+        final tabActions = find.descendant(
+          of: tabs,
+          matching: find.byType(InkWell),
+        );
+        expect(tabActions, findsNWidgets(2));
+        expect(tester.getSize(tabActions.at(0)).width, 160);
+        expect(tester.getSize(tabActions.at(1)).width, 160);
+        final identity = find.byKey(
+          const ValueKey('community-information-identity'),
+        );
+        final identityPosition = tester.getTopLeft(identity);
+        expect(identityPosition.dy, lessThan(tester.getTopLeft(tabs).dy));
+        await tester.tap(
+          find.descendant(
+            of: tabs,
+            matching: find.text(
+              role == CommunityRole.moderator ? 'Moderation' : 'Administration',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(AdminDashboardPage), findsOneWidget);
+        expect(tester.getTopLeft(identity), identityPosition);
+        expect(
+          find.byKey(const ValueKey('information-members-entry')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('information-administrators-entry')),
+          findsOneWidget,
+        );
+        expect(find.text('Public description'), findsNothing);
+        if (role == CommunityRole.moderator) {
+          expect(find.text('Categories'), findsNothing);
+          expect(
+            find.descendant(
+              of: find.byType(AdminDashboardPage),
+              matching: find.text('Members'),
+            ),
+            findsNothing,
+          );
+          expect(find.text('Settings'), findsNothing);
+          expect(find.text('Removed posts'), findsOneWidget);
+        } else {
+          expect(find.text('Categories'), findsOneWidget);
+        }
+        if (role != CommunityRole.moderator) {
+          final dashboardList = find.descendant(
+            of: find.byType(AdminDashboardPage),
+            matching: find.byType(ListView),
+          );
+          await tester.drag(dashboardList, const Offset(0, -400));
+          await tester.pumpAndSettle();
+          expect(identity.hitTestable(), findsNothing);
+          expect(tabs.hitTestable(), findsOneWidget);
+          final pinnedPosition = tester.getTopLeft(tabs);
+          await tester.drag(dashboardList, const Offset(0, -200));
+          await tester.pumpAndSettle();
+          expect(tester.getTopLeft(tabs), pinnedPosition);
+        }
+        await tester.ensureVisible(
+          find.descendant(of: tabs, matching: find.text('Information')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(of: tabs, matching: find.text('Information')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(AdminDashboardPage), findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final type in [
+    BusinessRequestType.appointment,
+    BusinessRequestType.quote,
+  ]) {
+    testWidgets(
+      'business information removes repeated paragraphs and offers ${type.name}',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(430, 1100));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final repository = _PreviewRepository();
+        final original = (await repository.listJoinedCommunities()).first;
+        final business = Community(
+          id: original.id,
+          name: 'Test business',
+          shortDescription: 'Welcome!\n\nFriendly local service.',
+          description:
+              'Friendly local service.\n\nAppointments available on weekends.',
+          town: original.town,
+          visibility: CommunityVisibility.public,
+          createdBy: original.createdBy,
+          createdAt: original.createdAt,
+          type: CommunityType.publicProfile,
+          profileCategory: ProfileCategory.localBusiness,
+          businessRequestCapabilities: [type],
+        );
+        repository.previewCommunity = business;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: CommunityProfilePage(
+              community: business,
+              repository: repository,
+              screen: CommunityScreen.information,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final description = tester.widget<Text>(
+          find.byKey(const ValueKey('page-header-description')),
+        );
+        expect(description.maxLines, 4);
+        final text = description.textSpan!.toPlainText();
+        expect(text, contains('Welcome!'));
+        expect(text, contains('Appointments available on weekends.'));
+        expect('Friendly local service.'.allMatches(text).length, 1);
+        expect(
+          find.byKey(const ValueKey('business-information-details')),
+          findsOneWidget,
+        );
+        expect(find.text('Opening hours'), findsOneWidget);
+        expect(find.text(type.actionLabel), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('rating choice opens and submits one complete survey', (
     tester,
@@ -273,10 +573,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('community-management-shortcut')),
+      findsNothing,
+    );
     await tester.tap(find.byKey(const ValueKey('community-role-badge')));
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.text('You are a member of this community'), findsOneWidget);
+    expect(find.text('Manage community'), findsNothing);
     expect(find.text('Leave community'), findsOneWidget);
   });
 
@@ -315,7 +620,7 @@ void main() {
   });
 
   testWidgets(
-    'description starts expanded, can collapse, and administration opens filtered members',
+    'about description starts compact and administration opens filtered members',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 850));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -351,8 +656,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        tester.widget<Text>(find.text(community.description)).maxLines,
-        isNull,
+        tester
+            .widget<Text>(find.byKey(const ValueKey('page-header-description')))
+            .maxLines,
+        5,
       );
       expect(
         tester.widget<Text>(find.text(community.shortDescription)).maxLines,
@@ -375,8 +682,10 @@ void main() {
         2,
       );
       expect(
-        tester.widget<Text>(find.text(community.description)).maxLines,
-        isNull,
+        tester
+            .widget<Text>(find.byKey(const ValueKey('page-header-description')))
+            .maxLines,
+        5,
       );
       await tester.ensureVisible(
         find.byKey(const ValueKey('community-description-toggle')),
@@ -394,21 +703,32 @@ void main() {
         tester.widget<Text>(find.text(community.shortDescription)).maxLines,
         isNull,
       );
-      final admins = find.byKey(
-        const ValueKey('information-administration-entry'),
+      final aboutToggle = find.byKey(
+        const ValueKey('page-header-description-toggle'),
       );
-      await tester.scrollUntilVisible(
-        admins,
-        250,
-        scrollable: find
-            .descendant(
-              of: find.byKey(const ValueKey('community-information-content')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await Scrollable.ensureVisible(tester.element(admins), alignment: 0.5);
+      await tester.ensureVisible(aboutToggle);
+      await tester.ensureVisible(aboutToggle);
+      await tester.tap(aboutToggle);
       await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('page-header-description')))
+            .maxLines,
+        isNull,
+      );
+      await tester.ensureVisible(aboutToggle);
+      await tester.tap(aboutToggle);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('page-header-description')))
+            .maxLines,
+        5,
+      );
+      final admins = find.byKey(
+        const ValueKey('information-administrators-entry'),
+      );
+      expect(find.text('Administrators'), findsOneWidget);
       await tester.tap(admins);
       await tester.pumpAndSettle();
       expect(
@@ -418,4 +738,155 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'business owners switch between the public information and management tabs',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _PreviewRepository();
+      final original = (await repository.listJoinedCommunities()).first;
+      final business = Community(
+        id: original.id,
+        name: 'COMIDA RAPIDA',
+        shortDescription: 'A short customer introduction.',
+        description: 'Additional business details.',
+        town: original.town,
+        visibility: CommunityVisibility.public,
+        createdBy: original.createdBy,
+        createdAt: original.createdAt,
+        type: CommunityType.publicProfile,
+        profileCategory: ProfileCategory.localBusiness,
+        myRole: CommunityRole.owner,
+        businessServices: const [BusinessService.food],
+        businessAcceptingOrders: true,
+        businessAcceptingRequests: true,
+        businessRequestCapabilities: const [BusinessRequestType.appointment],
+      );
+      repository.previewCommunity = business;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CommunityProfilePage(
+            community: business,
+            repository: repository,
+            screen: CommunityScreen.information,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('business-information-tabs')),
+        findsOneWidget,
+      );
+      expect(find.text('View menu'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('business-primary-bottom-action')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('business-information-message')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('business-information-follow')),
+        findsNothing,
+      );
+      expect(
+        find.textContaining(
+          'A short customer introduction.',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('business-management-content')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('information-edit-page')), findsNothing);
+
+      await tester.tap(find.text('Manage'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('business-management-content')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('information-edit-page')),
+        findsOneWidget,
+      );
+      expect(find.text('Menu'), findsOneWidget);
+      expect(find.text('Manage appointments'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'A short customer introduction.',
+          findRichText: true,
+        ),
+        findsNothing,
+      );
+      expect(find.text('View menu'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('business-primary-bottom-action')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('business visitors do not see the management tab', (
+    tester,
+  ) async {
+    final repository = _PreviewRepository();
+    final original = (await repository.listJoinedCommunities()).first;
+    final business = Community(
+      id: original.id,
+      name: 'Visitor business',
+      shortDescription: 'Public description.',
+      description: 'More public information.',
+      town: original.town,
+      visibility: CommunityVisibility.public,
+      createdBy: original.createdBy,
+      createdAt: original.createdAt,
+      type: CommunityType.publicProfile,
+      profileCategory: ProfileCategory.localBusiness,
+      businessServices: const [BusinessService.food],
+    );
+    repository.previewCommunity = business;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityProfilePage(
+          community: business,
+          repository: repository,
+          screen: CommunityScreen.information,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('business-information-tabs')),
+      findsNothing,
+    );
+    expect(find.text('Manage'), findsNothing);
+    expect(
+      find.textContaining('Public description.', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('business-primary-bottom-action')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('business-information-follow')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('business-information-message')),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(FilledButton, 'Follow'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Message'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

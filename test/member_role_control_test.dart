@@ -1,3 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:wicchu/theme/wicchu_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
@@ -71,6 +78,147 @@ class _Repository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets(
+    'moderators belong to administration and member rows stay compact',
+    (tester) async {
+      final repository = _Repository(null, CommunityRole.member)
+        ..role = CommunityRole.moderator;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WicchuTheme.light,
+          home: CommunityProfilePage(
+            community: repository.community,
+            repository: repository,
+            screen: CommunityScreen.members,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Administration (2)'), findsOneWidget);
+      expect(find.text('Members (0)'), findsOneWidget);
+      expect(find.byKey(const ValueKey('member-role-target')), findsNothing);
+      final row = find.ancestor(
+        of: find.text('Target name'),
+        matching: find.byType(ListTile),
+      );
+      expect(tester.getSize(row).height, inInclusiveRange(64, 72));
+      await tester.tap(find.text('Administration (2)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Target name'), findsOneWidget);
+      await tester.tap(find.text('Members (0)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Target name'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'compact Spanish selector shows current role and confirms demotion',
+    (tester) async {
+      final manifest =
+          await rootBundle.loadString('FontManifest.json').then(jsonDecode)
+              as List<dynamic>;
+      for (final entry in manifest.cast<Map<String, dynamic>>()) {
+        final loader = FontLoader(entry['family'] as String);
+        for (final font
+            in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
+          loader.addFont(rootBundle.load(font['asset'] as String));
+        }
+        await loader.load();
+      }
+      await tester.binding.setSurfaceSize(const Size(320, 740));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      for (final dark in [false, true]) {
+        final repository = _Repository(null, CommunityRole.owner)
+          ..role = CommunityRole.admin;
+        final boundary = GlobalKey();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: boundary,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: dark ? WicchuTheme.dark : WicchuTheme.light,
+              locale: const Locale('es'),
+              supportedLocales: const [Locale('es')],
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(1.3)),
+                child: child!,
+              ),
+              home: CommunityProfilePage(
+                community: repository.community,
+                repository: repository,
+                screen: CommunityScreen.members,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.runAsync(() async {
+          final image =
+              await (boundary.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File(
+            '/tmp/wicchu-community-members-${dark ? "dark" : "light"}.png',
+          ).writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+        await tester.tap(find.byKey(const ValueKey('member-role-target')));
+        await tester.pumpAndSettle();
+        expect(find.text('Rol actual: Administrador'), findsOneWidget);
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.widgetWithText(FilledButton, 'Guardar cambios'),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<RadioGroup<CommunityRole>>(
+                find.byType(RadioGroup<CommunityRole>),
+              )
+              .groupValue,
+          CommunityRole.admin,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.runAsync(() async {
+          final image =
+              await (boundary.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File(
+            '/tmp/wicchu-community-role-${dark ? "dark" : "light"}.png',
+          ).writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+        await tester.tap(
+          find.widgetWithText(RadioListTile<CommunityRole>, 'Moderador'),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Guardar cambios'));
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Se retirarán los permisos'),
+          findsOneWidget,
+        );
+        expect(repository.writes, 0);
+        await tester.tap(find.text('Cancelar'));
+        await tester.pumpAndSettle();
+        expect(repository.role, CommunityRole.admin);
+        expect(repository.writes, 0);
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
   for (final category in <ProfileCategory?>[null, ...ProfileCategory.values]) {
     for (final fail in [false, true]) {
       testWidgets('role change category=$category failure=$fail', (
@@ -96,13 +244,15 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(
           find.text(
-            category == null
-                ? 'Invite as community administrator'
-                : 'Invite as page administrator',
+            category == null ? 'Administrator' : 'Invite as page administrator',
           ),
         );
         await tester.pumpAndSettle();
         expect(repository.writes, 0);
+        if (category == null) {
+          await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+          await tester.pumpAndSettle();
+        }
         await tester.tap(find.widgetWithText(FilledButton, 'Send invitation'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
@@ -138,17 +288,19 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           find.text(
-            category == null
-                ? 'Invite as community administrator'
-                : 'Invite as page administrator',
+            category == null ? 'Administrator' : 'Invite as page administrator',
           ),
           findsNothing,
         );
         final moderatorLabel = category == null
-            ? 'Community moderator'
+            ? 'Moderator'
             : 'Page moderator';
         await tester.tap(find.text(moderatorLabel));
         await tester.pumpAndSettle();
+        if (category == null) {
+          await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+          await tester.pumpAndSettle();
+        }
         await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
         await tester.pumpAndSettle();
         expect(repository.writes, 0);
@@ -156,12 +308,16 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text(moderatorLabel));
         await tester.pumpAndSettle();
+        if (category == null) {
+          await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
+          await tester.pumpAndSettle();
+        }
         await tester.tap(find.widgetWithText(FilledButton, 'Save changes'));
         await tester.pumpAndSettle();
         expect(repository.writes, 1);
         expect(repository.invitations, 0);
         expect(repository.role, CommunityRole.moderator);
-        expect(find.text(moderatorLabel), findsOneWidget);
+        expect(find.textContaining(moderatorLabel), findsOneWidget);
       },
     );
     testWidgets('ordinary viewer cannot change roles category=$category', (

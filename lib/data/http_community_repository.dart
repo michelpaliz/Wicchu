@@ -1554,7 +1554,7 @@ class HttpCommunityRepository
     final body = await _api.patch(
       '/api/community/v1/communities/${community.id}',
       body: {
-        'townId': town.id,
+        if (!community.isGlobal) 'townId': town.id,
         'name': name,
         'shortDescription': shortDescription ?? community.shortDescription,
         'description': description,
@@ -1621,6 +1621,7 @@ class HttpCommunityRepository
     final responseCommunity = _object(body, 'community');
     return _communityFromJson({
       ...responseCommunity,
+      'scope': responseCommunity['scope'] ?? community.scope.name,
       if (responseCommunity['town'] == null) 'town': _townToJson(town),
       'memberCount': community.memberCount,
       'myRole': community.myRole?.name,
@@ -1761,10 +1762,17 @@ class HttpCommunityRepository
   Future<void> setBusinessAcceptingOrders(
     String businessId, {
     required bool accepting,
+    List<BusinessFulfillmentOption>? fulfillmentOptions,
   }) async {
     await _api.patch(
       '/api/community/v1/businesses/$businessId/order-settings',
-      body: {'acceptingOrders': accepting},
+      body: {
+        'acceptingOrders': accepting,
+        if (fulfillmentOptions != null)
+          'fulfillmentOptions': fulfillmentOptions
+              .map((option) => option.apiValue)
+              .toList(growable: false),
+      },
     );
   }
 
@@ -2085,7 +2093,7 @@ class HttpCommunityRepository
     return _list(body, 'sources')
         .map(
           (json) => LocalNewsSource(
-            id: json['_id']?.toString() ?? '',
+            id: _id(json),
             name: json['name']?.toString() ?? '',
             type: json['type']?.toString() ?? 'rss',
             siteUrl: json['siteUrl']?.toString() ?? '',
@@ -2184,8 +2192,8 @@ class HttpCommunityRepository
               nextCollectionAt: _optionalDate(
                 dashboardJson['nextCollectionAt'],
               ),
-              scheduleUnavailableReason: dashboardJson['scheduleUnavailableReason']
-                  ?.toString(),
+              scheduleUnavailableReason:
+                  dashboardJson['scheduleUnavailableReason']?.toString(),
               schedulerIntervalMinutes:
                   (dashboardJson['schedulerIntervalMinutes'] as num?)?.toInt(),
               timezone: dashboardJson['timezone']?.toString() ?? 'UTC',
@@ -3041,7 +3049,18 @@ class HttpCommunityRepository
   Future<PlatformAnalytics> getPlatformAnalytics() async {
     final responses = await Future.wait([
       _api.get('/api/community/v1/platform/analytics'),
-      _api.get('/api/community/v1/platform/translation-analytics'),
+      _api
+          .get('/api/community/v1/platform/translation-analytics')
+          .then((body) {
+            _object(body, 'analytics');
+            return body;
+          })
+          .catchError(
+            (Object _) => <String, dynamic>{
+              'analytics': <String, dynamic>{},
+              'unavailable': true,
+            },
+          ),
     ]);
     final body = responses[0];
     final analytics = _object(body, 'analytics');
@@ -3056,6 +3075,7 @@ class HttpCommunityRepository
         ? translationLimits['monthlyBudgetUsd'] as Map<String, dynamic>
         : const <String, dynamic>{};
     return PlatformAnalytics(
+      translationAnalyticsAvailable: responses[1]['unavailable'] != true,
       translationRequests:
           (translationTotals['requests'] as num?)?.toInt() ?? 0,
       translationErrors: (translationTotals['errors'] as num?)?.toInt() ?? 0,
@@ -3978,12 +3998,21 @@ class HttpCommunityRepository
       authorName: authorJson['name'] as String? ?? 'Wicchu member',
       authorAvatarUrl: authorJson['avatarUrl'] as String?,
       text: json['text'] as String? ?? '',
-      newsSource: json['newsSource'] is Map<String, dynamic> &&
-              (json['newsSource'] as Map<String, dynamic>)['articleUrl'] is String
+      newsSource:
+          json['newsSource'] is Map<String, dynamic> &&
+              (json['newsSource'] as Map<String, dynamic>)['articleUrl']
+                  is String
           ? LocalNewsAttribution(
-              sourceName: (json['newsSource'] as Map<String, dynamic>)['sourceName']?.toString() ?? '',
-              articleUrl: (json['newsSource'] as Map<String, dynamic>)['articleUrl'] as String,
-              publishedAt: _optionalDate((json['newsSource'] as Map<String, dynamic>)['publishedAt']),
+              sourceName:
+                  (json['newsSource'] as Map<String, dynamic>)['sourceName']
+                      ?.toString() ??
+                  '',
+              articleUrl:
+                  (json['newsSource'] as Map<String, dynamic>)['articleUrl']
+                      as String,
+              publishedAt: _optionalDate(
+                (json['newsSource'] as Map<String, dynamic>)['publishedAt'],
+              ),
             )
           : null,
       media: (json['media'] as List? ?? const [])

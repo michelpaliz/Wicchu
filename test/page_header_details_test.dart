@@ -123,13 +123,17 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(
-          ValueKey(
-            business ? 'local-business-contact' : 'public-profile-message',
-          ),
-        ),
-      );
+      if (business) {
+        await tester.tap(find.byKey(const ValueKey('local-business-contact')));
+      } else {
+        expect(
+          find.byKey(const ValueKey('public-profile-message')),
+          findsNothing,
+        );
+        await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Community messages'));
+      }
       await tester.pumpAndSettle();
       expect(repository.contactedPage, 'shared-space');
       expect(tester.takeException(), isNull);
@@ -258,13 +262,21 @@ void main() {
       final toggle = find.byKey(
         const ValueKey('page-header-description-toggle'),
       );
-      expect(tester.widget<Text>(description).maxLines, isNull);
+      expect(
+        tester.widget<Text>(description).maxLines,
+        category == ProfileCategory.localBusiness ? 3 : isNull,
+      );
       expect(
         tester.widget<Text>(description).textSpan?.toPlainText(),
         shortDescription,
       );
       expect(tester.widget<Text>(description).style?.fontSize, 13);
-      expect(toggle, findsNothing);
+      expect(
+        toggle,
+        category == ProfileCategory.localBusiness
+            ? findsOneWidget
+            : findsNothing,
+      );
       expect(tester.takeException(), isNull);
     });
   }
@@ -295,7 +307,7 @@ void main() {
       MaterialApp(
         home: CommunityProfilePage(
           community: community,
-          repository: DemoCommunityRepository(),
+          repository: _FreshProfileRepository()..current = community,
         ),
       ),
     );
@@ -309,8 +321,8 @@ void main() {
       'Echeandía, Ecuador',
     );
     expect(find.textContaining('Food'), findsNothing);
-    expect(find.byKey(const ValueKey('local-business-follow')), findsOneWidget);
-    expect(find.text('Follow'), findsOneWidget);
+    expect(find.byKey(const ValueKey('header-follow-action')), findsOneWidget);
+    expect(find.byTooltip('Follow'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('local-business-contact')),
       findsOneWidget,
@@ -320,7 +332,7 @@ void main() {
           .widget<Text>(find.byKey(const ValueKey('page-header-description')))
           .textSpan
           ?.toPlainText(),
-      '¡Bienvenidos a nuestro rincón del sabor!',
+      community.shortDescription,
     );
   });
 }

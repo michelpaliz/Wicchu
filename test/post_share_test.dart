@@ -43,6 +43,56 @@ class _ShareKitRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets('share origin supports feed sliver contexts', (tester) async {
+    late BuildContext itemContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView.builder(
+            itemCount: 1,
+            itemBuilder: (context, index) {
+              itemContext = context;
+              return const SizedBox(height: 200, child: Text('Post'));
+            },
+          ),
+        ),
+      ),
+    );
+    expect(itemContext.findRenderObject(), isNot(isA<RenderBox>()));
+    final origin = postShareOrigin(itemContext);
+    expect(origin.isEmpty, isFalse);
+    expect(origin.isFinite, isTrue);
+    expect(
+      (Offset.zero & MediaQuery.sizeOf(itemContext)).contains(origin.center),
+      isTrue,
+    );
+  });
+
+  testWidgets('share origin clips tall posts to the visible viewport', (
+    tester,
+  ) async {
+    late BuildContext postContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Builder(
+              builder: (context) {
+                postContext = context;
+                return const SizedBox(height: 2000, width: 300);
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    final origin = postShareOrigin(postContext);
+    final viewport = Offset.zero & MediaQuery.sizeOf(postContext);
+    expect(origin.top, greaterThanOrEqualTo(viewport.top));
+    expect(origin.bottom, lessThanOrEqualTo(viewport.bottom));
+    expect(origin.isEmpty, isFalse);
+  });
+
   testWidgets(
     'caption is copied before sharing confirmation and supports cancel',
     (tester) async {

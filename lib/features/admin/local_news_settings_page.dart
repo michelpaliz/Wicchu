@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../data/authenticated_api_client.dart';
@@ -30,8 +32,9 @@ class LocalNewsSettingsPage extends StatefulWidget {
 }
 
 class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
-  late Future<_LocalNewsData> _data = _load();
-  int _loadGeneration = 0;
+  _LocalNewsData? _data;
+  Object? _error;
+  bool _loading = true;
   LocalNewsSettings? _settings;
   Set<String> _sourceIds = {};
   Set<String> _categoryIds = {};
@@ -40,40 +43,130 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
   bool _enabled = false;
   bool _saving = false;
   bool _running = false;
+  int _loadGeneration = 0;
   String? _activationError;
 
-  Future<_LocalNewsData> _load() async {
-    final generation = ++_loadGeneration;
-    final values = await Future.wait<Object>([
-      widget.repository.getLocalNewsSettings(widget.community.id),
-      widget.repository
-          .listLocalNewsSources()
-          .then<Object>((sources) => (sources: sources, error: null))
-          .catchError(
-            (Object error) => (sources: <LocalNewsSource>[], error: error),
-          ),
-      widget.repository.listCategories(widget.community.id),
-      widget.repository.listLocalNewsArticles(widget.community.id),
-    ]);
-    final sourceResult =
-        values[1] as ({List<LocalNewsSource> sources, Object? error});
-    final data = (
-      settings: values[0] as LocalNewsSettings,
-      sources: sourceResult.sources,
-      sourcesError: sourceResult.error,
-      categories: values[2] as List<CommunityCategory>,
-      articles: values[3] as List<LocalNewsArticle>,
-    );
-    if (generation == _loadGeneration && !_saving) _apply(data.settings);
-    return data;
+  bool _allowPop = false;
+  bool _confirmingLeave = false;
+  String _draftKey(
+    bool enabled,
+    Iterable<String> sources,
+    Iterable<String> categories,
+    String language,
+    String approval,
+  ) => jsonEncode([
+    enabled,
+    sources.toList()..sort(),
+    categories.toList()..sort(),
+    language,
+    approval,
+  ]);
+  bool get _dirty {
+    final saved = _settings;
+    return saved != null &&
+        _draftKey(
+              _enabled,
+              _sourceIds,
+              _categoryIds,
+              _language,
+              _approvalMode,
+            ) !=
+            _draftKey(
+              saved.enabled,
+              saved.sourceIds,
+              saved.categoryIds,
+              saved.language,
+              saved.approvalMode,
+            );
   }
 
-  void _reload() {
-    if (_saving) return;
-    setState(() {
-      _data = _load();
+  Future<void> _leave() async {
+    if (_saving || _running || _confirmingLeave) return;
+    if (_dirty) {
+      _confirmingLeave = true;
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(context.tr('Unsaved changes')),
+          content: Text(context.tr('Save your changes before leaving?')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(context.tr('Keep editing')),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(context.tr('Discard')),
+            ),
+          ],
+        ),
+      );
+      _confirmingLeave = false;
+      if (!mounted || discard != true) return;
+    }
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context);
     });
   }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final generation = ++_loadGeneration;
+    try {
+      final values = await Future.wait<Object>([
+        widget.repository.getLocalNewsSettings(widget.community.id),
+        widget.repository
+            .listLocalNewsSources()
+            .then<Object>((sources) => (sources: sources, error: null))
+            .catchError(
+              (Object error) => (sources: <LocalNewsSource>[], error: error),
+            ),
+        widget.repository.listCategories(widget.community.id),
+        widget.repository.listLocalNewsArticles(widget.community.id),
+      ]);
+      final data = (
+        settings: values[0] as LocalNewsSettings,
+        sources: (values[1] as ({List<LocalNewsSource> sources, Object? error}))
+            .sources,
+        sourcesError:
+            (values[1] as ({List<LocalNewsSource> sources, Object? error}))
+                .error,
+        categories: values[2] as List<CommunityCategory>,
+        articles: values[3] as List<LocalNewsArticle>,
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _data = data;
+        _error = null;
+        _loading = false;
+        // Adopt server state into the working draft only when there are no
+        // unsaved edits, so a background refresh never discards the user's
+        // in-progress selections.
+        if (!_dirty) {
+          _apply(data.settings);
+          // Removed sources/categories must not remain invisible publishing targets.
+          _sourceIds.retainAll(data.sources.map((source) => source.id));
+          _categoryIds.retainAll(
+            data.categories.map((category) => category.id),
+          );
+        }
+      });
+    } catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _error = error;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _reload() => _load();
 
   void _apply(LocalNewsSettings settings) {
     _settings = settings;
@@ -93,13 +186,17 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
   Future<void> _save() => _persist(_enabled);
 
   Future<void> _persist(bool enabled) async {
-    if (_saving) return;
+    if (_saving || _running) return;
     setState(() => _saving = true);
     try {
-      final data = await _data;
+      final data = _data;
       if (!mounted) return;
+      if (data == null) {
+        setState(() => _saving = false);
+        return;
+      }
+      String? error;
       if (enabled) {
-        String? error;
         if (data.sourcesError != null) {
           error = context.tr(
             'Could not load news sources. Refresh and try again.',
@@ -119,15 +216,15 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
             )) {
           error = context.tr('Select an available news category.');
         }
-        if (error != null) {
-          setState(() {
-            _saving = false;
-            _activationError = error;
-          });
-          return;
-        }
       }
-      final updated = await widget.repository.updateLocalNewsSettings(
+      if (error != null) {
+        setState(() {
+          _saving = false;
+          _activationError = error;
+        });
+        return;
+      }
+      final saved = await widget.repository.updateLocalNewsSettings(
         widget.community.id,
         enabled: enabled,
         sourceIds: _sourceIds.toList(),
@@ -137,25 +234,24 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
       );
       if (!mounted) return;
       setState(() {
+        _apply(saved);
         _saving = false;
         _activationError = null;
-        _apply(updated);
-        _data = _load();
       });
       _showMessage(context.tr('Local News settings saved.'));
+      await _reload();
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _saving = false;
         _activationError = context.trError(error);
-        // PUT may have committed even if the follow-up GET failed. Reconcile
-        // with the server instead of trusting the pre-request switch value.
-        _data = _load();
+        _enabled = enabled;
       });
     }
   }
 
   Future<void> _runNow() async {
+    if (_saving || _running || _dirty || _settings?.enabled != true) return;
     setState(() => _running = true);
     try {
       final result = await widget.repository.runLocalNewsNow(
@@ -173,10 +269,8 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
     } finally {
       // The run may have changed the dashboard even when it failed.
       if (mounted) {
-        setState(() {
-          _running = false;
-          _data = _load();
-        });
+        await _load();
+        if (mounted) setState(() => _running = false);
       }
     }
   }
@@ -195,248 +289,361 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Automated news'))),
-    body: FutureBuilder<_LocalNewsData>(
-      future: _data,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            _settings == null) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          final error = snapshot.error;
-          if (error is ApiException && error.statusCode == 403) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  context.tr(
-                    'Automated news is not available for this community.',
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+  Widget build(BuildContext context) => PopScope(
+    canPop: _allowPop || (!_dirty && !_saving && !_running),
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _leave();
+    },
+    child: Scaffold(
+      appBar: AppBar(
+        leading: BackButton(onPressed: _leave),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.community.name),
+            Text(
+              context.tr('Automated news'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-            );
-          }
-          return Center(
-            child: FilledButton(
-              onPressed: _reload,
-              child: Text(context.tr('Retry')),
             ),
-          );
-        }
-        final data = snapshot.data;
-        if (data == null) return const SizedBox.shrink();
-        return RefreshIndicator(
-          onRefresh: () async {
-            _reload();
-            await _data;
-          },
-          child: _settingsView(data),
-        );
-      },
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: context.tr('Refresh'),
+            onPressed: _saving || _running ? null : _reload,
+            icon: const Icon(WicchuIcons.arrowsClockwise),
+          ),
+        ],
+      ),
+      body: _buildBody(),
+      bottomNavigationBar:
+          (_error == null && _data != null && (_dirty || _saving))
+          ? _saveBar()
+          : null,
     ),
   );
 
-  Widget _settingsView(_LocalNewsData data) => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-    children: [
-      if (data.settings.isPilot) ...[
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Chip(
-            avatar: const Icon(WicchuIcons.checkCircle, size: 18),
-            label: Text(context.tr('Pilot access active')),
-          ),
-        ),
-        const SizedBox(height: 12),
-      ],
-      if (data.settings.dashboard != null)
-        _LocalNewsDashboardCard(
-          dashboard: data.settings.dashboard!,
-          onReviewPending: _reviewPending,
-          onRefresh: _reload,
-        ),
-      const SizedBox(height: 16),
-      SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(context.tr('Enable automated news')),
-        subtitle: Text(
-          context.tr(
-            'The scheduler will check for relevant articles automatically.',
-          ),
-        ),
-        value: _enabled,
-        onChanged: _saving ? null : _persist,
-      ),
-      if (_activationError != null ||
-          data.sourcesError != null ||
-          data.sources.isEmpty)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Text(
-            _activationError ??
-                context.tr(
-                  data.sourcesError != null
-                      ? 'Could not load news sources. Refresh and try again.'
-                      : 'No news sources are configured yet. Refresh sources to check again.',
-                ),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: _activationError != null || data.sourcesError != null
-                  ? Theme.of(context).colorScheme.error
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget _buildBody() {
+    if (_loading && _data == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      final error = _error;
+      if (error is ApiException && error.statusCode == 403) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              context.tr('Automated news is not available for this community.'),
+              textAlign: TextAlign.center,
             ),
           ),
-        ),
-      const Divider(),
-      _title('News language'),
-      SegmentedButton<String>(
-        segments: [
-          ButtonSegment(value: 'es', label: Text(context.tr('Spanish'))),
-          ButtonSegment(value: 'en', label: Text(context.tr('English'))),
-        ],
-        selected: {_language},
-        onSelectionChanged: _saving
-            ? null
-            : (values) => setState(() => _language = values.first),
-      ),
-      const SizedBox(height: 22),
-      _title('Publication approval'),
-      IgnorePointer(
-        ignoring: _saving,
-        child: RadioGroup<String>(
-          groupValue: _approvalMode,
-          onChanged: (value) =>
-              setState(() => _approvalMode = value ?? 'manual'),
+        );
+      }
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              RadioListTile<String>(
-                contentPadding: EdgeInsets.zero,
-                value: 'manual',
-                title: Text(context.tr('Review before publishing')),
-                subtitle: Text(context.tr('Recommended for every new source.')),
+              Text(
+                context.tr('Unable to load news settings. Please try again.'),
+                textAlign: TextAlign.center,
               ),
-              if (!data.settings.isPilot) RadioListTile<String>(
-                contentPadding: EdgeInsets.zero,
-                value: 'automatic',
-                title: Text(context.tr('Publish automatically')),
-                subtitle: Text(
-                  context.tr(
-                    'Only sources trusted and authorized by Wicchu can publish automatically.',
-                  ),
-                ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _reload,
+                child: Text(context.tr('Retry')),
               ),
             ],
           ),
         ),
-      ),
-      const SizedBox(height: 12),
-      _title('Approved sources'),
-      if (data.sources.isEmpty)
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.tr(
-                    data.sourcesError != null
-                        ? 'Could not load news sources. Refresh and try again.'
-                        : 'No news sources are configured yet. Refresh sources to check again.',
-                  ),
+      );
+    }
+    final data = _data;
+    if (data == null) return const SizedBox.shrink();
+    return AbsorbPointer(
+      absorbing: _saving,
+      child: RefreshIndicator(onRefresh: _reload, child: _settingsView(data)),
+    );
+  }
+
+  Widget _saveBar() => SafeArea(
+    minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+    child: FilledButton.icon(
+      onPressed: _saving || _running || !_dirty ? null : _save,
+      icon: _saving
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(WicchuIcons.floppyDisk),
+      label: Text(context.tr('Save settings')),
+    ),
+  );
+
+  Widget _settingsView(_LocalNewsData data) {
+    final settings = data.settings;
+    final entitled = settings.entitled;
+    final selectedSourceCount = data.sources
+        .where((source) => _sourceIds.contains(source.id))
+        .length;
+    final selectedCategoryCount = data.categories
+        .where((category) => _categoryIds.contains(category.id))
+        .length;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        if (settings.isPilot) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Chip(
+              avatar: const Icon(WicchuIcons.checkCircle, size: 18),
+              label: Text(context.tr('Pilot access active')),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        _LocalNewsStatusSection(
+          dashboard: settings.dashboard,
+          enabled: _enabled,
+          entitled: entitled,
+          running: _running,
+          hasUnsavedChanges: _dirty,
+          hasSources: data.sources.isNotEmpty,
+          sourcesError: data.sourcesError != null,
+          onEnabledChanged: _persist,
+          onReviewPending: _reviewPending,
+          onRunNow: _runNow,
+        ),
+        if (_activationError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _activationError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        const SizedBox(height: 20),
+        if (!entitled)
+          _noticeCard(
+            icon: WicchuIcons.shieldWarning,
+            text: context.tr(
+              'Local News access must be enabled for this community by Wicchu.',
+            ),
+          ),
+        _title('Configuration'),
+        const SizedBox(height: 4),
+        Text(
+          context.tr('News language'),
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<String>(
+            segments: [
+              ButtonSegment(value: 'es', label: Text(context.tr('Spanish'))),
+              ButtonSegment(value: 'en', label: Text(context.tr('English'))),
+            ],
+            selected: {_language},
+            onSelectionChanged: _saving
+                ? null
+                : (values) => setState(() => _language = values.first),
+          ),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: _approvalMode,
+          isExpanded: true,
+          decoration: InputDecoration(labelText: context.tr('Approval mode')),
+          items: [
+            DropdownMenuItem(
+              value: 'manual',
+              child: Text(context.tr('Review before publishing')),
+            ),
+            if (!settings.isPilot)
+              DropdownMenuItem(
+                value: 'automatic',
+                child: Text(context.tr('Publish automatically')),
+              ),
+          ],
+          onChanged: _saving || settings.isPilot
+              ? null
+              : (value) {
+                  if (value != null) setState(() => _approvalMode = value);
+                },
+        ),
+        if (_approvalMode == 'automatic') ...[
+          const SizedBox(height: 6),
+          Text(
+            context.tr(
+              'Only sources trusted and authorized by Wicchu can publish automatically.',
+            ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        const Divider(height: 1),
+        _settingsExpansion(
+          icon: WicchuIcons.newspaper,
+          title: 'Approved sources',
+          summary: data.sourcesError != null
+              ? context.tr(
+                  'Could not load news sources. Refresh and try again.',
+                )
+              : data.sources.isEmpty
+              ? context.tr(
+                  'No news sources are configured yet. Refresh sources to check again.',
+                )
+              : context.tr('{selected} of {total} selected', {
+                  'selected': '$selectedSourceCount',
+                  'total': '${data.sources.length}',
+                }),
+          children: [
+            if (data.sourcesError != null) ...[
+              Text(
+                context.tr(
+                  'Could not load news sources. Refresh and try again.',
                 ),
-                const SizedBox(height: 8),
-                TextButton.icon(
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
                   onPressed: _reload,
                   icon: const Icon(WicchuIcons.arrowsClockwise),
                   label: Text(context.tr('Refresh approved sources')),
                 ),
-              ],
-            ),
-          ),
+              ),
+            ] else if (data.sources.isEmpty) ...[
+              Text(
+                context.tr(
+                  'No news sources are configured yet. Refresh sources to check again.',
+                ),
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: _reload,
+                  icon: const Icon(WicchuIcons.arrowsClockwise),
+                  label: Text(context.tr('Refresh approved sources')),
+                ),
+              ),
+            ] else
+              for (final source in data.sources)
+                CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  value: _sourceIds.contains(source.id),
+                  title: Text(source.name),
+                  subtitle: Text(
+                    context.tr(
+                      source.trusted && source.authorizedForAutoPublish
+                          ? 'Trusted for automatic publishing'
+                          : 'Review required',
+                    ),
+                  ),
+                  onChanged: (checked) => setState(() {
+                    checked == true
+                        ? _sourceIds.add(source.id)
+                        : _sourceIds.remove(source.id);
+                  }),
+                ),
+          ],
         ),
-      for (final source in data.sources)
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          value: _sourceIds.contains(source.id),
-          title: Text(source.name),
-          subtitle: Text(
-            context.tr(
-              source.authorizedForAutoPublish
-                  ? 'Trusted for automatic publishing'
-                  : 'Review required',
-            ),
-          ),
-          onChanged: _saving
-              ? null
-              : (checked) => setState(() {
-                  checked == true
-                      ? _sourceIds.add(source.id)
-                      : _sourceIds.remove(source.id);
+        const Divider(height: 1),
+        _settingsExpansion(
+          icon: WicchuIcons.tag,
+          title: 'News categories',
+          summary: data.categories.isEmpty
+              ? context.tr('No news categories are available.')
+              : context.tr('{selected} of {total} selected', {
+                  'selected': '$selectedCategoryCount',
+                  'total': '${data.categories.length}',
                 }),
+          children: [
+            if (data.categories.isEmpty)
+              Text(context.tr('No news categories are available.'))
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final category in data.categories)
+                    FilterChip(
+                      label: Text(category.name),
+                      selected: _categoryIds.contains(category.id),
+                      onSelected: (selected) => setState(() {
+                        selected
+                            ? _categoryIds.add(category.id)
+                            : _categoryIds.remove(category.id);
+                      }),
+                    ),
+                ],
+              ),
+          ],
         ),
-      const SizedBox(height: 12),
-      _title('News categories'),
-      Text(
-        context.tr(
-          'The AI will only use the categories you select. It never creates new categories.',
-        ),
-      ),
-      for (final category in data.categories)
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          value: _categoryIds.contains(category.id),
-          title: Text(category.name),
-          onChanged: _saving
-              ? null
-              : (checked) => setState(() {
-                  checked == true
-                      ? _categoryIds.add(category.id)
-                      : _categoryIds.remove(category.id);
-                }),
-        ),
-      const SizedBox(height: 16),
-      FilledButton.icon(
-        onPressed: _saving ? null : _save,
-        icon: _saving
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(WicchuIcons.floppyDisk),
-        label: Text(context.tr('Save settings')),
-      ),
-      if (_settings?.enabled == true) ...[
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: _running ? null : _runNow,
-          icon: _running
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(WicchuIcons.arrowsClockwise),
-          label: Text(context.tr('Check for news now')),
-        ),
-      ],
-      if (data.articles.isNotEmpty) ...[
-        const SizedBox(height: 24),
-        _title('Recent news activity'),
-        for (final article in data.articles.take(10))
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(_statusIcon(article.status)),
-            title: Text(
-              article.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(context.tr(_statusLabel(article.status))),
+        if (data.articles.isNotEmpty) ...[
+          const Divider(height: 1),
+          _settingsExpansion(
+            icon: WicchuIcons.clockCounterClockwise,
+            title: 'Recent news activity',
+            summary: context.tr('{count} recent items', {
+              'count': '${data.articles.take(10).length}',
+            }),
+            children: [
+              for (final article in data.articles.take(10))
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(_statusIcon(article.status)),
+                  title: Text(
+                    article.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(context.tr(_statusLabel(article.status))),
+                ),
+            ],
           ),
+        ],
       ],
-    ],
+    );
+  }
+
+  Widget _settingsExpansion({
+    required IconData icon,
+    required String title,
+    required String summary,
+    required List<Widget> children,
+  }) => ExpansionTile(
+    tilePadding: EdgeInsets.zero,
+    childrenPadding: const EdgeInsets.only(bottom: 12),
+    shape: const Border(),
+    collapsedShape: const Border(),
+    leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+    title: Text(context.tr(title)),
+    subtitle: Text(summary),
+    children: children,
+  );
+
+  Widget _noticeCard({required IconData icon, required String text}) => Card(
+    margin: const EdgeInsets.only(bottom: 12),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          const SizedBox(width: 12),
+          Expanded(child: Text(text)),
+        ],
+      ),
+    ),
   );
 
   Widget _title(String value) => Padding(
@@ -468,167 +675,213 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
 }
 
 /// Compact operational summary. All times are shown in the device's timezone.
-class _LocalNewsDashboardCard extends StatelessWidget {
-  const _LocalNewsDashboardCard({
+class _LocalNewsStatusSection extends StatelessWidget {
+  const _LocalNewsStatusSection({
     required this.dashboard,
+    required this.enabled,
+    required this.entitled,
+    required this.running,
+    required this.hasUnsavedChanges,
+    required this.hasSources,
+    required this.sourcesError,
+    required this.onEnabledChanged,
     required this.onReviewPending,
-    required this.onRefresh,
+    required this.onRunNow,
   });
 
-  final LocalNewsDashboard dashboard;
+  final LocalNewsDashboard? dashboard;
+  final bool enabled;
+  final bool entitled;
+  final bool running;
+  final bool hasUnsavedChanges;
+  final bool hasSources;
+  final bool sourcesError;
+  final ValueChanged<bool> onEnabledChanged;
   final VoidCallback onReviewPending;
-  final VoidCallback onRefresh;
+  final VoidCallback onRunNow;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final run = dashboard.lastRun;
-    final (IconData icon, Color tone) = switch (dashboard.status) {
+    final value = dashboard;
+    final run = value?.lastRun;
+    final status = value?.status;
+    final (IconData icon, Color tone) = switch (status) {
       'collecting' => (WicchuIcons.arrowsClockwise, colors.primary),
       'awaiting_approval' => (WicchuIcons.hourglass, colors.tertiary),
       'daily_limit_reached' => (WicchuIcons.clock, colors.secondary),
       'configuration_needed' => (WicchuIcons.gearSix, colors.error),
       'paused' => (WicchuIcons.pause, colors.outline),
       'error' => (WicchuIcons.warningCircle, colors.error),
+      null => (WicchuIcons.warningCircle, colors.outline),
       _ => (WicchuIcons.calendarBlank, colors.primary),
     };
-    final waitingToday = dashboard.todayUsed - dashboard.publishedToday;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: tone),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    context.tr(_statusTitle(dashboard.status)),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: context.tr('Refresh'),
-                  onPressed: onRefresh,
-                  icon: const Icon(WicchuIcons.arrowsClockwise, size: 20),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(
-                context.tr(_statusDetail(dashboard)),
-                style: theme.textTheme.bodySmall,
-              ),
-            ),
-            const SizedBox(height: 10),
-            _Row(
-              icon: dashboard.enabled
-                  ? WicchuIcons.playFill
-                  : WicchuIcons.pause,
-              label: context.tr('Automated news'),
-              value: context.tr(dashboard.enabled ? 'Enabled' : 'Disabled'),
-            ),
-            _Row(
-              icon: WicchuIcons.calendarBlank,
-              label: context.tr('Next review'),
-              value: dashboard.nextCollectionAt == null
-                  ? context.tr(
-                      dashboard.status == 'configuration_needed'
-                          ? 'Available after configuration'
-                          : 'Next review not available',
-                    )
-                  : _dateTime(context, dashboard.nextCollectionAt!),
-            ),
-            _Row(
-              icon: WicchuIcons.clockCounterClockwise,
-              label: context.tr('Last review'),
-              value: run == null
-                  ? context.tr('Not run yet')
-                  : '${context.tr(_runLabel(run))} · ${_dateTime(context, run.finishedAt)}',
-            ),
-            _Row(
-              icon: WicchuIcons.hourglass,
-              label: context.tr('Awaiting approval'),
-              value: '${dashboard.pendingApproval}',
-            ),
-            _Row(
-              icon: WicchuIcons.newspaper,
-              label: context.tr('Published today'),
-              value: context.tr('{used} of {limit}', {
-                'used': '${dashboard.publishedToday}',
-                'limit': '${dashboard.dailyLimit}',
+    final waitingToday = value == null
+        ? 0
+        : value.todayUsed - value.publishedToday;
+    final statusTitle = value == null
+        ? 'Scheduler unavailable'
+        : _statusTitle(value.status);
+    final statusDetail = value == null
+        ? 'Scheduling information is temporarily unavailable. Refresh to try again.'
+        : _statusDetail(value);
+    final compactMetrics =
+        MediaQuery.sizeOf(context).width < 360 ||
+        MediaQuery.textScalerOf(context).scale(14) > 18;
+    final metrics = <_MetricData>[
+      (
+        icon: WicchuIcons.calendarBlank,
+        label: context.tr('Next review'),
+        value: value?.nextCollectionAt == null
+            ? context.tr('Next review not available')
+            : _dateTime(context, value!.nextCollectionAt!),
+      ),
+      (
+        icon: WicchuIcons.hourglass,
+        label: context.tr('Pending approvals'),
+        value: '${value?.pendingApproval ?? 0}',
+      ),
+      (
+        icon: WicchuIcons.newspaper,
+        label: context.tr('Published today'),
+        value: value == null
+            ? '—'
+            : context.tr('{used} of {limit}', {
+                'used': '${value.publishedToday}',
+                'limit': '${value.dailyLimit}',
               }),
-            ),
-            _Row(
-              icon: WicchuIcons.shieldCheck,
-              label: context.tr('Publication'),
-              value: context.tr(
-                dashboard.approvalMode == 'automatic'
-                    ? 'Automatic'
-                    : 'Manual approval',
-              ),
-            ),
-            const SizedBox(height: 12),
-            _RecentActivity(dashboard: dashboard),
-            if (waitingToday > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 4, right: 8),
-                child: Text(
-                  context.tr(
-                    '{count} waiting for approval already count toward today\'s limit.',
-                    {'count': '$waitingToday'},
-                  ),
-                  style: theme.textTheme.bodySmall,
-                ),
-              ),
-            if (dashboard.publishedToday == 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 8, right: 8),
-                child: Text(
-                  context.tr(
-                    'No news has been published today. Wicchu only publishes relevant articles from your sources, so a review does not always produce a post.',
-                  ),
-                  style: theme.textTheme.bodySmall,
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.only(top: 8, right: 8),
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: tone, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
               child: Text(
-                context.tr(
-                  'Times in your timezone ({zone}). The daily limit resets at {time} (00:00 {quotaZone}).',
-                  {
-                    'zone': DateTime.now().timeZoneName,
-                    'time': _time(context, dashboard.quotaResetsAt),
-                    'quotaZone': dashboard.timezone,
-                  },
-                ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colors.onSurfaceVariant,
+                context.tr(statusTitle),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-            if (dashboard.pendingApproval > 0) ...[
-              const SizedBox(height: 10),
-              FilledButton.tonalIcon(
-                onPressed: onReviewPending,
-                icon: const Icon(WicchuIcons.listChecks),
-                label: Text(
-                  context.tr('Review pending news ({count})', {
-                    'count': '${dashboard.pendingApproval}',
-                  }),
-                ),
-              ),
-            ],
           ],
         ),
-      ),
+        SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: Text(context.tr('Enable automated news')),
+          subtitle: Text(
+            context.tr(statusDetail),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+          value: enabled,
+          onChanged: entitled ? onEnabledChanged : null,
+        ),
+        if (sourcesError || !hasSources)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              context.tr(
+                sourcesError
+                    ? 'Could not load news sources. Refresh and try again.'
+                    : 'No news sources are configured yet. Refresh sources to check again.',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+        const SizedBox(height: 4),
+        if (compactMetrics)
+          for (final metric in metrics)
+            _MetricRow(
+              icon: metric.icon,
+              label: metric.label,
+              value: metric.value,
+            )
+        else
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var index = 0; index < metrics.length; index++) ...[
+                  if (index > 0) const VerticalDivider(width: 16),
+                  Expanded(
+                    child: _Metric(
+                      icon: metrics[index].icon,
+                      label: metrics[index].label,
+                      value: metrics[index].value,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 12),
+        const Divider(height: 1),
+        ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(WicchuIcons.clockCounterClockwise, size: 20),
+          title: Text(context.tr('Last review')),
+          subtitle: Text(
+            run == null
+                ? context.tr('Not run yet')
+                : '${context.tr(_runLabel(run))} · ${_dateTime(context, run.finishedAt)}',
+          ),
+        ),
+        if (waitingToday > 0)
+          Text(
+            context.tr(
+              '{count} waiting for approval already count toward today\'s limit.',
+              {'count': '$waitingToday'},
+            ),
+            style: theme.textTheme.bodySmall,
+          ),
+        if (value != null)
+          Text(
+            context.tr(
+              'Times in your timezone ({zone}). The daily limit resets at {time} (00:00 {quotaZone}).',
+              {
+                'zone': DateTime.now().timeZoneName,
+                'time': _time(context, value.quotaResetsAt),
+                'quotaZone': value.timezone,
+              },
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        if (value?.pendingApproval case final count? when count > 0) ...[
+          const SizedBox(height: 10),
+          FilledButton.tonalIcon(
+            onPressed: onReviewPending,
+            icon: const Icon(WicchuIcons.listChecks),
+            label: Text(
+              context.tr('Review pending news ({count})', {'count': '$count'}),
+            ),
+          ),
+        ],
+        if (enabled) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: running || hasUnsavedChanges ? null : onRunNow,
+            icon: running
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(WicchuIcons.arrowsClockwise),
+            label: Text(context.tr('Check for news now')),
+          ),
+        ],
+      ],
     );
   }
 
@@ -652,34 +905,28 @@ class _LocalNewsDashboardCard extends StatelessWidget {
     _ => 'Scheduled',
   };
 
-  static String _statusDetail(LocalNewsDashboard dashboard) => switch ((
-    dashboard.status,
-    dashboard.reason,
-  )) {
-    ('collecting', _) => 'Wicchu is checking your sources now.',
-    ('awaiting_approval', _) =>
-      'News is waiting for your approval before it is published.',
-    ('daily_limit_reached', _) =>
-      'Today\'s news is used. Wicchu looks again after the daily reset.',
-    ('configuration_needed', 'missing_categories') =>
-      'Select at least one active news category.',
-    ('configuration_needed', 'missing_sources') =>
-      'No approved news sources are available for collection.',
-    ('configuration_needed', _) => 'Select at least one approved source.',
-    ('paused', 'disabled') => 'Automated news is turned off.',
-    ('paused', 'monthly_limit_reached') =>
-      'The monthly limit has been reached.',
-    ('paused', _) =>
-      'News processing is paused by Wicchu. It will resume automatically.',
-    ('error', 'sources_unavailable') =>
-      'The selected news sources could not be read.',
-    ('error', 'processing_unavailable') =>
-      'News processing is unavailable. Wicchu needs to check its AI configuration or budget.',
-    ('error', 'configuration_invalid') =>
-      'The last review could not use your sources or categories.',
-    ('error', _) => 'The last review failed. Wicchu will try again.',
-    _ => 'Wicchu will check your sources at the next review.',
-  };
+  static String _statusDetail(LocalNewsDashboard dashboard) =>
+      switch ((dashboard.status, dashboard.reason)) {
+        ('collecting', _) => 'Wicchu is checking your sources now.',
+        ('awaiting_approval', _) =>
+          'News is waiting for your approval before it is published.',
+        ('daily_limit_reached', _) =>
+          'Today\'s news is used. Wicchu looks again after the daily reset.',
+        ('configuration_needed', 'missing_categories') =>
+          'Select at least one active news category.',
+        ('configuration_needed', _) => 'Select at least one approved source.',
+        ('paused', 'disabled') => 'Automated news is turned off.',
+        ('paused', 'monthly_limit_reached') =>
+          'The monthly limit has been reached.',
+        ('paused', _) =>
+          'News processing is paused by Wicchu. It will resume automatically.',
+        ('error', 'sources_unavailable') =>
+          'The selected news sources could not be read.',
+        ('error', 'configuration_invalid') =>
+          'The last review could not use your sources or categories.',
+        ('error', _) => 'The last review failed. Wicchu will try again.',
+        _ => 'Wicchu will check your sources at the next review.',
+      };
 
   static String _runLabel(LocalNewsLastRun run) => switch (run.status) {
     'success' => 'Completed',
@@ -689,80 +936,47 @@ class _LocalNewsDashboardCard extends StatelessWidget {
   };
 }
 
-/// Shows what the system did last and what it will do next, from live dashboard data only.
-class _RecentActivity extends StatelessWidget {
-  const _RecentActivity({required this.dashboard});
+class _Metric extends StatelessWidget {
+  const _Metric({required this.icon, required this.label, required this.value});
 
-  final LocalNewsDashboard dashboard;
+  final IconData icon;
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final run = dashboard.lastRun;
-    final entries = <(IconData, String)>[];
-    if (run == null) {
-      entries.add((WicchuIcons.clockCounterClockwise, 'No activity yet'));
-    } else {
-      final found = run.published + run.pendingApproval;
-      switch (run.status) {
-        case 'success':
-          entries.add((WicchuIcons.checkCircle, 'Review completed'));
-          entries.add(
-            found > 0
-                ? (WicchuIcons.newspaper, 'Relevant news found')
-                : (WicchuIcons.newspaper, 'No relevant news found'),
-          );
-        case 'partial':
-          entries.add((
-            WicchuIcons.warningCircle,
-            'Review completed with problems',
-          ));
-        case 'daily_limit_reached':
-          entries.add((
-            WicchuIcons.clock,
-            'Review skipped: daily limit already reached',
-          ));
-        default:
-          entries.add((WicchuIcons.warningCircle, 'Review failed'));
-      }
-    }
-    entries.add(
-      dashboard.nextCollectionAt != null
-          ? (WicchuIcons.calendarBlank, 'Next review scheduled')
-          : (WicchuIcons.calendarBlank, 'Pending scheduling'),
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Icon(icon, size: 18, color: theme.colorScheme.primary),
+        const SizedBox(height: 6),
         Text(
-          context.tr('Recent activity'),
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
         ),
-        for (final (icon, text) in entries)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, right: 8),
-            child: Row(
-              children: [
-                Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    context.tr(text),
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ),
-              ],
-            ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
+        ),
       ],
     );
   }
 }
 
-class _Row extends StatelessWidget {
-  const _Row({required this.icon, required this.label, required this.value});
+class _MetricRow extends StatelessWidget {
+  const _MetricRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   final IconData icon;
   final String label;
@@ -772,11 +986,10 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 6, right: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+          Icon(icon, size: 18, color: theme.colorScheme.primary),
           const SizedBox(width: 10),
           Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
           const SizedBox(width: 8),
@@ -785,7 +998,7 @@ class _Row extends StatelessWidget {
               value,
               textAlign: TextAlign.end,
               style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -794,3 +1007,5 @@ class _Row extends StatelessWidget {
     );
   }
 }
+
+typedef _MetricData = ({IconData icon, String label, String value});

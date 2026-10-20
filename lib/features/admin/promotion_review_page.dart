@@ -26,7 +26,9 @@ class _PromotionReviewPageState extends State<PromotionReviewPage> {
   Future<List<PromotionCampaign>> _load() =>
       widget.repository.listPendingPromotions(widget.community.id);
 
-  void _reload() => setState(() => _campaigns = _load());
+  void _reload() => setState(() {
+    _campaigns = _load();
+  });
 
   @override
   Widget build(BuildContext context) => Scaffold(

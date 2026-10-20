@@ -81,14 +81,23 @@ Future<void> _openShare(
   _SharingRepository repository, {
   Locale locale = const Locale('en'),
   String sourceCommunityId = 'business',
+  String? originalSourceCommunityId,
+  Size size = const Size(430, 900),
+  double textScale = 1,
 }) async {
-  await tester.binding.setSurfaceSize(const Size(430, 900));
+  await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('es')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: Builder(
         builder: (context) => Scaffold(
           body: TextButton(
@@ -104,6 +113,7 @@ Future<void> _openShare(
                 status: PostStatus.published,
                 createdAt: DateTime(2026),
                 canShareToCommunities: true,
+                sourceCommunityId: originalSourceCommunityId,
               ),
               PostShareDestination.community,
             ),
@@ -130,6 +140,21 @@ void main() {
     expect(find.text('Echeandia'), findsOneWidget);
   });
 
+  testWidgets('reshared post excludes current and original communities', (
+    tester,
+  ) async {
+    final repository = _SharingRepository(includeOrigin: true);
+    await _openShare(
+      tester,
+      repository,
+      sourceCommunityId: 'community',
+      originalSourceCommunityId: 'origin',
+    );
+    expect(find.text('Original community'), findsNothing);
+    expect(find.text('Echeandia'), findsNothing);
+    expect(find.text('No communities found'), findsOneWidget);
+  });
+
   testWidgets(
     'short community list stays compact and comment expands on focus',
     (tester) async {
@@ -154,6 +179,29 @@ void main() {
     },
   );
 
+  testWidgets('sharing remains usable on a narrow screen with larger text', (
+    tester,
+  ) async {
+    final repository = _SharingRepository()..accepted = true;
+    await _openShare(
+      tester,
+      repository,
+      size: const Size(320, 700),
+      textScale: 1.4,
+    );
+    await tester.tap(find.text('Echeandia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('General'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Share to 1 community'));
+    await tester.tap(find.text('Share to 1 community'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Publication shared'), findsOneWidget);
+    expect(find.text('Awaiting approval in 1 community'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Spanish sharing confirmation explains pending approval', (
     tester,
   ) async {
@@ -166,7 +214,7 @@ void main() {
     await tester.tap(find.text('Compartir en 1 comunidad'));
     await tester.pumpAndSettle();
     expect(repository.shares, 1);
-    expect(find.text('1 pendiente(s) de aprobación'), findsOneWidget);
+    expect(find.text('Pendiente de aprobación en 1 comunidad'), findsOneWidget);
     expect(find.text('1 awaiting community approval'), findsNothing);
   });
   testWidgets('canceling category selection leaves destination unselected', (
@@ -212,7 +260,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(repository.shares, 1);
       expect(repository.destinations, {'community': 'Business'});
-      expect(find.text('1 awaiting community approval'), findsOneWidget);
+      expect(find.text('Awaiting approval in 1 community'), findsOneWidget);
     },
   );
 }

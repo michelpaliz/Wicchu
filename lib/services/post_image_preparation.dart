@@ -2,6 +2,11 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+const maxMediaUploadBytes = 25 * 1024 * 1024;
+
+bool isWithinMediaUploadLimit(int byteLength) =>
+    byteLength >= 0 && byteLength <= maxMediaUploadBytes;
+
 class PreparedPostImage {
   const PreparedPostImage(this.bytes, this.filename, this.mimeType);
   final Uint8List bytes;

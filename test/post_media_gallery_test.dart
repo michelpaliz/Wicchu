@@ -58,6 +58,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('2 / 2'), findsOneWidget);
       expect(find.byType(PostComments), findsOneWidget);
+      final detailSurface = tester.widget<Material>(
+        find.byKey(const ValueKey('post-detail-content')),
+      );
+      expect(detailSurface.color, Colors.transparent);
+      expect(detailSurface.borderRadius, BorderRadius.zero);
+      expect(
+        find.byKey(const ValueKey('post-comments-divider')),
+        findsOneWidget,
+      );
+      final commentsHeading = tester.widget<Text>(find.text('Comments'));
+      expect(commentsHeading.style?.fontSize, 17);
+      expect(commentsHeading.style?.fontWeight, FontWeight.w600);
       final headerY = tester.getTopLeft(find.byType(AppBar)).dy;
       final inputY = tester.getTopLeft(find.byType(TextField)).dy;
       final page = find.byType(PageView);

@@ -66,11 +66,11 @@ void main() {
         find.byKey(const ValueKey('page-header-description')),
       );
       expect(text.textSpan?.toPlainText(), summary);
-      expect(text.maxLines, isNull);
+      expect(text.maxLines, type == CommunityType.publicProfile ? 3 : null);
       expect(text.style?.fontSize, 13);
       expect(
         find.byKey(const ValueKey('page-header-description-toggle')),
-        findsNothing,
+        type == CommunityType.publicProfile ? findsOneWidget : findsNothing,
       );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

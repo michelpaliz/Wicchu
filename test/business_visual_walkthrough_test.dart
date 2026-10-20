@@ -10,10 +10,82 @@ import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/community/business_order_pages.dart';
 import 'package:wicchu/features/community/business_request_pages.dart';
+import 'package:wicchu/features/community/community_profile_page.dart';
+import 'package:wicchu/features/community/post_detail_page.dart';
 import 'package:wicchu/theme/wicchu_theme.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 
 class _VisualRepository extends DemoCommunityRepository {
+  @override
+  Future<Community> getCommunity(String id) async {
+    if (id == 'wicchu-org') {
+      return Community(
+        id: id,
+        name: 'Wicchu',
+        description: 'La comunidad local, más cerca.',
+        town: const Town(id: 'test-town', name: 'Dénia', countryCode: 'ES'),
+        visibility: CommunityVisibility.public,
+        createdBy: 'wicchu-user',
+        createdAt: DateTime(2026),
+        type: CommunityType.publicProfile,
+        profileCategory: ProfileCategory.organization,
+      );
+    }
+    return Community(
+      id: id,
+      name: 'Negocio de prueba',
+      shortDescription:
+          'Comida preparada con ingredientes frescos y atención cercana.',
+      description:
+          'Descubre nuestro menú, consulta los horarios y haz tu pedido.',
+      town: const Town(id: 'test-town', name: 'Echeandía', countryCode: 'EC'),
+      visibility: CommunityVisibility.public,
+      createdBy: 'test-owner',
+      createdAt: DateTime(2026),
+      memberCount: 1,
+      myRole: CommunityRole.owner,
+      type: CommunityType.publicProfile,
+      profileCategory: ProfileCategory.localBusiness,
+      businessServices: const [BusinessService.food],
+      businessAcceptingOrders: true,
+      businessAcceptingRequests: true,
+      businessRequestCapabilities: const [BusinessRequestType.service],
+    );
+  }
+
+  @override
+  Future<PublicMemberProfile> getMemberProfile(String userId) async {
+    if (userId == 'wicchu-user') {
+      return const PublicMemberProfile(
+        id: 'wicchu-user',
+        name: 'Wicchu',
+        userName: 'wicchu',
+        postCount: 1,
+        communityCount: 1,
+      );
+    }
+    return super.getMemberProfile(userId);
+  }
+
+  @override
+  Future<CommunityPost> getPost(String postId) async {
+    if (postId == 'organization-post') {
+      return CommunityPost(
+        id: postId,
+        communityId: 'wicchu-org',
+        categoryId: 'updates',
+        authorId: 'wicchu-user',
+        authorName: 'Wicchu',
+        text:
+            '🚀💚 ¡Wicchu sigue creciendo y mejorando!\n\nEstamos trabajando constantemente para ofrecerte una mejor experiencia.',
+        status: PostStatus.published,
+        createdAt: DateTime.now().subtract(const Duration(hours: 9)),
+        pinned: true,
+      );
+    }
+    return super.getPost(postId);
+  }
+
   @override
   Future<BusinessCatalog> getBusinessCatalog(
     String businessId, {
@@ -105,25 +177,7 @@ void main() {
       BusinessMenuPage(businessId: 'visual-business', repository: repository),
     );
     await shot('test-01-catalog');
-    await tester.tap(find.byIcon(WicchuIcons.plusCircle));
-    await tester.pumpAndSettle();
-    await shot('test-02-cart');
-    await tap(r'Revisar pedido · $4.50');
-    await shot('test-03-checkout');
-    await tap('Enviar pedido');
-    await shot('test-04-address-validation');
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Dirección de entrega'),
-      'Calle de prueba 12',
-    );
-    await shot('test-05-address-filled');
-    await tap('Enviar pedido');
-    await shot('test-06-order-confirmation');
-    await tap('Listo');
-    await open(MyBusinessOrdersPage(repository: repository));
-    expect(find.text('Aceptar pedido'), findsNothing);
-    expect(find.text('Cancelar pedido'), findsOneWidget);
-    await shot('test-07-my-orders');
+    expect(find.byIcon(WicchuIcons.plusCircle), findsNothing);
     await open(
       BusinessTransactionsPage(
         businessId: 'visual-business',
@@ -131,23 +185,8 @@ void main() {
         repository: repository,
       ),
     );
+    expect(find.text('Actividad de solicitudes'), findsOneWidget);
     await shot('test-08-dashboard');
-    await open(
-      BusinessOrderManagementPage(
-        businessId: 'visual-business',
-        businessName: 'Negocio de prueba',
-        repository: repository,
-      ),
-    );
-    await shot('test-09-manage-orders');
-    await tap('Aceptar pedido');
-    await shot('test-09b-order-accepted');
-    await tap('Empezar a preparar');
-    await shot('test-09c-order-preparing');
-    await tap('Marcar como listo');
-    await shot('test-09d-order-ready');
-    await tap('Marcar como completado');
-    await shot('test-09e-order-completed');
     await open(
       BusinessCatalogManagementPage(
         businessId: 'visual-business',
@@ -159,7 +198,8 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await shot('test-11-product-editor');
-    await tap('Añadir talla o color');
+    await tap('Variantes y opciones');
+    await tap('Añadir variante');
     await shot('test-11b-variant-editor');
     await open(
       BusinessRequestComposerPage(
@@ -167,6 +207,7 @@ void main() {
         repository: repository,
       ),
     );
+    expect(find.text('Negocio local'), findsOneWidget);
     await shot('test-12-service-request');
     await tester.enterText(
       find.widgetWithText(TextField, '¿Qué servicio necesitas?'),
@@ -206,5 +247,29 @@ void main() {
       light: true,
     );
     await shot('test-18-light-catalog');
+
+    final business = await repository.getCommunity('visual-business');
+    await open(
+      CommunityProfilePage(
+        community: business,
+        repository: repository,
+        screen: CommunityScreen.information,
+      ),
+    );
+    await shot('test-19-business-information');
+    await tap('Administrar');
+    await shot('test-20-business-management');
+
+    final organizationPost = await repository.getPost('organization-post');
+    await open(
+      PostDetailPage(
+        postId: organizationPost.id,
+        initialPost: organizationPost,
+        repository: repository,
+        category: 'Actualizaciones',
+        community: 'Wicchu',
+      ),
+    );
+    await shot('test-21-organization-post');
   });
 }

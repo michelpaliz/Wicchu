@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
+import '../../config/business_features.dart';
 import '../../localization/app_language.dart';
 import '../../theme/wicchu_icons.dart';
 import '../../widgets/wicchu_network_image.dart';
@@ -47,6 +48,9 @@ class BusinessMenuPage extends StatefulWidget {
 
 class _BusinessMenuPageState extends State<BusinessMenuPage> {
   late Future<BusinessCatalog> _catalog = _load();
+  late final Future<Community> _business = widget.repository.getCommunity(
+    widget.businessId,
+  );
   final Map<String, _CartLine> _cart = {};
   bool _placingOrder = false;
 
@@ -95,19 +99,20 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
       final catalog = snapshot.data;
       return Scaffold(
         appBar: AppBar(
-          title: Text(catalog?.businessName ?? context.tr('Menu and orders')),
+          title: Text(catalog?.businessName ?? context.tr('Menu')),
           actions: [
-            IconButton(
-              tooltip: context.tr('My orders'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      MyBusinessOrdersPage(repository: widget.repository),
+            if (businessOrderingEnabled)
+              IconButton(
+                tooltip: context.tr('My orders'),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        MyBusinessOrdersPage(repository: widget.repository),
+                  ),
                 ),
+                icon: const Icon(WicchuIcons.receipt),
               ),
-              icon: const Icon(WicchuIcons.receipt),
-            ),
           ],
         ),
         body: switch (snapshot.connectionState) {
@@ -120,63 +125,104 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
           ),
           _ => _catalogBody(catalog!),
         },
-        bottomNavigationBar: catalog != null && _cart.isNotEmpty
-            ? SafeArea(
-                minimum: const EdgeInsets.all(16),
-                child: FilledButton.icon(
-                  onPressed:
-                      !_placingOrder &&
-                          catalog.acceptingOrders &&
-                          catalog.fulfillmentOptions.isNotEmpty
-                      ? () => _checkout(catalog)
-                      : null,
-                  icon: const Icon(WicchuIcons.receipt),
-                  label: Text(
-                    '${context.tr('Review order')} · ${_money(_total(catalog))}',
-                  ),
-                ),
-              )
+        bottomNavigationBar:
+            businessOrderingEnabled && catalog != null && _cart.isNotEmpty
+            ? _cartAction(catalog)
             : null,
       );
     },
   );
 
+  Widget _cartAction(BusinessCatalog catalog) => FutureBuilder<Community>(
+    future: _business,
+    builder: (context, snapshot) {
+      final role = snapshot.data?.myRole;
+      final canManage =
+          role == CommunityRole.owner ||
+          (role == CommunityRole.admin && snapshot.data!.canManagePageOrders);
+      final ready =
+          catalog.acceptingOrders && catalog.fulfillmentOptions.isNotEmpty;
+      return SafeArea(
+        minimum: const EdgeInsets.all(16),
+        child: FilledButton.icon(
+          onPressed: _placingOrder
+              ? null
+              : ready
+              ? () => _checkout(catalog)
+              : canManage
+              ? () => _openCatalogManagement(catalog)
+              : () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      context.tr(
+                        'Ordering is temporarily unavailable because delivery and pickup are not configured.',
+                      ),
+                    ),
+                  ),
+                ),
+          icon: Icon(
+            canManage && !ready ? WicchuIcons.gearSix : WicchuIcons.receipt,
+          ),
+          label: Text(
+            context.tr(
+                  ready
+                      ? 'Review order'
+                      : canManage
+                      ? 'Configure order methods'
+                      : 'Ordering temporarily unavailable',
+                ) +
+                (ready ? ' · ${_money(_total(catalog))}' : ''),
+          ),
+        ),
+      );
+    },
+  );
+
+  Future<void> _openCatalogManagement(BusinessCatalog catalog) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BusinessCatalogManagementPage(
+          businessId: widget.businessId,
+          businessName: catalog.businessName,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    _reload();
+  }
+
   Widget _catalogBody(BusinessCatalog catalog) {
     if (catalog.categories.isEmpty || catalog.products.isEmpty) {
-      return _EmptyState(
-        icon: WicchuIcons.forkKnife,
-        title: context.tr('The menu is being prepared'),
-        body: context.tr('This business has not published products yet.'),
+      return FutureBuilder<Community>(
+        future: _business,
+        builder: (context, snapshot) {
+          final role = snapshot.data?.myRole;
+          final canManage =
+              role == CommunityRole.owner ||
+              (role == CommunityRole.admin &&
+                  snapshot.data!.canManagePageOrders);
+          return _EmptyState(
+            icon: WicchuIcons.forkKnife,
+            title: context.tr('The menu is being prepared'),
+            body: context.tr('This business has not published products yet.'),
+            actionLabel: canManage ? context.tr('Manage catalog') : null,
+            onAction: canManage ? () => _openCatalogManagement(catalog) : null,
+          );
+        },
       );
     }
     return RefreshIndicator(
       onRefresh: () async => _reload(),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          businessOrderingEnabled ? 120 : 24,
+        ),
         children: [
-          Card(
-            child: ListTile(
-              leading: Icon(
-                catalog.acceptingOrders
-                    ? WicchuIcons.checkCircle
-                    : WicchuIcons.clock,
-              ),
-              title: Text(
-                context.tr(
-                  catalog.acceptingOrders
-                      ? 'Accepting orders'
-                      : 'Orders are currently closed',
-                ),
-              ),
-              subtitle: catalog.fulfillmentOptions.isEmpty
-                  ? null
-                  : Text(
-                      catalog.fulfillmentOptions
-                          .map((option) => context.tr(option.label))
-                          .join(' · '),
-                    ),
-            ),
-          ),
+          if (businessOrderingEnabled) _catalogStatus(catalog),
           for (final category in catalog.categories) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 22, 4, 8),
@@ -197,13 +243,62 @@ class _BusinessMenuPageState extends State<BusinessMenuPage> {
                     if (line.product.id == product.id)
                       line.variant?.id ?? '': line.quantity,
                 },
-                enabled: catalog.acceptingOrders,
+                enabled:
+                    businessOrderingEnabled &&
+                    catalog.acceptingOrders &&
+                    catalog.fulfillmentOptions.isNotEmpty,
                 onChanged: (variant, delta) =>
                     _changeQuantity(product, variant, delta),
               ),
           ],
         ],
       ),
+    );
+  }
+
+  Widget _catalogStatus(BusinessCatalog catalog) {
+    final incomplete =
+        catalog.acceptingOrders && catalog.fulfillmentOptions.isEmpty;
+    return FutureBuilder<Community>(
+      future: _business,
+      builder: (context, snapshot) {
+        final role = snapshot.data?.myRole;
+        final canManage =
+            role == CommunityRole.owner ||
+            (role == CommunityRole.admin && snapshot.data!.canManagePageOrders);
+        if (incomplete && !canManage) return const SizedBox.shrink();
+        return Card(
+          child: ListTile(
+            leading: Icon(
+              catalog.acceptingOrders && !incomplete
+                  ? WicchuIcons.checkCircle
+                  : WicchuIcons.clock,
+            ),
+            title: Text(
+              context.tr(
+                incomplete
+                    ? 'Ordering setup incomplete'
+                    : catalog.acceptingOrders
+                    ? 'Accepting orders'
+                    : 'Orders are currently closed',
+              ),
+            ),
+            subtitle: incomplete
+                ? Text(
+                    context.tr(
+                      'Delivery, pickup or eat-in must be configured before customers can order.',
+                    ),
+                  )
+                : catalog.fulfillmentOptions.isEmpty
+                ? null
+                : Text(
+                    catalog.fulfillmentOptions
+                        .map((option) => context.tr(option.label))
+                        .join(' · '),
+                  ),
+          ),
+        );
+      },
     );
   }
 
@@ -676,8 +771,10 @@ class BusinessOrderManagementPage extends StatefulWidget {
     required this.businessId,
     required this.businessName,
     required this.repository,
+    this.embedded = false,
   });
 
+  final bool embedded;
   final String businessId;
   final String businessName;
   final CommunityRepository repository;
@@ -701,7 +798,7 @@ class _BusinessOrderManagementPageState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.tr('Orders'))),
+    appBar: widget.embedded ? null : AppBar(title: Text(context.tr('Orders'))),
     body: FutureBuilder<List<BusinessOrder>>(
       future: _orders,
       builder: (context, snapshot) {
@@ -891,6 +988,9 @@ class BusinessCatalogManagementPage extends StatefulWidget {
 class _BusinessCatalogManagementPageState
     extends State<BusinessCatalogManagementPage> {
   late Future<BusinessCatalog> _catalog = _load();
+  bool _savingOrders = false;
+  bool _savingFulfillment = false;
+  int _tab = 0;
   Future<BusinessCatalog> _load() =>
       widget.repository.getBusinessCatalog(widget.businessId, manage: true);
   void _reload() {
@@ -900,131 +1000,332 @@ class _BusinessCatalogManagementPageState
     });
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(context.tr('Products and orders')),
-      actions: [
-        IconButton(
-          tooltip: context.tr('Orders'),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => BusinessOrderManagementPage(
-                businessId: widget.businessId,
-                businessName: widget.businessName,
-                repository: widget.repository,
-              ),
-            ),
-          ),
-          icon: const Icon(WicchuIcons.receipt),
+  Future<void> _setAccepting(bool value, BusinessCatalog catalog) async {
+    if (value && catalog.fulfillmentOptions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('Select at least one order method.')),
         ),
-      ],
-    ),
-    floatingActionButton: FloatingActionButton.extended(
-      onPressed: () => _editProduct(null),
-      icon: const Icon(WicchuIcons.plus),
-      label: Text(context.tr('Add product')),
-    ),
-    body: FutureBuilder<BusinessCatalog>(
+      );
+      return;
+    }
+    setState(() => _savingOrders = true);
+    try {
+      await widget.repository.setBusinessAcceptingOrders(
+        widget.businessId,
+        accepting: value,
+      );
+      _reload();
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _savingOrders = false);
+    }
+  }
+
+  Future<void> _setFulfillmentOption(
+    BusinessCatalog catalog,
+    BusinessFulfillmentOption option,
+    bool selected,
+  ) async {
+    final options = {...catalog.fulfillmentOptions};
+    selected ? options.add(option) : options.remove(option);
+    setState(() => _savingFulfillment = true);
+    try {
+      await widget.repository.setBusinessAcceptingOrders(
+        widget.businessId,
+        accepting: catalog.acceptingOrders,
+        fulfillmentOptions: options.toList(growable: false),
+      );
+      _reload();
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _savingFulfillment = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => DefaultTabController(
+    length: businessOrderingEnabled ? 2 : 1,
+    child: FutureBuilder<BusinessCatalog>(
       future: _catalog,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return _ErrorState(error: snapshot.error, onRetry: _reload);
-        }
-        final catalog = snapshot.data!;
-        return RefreshIndicator(
-          onRefresh: () async => _reload(),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+        final catalog = snapshot.data;
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              context.tr(
+                businessOrderingEnabled ? 'Products and orders' : 'Catalog',
+              ),
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
+            ),
+          ),
+          floatingActionButton:
+              _tab == 0 && catalog != null && catalog.products.isNotEmpty
+              ? FloatingActionButton.small(
+                  tooltip: context.tr('Add product'),
+                  onPressed: () => _editProduct(null),
+                  child: const Icon(WicchuIcons.plus),
+                )
+              : null,
+          body: Column(
             children: [
-              SwitchListTile.adaptive(
-                value: catalog.acceptingOrders,
-                title: Text(context.tr('Sell products and accept orders')),
-                subtitle: Text(
-                  context.tr(
-                    catalog.acceptingOrders
-                        ? 'Customers can submit new orders.'
-                        : 'Customers can view the catalog but cannot order.',
-                  ),
-                ),
-                onChanged: (value) async {
-                  await widget.repository.setBusinessAcceptingOrders(
-                    widget.businessId,
-                    accepting: value,
-                  );
-                  _reload();
-                },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  context.tr('Catalog categories'),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                trailing: TextButton.icon(
-                  onPressed: _addCategory,
-                  icon: const Icon(WicchuIcons.plus),
-                  label: Text(context.tr('Add category')),
-                ),
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final category in catalog.categories)
-                    InputChip(
-                      label: Text(category.name),
-                      onDeleted: () => _deleteCategory(category),
+              if (businessOrderingEnabled && catalog != null)
+                SwitchListTile.adaptive(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  value: catalog.acceptingOrders,
+                  title: Text(
+                    context.tr('Accept orders'),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Text(
-                context.tr('Products'),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 8),
-              if (catalog.products.isEmpty)
+                  ),
+                  subtitle: Text(
+                    context.tr(
+                      catalog.acceptingOrders
+                          ? 'Customers can submit new orders.'
+                          : 'Customers can view the catalog but cannot order.',
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  onChanged: _savingOrders
+                      ? null
+                      : (value) => _setAccepting(value, catalog),
+                ),
+              if (businessOrderingEnabled && catalog != null)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 36),
-                  child: Text(
-                    context.tr('Add your first product or daily menu.'),
-                    textAlign: TextAlign.center,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('Order methods'),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        context.tr(
+                          'Choose how customers can receive their orders.',
+                        ),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          for (final option in BusinessFulfillmentOption.values)
+                            FilterChip(
+                              label: Text(context.tr(option.label)),
+                              selected: catalog.fulfillmentOptions.contains(
+                                option,
+                              ),
+                              showCheckmark: false,
+                              side: BorderSide.none,
+                              backgroundColor: Colors.transparent,
+                              selectedColor: Theme.of(
+                                context,
+                              ).colorScheme.primaryContainer,
+                              onSelected: _savingFulfillment || _savingOrders
+                                  ? null
+                                  : (selected) => _setFulfillmentOption(
+                                      catalog,
+                                      option,
+                                      selected,
+                                    ),
+                            ),
+                        ],
+                      ),
+                      if (catalog.fulfillmentOptions.isEmpty)
+                        Text(
+                          context.tr(
+                            'Select at least one method before accepting orders.',
+                          ),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              for (final product in catalog.products)
-                Card(
-                  child: ListTile(
-                    leading: product.imageUrl == null
-                        ? const CircleAvatar(child: Icon(WicchuIcons.forkKnife))
-                        : ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: WicchuNetworkImage(
-                              url: product.imageUrl!,
-                              width: 48,
-                              height: 48,
-                              decodeWidth: 160,
-                              fit: BoxFit.cover,
+              if (businessOrderingEnabled)
+                TabBar(
+                  onTap: (index) => setState(() => _tab = index),
+                  tabs: [
+                    Tab(text: context.tr('Catalog')),
+                    Tab(text: context.tr('Orders')),
+                  ],
+                ),
+              Expanded(
+                child: TabBarView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    snapshot.connectionState == ConnectionState.waiting
+                        ? const Center(child: CircularProgressIndicator())
+                        : snapshot.hasError
+                        ? _ErrorState(error: snapshot.error, onRetry: _reload)
+                        : RefreshIndicator(
+                            onRefresh: () async {
+                              _reload();
+                              await _catalog;
+                            },
+                            child: ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                              children: [
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    context.tr('Categories'),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  trailing: TextButton.icon(
+                                    onPressed: _addCategory,
+                                    icon: const Icon(
+                                      WicchuIcons.plus,
+                                      size: 18,
+                                    ),
+                                    label: Text(context.tr('Add category')),
+                                  ),
+                                ),
+                                if (catalog!.categories.isEmpty)
+                                  Text(
+                                    context.tr(
+                                      'No categories yet. Add one to organize your products.',
+                                    ),
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [
+                                    for (final category in catalog.categories)
+                                      InputChip(
+                                        label: Text(category.name),
+                                        onDeleted: () =>
+                                            _deleteCategory(category),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        context.tr('Products'),
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      context.trCount(
+                                        catalog.products.length,
+                                        singular: '{count} product',
+                                        plural: '{count} products',
+                                      ),
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                if (catalog.products.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 24,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          WicchuIcons.tote,
+                                          size: 32,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          context.tr('Your catalog is empty'),
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          context.tr(
+                                            'Add products with photos, prices and availability for customers to discover.',
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        FilledButton.icon(
+                                          onPressed: () => _editProduct(null),
+                                          icon: const Icon(WicchuIcons.plus),
+                                          label: Text(
+                                            context.tr('Add product'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                for (final product in catalog.products)
+                                  Card(
+                                    child: ListTile(
+                                      leading: product.imageUrl == null
+                                          ? const CircleAvatar(
+                                              child: Icon(
+                                                WicchuIcons.forkKnife,
+                                              ),
+                                            )
+                                          : ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: WicchuNetworkImage(
+                                                url: product.imageUrl!,
+                                                width: 48,
+                                                height: 48,
+                                                decodeWidth: 160,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                      title: Text(product.name),
+                                      subtitle: Text(
+                                        '${_money(product.priceCents)} · ${product.available ? context.tr('Available') : context.tr('Unavailable')}',
+                                      ),
+                                      onTap: () => _editProduct(product),
+                                      trailing: IconButton(
+                                        tooltip: context.tr('Delete'),
+                                        onPressed: () =>
+                                            _deleteProduct(product),
+                                        icon: const Icon(WicchuIcons.trash),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                    title: Text(product.name),
-                    subtitle: Text(
-                      '${_money(product.priceCents)} · ${product.available ? context.tr('Available') : context.tr('Unavailable')}',
-                    ),
-                    onTap: () => _editProduct(product),
-                    trailing: IconButton(
-                      tooltip: context.tr('Delete'),
-                      onPressed: () => _deleteProduct(product),
-                      icon: const Icon(WicchuIcons.trash),
-                    ),
-                  ),
+                    if (businessOrderingEnabled)
+                      BusinessOrderManagementPage(
+                        businessId: widget.businessId,
+                        businessName: widget.businessName,
+                        repository: widget.repository,
+                        embedded: true,
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         );
@@ -1078,9 +1379,10 @@ class _BusinessCatalogManagementPageState
     final catalog = await _catalog;
     if (!mounted) return;
     if (catalog.categories.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('Add a category first.'))),
-      );
+      await _addCategory();
+      if (!mounted) return;
+      final updated = await _catalog;
+      if (mounted && updated.categories.isNotEmpty) await _editProduct(product);
       return;
     }
     final name = TextEditingController(text: product?.name ?? '');
@@ -1109,258 +1411,433 @@ class _BusinessCatalogManagementPageState
     var categoryId = product?.categoryId ?? catalog.categories.first.id;
     var kind = product?.kind ?? BusinessProductKind.product;
     var available = product?.available ?? true;
+    var trackStock = product?.quantityAvailable != null;
     PostMedia? image;
     var saving = false;
-    await showBusinessDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(
-            context.tr(product == null ? 'Add product' : 'Edit product'),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: categoryId,
-                  decoration: InputDecoration(
-                    labelText: context.tr('Category'),
+    var invalidName = false;
+    var invalidPrice = false;
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (editorContext) => StatefulBuilder(
+          builder: (context, setEditorState) {
+            final previewUrl = image?.previewUrl ?? product?.imageUrl;
+            Future<void> choosePhoto() async {
+              final file = await ImagePicker().pickImage(
+                source: ImageSource.gallery,
+                maxWidth: 1800,
+                imageQuality: 88,
+              );
+              if (file == null || !editorContext.mounted) return;
+              final extension = file.name.split('.').last.toLowerCase();
+              final mime = extension == 'png'
+                  ? 'image/png'
+                  : extension == 'webp'
+                  ? 'image/webp'
+                  : 'image/jpeg';
+              setEditorState(() => saving = true);
+              try {
+                final uploaded = await widget.repository.uploadPostMedia(
+                  bytes: await file.readAsBytes(),
+                  filename: file.name,
+                  mimeType: mime,
+                );
+                if (!editorContext.mounted) return;
+                setEditorState(() {
+                  image = uploaded;
+                  saving = false;
+                });
+              } catch (error) {
+                if (editorContext.mounted) {
+                  setEditorState(() => saving = false);
+                }
+                _showError(error);
+              }
+            }
+
+            Future<void> save() async {
+              final parsedPrice = double.tryParse(
+                price.text.trim().replaceAll(',', '.'),
+              );
+              final nameMissing = name.text.trim().isEmpty;
+              if (nameMissing || parsedPrice == null) {
+                setEditorState(() {
+                  invalidName = nameMissing;
+                  invalidPrice = parsedPrice == null;
+                });
+                return;
+              }
+              setEditorState(() => saving = true);
+              final input = BusinessProductInput(
+                categoryId: categoryId,
+                name: name.text.trim(),
+                description: description.text.trim(),
+                priceCents: (parsedPrice * 100).round(),
+                kind: kind,
+                image: image,
+                available: available,
+                quantityAvailable:
+                    kind == BusinessProductKind.product &&
+                        variants.isEmpty &&
+                        trackStock
+                    ? int.tryParse(quantity.text.trim())
+                    : null,
+                variants: kind == BusinessProductKind.product
+                    ? variants
+                    : const [],
+                expiresAt: kind == BusinessProductKind.dailyMenu
+                    ? DateTime.now().copyWith(hour: 23, minute: 59, second: 59)
+                    : null,
+              );
+              try {
+                if (product == null) {
+                  await widget.repository.createBusinessProduct(
+                    widget.businessId,
+                    input,
+                  );
+                } else {
+                  await widget.repository.updateBusinessProduct(
+                    widget.businessId,
+                    product.id,
+                    input,
+                  );
+                }
+                if (editorContext.mounted) {
+                  Navigator.pop(editorContext, true);
+                }
+              } catch (error) {
+                if (editorContext.mounted) {
+                  setEditorState(() => saving = false);
+                }
+                _showError(error);
+              }
+            }
+
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(
+                  context.tr(product == null ? 'Add product' : 'Edit product'),
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w600,
                   ),
-                  items: [
-                    for (final category in catalog.categories)
-                      DropdownMenuItem(
-                        value: category.id,
-                        child: Text(category.name),
-                      ),
-                  ],
-                  onChanged: (value) =>
-                      setDialogState(() => categoryId = value!),
                 ),
-                const SizedBox(height: 10),
-                SegmentedButton<BusinessProductKind>(
-                  segments: [
-                    ButtonSegment(
-                      value: BusinessProductKind.product,
-                      label: Text(context.tr('Product')),
-                    ),
-                    ButtonSegment(
-                      value: BusinessProductKind.dailyMenu,
-                      label: Text(context.tr("Today's menu")),
-                    ),
-                  ],
-                  selected: {kind},
-                  onSelectionChanged: (values) =>
-                      setDialogState(() => kind = values.first),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: name,
-                  decoration: InputDecoration(labelText: context.tr('Name')),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: description,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    labelText: context.tr('Description'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: price,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: context.tr('Price (USD)'),
-                    prefixText: r'$ ',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (kind == BusinessProductKind.product) ...[
-                  if (variants.isEmpty)
-                    TextField(
-                      controller: quantity,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: context.tr('Stock (optional)'),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      context.tr('Product variants (optional)'),
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  if (variants.isNotEmpty)
-                    for (var index = 0; index < variants.length; index++)
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(variants[index].name),
-                        subtitle: Text(
-                          [
-                            if (variants[index].sku.isNotEmpty)
-                              variants[index].sku,
-                            if (variants[index].priceCents case final cents?)
-                              _money(cents)
-                            else
-                              context.tr('Uses product price'),
-                            if (variants[index].quantityAvailable != null)
-                              '${variants[index].quantityAvailable} ${context.tr('available')}',
-                          ].join(' · '),
+              ),
+              body: ListView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                children: [
+                  Center(
+                    child: InkWell(
+                      onTap: saving ? null : choosePhoto,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Ink(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        onTap: () async {
-                          final updated = await _editVariant(variants[index]);
-                          if (updated != null) {
-                            setDialogState(() => variants[index] = updated);
-                          }
-                        },
-                        trailing: IconButton(
-                          tooltip: context.tr('Delete'),
-                          onPressed: () =>
-                              setDialogState(() => variants.removeAt(index)),
-                          icon: const Icon(WicchuIcons.trash),
-                        ),
-                      ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: variants.length >= 50
-                          ? null
-                          : () async {
-                              final variant = await _editVariant(null);
-                              if (variant != null) {
-                                setDialogState(() => variants.add(variant));
-                              }
-                            },
-                      icon: const Icon(WicchuIcons.plus),
-                      label: Text(context.tr('Add size or color option')),
-                    ),
-                  ),
-                ],
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: available,
-                  title: Text(context.tr('Available')),
-                  onChanged: (value) => setDialogState(() => available = value),
-                ),
-                OutlinedButton.icon(
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          final file = await ImagePicker().pickImage(
-                            source: ImageSource.gallery,
-                            maxWidth: 1800,
-                            imageQuality: 88,
-                          );
-                          if (file == null) return;
-                          final extension = file.name
-                              .split('.')
-                              .last
-                              .toLowerCase();
-                          final mime = extension == 'png'
-                              ? 'image/png'
-                              : extension == 'webp'
-                              ? 'image/webp'
-                              : 'image/jpeg';
-                          setDialogState(() => saving = true);
-                          try {
-                            final uploaded = await widget.repository
-                                .uploadPostMedia(
-                                  bytes: await file.readAsBytes(),
-                                  filename: file.name,
-                                  mimeType: mime,
-                                );
-                            setDialogState(() {
-                              image = uploaded;
-                              saving = false;
-                            });
-                          } catch (error) {
-                            setDialogState(() => saving = false);
-                            _showError(error);
-                          }
-                        },
-                  icon: const Icon(WicchuIcons.imageSquare),
-                  label: Text(
-                    context.tr(
-                      image == null ? 'Choose product photo' : 'Photo selected',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: saving ? null : () => Navigator.pop(dialogContext),
-              child: Text(context.tr('Cancel')),
-            ),
-            FilledButton(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      final parsedPrice = double.tryParse(
-                        price.text.trim().replaceAll(',', '.'),
-                      );
-                      if (name.text.trim().isEmpty || parsedPrice == null) {
-                        return;
-                      }
-                      setDialogState(() => saving = true);
-                      final input = BusinessProductInput(
-                        categoryId: categoryId,
-                        name: name.text.trim(),
-                        description: description.text.trim(),
-                        priceCents: (parsedPrice * 100).round(),
-                        kind: kind,
-                        image: image,
-                        available: available,
-                        quantityAvailable: quantity.text.trim().isEmpty
-                            ? null
-                            : int.tryParse(quantity.text.trim()),
-                        variants: kind == BusinessProductKind.product
-                            ? variants
-                            : const [],
-                        expiresAt: kind == BusinessProductKind.dailyMenu
-                            ? DateTime.now().copyWith(
-                                hour: 23,
-                                minute: 59,
-                                second: 59,
+                        child: previewUrl == null
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    WicchuIcons.imageSquare,
+                                    size: 38,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    context.tr('Add product photo'),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    context.tr('JPG, PNG or WebP'),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                ],
                               )
-                            : null,
-                      );
-                      try {
-                        if (product == null) {
-                          await widget.repository.createBusinessProduct(
-                            widget.businessId,
-                            input,
-                          );
-                        } else {
-                          await widget.repository.updateBusinessProduct(
-                            widget.businessId,
-                            product.id,
-                            input,
-                          );
-                        }
-                        if (!mounted || !dialogContext.mounted) return;
-                        Navigator.pop(dialogContext);
-                        _reload();
-                      } catch (error) {
-                        if (dialogContext.mounted) {
-                          setDialogState(() => saving = false);
-                        }
-                        _showError(error);
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    WicchuNetworkImage(
+                                      url: previewUrl,
+                                      fit: BoxFit.cover,
+                                      decodeWidth: 720,
+                                    ),
+                                    Align(
+                                      alignment: Alignment.bottomCenter,
+                                      child: ColoredBox(
+                                        color: Colors.black.withValues(
+                                          alpha: .58,
+                                        ),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Text(
+                                              context.tr('Change photo'),
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<String>(
+                    initialValue: categoryId,
+                    decoration: InputDecoration(
+                      labelText: context.tr('Category'),
+                    ),
+                    items: [
+                      for (final category in catalog.categories)
+                        DropdownMenuItem(
+                          value: category.id,
+                          child: Text(category.name),
+                        ),
+                    ],
+                    onChanged: saving
+                        ? null
+                        : (value) => setEditorState(() => categoryId = value!),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    context.tr('Type'),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  SegmentedButton<BusinessProductKind>(
+                    segments: [
+                      ButtonSegment(
+                        value: BusinessProductKind.product,
+                        label: Text(context.tr('Product')),
+                      ),
+                      ButtonSegment(
+                        value: BusinessProductKind.dailyMenu,
+                        label: Text(context.tr("Today's menu")),
+                      ),
+                    ],
+                    selected: {kind},
+                    onSelectionChanged: saving
+                        ? null
+                        : (values) => setEditorState(() => kind = values.first),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: name,
+                    enabled: !saving,
+                    onChanged: (_) {
+                      if (invalidName) {
+                        setEditorState(() => invalidName = false);
                       }
                     },
-              child: Text(context.tr('Save')),
-            ),
-          ],
+                    decoration: InputDecoration(
+                      labelText: context.tr('Name'),
+                      errorText: invalidName
+                          ? context.tr('Enter a product name.')
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: description,
+                    enabled: !saving,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: context.tr('Description'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: price,
+                    enabled: !saving,
+                    onChanged: (_) {
+                      if (invalidPrice) {
+                        setEditorState(() => invalidPrice = false);
+                      }
+                    },
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: context.tr('Price (USD)'),
+                      prefixText: r'$ ',
+                      errorText: invalidPrice
+                          ? context.tr('Enter a valid price.')
+                          : null,
+                    ),
+                  ),
+                  if (kind == BusinessProductKind.product) ...[
+                    const SizedBox(height: 8),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: trackStock,
+                      title: Text(
+                        context.tr('Track stock'),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        context.tr('Optional'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      onChanged: saving || variants.isNotEmpty
+                          ? null
+                          : (value) => setEditorState(() => trackStock = value),
+                    ),
+                    if (trackStock && variants.isEmpty) ...[
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: quantity,
+                        enabled: !saving,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: context.tr('Stock quantity'),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      initiallyExpanded: variants.isNotEmpty,
+                      title: Text(
+                        context.tr('Variants and options'),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        context.tr('Sizes, extras, flavors and colors'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      children: [
+                        for (var index = 0; index < variants.length; index++)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(variants[index].name),
+                            subtitle: Text(
+                              [
+                                if (variants[index].sku.isNotEmpty)
+                                  variants[index].sku,
+                                if (variants[index].priceCents
+                                    case final cents?)
+                                  _money(cents)
+                                else
+                                  context.tr('Uses product price'),
+                                if (variants[index].quantityAvailable != null)
+                                  '${variants[index].quantityAvailable} ${context.tr('available')}',
+                              ].join(' · '),
+                            ),
+                            onTap: saving
+                                ? null
+                                : () async {
+                                    final updated = await _editVariant(
+                                      variants[index],
+                                    );
+                                    if (updated != null &&
+                                        editorContext.mounted) {
+                                      setEditorState(
+                                        () => variants[index] = updated,
+                                      );
+                                    }
+                                  },
+                            trailing: IconButton(
+                              tooltip: context.tr('Delete'),
+                              onPressed: saving
+                                  ? null
+                                  : () => setEditorState(
+                                      () => variants.removeAt(index),
+                                    ),
+                              icon: const Icon(WicchuIcons.trash),
+                            ),
+                          ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: saving || variants.length >= 50
+                                ? null
+                                : () async {
+                                    final variant = await _editVariant(null);
+                                    if (variant != null &&
+                                        editorContext.mounted) {
+                                      setEditorState(
+                                        () => variants.add(variant),
+                                      );
+                                    }
+                                  },
+                            icon: const Icon(WicchuIcons.plus),
+                            label: Text(context.tr('Add variant')),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    value: available,
+                    title: Text(
+                      context.tr('Available'),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      context.tr('Visible to customers'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    onChanged: saving
+                        ? null
+                        : (value) => setEditorState(() => available = value),
+                  ),
+                ],
+              ),
+              bottomNavigationBar: SafeArea(
+                minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: FilledButton(
+                  onPressed: saving ? null : save,
+                  child: saving
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(context.tr('Save product')),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
+    if (saved == true) _reload();
     name.dispose();
     description.dispose();
     price.dispose();
@@ -1549,10 +2026,14 @@ class _EmptyState extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    this.actionLabel,
+    this.onAction,
   });
   final IconData icon;
   final String title;
   final String body;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -1572,6 +2053,14 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(body, textAlign: TextAlign.center),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: onAction,
+              icon: const Icon(WicchuIcons.gearSix, size: 18),
+              label: Text(actionLabel!),
+            ),
+          ],
         ],
       ),
     ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:wicchu/theme/wicchu_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
@@ -7,8 +9,55 @@ import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/settings/account_settings_page.dart';
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'settings groups fit a small screen with large text dark=$dark',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        await tester.binding.setSurfaceSize(const Size(320, 700));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: dark ? WicchuTheme.dark : WicchuTheme.light,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(1.6)),
+              child: child!,
+            ),
+            home: AccountSettingsPage(repository: DemoCommunityRepository()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('PREFERENCES'), findsOneWidget);
+        expect(find.text('Who can message me'), findsNothing);
+        for (var i = 0; i < 7; i++) {
+          await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+  }
+
   testWidgets('nearby discovery persists its local preference', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    final locationCalls = <String>[];
+    const channel = MethodChannel('flutter.baseflow.com/geolocator');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+      call,
+    ) async {
+      locationCalls.add(call.method);
+      if (call.method == 'checkPermission') return 1;
+      if (call.method == 'isLocationServiceEnabled') return true;
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: AccountSettingsPage(repository: DemoCommunityRepository()),
@@ -21,12 +70,30 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Nearby discovery')),
+      alignment: .5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Nearby discovery'));
     await tester.pumpAndSettle();
     expect(
       (await SharedPreferences.getInstance()).getBool('location_discovery'),
       false,
     );
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Nearby discovery')),
+      alignment: .5,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Nearby discovery'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Location access blocked in device settings'),
+      findsOneWidget,
+    );
+    expect(locationCalls, contains('checkPermission'));
+    expect(locationCalls, isNot(contains('requestPermission')));
     expect(tester.takeException(), isNull);
   });
 
@@ -64,10 +131,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('Who can message me'),
+      find.text('Messages'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.tap(find.text('Messages'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Who can message me'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Who can message me'));

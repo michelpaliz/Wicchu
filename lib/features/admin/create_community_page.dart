@@ -86,11 +86,13 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   bool _locationSettings = false;
   bool _serviceSettings = false;
   String? _categoryError;
+  String? _customCategoryError;
   int _step = 0;
   Town? _town;
   bool _saving = false;
   bool _loadingCategories = false;
   bool _suggestionsLoaded = false;
+  bool _categoriesEdited = false;
   bool _approvalRequired = false;
   late CommunityType _type = widget.initialType;
   ProfileCategory? _profileCategory;
@@ -112,7 +114,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   }
 
   Future<void> _back() async {
-    if (_saving) return;
+    if (_saving || _loadingCategories) return;
     if (_step > 0) {
       setState(() => _step--);
       if (_scroll.hasClients) _scroll.jumpTo(0);
@@ -159,7 +161,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         appBar: AppBar(
           leading: IconButton(
             tooltip: context.tr('Back'),
-            onPressed: _saving ? null : _back,
+            onPressed: _saving || _loadingCategories ? null : _back,
             icon: const Icon(WicchuIcons.arrowLeft),
           ),
           title: Text(context.tr('Create a space')),
@@ -199,11 +201,17 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                   child: FilledButton(
                     onPressed:
                         _saving ||
+                            _loadingCategories ||
                             _detectingLocation ||
                             (_step == 0 && _nameController.text.trim().isEmpty)
                         ? null
                         : _continue,
-                    child: _saving
+                    child: _loadingCategories
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : _saving
                         ? Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -435,7 +443,10 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
               controller: _subjectController,
               maxLength: 120,
               textCapitalization: TextCapitalization.sentences,
-              onChanged: (_) => setState(() => _dirty = true),
+              onChanged: (_) {
+                if (!_categoriesEdited) _suggestionsLoaded = false;
+                setState(() => _dirty = true);
+              },
               decoration: InputDecoration(
                 labelText: context.tr('Subject or purpose'),
                 hintText: context.tr(
@@ -516,36 +527,42 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       ),
     ),
     Step(
-      title: Text(context.tr('Location')),
+      title: Text(
+        context.tr(
+          _type == CommunityType.community ? 'Community reach' : 'Location',
+        ),
+      ),
       isActive: _step >= 1,
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_type == CommunityType.community) ...[
-            Text(
-              context.tr('Community reach'),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 10),
-            SegmentedButton<CommunityScope>(
-              segments: [
-                ButtonSegment(
-                  value: CommunityScope.local,
-                  icon: const Icon(WicchuIcons.mapPin),
-                  label: Text(context.tr('Location-based')),
-                ),
-                ButtonSegment(
-                  value: CommunityScope.global,
-                  icon: const Icon(WicchuIcons.globe),
-                  label: Text(context.tr('Anywhere')),
-                ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final scope in CommunityScope.values)
+                  ChoiceChip(
+                    avatar: Icon(
+                      scope == CommunityScope.local
+                          ? WicchuIcons.mapPin
+                          : WicchuIcons.globe,
+                    ),
+                    label: Text(
+                      context.tr(
+                        scope == CommunityScope.local
+                            ? 'Location-based'
+                            : 'Anywhere',
+                      ),
+                    ),
+                    selected: _scope == scope,
+                    onSelected: (_) => setState(() {
+                      _scope = scope;
+                      _locationError = null;
+                      _dirty = true;
+                    }),
+                  ),
               ],
-              selected: {_scope},
-              onSelectionChanged: (value) => setState(() {
-                _scope = value.first;
-                _locationError = null;
-                _dirty = true;
-              }),
             ),
             const SizedBox(height: 8),
             Text(
@@ -609,32 +626,28 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 8),
-              Card(
-                child: ListTile(
-                  leading: const Icon(WicchuIcons.mapPin),
-                  title: Text(
-                    _selectedLocationLabel ??
-                        '${_town!.name}, ${_town!.countryCode}',
-                  ),
-                  trailing: Icon(
-                    WicchuIcons.checkCircleFill,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(WicchuIcons.mapPin),
+                title: Text(
+                  _selectedLocationLabel ??
+                      '${_town!.name}, ${_town!.countryCode}',
+                ),
+                trailing: Icon(
+                  WicchuIcons.checkCircleFill,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ],
           ],
           if (_scope == CommunityScope.global &&
               _type == CommunityType.community)
-            Card(
-              child: ListTile(
-                leading: const Icon(WicchuIcons.globe),
-                title: Text(context.tr('Open to people everywhere')),
-                subtitle: Text(
-                  context.tr(
-                    'This community will appear in Explore and search, but not Nearby.',
-                  ),
-                ),
+            Text(
+              context.tr(
+                'This community will appear in Explore and search, but not Nearby.',
+              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
         ],
@@ -678,13 +691,20 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
                     decoration: InputDecoration(
                       labelText: context.tr('Add a category'),
                       counterText: '',
+                      error: _customCategoryError == null
+                          ? null
+                          : Text(_customCategoryError!),
                     ),
+                    onChanged: (_) =>
+                        setState(() => _customCategoryError = null),
                     onSubmitted: (_) => _addCustomCategory(),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
-                  onPressed: _addCustomCategory,
+                  onPressed: _customCategoryController.text.trim().isEmpty
+                      ? null
+                      : _addCustomCategory,
                   icon: const Icon(WicchuIcons.plus),
                   tooltip: context.tr('Add category'),
                 ),
@@ -907,11 +927,15 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
           ),
           divider,
           row(
-            WicchuIcons.mapPin,
+            _scope == CommunityScope.global
+                ? WicchuIcons.globe
+                : WicchuIcons.mapPin,
             'Location',
             Text(
-              _selectedLocationLabel ??
-                  '${_town?.name ?? ''}, ${_town?.countryCode ?? ''}',
+              _scope == CommunityScope.global
+                  ? context.tr('Open to people everywhere')
+                  : _selectedLocationLabel ??
+                        '${_town?.name ?? ''}, ${_town?.countryCode ?? ''}',
             ),
             onTap: () => _editStep(1),
           ),
@@ -1189,7 +1213,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
   }
 
   Future<void> _continue() async {
-    if (_saving || _detectingLocation) return;
+    if (_saving || _detectingLocation || _loadingCategories) return;
     if (_step == 0 && !(_basicsForm.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
     if (_step == 1 && _scope == CommunityScope.local && _town == null) {
@@ -1359,16 +1383,25 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     final duplicate = _categoryKeys.keys.any(
       (item) => item.toLowerCase() == name.toLowerCase(),
     );
-    if (name.isEmpty ||
-        name.length > 80 ||
-        duplicate ||
-        _categoryKeys.length >= 20) {
+    final error = name.isEmpty
+        ? 'Enter a category name.'
+        : name.length > 80
+        ? 'Category name is too long.'
+        : duplicate
+        ? 'This category already exists.'
+        : _categoryKeys.length >= 20
+        ? 'You can add up to 20 categories.'
+        : null;
+    if (error != null) {
+      setState(() => _customCategoryError = context.tr(error));
       return;
     }
     setState(() {
+      _categoriesEdited = true;
       _categoryKeys[name] = null;
       _selectedCategories.add(name);
       _customCategoryController.clear();
+      _customCategoryError = null;
       _categoryError = null;
       _dirty = true;
     });
@@ -1385,47 +1418,53 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       itemBuilder: (context, index) {
         final name = categories[index];
         final recommended = _categoryKeys[name] != null;
-        return Card(
+        return ListTile(
           key: ValueKey('creation-category-$name'),
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            contentPadding: const EdgeInsets.only(left: 8, right: 4),
-            leading: Checkbox(
-              value: _selectedCategories.contains(name),
-              onChanged: (selected) => setState(() {
-                _dirty = true;
-                _categoryError = null;
-                selected == true
-                    ? _selectedCategories.add(name)
-                    : _selectedCategories.remove(name);
-              }),
-            ),
-            title: Text(context.tr(name)),
-            subtitle: Text(context.tr(recommended ? 'Recommended' : 'Custom')),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  onPressed: () => _renameCategory(name),
-                  icon: const Icon(WicchuIcons.pencilSimple),
-                  tooltip: context.tr('Rename category'),
-                ),
-                ReorderableDragStartListener(
-                  index: index,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Icon(
-                      WicchuIcons.dotsThreeVertical,
-                      semanticLabel: context.tr('Reorder category'),
-                    ),
+          contentPadding: EdgeInsets.zero,
+          titleTextStyle: Theme.of(context).textTheme.bodyMedium,
+          subtitleTextStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          onTap: () => _toggleCategory(name),
+          leading: Checkbox(
+            value: _selectedCategories.contains(name),
+            semanticLabel: context.tr(name),
+            onChanged: (_) => _toggleCategory(name),
+          ),
+          title: Text(context.tr(name)),
+          subtitle: Text(context.tr(recommended ? 'Recommended' : 'Custom')),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: () => _renameCategory(name),
+                icon: const Icon(WicchuIcons.pencilSimple),
+                tooltip: context.tr('Rename category'),
+              ),
+              ReorderableDragStartListener(
+                index: index,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(
+                    WicchuIcons.dotsThreeVertical,
+                    semanticLabel: context.tr('Reorder category'),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
+  }
+
+  void _toggleCategory(String name) {
+    setState(() {
+      _categoriesEdited = true;
+      _dirty = true;
+      _categoryError = null;
+      if (!_selectedCategories.remove(name)) _selectedCategories.add(name);
+    });
   }
 
   void _reorderCategory(int oldIndex, int newIndex) {
@@ -1433,6 +1472,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     final moved = entries.removeAt(oldIndex);
     entries.insert(newIndex, moved);
     setState(() {
+      _categoriesEdited = true;
       _categoryKeys
         ..clear()
         ..addEntries(entries);
@@ -1505,6 +1545,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         )
         .toList();
     setState(() {
+      _categoriesEdited = true;
       final wasSelected = _selectedCategories.remove(currentName);
       _categoryKeys
         ..clear()

@@ -55,58 +55,118 @@ class _Repository extends DemoCommunityRepository {
 }
 
 void main() {
-  testWidgets(
-    'information actions are in the app bar and owner opens the space inbox',
-    (tester) async {
-      final repository = _Repository(true, CommunityRole.owner);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: CommunityProfilePage(
-            community: repository.community,
-            repository: repository,
-            screen: CommunityScreen.information,
-          ),
+  testWidgets('community messages move from the header into the options menu', (
+    tester,
+  ) async {
+    final repository = _Repository(true, CommunityRole.owner);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityProfilePage(
+          community: repository.community,
+          repository: repository,
+          screen: CommunityScreen.information,
         ),
-      );
-      await tester.pumpAndSettle();
-      for (final key in [
-        'information-message',
-        'information-invite',
-        'community-profile-menu',
-      ]) {
-        expect(
-          find.descendant(
-            of: find.byType(AppBar),
-            matching: find.byKey(ValueKey(key)),
-          ),
-          findsOneWidget,
-        );
-      }
-      expect(
-        tester.getCenter(find.byKey(const ValueKey('information-invite'))).dx,
-        lessThan(
-          tester
-              .getCenter(find.byKey(const ValueKey('information-message')))
-              .dx,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('information-message')), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byKey(const ValueKey('community-profile-menu')),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Leave'), findsNothing);
+    expect(find.byTooltip('Share'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Manage community'), findsOneWidget);
+    expect(find.text('Community messages'), findsOneWidget);
+    expect(find.text('Notifications'), findsOneWidget);
+    await tester.tap(find.text('Community messages'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConversationListPage), findsOneWidget);
+    expect(repository.inboxPageId, repository.community.id);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('community options are grouped and role-aware for admins', (
+    tester,
+  ) async {
+    final repository = _Repository(true, CommunityRole.admin);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityProfilePage(
+          community: repository.community,
+          repository: repository,
+          screen: CommunityScreen.information,
         ),
-      );
-      expect(
-        tester.getCenter(find.byKey(const ValueKey('information-message'))).dx,
-        lessThan(
-          tester
-              .getCenter(find.byKey(const ValueKey('community-profile-menu')))
-              .dx,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(BottomSheet);
+    Finder inSheet(String text) =>
+        find.descendant(of: sheet, matching: find.text(text));
+
+    expect(inSheet('Community options'), findsOneWidget);
+    expect(inSheet('Administration'), findsOneWidget);
+    expect(inSheet('Manage community'), findsOneWidget);
+    expect(inSheet('Community messages'), findsOneWidget);
+    expect(inSheet('Notifications'), findsOneWidget);
+    expect(inSheet('Edit community'), findsOneWidget);
+    expect(inSheet('Contact Wicchu Safety'), findsOneWidget);
+    expect(inSheet('Leave community'), findsOneWidget);
+    expect(inSheet('Step down as administrator'), findsOneWidget);
+    expect(inSheet('Report community'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      inSheet('Step down as administrator'),
+      200,
+      scrollable: find
+          .descendant(of: sheet, matching: find.byType(Scrollable))
+          .first,
+    );
+    await tester.tap(inSheet('Step down as administrator'));
+    await tester.pumpAndSettle();
+    expect(find.text('Step down as administrator?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('member options hide administration actions', (tester) async {
+    final repository = _Repository(true, CommunityRole.member);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityProfilePage(
+          community: repository.community,
+          repository: repository,
+          screen: CommunityScreen.information,
         ),
-      );
-      expect(find.byTooltip('Leave'), findsNothing);
-      expect(find.byTooltip('Share'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('information-message')));
-      await tester.pumpAndSettle();
-      expect(find.byType(ConversationListPage), findsOneWidget);
-      expect(repository.inboxPageId, repository.community.id);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(BottomSheet);
+    Finder inSheet(String text) =>
+        find.descendant(of: sheet, matching: find.text(text));
+
+    expect(inSheet('Community options'), findsOneWidget);
+    expect(inSheet('Share'), findsOneWidget);
+    expect(inSheet('Invite people'), findsOneWidget);
+    expect(inSheet('Useful links'), findsOneWidget);
+    expect(inSheet('Media'), findsOneWidget);
+    expect(inSheet('Administration'), findsNothing);
+    expect(inSheet('Edit community'), findsNothing);
+    expect(inSheet('Contact Wicchu Safety'), findsNothing);
+    expect(inSheet('Leave community'), findsOneWidget);
+    expect(inSheet('Report community'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   for (final hasAdmin in [false, true]) {
     testWidgets('owner leave guides to management hasAdmin=$hasAdmin', (
       tester,
@@ -124,7 +184,19 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Leave community'));
+      final sheet = find.byType(BottomSheet);
+      final leave = find.descendant(
+        of: sheet,
+        matching: find.text('Leave community'),
+      );
+      await tester.scrollUntilVisible(
+        leave,
+        200,
+        scrollable: find
+            .descendant(of: sheet, matching: find.byType(Scrollable))
+            .first,
+      );
+      await tester.tap(leave);
       await tester.pumpAndSettle();
       expect(
         find.text(
@@ -157,7 +229,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Leave community'));
+    final sheet = find.byType(BottomSheet);
+    final leave = find.descendant(
+      of: sheet,
+      matching: find.text('Leave community'),
+    );
+    await tester.scrollUntilVisible(
+      leave,
+      200,
+      scrollable: find
+          .descendant(of: sheet, matching: find.byType(Scrollable))
+          .first,
+    );
+    await tester.tap(leave);
     await tester.pumpAndSettle();
     expect(find.text('Leave this community?'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Leave community'));

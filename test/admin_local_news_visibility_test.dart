@@ -38,12 +38,15 @@ Future<void> _show(
     ),
   );
   await tester.pumpAndSettle();
-  // "Rules" is the row right after Automated news, so once it is built the news row would be too.
-  await tester.scrollUntilVisible(
-    find.text('Rules'),
-    300,
-    scrollable: find.byType(Scrollable).first,
-  );
+  // Build every menu row so the visibility assertions see the whole menu:
+  // "Automated news" sits right above "Rules" for content managers, and roles
+  // without the content menu (moderators) still render the rest of their menu.
+  for (var step = 0; step < 6; step++) {
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -600));
+    await tester.pumpAndSettle();
+  }
+  await tester.drag(find.byType(Scrollable).first, const Offset(0, 600 * 6));
+  await tester.pumpAndSettle();
 }
 
 void main() {

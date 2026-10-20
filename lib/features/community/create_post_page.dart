@@ -2143,7 +2143,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               requestFullMetadata: false,
             );
       if (file == null || !mounted) return;
-      if (await file.length() > 25 * 1024 * 1024) {
+      if (!isWithinMediaUploadLimit(await file.length())) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -2168,7 +2168,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           );
         }
       }
-      if (bytes.length > 25 * 1024 * 1024) {
+      if (!isWithinMediaUploadLimit(bytes.length)) {
         throw const FormatException('The file must be under 25 MB.');
       }
       if (!mounted) return;

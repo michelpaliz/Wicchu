@@ -1,3 +1,4 @@
+import '../../widgets/translation_action.dart';
 import '../../widgets/category_symbol.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
@@ -361,25 +362,43 @@ class _PostCardState extends State<PostCard> {
   bool _hiding = false;
   bool _businessViewSent = false;
   bool _translating = false;
+  int _translationRequest = 0;
   String? _translatedText;
   String? _translationLanguage;
   bool _showTranslation = false;
 
-  Future<Community?>? _sourceProfile;
+  Future<({Community? publisher, PublicMemberProfile? author})>? _postIdentity;
 
-  void _loadSourceProfile() {
-    final id = widget.post?.sourceCommunityId;
-    _sourceProfile =
-        !widget.isAnonymousAuthor &&
-            widget.post?.isAnonymous != true &&
-            id != null &&
-            id.isNotEmpty &&
-            widget.repository != null
-        ? widget.repository!
-              .getCommunity(id)
-              .then<Community?>((value) => value)
-              .catchError((Object _) => null)
-        : null;
+  void _loadPostIdentity() {
+    final post = widget.post;
+    final repository = widget.repository;
+    final anonymous = widget.isAnonymousAuthor || post?.isAnonymous == true;
+    if (anonymous || post == null || repository == null) {
+      _postIdentity = null;
+      return;
+    }
+    _postIdentity = () async {
+      Community? publisher;
+      final sourceId = post.sourceCommunityId;
+      final pageId = sourceId?.isNotEmpty == true
+          ? sourceId
+          : (post.isPersonal ? null : post.communityId);
+      if (pageId != null && pageId.isNotEmpty) {
+        try {
+          final page = await repository.getCommunity(pageId);
+          if (sourceId?.isNotEmpty == true || page.isPublicProfile) {
+            publisher = page;
+          }
+        } catch (_) {}
+      }
+      PublicMemberProfile? author;
+      if (publisher != null && post.authorId.isNotEmpty) {
+        try {
+          author = await repository.getMemberProfile(post.authorId);
+        } catch (_) {}
+      }
+      return (publisher: publisher, author: author);
+    }();
   }
 
   Future<void> _openSharedCategory() async {
@@ -558,7 +577,7 @@ class _PostCardState extends State<PostCard> {
   @override
   void initState() {
     super.initState();
-    _loadSourceProfile();
+    _loadPostIdentity();
     _recordImpression();
     _recordBusinessView();
   }
@@ -567,10 +586,13 @@ class _PostCardState extends State<PostCard> {
   void didUpdateWidget(covariant PostCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.post?.sourceCommunityId != widget.post?.sourceCommunityId ||
+        oldWidget.post?.communityId != widget.post?.communityId ||
+        oldWidget.post?.authorId != widget.post?.authorId ||
+        oldWidget.post?.destinationType != widget.post?.destinationType ||
         oldWidget.post?.isAnonymous != widget.post?.isAnonymous ||
         oldWidget.isAnonymousAuthor != widget.isAnonymousAuthor ||
         oldWidget.repository != widget.repository) {
-      _loadSourceProfile();
+      _loadPostIdentity();
     }
     if (oldWidget.likes != widget.likes) _likes = widget.likes;
     if (oldWidget.comments != widget.comments) _comments = widget.comments;
@@ -586,10 +608,17 @@ class _PostCardState extends State<PostCard> {
     if (oldWidget.poll != widget.poll) _poll = widget.poll;
     if (oldWidget.post?.id != widget.post?.id) {
       _businessViewSent = false;
+      _recordBusinessView();
+    }
+    if (oldWidget.post?.id != widget.post?.id ||
+        oldWidget.text != widget.text ||
+        oldWidget.post?.text != widget.post?.text ||
+        oldWidget.repository != widget.repository) {
+      _translationRequest++;
+      _translating = false;
       _translatedText = null;
       _translationLanguage = null;
       _showTranslation = false;
-      _recordBusinessView();
     }
   }
 
@@ -603,15 +632,18 @@ class _PostCardState extends State<PostCard> {
 
   String get _newsCardText => widget.post?.newsSource == null
       ? _visiblePostText
-      : _visiblePostText.replaceFirst(
-          RegExp(r'\n+Source: [^\n]+\nhttps?://\S+\s*$'),
-          '',
-        ).trim();
+      : _visiblePostText
+            .replaceFirst(RegExp(r'\n+Source: [^\n]+\nhttps?://\S+\s*$'), '')
+            .trim();
 
   Future<void> _openNewsArticle(String articleUrl) async {
     final uri = Uri.tryParse(articleUrl);
-    if (uri == null || !{'https', 'http'}.contains(uri.scheme) || uri.host.isEmpty ||
-        uri.userInfo.isNotEmpty) return;
+    if (uri == null ||
+        !{'https', 'http'}.contains(uri.scheme) ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty) {
+      return;
+    }
     bool opened;
     try {
       opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -620,7 +652,9 @@ class _PostCardState extends State<PostCard> {
     }
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('Could not open the original article.'))),
+        SnackBar(
+          content: Text(context.tr('Could not open the original article.')),
+        ),
       );
     }
   }
@@ -639,10 +673,17 @@ class _PostCardState extends State<PostCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(context.tr('Publisher: {name}', {'name': news.sourceName}),
-              style: Theme.of(context).textTheme.labelLarge),
-            if (date != null) Text(MaterialLocalizations.of(context).formatMediumDate(date.toLocal()),
-              style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              context.tr('Publisher: {name}', {'name': news.sourceName}),
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            if (date != null)
+              Text(
+                MaterialLocalizations.of(
+                  context,
+                ).formatMediumDate(date.toLocal()),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             const SizedBox(height: 4),
             OutlinedButton.icon(
               key: ValueKey('news-original-${widget.post?.id}'),
@@ -666,26 +707,32 @@ class _PostCardState extends State<PostCard> {
       setState(() => _showTranslation = true);
       return;
     }
+    final request = ++_translationRequest;
     setState(() => _translating = true);
     try {
       final result = await repository.translatePost(
         post.id,
         targetLanguage: targetLanguage,
       );
-      if (!mounted) return;
+      if (!mounted || request != _translationRequest) return;
+      if (result.translatedText.trim().isEmpty) {
+        throw Exception('Translation is temporarily unavailable');
+      }
       setState(() {
         _translatedText = result.translatedText;
         _translationLanguage = result.targetLanguage;
         _showTranslation = true;
       });
     } catch (error) {
-      if (mounted) {
+      if (mounted && request == _translationRequest) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.trError(error))));
       }
     } finally {
-      if (mounted) setState(() => _translating = false);
+      if (mounted && request == _translationRequest) {
+        setState(() => _translating = false);
+      }
     }
   }
 
@@ -765,14 +812,13 @@ class _PostCardState extends State<PostCard> {
           'general',
         }.contains(categoryLabel.toLowerCase());
     return Material(
-      color: widget.viewerContent
-          ? theme.colorScheme.surface
-          : Colors.transparent,
-      borderRadius: widget.viewerContent
-          ? const BorderRadius.vertical(top: Radius.circular(24))
-          : BorderRadius.zero,
+      key: widget.viewerContent ? const ValueKey('post-detail-content') : null,
+      color: Colors.transparent,
+      borderRadius: BorderRadius.zero,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: widget.viewerContent
+            ? BorderRadius.zero
+            : BorderRadius.circular(18),
         onTap: widget.onTap == null
             ? null
             : () {
@@ -784,9 +830,9 @@ class _PostCardState extends State<PostCard> {
         child: Padding(
           padding: EdgeInsets.fromLTRB(
             widget.viewerContent ? 16 : 0,
-            textOnly ? 4 : 8,
+            widget.viewerContent ? 12 : (textOnly ? 4 : 8),
             widget.viewerContent ? 16 : 0,
-            8,
+            widget.viewerContent ? 12 : 8,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -797,20 +843,21 @@ class _PostCardState extends State<PostCard> {
                   children: [
                     Icon(
                       WicchuIcons.pushPinFill,
-                      size: 15,
+                      size: 13,
                       color: theme.colorScheme.primary,
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 4),
                     Text(
                       context.tr('Pinned publication'),
                       style: theme.textTheme.labelMedium?.copyWith(
+                        fontSize: 11,
                         color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
               ],
               if (widget.promotion != null) ...[
                 Container(
@@ -831,26 +878,42 @@ class _PostCardState extends State<PostCard> {
                 ),
                 const SizedBox(height: 10),
               ],
-              FutureBuilder<Community?>(
-                key: ValueKey('${widget.post?.sourceCommunityId}:$anonymous'),
-                future: _sourceProfile,
+              FutureBuilder<
+                ({Community? publisher, PublicMemberProfile? author})
+              >(
+                key: ValueKey(
+                  '${widget.post?.sourceCommunityId}:${widget.post?.communityId}:${widget.post?.authorId}:$anonymous',
+                ),
+                future: _postIdentity,
                 builder: (context, snapshot) {
-                  final source = anonymous ? null : snapshot.data;
-                  final primaryTap = source != null
-                      ? () => _openSourceProfile(source)
+                  final publisher = anonymous ? null : snapshot.data?.publisher;
+                  final resolvedAuthor = anonymous
+                      ? null
+                      : snapshot.data?.author;
+                  final primaryTap = publisher != null
+                      ? () => _openSourceProfile(publisher)
                       : (communityFirst ? widget.onCommunityTap : authorTap);
+                  final rawUserName = resolvedAuthor?.userName.trim() ?? '';
+                  final userName = rawUserName.isEmpty
+                      ? authorName
+                      : rawUserName.startsWith('@')
+                      ? rawUserName
+                      : '@$rawUserName';
+                  final attribution = widget.post?.isCommunityShare == true
+                      ? context.tr('Shared by {user}', {'user': userName})
+                      : context.tr('Published by {user}', {'user': userName});
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       InkWell(
-                        onTap: source != null ? primaryTap : authorTap,
+                        onTap: publisher != null ? primaryTap : authorTap,
                         customBorder: const CircleBorder(),
                         child: UserAvatar(
-                          name: source?.name ?? authorName,
+                          name: publisher?.name ?? authorName,
                           imageUrl: anonymous
                               ? null
-                              : (source?.imageUrl ??
-                                    (source == null
+                              : (publisher?.imageUrl ??
+                                    (publisher == null
                                         ? widget.authorAvatarUrl
                                         : null)),
                           radius: 18,
@@ -866,7 +929,7 @@ class _PostCardState extends State<PostCard> {
                             InkWell(
                               onTap: primaryTap,
                               child: Text(
-                                source?.name ??
+                                publisher?.name ??
                                     (communityFirst
                                         ? widget.community
                                         : authorName),
@@ -876,21 +939,12 @@ class _PostCardState extends State<PostCard> {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            if (source != null)
+                            if (publisher != null) ...[
                               Wrap(
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  InkWell(
-                                    onTap: authorTap,
-                                    child: Text(
-                                      authorName,
-                                      style: WicchuPostTypography.metadata(
-                                        context,
-                                      ),
-                                    ),
-                                  ),
                                   Text(
-                                    ' · ${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}',
+                                    '${context.tr(publisher.spaceTypeLabel)} · ${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}',
                                     style: WicchuPostTypography.metadata(
                                       context,
                                     ),
@@ -906,14 +960,22 @@ class _PostCardState extends State<PostCard> {
                                       ),
                                     ),
                                 ],
-                              )
-                            else
+                              ),
+                              const SizedBox(height: 2),
                               InkWell(
-                                onTap: source != null || communityFirst
-                                    ? authorTap
-                                    : null,
+                                onTap: authorTap,
                                 child: Text(
-                                  '${source != null || communityFirst ? '$authorName · ' : ''}${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}${source == null && widget.showCommunity && !communityFirst && !anonymous ? ' · ${widget.community}' : ''}${showCategory ? ' · $categoryLabel' : ''}',
+                                  attribution,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: WicchuPostTypography.metadata(context),
+                                ),
+                              ),
+                            ] else
+                              InkWell(
+                                onTap: communityFirst ? authorTap : null,
+                                child: Text(
+                                  '${communityFirst ? '$authorName · ' : ''}${widget.time}${widget.edited ? ' · ${context.tr('Edited')}' : ''}${widget.showCommunity && !communityFirst && !anonymous ? ' · ${widget.community}' : ''}${showCategory ? ' · $categoryLabel' : ''}',
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: WicchuPostTypography.metadata(context),
@@ -1001,41 +1063,22 @@ class _PostCardState extends State<PostCard> {
                 widget.post!.todayMenu != null ||
                 widget.post!.businessFeature != null)) ...[
           const SizedBox(height: 2),
-          TextButton.icon(
-            key: ValueKey('translate-post-${widget.post!.id}'),
-            onPressed: _translating
-                ? null
-                : _showTranslation
-                ? () => setState(() => _showTranslation = false)
-                : _translatePost,
-            icon: _translating
-                ? const SizedBox.square(
-                    dimension: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    _showTranslation
-                        ? WicchuIcons.arrowsClockwise
-                        : WicchuIcons.globe,
-                    size: 16,
-                  ),
-            label: Text(
-              context.tr(
-                _translating
-                    ? 'Translating…'
-                    : _showTranslation
-                    ? 'View original'
-                    : 'Translate',
+          Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              TranslationAction(
+                key: ValueKey('translate-post-${widget.post!.id}'),
+                translating: _translating,
+                translated: _showTranslation,
+                onPressed: _showTranslation
+                    ? () => setState(() => _showTranslation = false)
+                    : _translatePost,
               ),
-            ),
+              if (_showTranslation)
+                TranslationAttribution(languageCode: _translationLanguage),
+            ],
           ),
-          if (_showTranslation)
-            Text(
-              context.tr('Translated automatically'),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
         ],
         if (widget.post?.todayMenu != null ||
             widget.post?.businessFeature != null)

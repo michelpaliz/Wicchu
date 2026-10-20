@@ -1,3 +1,5 @@
+import '../../widgets/community_rules_list.dart';
+import '../admin/rule_management_page.dart';
 import '../../widgets/compact_profile_description.dart';
 import '../../widgets/blinking_follow_icon.dart';
 import 'category_notifications_sheet.dart';
@@ -26,6 +28,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/wicchu_urls.dart';
+import '../../config/business_features.dart';
 import '../../data/authenticated_api_client.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
@@ -56,6 +59,7 @@ class CommunityProfilePage extends StatefulWidget {
     required this.community,
     required this.repository,
     this.embedded = false,
+    this.onBack,
     this.postRequest,
     this.onSwitchCommunity,
     this.onAccountMenu,
@@ -69,6 +73,7 @@ class CommunityProfilePage extends StatefulWidget {
   final Community community;
   final CommunityRepository repository;
   final bool embedded;
+  final VoidCallback? onBack;
   final Listenable? postRequest;
   final VoidCallback? onSwitchCommunity;
   final VoidCallback? onAccountMenu;
@@ -105,8 +110,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   late int _memberFilter = widget.showAdministration ? 1 : 0;
   bool _descriptionExpanded = true;
   CommunityAboutTranslation? _aboutTranslation;
+  (String, String, String, String)? _aboutTranslationKey;
   bool _showAboutTranslation = false;
   bool _translatingAbout = false;
+  int _businessInformationTab = 0;
+  int _communityInformationTab = 0;
   String _memberQuery = '';
   bool _searchMembers = false;
   bool _savingMemberRole = false;
@@ -147,10 +155,10 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         _community.profileCategory == ProfileCategory.localBusiness;
     return switch (communityText) {
       'Community rating' => business ? 'Business rating' : 'Profile rating',
-      'Community rules' => business ? 'Business rules' : 'Profile rules',
+      'Community rules' => business ? 'Business policies' : 'Profile rules',
       'No community rules have been added yet.' =>
         business
-            ? 'No business rules have been added yet.'
+            ? 'No business policies have been added yet.'
             : 'No profile rules have been added yet.',
       'Do you find this community helpful?' =>
         business
@@ -162,11 +170,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             : '{percentage}% of followers find this profile helpful',
       '{count} more response is needed to show the community score.' =>
         business
-            ? '{count} more response is needed to show the business score.'
+            ? 'There are not enough ratings yet.'
             : '{count} more response is needed to show the profile score.',
       '{count} more responses are needed to show the community score.' =>
         business
-            ? '{count} more responses are needed to show the business score.'
+            ? 'There are not enough ratings yet.'
             : '{count} more responses are needed to show the profile score.',
       'Community feedback' =>
         business ? 'Business feedback' : 'Profile feedback',
@@ -225,37 +233,67 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     }
   }
 
-  String get _aboutDescription => _showAboutTranslation
-      ? (_aboutTranslation?.translatedDescription ?? _community.description)
+  (String, String, String, String) get _currentAboutKey => (
+    _community.id,
+    _community.shortDescription,
+    _community.description,
+    context
+            .dependOnInheritedWidgetOfExactType<AppLanguageScope>()
+            ?.languageCode ??
+        Localizations.localeOf(context).languageCode,
+  );
+
+  bool get _hasCurrentAboutTranslation =>
+      _aboutTranslation != null && _aboutTranslationKey == _currentAboutKey;
+
+  bool get _isShowingAboutTranslation =>
+      _showAboutTranslation && _hasCurrentAboutTranslation;
+
+  String get _aboutDescription =>
+      _isShowingAboutTranslation &&
+          _aboutTranslation!.translatedDescription.trim().isNotEmpty
+      ? _aboutTranslation!.translatedDescription
       : _community.description;
 
-  String get _aboutShortDescription => _showAboutTranslation
-      ? (_aboutTranslation?.translatedShortDescription ??
-            _community.shortDescription)
+  String get _aboutShortDescription =>
+      _isShowingAboutTranslation &&
+          _aboutTranslation!.translatedShortDescription.trim().isNotEmpty
+      ? _aboutTranslation!.translatedShortDescription
       : _community.shortDescription;
 
+  String get _aboutSummary => _aboutShortDescription.trim().isNotEmpty
+      ? _aboutShortDescription
+      : _aboutDescription;
+
   Future<void> _translateAbout() async {
-    if (_showAboutTranslation) {
+    if (_isShowingAboutTranslation) {
       setState(() => _showAboutTranslation = false);
       return;
     }
-    if (_aboutTranslation != null) {
+    if (_hasCurrentAboutTranslation) {
       setState(() => _showAboutTranslation = true);
       return;
     }
     if (_translatingAbout) return;
+    final requestKey = _currentAboutKey;
     setState(() => _translatingAbout = true);
     try {
       final translation = await widget.repository.translateCommunityAbout(
-        _community.id,
+        requestKey.$1,
+        targetLanguage: requestKey.$4,
       );
-      if (!mounted) return;
+      if (!mounted || requestKey != _currentAboutKey) return;
+      if (translation.translatedDescription.trim().isEmpty &&
+          translation.translatedShortDescription.trim().isEmpty) {
+        throw Exception('Translation is unavailable. Please try again.');
+      }
       setState(() {
         _aboutTranslation = translation;
+        _aboutTranslationKey = requestKey;
         _showAboutTranslation = true;
       });
     } catch (error) {
-      if (mounted) {
+      if (mounted && requestKey == _currentAboutKey) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.trError(error))));
@@ -274,13 +312,19 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             child: CircularProgressIndicator(strokeWidth: 2),
           )
         : Icon(
-            _showAboutTranslation
+            _isShowingAboutTranslation
                 ? WicchuIcons.clockCounterClockwise
                 : WicchuIcons.globe,
             size: 18,
           ),
     label: Text(
-      context.tr(_showAboutTranslation ? 'View original' : 'Translate'),
+      context.tr(
+        _translatingAbout
+            ? 'Translating…'
+            : _isShowingAboutTranslation
+            ? 'View original'
+            : 'Translate',
+      ),
     ),
   );
 
@@ -487,7 +531,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       _pulsingCategoryTokens.clear();
     }
     _helpfulness = widget.repository.getCommunityHelpfulness(_community.id);
-    _weather = _community.showWeather
+    _weather = !_community.isGlobal && _community.showWeather
         ? widget.repository.getCommunityWeather(_community.id)
         : null;
     _categories = _canViewPosts
@@ -876,7 +920,44 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         _ => _spaceText('Community rating'),
       };
       return Scaffold(
-        appBar: AppBar(title: Text(context.tr(title))),
+        appBar: AppBar(
+          title: Text(context.tr(title)),
+          actions: [
+            if (widget.screen == CommunityScreen.rules &&
+                (_community.myRole == CommunityRole.owner ||
+                    _community.myRole == CommunityRole.admin) &&
+                _community.membershipStatus != MembershipStatus.banned)
+              FutureBuilder<CommunityRules>(
+                future: _rules,
+                builder: (context, snapshot) =>
+                    snapshot.connectionState == ConnectionState.done &&
+                        !snapshot.hasError &&
+                        snapshot.data?.canManage == true
+                    ? TextButton(
+                        onPressed: () async {
+                          await Navigator.push<void>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => RuleManagementPage(
+                                community: _community,
+                                repository: widget.repository,
+                              ),
+                            ),
+                          );
+                          if (mounted) {
+                            setState(() {
+                              _rules = widget.repository.listRules(
+                                _community.id,
+                              );
+                            });
+                          }
+                        },
+                        child: Text(context.tr('Edit')),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+          ],
+        ),
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -890,7 +971,55 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       );
     }
     if (widget.screen == CommunityScreen.information) {
-      return Scaffold(appBar: _navigationBar(), body: _aboutTab(context));
+      return Scaffold(
+        appBar: _navigationBar(),
+        body: !_community.isPublicProfile
+            ? NestedScrollView(
+                headerSliverBuilder: (context, _) => [
+                  SliverToBoxAdapter(child: _communityInformationHeader()),
+                  if (_canManage && !_community.isBanned)
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _TabHeaderDelegate(
+                        showCategories: false,
+                        builder: (context, collapse) => FeedFilterBar(
+                          key: const ValueKey('community-information-tabs'),
+                          labels: [
+                            context.tr('Information'),
+                            context.tr(
+                              _community.myRole == CommunityRole.moderator
+                                  ? 'Moderation'
+                                  : 'Administration',
+                            ),
+                          ],
+                          selectedIndex: _communityInformationTab,
+                          style: FeedNavigationStyle.underline,
+                          fillWidth: true,
+                          height: 48 - 4 * collapse,
+                          onSelected: (index) =>
+                              setState(() => _communityInformationTab = index),
+                        ),
+                      ),
+                    ),
+                ],
+                body:
+                    !_canManage ||
+                        _community.isBanned ||
+                        _communityInformationTab == 0
+                    ? _aboutTab(context)
+                    : AdminDashboardPage(
+                        community: _community,
+                        repository: widget.repository,
+                        embedded: true,
+                        onCommunityChanged: (updated) => setState(() {
+                          _community = updated;
+                          _reload();
+                        }),
+                      ),
+              )
+            : _aboutTab(context),
+        bottomNavigationBar: _businessInformationBottomAction(),
+      );
     }
     if (widget.screen == CommunityScreen.members) {
       return Scaffold(
@@ -1045,13 +1174,19 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       _community.isPublicProfile &&
       _community.profileCategory == ProfileCategory.localBusiness;
 
+  bool get _usesPlainInformationBar =>
+      widget.screen == CommunityScreen.information &&
+      (!_community.isPublicProfile || _isLocalBusiness);
+
   AppBar _navigationBar() => AppBar(
     toolbarHeight: 52,
     leadingWidth: 44,
     titleSpacing: 8,
     centerTitle: false,
-    backgroundColor: _pageHeaderColor(context),
-    flexibleSpace: _community.neonBordersEnabled
+    backgroundColor: _usesPlainInformationBar
+        ? Theme.of(context).scaffoldBackgroundColor
+        : _pageHeaderColor(context),
+    flexibleSpace: _community.neonBordersEnabled && !_usesPlainInformationBar
         ? ProfileTopBarGlow(
             accent: _community.accentColor,
             animation: _community.neonBorderAnimation,
@@ -1065,15 +1200,22 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       fontWeight: FontWeight.w600,
     ),
     automaticallyImplyLeading: false,
-    leading: widget.embedded
+    leading: widget.embedded && widget.onBack == null
         ? null
         : IconButton(
             tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-            onPressed: () => Navigator.pop(context, _community),
+            onPressed:
+                widget.onBack ?? () => Navigator.pop(context, _community),
             icon: const Icon(WicchuIcons.arrowLeft),
           ),
     title: widget.screen == CommunityScreen.information
-        ? null
+        ? !_community.isPublicProfile
+              ? Text(
+                  context.tr('Community'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : null
         : _searchingPosts
         ? TextField(
             controller: _searchController,
@@ -1113,7 +1255,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             borderRadius: BorderRadius.circular(12),
             child: Tooltip(
               message: context.tr(
-                widget.onAccountMenu != null
+                _community.isPublicProfile || widget.onAccountMenu != null
                     ? 'Switch profile'
                     : 'Choose a community',
               ),
@@ -1166,21 +1308,37 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         const SizedBox(width: 8),
       ],
       if (!_searchingPosts && widget.screen == CommunityScreen.information) ...[
-        if (!_community.isPublicProfile) ...[
+        if (_isLocalBusiness && !_canManage && !_community.isBanned)
           IconButton(
-            key: const ValueKey('information-message'),
-            tooltip: context.tr('Messages'),
-            onPressed:
-                _community.isBanned ||
-                    !_joined ||
-                    (_canManage &&
-                        _community.myRole != CommunityRole.owner &&
-                        !_community.canManagePageInbox)
+            key: const ValueKey('business-information-follow'),
+            tooltip: context.tr(_joined ? 'Following' : 'Follow'),
+            onPressed: _savingMembership
                 ? null
-                : _openInformationMessages,
+                : _joined
+                ? () => _showMembershipOptions(context.tr('Following'))
+                : _toggleMembership,
+            style: IconButton.styleFrom(
+              fixedSize: const Size.square(44),
+              foregroundColor: Theme.of(context).colorScheme.primary,
+            ),
+            icon: _savingMembership
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    _joined ? WicchuIcons.userCheck : WicchuIcons.userPlus,
+                    size: 20,
+                  ),
+          ),
+        if (_isLocalBusiness && !_community.isBanned)
+          IconButton(
+            key: const ValueKey('business-information-message'),
+            tooltip: context.tr(_canManage ? 'Messages' : 'Message'),
+            onPressed: _openInformationMessages,
+            style: IconButton.styleFrom(fixedSize: const Size.square(44)),
             icon: const Icon(WicchuIcons.chatCircle, size: 20),
           ),
-        ],
         IconButton(
           key: const ValueKey('community-profile-menu'),
           tooltip: context.tr('More options'),
@@ -1200,17 +1358,17 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           _communityRoleBadge(),
         if (showMembership && _joined && _canInviteToCommunity)
           const SizedBox(width: 6),
-        if (!_canManage &&
-            (_community.isPublicProfile || _joined) &&
-            !_community.isBanned)
+        if (_community.isPublicProfile && !_community.isBanned)
           IconButton(
             key: const ValueKey('public-profile-message'),
             tooltip: context.tr(
-              _community.isPublicProfile
+              _canManage
+                  ? 'Messages'
+                  : _community.isPublicProfile
                   ? 'Message on Wicchu'
                   : 'Message community admins',
             ),
-            onPressed: _openSpaceChat,
+            onPressed: _canManage ? _openInformationMessages : _openSpaceChat,
             style: IconButton.styleFrom(
               fixedSize: const Size.square(44),
               foregroundColor: scheme.onSurface,
@@ -1239,6 +1397,19 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       ),
       clipBehavior: Clip.antiAlias,
       builder: (sheetContext) {
+        final canEdit =
+            widget.screen == CommunityScreen.information &&
+            (_community.myRole == CommunityRole.owner ||
+                _community.myRole == CommunityRole.admin);
+        final canStepDown =
+            _community.myRole == CommunityRole.admin ||
+            _community.myRole == CommunityRole.moderator;
+        final canLeave = !_community.isPublicProfile && _joined;
+        final canReport = !_canManage;
+        final isCommunity = !_community.isPublicProfile;
+        final communityMessagingAvailable =
+            isCommunity && _joined && !_community.isBanned;
+
         Widget option(
           String value,
           String label,
@@ -1251,6 +1422,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           minTileHeight: 52,
           leading: Icon(
             icon,
+            size: 20,
             color: enabled
                 ? (destructive
                       ? Theme.of(sheetContext).colorScheme.error
@@ -1258,9 +1430,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 : null,
           ),
           title: Text(
-            context.tr(label),
+            sheetContext.tr(label),
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w500,
               color: destructive
                   ? Theme.of(sheetContext).colorScheme.error
@@ -1270,6 +1442,21 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
           onTap: enabled ? () => Navigator.pop(sheetContext, value) : null,
         );
+        Widget sectionLabel(String label) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              sheetContext.tr(label),
+              style: Theme.of(sheetContext).textTheme.labelMedium?.copyWith(
+                color: Theme.of(sheetContext).colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        );
+        const groupDivider = Divider(height: 17, indent: 16, endIndent: 16);
+
         return SafeArea(
           top: false,
           child: SingleChildScrollView(
@@ -1278,31 +1465,68 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (!_community.isPublicProfile &&
-                      widget.screen == CommunityScreen.feed)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        sheetContext.tr('Community options'),
+                        style: Theme.of(sheetContext).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  if (_canPublish)
+                    option(
+                      'createPost',
+                      'Create post',
+                      WicchuIcons.plus,
+                      enabled: !_openingComposer && !_savingMembership,
+                    ),
+                  if (isCommunity && _canManage)
+                    option('manage', 'Manage community', WicchuIcons.shield),
+                  if (communityMessagingAvailable)
+                    option(
+                      'communityMessages',
+                      'Community messages',
+                      WicchuIcons.chatCircle,
+                    ),
+                  option('share', 'Share', WicchuIcons.export),
+                  if (_canInviteToCommunity)
+                    option('invite', 'Invite people', WicchuIcons.userPlus),
+                  if (isCommunity && _joined)
+                    option('notifications', 'Notifications', WicchuIcons.bell),
+                  if (isCommunity && widget.screen == CommunityScreen.feed) ...[
+                    groupDivider,
                     option(
                       'information',
                       'Community information',
                       WicchuIcons.info,
                     ),
-                  if (_isLocalBusiness) ...[
-                    if (_joined && widget.screen == CommunityScreen.feed)
-                      option(
-                        'search',
-                        'Search posts',
-                        WicchuIcons.magnifyingGlass,
-                      ),
                   ],
-                  option('share', 'Share', WicchuIcons.export),
-                  if (_canInviteToCommunity)
-                    option('invite', 'Invite people', WicchuIcons.userPlus),
+                  if (_isLocalBusiness &&
+                      _joined &&
+                      widget.screen == CommunityScreen.feed)
+                    option(
+                      'search',
+                      'Search posts',
+                      WicchuIcons.magnifyingGlass,
+                    ),
                   if (!_community.isPublicProfile ||
                       _community.links.isNotEmpty)
                     option('links', 'Useful links', WicchuIcons.linkSimple),
                   option('media', 'Media', WicchuIcons.images),
-                  if (widget.screen == CommunityScreen.information &&
-                      (_community.myRole == CommunityRole.owner ||
-                          _community.myRole == CommunityRole.admin))
+                  if (canEdit || _canManage) ...[
+                    groupDivider,
+                    sectionLabel('Administration'),
+                  ],
+                  if (_community.isPublicProfile && _canManage)
+                    option(
+                      'manage',
+                      _isLocalBusiness ? 'Manage business' : 'Manage profile',
+                      WicchuIcons.shield,
+                    ),
+                  if (canEdit)
                     option(
                       'edit',
                       _community.isPublicProfile
@@ -1312,28 +1536,29 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                           : 'Edit community',
                       WicchuIcons.pencilSimple,
                     ),
-                  if (!_community.isPublicProfile && _joined)
-                    option(
-                      'leave',
-                      'Leave community',
-                      WicchuIcons.signOut,
-                      enabled: !_savingMembership,
-                    ),
-                  if (_community.myRole == CommunityRole.admin ||
-                      _community.myRole == CommunityRole.moderator)
-                    option(
-                      'stepDown',
-                      'Step down as administrator',
-                      WicchuIcons.userMinus,
-                    ),
                   if (_canManage)
                     option(
                       'contactSafety',
                       'Contact Wicchu Safety',
                       WicchuIcons.shieldPlus,
-                    )
-                  else ...[
-                    const Divider(height: 17, indent: 16, endIndent: 16),
+                    ),
+                  if (canLeave || canStepDown || canReport) groupDivider,
+                  if (canLeave)
+                    option(
+                      'leave',
+                      'Leave community',
+                      WicchuIcons.signOut,
+                      enabled: !_savingMembership,
+                      destructive: true,
+                    ),
+                  if (canStepDown)
+                    option(
+                      'stepDown',
+                      'Step down as administrator',
+                      WicchuIcons.userMinus,
+                      destructive: true,
+                    ),
+                  if (canReport)
                     option(
                       'report',
                       _community.isPublicProfile
@@ -1342,7 +1567,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       WicchuIcons.flag,
                       destructive: true,
                     ),
-                  ],
                 ],
               ),
             ),
@@ -1361,8 +1585,20 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           ),
         ),
       );
+    } else if (value == 'manage') {
+      _openManagement();
+    } else if (value == 'communityMessages') {
+      if (_canManage) {
+        _openInformationMessages();
+      } else {
+        _openSpaceChat();
+      }
+    } else if (value == 'createPost') {
+      await _createPost();
     } else if (value == 'invite') {
       _inviteToCommunity();
+    } else if (value == 'notifications') {
+      _openCategoryCustomization();
     } else if (value == 'information') {
       _openInformation();
     } else if (value == 'leave') {
@@ -1589,65 +1825,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
-  Widget _profileBadge(String label, {IconData? icon}) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: scheme.primary.withValues(alpha: .10),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 17, color: scheme.primary),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            context.tr(label),
-            style: TextStyle(
-              color: scheme.primary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _businessServiceChip(BusinessService service) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 32),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: scheme.primary.withValues(alpha: .055),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            businessServiceIcon(service),
-            size: 14,
-            color: scheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            context.tr(service.label),
-            style: TextStyle(
-              color: scheme.onSurfaceVariant,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _profileEmptyState() {
     final theme = Theme.of(context);
     return Padding(
@@ -1657,74 +1834,95 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: 120,
-            height: 110,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 110,
-                  height: 110,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: theme.colorScheme.primary.withValues(alpha: .08),
-                  ),
-                ),
-                Transform.rotate(
-                  angle: -.12,
-                  child: Container(
-                    width: 60,
-                    height: 70,
-                    margin: const EdgeInsets.only(right: 12, bottom: 8),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: .12),
-                      borderRadius: BorderRadius.circular(6),
+            height: _isLocalBusiness ? 96 : 110,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox(
+                width: 120,
+                height: 110,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.primary.withValues(alpha: .08),
+                      ),
                     ),
-                  ),
-                ),
-                Container(
-                  width: 62,
-                  height: 68,
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                    WicchuIcons.image,
-                    size: 50,
-                    color: theme.colorScheme.primary.withValues(alpha: .42),
-                  ),
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 4,
-                  child: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: theme.colorScheme.primary,
-                    child: Icon(
-                      WicchuIcons.plus,
-                      color: theme.colorScheme.onPrimary,
-                      size: 28,
+                    Transform.rotate(
+                      angle: -.12,
+                      child: Container(
+                        width: 60,
+                        height: 70,
+                        margin: const EdgeInsets.only(right: 12, bottom: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: .12,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
                     ),
-                  ),
+                    Container(
+                      width: 62,
+                      height: 68,
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        WicchuIcons.image,
+                        size: 50,
+                        color: theme.colorScheme.primary.withValues(alpha: .42),
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 4,
+                      child: CircleAvatar(
+                        radius: 22,
+                        backgroundColor: theme.colorScheme.primary,
+                        child: Icon(
+                          WicchuIcons.plus,
+                          color: theme.colorScheme.onPrimary,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: 20),
           Text(
-            context.tr(_canPublish ? 'Share your first post' : 'No posts yet'),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
+            context.tr(
+              _canPublish
+                  ? (_isLocalBusiness
+                        ? 'Your page is ready to publish'
+                        : 'Share your first post')
+                  : 'No posts yet',
             ),
+            textAlign: TextAlign.center,
+            style:
+                (_isLocalBusiness
+                        ? theme.textTheme.titleMedium
+                        : theme.textTheme.titleLarge)
+                    ?.copyWith(
+                      fontSize: _isLocalBusiness ? 18 : null,
+                      fontWeight: FontWeight.w700,
+                    ),
           ),
           const SizedBox(height: 10),
           Text(
             context.tr(
               _canPublish
-                  ? 'Keep your followers updated with news, photos and announcements.'
+                  ? (_isLocalBusiness
+                        ? 'Share news, photos and offers with your followers.'
+                        : 'Keep your followers updated with news, photos and announcements.')
                   : 'Updates from this profile will appear here.',
             ),
             textAlign: TextAlign.center,
@@ -1775,11 +1973,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (description.isNotEmpty) ...[
-          compactProfileDescription(
-            context,
-            description,
-            key: const ValueKey('page-header-description'),
-          ),
+          if (_isLocalBusiness)
+            ExpandableProfileDescription(text: description)
+          else
+            compactProfileDescription(
+              context,
+              description,
+              key: const ValueKey('page-header-description'),
+            ),
         ],
         if (_community.isPublicProfile) ...[
           if (description.isNotEmpty) const SizedBox(height: 8),
@@ -2491,7 +2692,18 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             key: const PageStorageKey('community-profile-posts'),
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              if (_canPublish) SliverToBoxAdapter(child: _composerEntry()),
+              if (_canPublish)
+                SliverToBoxAdapter(
+                  child: _isLocalBusiness
+                      ? FutureBuilder<List<CommunityPost>>(
+                          future: _posts,
+                          builder: (context, snapshot) =>
+                              snapshot.hasData && snapshot.data!.isNotEmpty
+                              ? _composerEntry()
+                              : const SizedBox.shrink(),
+                        )
+                      : _composerEntry(),
+                ),
               if (_community.isPublicProfile)
                 SliverToBoxAdapter(
                   child: Column(
@@ -2656,6 +2868,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   if (posts.isEmpty &&
                       _community.isPublicProfile &&
                       _categoryId == null) {
+                    if (_isLocalBusiness) {
+                      return SliverToBoxAdapter(child: _profileEmptyState());
+                    }
                     return SliverFillRemaining(
                       hasScrollBody: false,
                       child: _profileEmptyState(),
@@ -3002,10 +3217,30 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
+  bool get _managesBusiness =>
+      _community.myRole == CommunityRole.owner ||
+      _community.myRole == CommunityRole.admin;
+
+  bool get _showsBusinessManagementTabs =>
+      _isLocalBusiness &&
+      _managesBusiness &&
+      widget.screen == CommunityScreen.information;
+
+  Widget _informationHeading(String title) => Padding(
+    padding: const EdgeInsets.fromLTRB(8, 16, 8, 4),
+    child: Text(
+      context.tr(title),
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+
   Widget _compactCommunityHeader() {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3029,7 +3264,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                             ),
                           ),
                         ),
-                        if (_joined)
+                        if (_joined && !_isLocalBusiness)
                           _communityRoleBadge(inline: _isLocalBusiness),
                       ],
                     ),
@@ -3038,7 +3273,36 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       compact: true,
                       typeFirst: _isLocalBusiness,
                     ),
-                    if (!_joined)
+                    if (_community.profileCategory ==
+                            ProfileCategory.localBusiness &&
+                        _community.businessServices.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          for (final service in _community.businessServices)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  businessServiceIcon(service),
+                                  size: 16,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  context.tr(service.label),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
+                    if (!_joined && !_isLocalBusiness)
                       TextButton.icon(
                         style: TextButton.styleFrom(
                           minimumSize: const Size(64, 34),
@@ -3082,30 +3346,28 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               ),
             ],
           ),
-          if (_community.profileCategory == ProfileCategory.localBusiness &&
-              _community.businessServices.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                for (final service in _community.businessServices)
-                  _businessServiceChip(service),
-              ],
+          if (_showsBusinessManagementTabs) ...[
+            const SizedBox(height: 8),
+            FeedFilterBar(
+              key: const ValueKey('business-information-tabs'),
+              labels: [context.tr('Information'), context.tr('Manage')],
+              selectedIndex: _businessInformationTab,
+              style: FeedNavigationStyle.underline,
+              compact: true,
+              height: 42,
+              onSelected: (index) =>
+                  setState(() => _businessInformationTab = index),
             ),
           ],
-          if (_community.businessServices.contains(BusinessService.food)) ...[
-            const SizedBox(height: 12),
+          if ((!_showsBusinessManagementTabs || _businessInformationTab == 0) &&
+              _community.businessServices.contains(BusinessService.food)) ...[
+            const SizedBox(height: 8),
             _restaurantSummary(),
-          ] else if (_isLocalBusiness &&
-              (_canManage ||
-                  _community.businessAcceptingOrders ||
-                  _community.businessRequestCapabilities.isNotEmpty)) ...[
-            const SizedBox(height: 12),
-            _businessCatalogButton(foodBusiness: false),
           ],
-          if (_community.isPublicProfile && !_canManage) ...[
-            const SizedBox(height: 12),
+          if (_community.isPublicProfile &&
+              !_isLocalBusiness &&
+              !_canManage) ...[
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -3161,103 +3423,80 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   Widget _restaurantSummary() {
-    final today = _todayBusinessHours();
-    final isOpen = _isOpenNow(today);
     final contact = _community.businessContact;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(WicchuIcons.clock, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  context.tr(
-                    today == null
-                        ? 'Hours not provided'
-                        : isOpen
-                        ? 'Open now'
-                        : 'Closed now',
-                  ),
-                  style: TextStyle(
-                    color: isOpen
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _businessInformationHours(),
+        if (businessOrderingEnabled &&
+            _community.businessFulfillmentOptions.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              for (final option in _community.businessFulfillmentOptions)
+                Chip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(context.tr(option.label)),
+                ),
+            ],
+          ),
+        ],
+        if (contact.phone.isNotEmpty || contact.whatsapp.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              if (contact.phone.isNotEmpty)
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () =>
+                        _openBusinessContact(contact.phone, whatsapp: false),
+                    icon: const Icon(WicchuIcons.phone),
+                    label: Text(context.tr('Call')),
                   ),
                 ),
-                if (today != null) ...[
-                  const Spacer(),
-                  Text(
-                    today.closed
-                        ? context.tr('Closed today')
-                        : '${today.open}–${today.close}',
+              if (contact.phone.isNotEmpty && contact.whatsapp.isNotEmpty)
+                const SizedBox(width: 8),
+              if (contact.whatsapp.isNotEmpty)
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () =>
+                        _openBusinessContact(contact.whatsapp, whatsapp: true),
+                    icon: const Icon(WicchuIcons.chatCircle),
+                    label: const Text('WhatsApp'),
                   ),
-                ],
-              ],
-            ),
-            if (_community.businessFulfillmentOptions.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: [
-                  for (final option in _community.businessFulfillmentOptions)
-                    Chip(
-                      visualDensity: VisualDensity.compact,
-                      label: Text(context.tr(option.label)),
-                    ),
-                ],
-              ),
+                ),
             ],
-            const SizedBox(height: 10),
-            _businessCatalogButton(foodBusiness: true),
-            if (contact.phone.isNotEmpty || contact.whatsapp.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  if (contact.phone.isNotEmpty)
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _openBusinessContact(
-                          contact.phone,
-                          whatsapp: false,
-                        ),
-                        icon: const Icon(WicchuIcons.phone),
-                        label: Text(context.tr('Call')),
-                      ),
-                    ),
-                  if (contact.phone.isNotEmpty && contact.whatsapp.isNotEmpty)
-                    const SizedBox(width: 8),
-                  if (contact.whatsapp.isNotEmpty)
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () => _openBusinessContact(
-                          contact.whatsapp,
-                          whatsapp: true,
-                        ),
-                        icon: const Icon(WicchuIcons.chatCircle),
-                        label: const Text('WhatsApp'),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
+          ),
+        ],
+      ],
     );
   }
 
-  Widget _businessCatalogButton({required bool foodBusiness}) {
+  Widget _businessCatalogButton({
+    required bool foodBusiness,
+    bool forceCustomerAction = false,
+  }) {
     final managesBusiness =
-        _community.myRole == CommunityRole.owner ||
-        (_community.myRole == CommunityRole.admin &&
-            _community.canManagePageOrders);
+        !forceCustomerAction &&
+        (_community.myRole == CommunityRole.owner ||
+            (_community.myRole == CommunityRole.admin &&
+                _community.canManagePageOrders));
+    final catalogOnly =
+        !businessOrderingEnabled &&
+        (foodBusiness ||
+            _community.businessServices.contains(BusinessService.retail) ||
+            _community.businessAcceptingOrders);
+    final customerIcon = foodBusiness
+        ? WicchuIcons.forkKnife
+        : _community.businessServices.contains(BusinessService.retail)
+        ? WicchuIcons.tote
+        : _community.businessRequestCapabilities.length == 1 &&
+              _community.businessRequestCapabilities.first ==
+                  BusinessRequestType.appointment
+        ? WicchuIcons.calendarBlank
+        : WicchuIcons.clipboardText;
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
@@ -3272,17 +3511,35 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   ),
                 ),
               )
+            : catalogOnly
+            ? Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BusinessMenuPage(
+                    businessId: _community.id,
+                    repository: widget.repository,
+                  ),
+                ),
+              )
             : _openBusinessCustomerAction(foodBusiness: foodBusiness),
-        icon: Icon(managesBusiness ? WicchuIcons.gearSix : WicchuIcons.tote),
+        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+        icon: Icon(managesBusiness ? WicchuIcons.gearSix : customerIcon),
         label: Text(
           context.tr(
             managesBusiness
                 ? 'Manage business'
                 : foodBusiness
-                ? 'View menu and order'
-                : _community.businessAcceptingOrders &&
-                      _community.businessRequestCapabilities.isEmpty
-                ? 'View products and order'
+                ? (businessOrderingEnabled
+                      ? 'View menu and order'
+                      : 'View menu')
+                : _community.businessRequestCapabilities.isEmpty
+                ? (businessOrderingEnabled && _community.businessAcceptingOrders
+                      ? 'View products and order'
+                      : _community.businessServices.contains(
+                          BusinessService.retail,
+                        )
+                      ? 'View products'
+                      : 'View catalog')
                 : !_community.businessAcceptingOrders &&
                       _community.businessRequestCapabilities.length == 1
                 ? _community.businessRequestCapabilities.first.actionLabel
@@ -3293,9 +3550,50 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
+  bool get _hasBusinessInformationAction =>
+      _isLocalBusiness &&
+      (_community.businessServices.contains(BusinessService.food) ||
+          _community.businessServices.contains(BusinessService.retail) ||
+          _community.businessAcceptingOrders ||
+          _community.businessRequestCapabilities.isNotEmpty);
+
+  bool get _showsBusinessInformationAction =>
+      widget.screen == CommunityScreen.information &&
+      _hasBusinessInformationAction &&
+      (!_showsBusinessManagementTabs || _businessInformationTab == 0);
+
+  Widget? _businessInformationBottomAction() {
+    if (!_showsBusinessInformationAction) return null;
+    final colors = Theme.of(context).colorScheme;
+    final food = _community.businessServices.contains(BusinessService.food);
+    return DecoratedBox(
+      key: const ValueKey('business-primary-bottom-action'),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        border: Border(
+          top: BorderSide(
+            color: colors.outlineVariant.withValues(alpha: .45),
+            width: .5,
+          ),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: _businessCatalogButton(
+          foodBusiness: food,
+          forceCustomerAction: true,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openBusinessCustomerAction({required bool foodBusiness}) async {
     final requestTypes = _community.businessRequestCapabilities;
-    final offersProducts = foodBusiness || _community.businessAcceptingOrders;
+    final offersProducts =
+        foodBusiness ||
+        _community.businessAcceptingOrders ||
+        requestTypes.isEmpty;
     if (!offersProducts && requestTypes.isNotEmpty) {
       await Navigator.push(
         context,
@@ -3332,7 +3630,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             if (offersProducts)
               ListTile(
                 leading: const Icon(WicchuIcons.forkKnife),
-                title: Text(context.tr('Order food or products')),
+                title: Text(
+                  context.tr(
+                    businessOrderingEnabled
+                        ? 'Order food or products'
+                        : foodBusiness
+                        ? 'View menu'
+                        : 'View catalog',
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   Navigator.push(
@@ -3521,14 +3827,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     WicchuIcons.bell,
                     'Category notifications',
                   ),
-                if (_canManage)
-                  option(
-                    'manage',
-                    WicchuIcons.shieldCheck,
-                    _community.isPublicProfile
-                        ? 'Manage profile'
-                        : 'Manage community',
-                  ),
                 option(
                   'leave',
                   WicchuIcons.signOut,
@@ -3543,7 +3841,6 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
     if (!mounted) return;
     if (action == 'notifications') await _openCategoryCustomization();
-    if (action == 'manage') _openManagement();
     if (action == 'leave') await _confirmLeave();
   }
 
@@ -3579,7 +3876,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 width: 44,
                 height: 44,
                 child: Icon(
-                  WicchuIcons.userCheck,
+                  _managesBusiness ? WicchuIcons.shield : WicchuIcons.userCheck,
                   size: 20,
                   color: scheme.primary,
                 ),
@@ -3660,12 +3957,17 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   Widget _aboutWeather({
+    String? inlineLocation,
     bool compact = false,
   }) => FutureBuilder<CommunityWeather?>(
     future: _weather,
     builder: (context, snapshot) {
       final weather = snapshot.data;
-      if (weather == null) return const SizedBox.shrink();
+      if (weather == null) {
+        return inlineLocation == null
+            ? const SizedBox.shrink()
+            : Text(inlineLocation);
+      }
       final theme = Theme.of(context);
       return Material(
         color: compact
@@ -3715,7 +4017,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
               ),
             ),
           ),
-          child: compact
+          child: inlineLocation != null
+              ? Text(
+                  '$inlineLocation · ${weather.temperature.round()}°C · ${context.tr(weather.description)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                )
+              : compact
               ? ConstrainedBox(
                   constraints: const BoxConstraints(minHeight: 40),
                   child: Row(
@@ -3783,8 +4092,89 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     },
   );
 
+  String get _businessInformationDescription => [
+    _aboutShortDescription.trim(),
+    _additionalBusinessDescription,
+  ].where((text) => text.isNotEmpty).join('\n\n');
+
+  Widget _businessInformationRow(IconData icon, String title, String value) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          minLeadingWidth: 22,
+          horizontalTitleGap: 16,
+          minTileHeight: 48,
+          minVerticalPadding: 12,
+          visualDensity: VisualDensity.compact,
+          leading: Icon(icon, size: 22, color: theme.colorScheme.primary),
+          title: Text(
+            context.tr(title),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: Text(
+            value,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Divider(
+          height: 1,
+          thickness: .5,
+          indent: 46,
+          endIndent: 8,
+          color: theme.colorScheme.onSurface.withValues(alpha: .1),
+        ),
+      ],
+    );
+  }
+
+  Widget _businessInformationHours() {
+    final today = _todayBusinessHours();
+    final status = today == null
+        ? context.tr('Hours not provided')
+        : '${context.tr(_isOpenNow(today) ? 'Open now' : 'Closed now')} · '
+              '${today.closed ? context.tr('Closed today') : '${today.open}–${today.close}'}';
+    return _businessInformationRow(WicchuIcons.clock, 'Opening hours', status);
+  }
+
   Widget _aboutMetadata() {
     final theme = Theme.of(context);
+    if (_isLocalBusiness) {
+      return Column(
+        key: const ValueKey('business-information-details'),
+        children: [
+          _businessInformationRow(
+            WicchuIcons.mapPin,
+            'Location',
+            [
+              _community.town.name,
+              _community.town.countryCode,
+            ].where((value) => value.isNotEmpty).join(', '),
+          ),
+          if (_community.showWeather && _weather != null)
+            _aboutWeather(compact: true),
+          _businessInformationRow(
+            WicchuIcons.globe,
+            'Profile type',
+            context.tr(_community.spaceTypeLabel),
+          ),
+          _businessInformationRow(
+            WicchuIcons.calendarBlank,
+            'Creation date',
+            MaterialLocalizations.of(
+              context,
+            ).formatMediumDate(_community.createdAt.toLocal()),
+          ),
+        ],
+      );
+    }
+
     Widget detail(IconData icon, String value, String label) => Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3857,11 +4247,145 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     );
   }
 
+  String get _additionalBusinessDescription {
+    final description = _aboutDescription.trim();
+    if (!_isLocalBusiness) return description;
+    String normalize(String value) =>
+        value.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final introduction = normalize(_aboutShortDescription);
+    if (introduction.isEmpty) return description;
+    return description
+        .split(RegExp(r'\n\s*\n'))
+        .where((paragraph) {
+          final text = normalize(paragraph);
+          return text.isNotEmpty && !introduction.contains(text);
+        })
+        .join('\n\n');
+  }
+
+  Future<void> _openBusinessManagementPage(Widget page) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+    );
+    if (!mounted) return;
+    await _refreshCommunity();
+    if (mounted) setState(_reload);
+  }
+
+  String get _businessRequestsManagementTitle {
+    final capabilities = _community.businessRequestCapabilities;
+    if (capabilities.length != 1) return 'Manage requests';
+    return switch (capabilities.single) {
+      BusinessRequestType.quote => 'Manage quotes and services',
+      BusinessRequestType.appointment => 'Manage appointments',
+      BusinessRequestType.taxi => 'Manage ride requests',
+      BusinessRequestType.service => 'Manage service requests',
+    };
+  }
+
+  Widget _businessManagementContent() {
+    final supportsCatalog =
+        _community.businessAcceptingOrders ||
+        _community.businessServices.contains(BusinessService.food) ||
+        _community.businessServices.contains(BusinessService.retail);
+    final supportsRequests =
+        _community.businessRequestCapabilities.isNotEmpty ||
+        _community.businessAcceptingRequests;
+    final canManageCatalog =
+        _community.myRole == CommunityRole.owner ||
+        _community.canManagePageOrders;
+    final canManageRequests =
+        _community.myRole == CommunityRole.owner ||
+        _community.canManagePageServices;
+    return Column(
+      key: const ValueKey('business-management-content'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _informationHeading('Business settings'),
+        _informationRow(
+          'Edit business',
+          WicchuIcons.pencilSimple,
+          context.tr('Edit page information and appearance.'),
+          _editCommunity,
+          rowKey: const ValueKey('information-edit-page'),
+        ),
+        _informationRow(
+          'Manage opening hours',
+          WicchuIcons.clock,
+          context.tr('Set the weekly schedule customers can see.'),
+          _editCommunity,
+        ),
+        _informationRow(
+          'Edit categories',
+          WicchuIcons.shapes,
+          context.tr('Add, rename or remove page categories.'),
+          _editPageCategories,
+          rowKey: const ValueKey('information-edit-categories'),
+        ),
+        if ((supportsCatalog && canManageCatalog) ||
+            (supportsRequests && canManageRequests))
+          _informationHeading('Operations'),
+        if (supportsCatalog && canManageCatalog)
+          _informationRow(
+            _community.businessServices.contains(BusinessService.food)
+                ? (businessOrderingEnabled ? 'Menu and orders' : 'Menu')
+                : (businessOrderingEnabled ? 'Products and orders' : 'Catalog'),
+            _community.businessServices.contains(BusinessService.food)
+                ? WicchuIcons.forkKnife
+                : WicchuIcons.receipt,
+            context.tr(
+              businessOrderingEnabled
+                  ? 'Manage catalog, availability and customer orders.'
+                  : 'Manage categories, products and availability.',
+            ),
+            () => _openBusinessManagementPage(
+              BusinessCatalogManagementPage(
+                businessId: _community.id,
+                businessName: _community.name,
+                repository: widget.repository,
+              ),
+            ),
+          ),
+        if (supportsRequests && canManageRequests)
+          _informationRow(
+            _businessRequestsManagementTitle,
+            WicchuIcons.clipboardText,
+            context.tr('Manage customer requests and their status.'),
+            () => _openBusinessManagementPage(
+              BusinessRequestManagementPage(
+                businessId: _community.id,
+                businessName: _community.name,
+                repository: widget.repository,
+              ),
+            ),
+          ),
+        _informationHeading('Public information'),
+        _informationRow(
+          'Edit business policies',
+          WicchuIcons.shield,
+          context.tr(
+            businessOrderingEnabled
+                ? 'Ordering, cancellations and service conditions'
+                : 'Service terms and business policies',
+          ),
+          () => _openInformationSection(CommunityScreen.rules),
+        ),
+        _informationRow(
+          'Edit useful links',
+          WicchuIcons.linkSimple,
+          context.tr('Website, directions and more'),
+          () => _openInformationSection(CommunityScreen.links),
+        ),
+      ],
+    );
+  }
+
   Widget _aboutTab(BuildContext context) => !_canViewPosts
       ? ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text(_aboutShortDescription),
+            Text(_aboutSummary),
             if (_community.shortDescription.trim().isNotEmpty ||
                 _community.description.trim().isNotEmpty)
               Align(
@@ -3876,141 +4400,176 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       ? _communityInformation()
       : ListView(
           key: const ValueKey('community-information-content'),
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+          padding: EdgeInsets.fromLTRB(
+            12,
+            12,
+            12,
+            _showsBusinessInformationAction ? 96 : 32,
+          ),
           children: [
             if (widget.screen == CommunityScreen.information)
               _compactCommunityHeader(),
-            if (_isLocalBusiness && _aboutShortDescription.trim().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Text(
-                  _aboutShortDescription.trim(),
-                  key: const ValueKey('business-information-summary'),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+            if (_showsBusinessManagementTabs && _businessInformationTab == 1)
+              _businessManagementContent(),
+            if (!_showsBusinessManagementTabs ||
+                _businessInformationTab == 0) ...[
+              if (_isLocalBusiness)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!_community.businessServices.contains(
+                      BusinessService.food,
+                    ))
+                      _businessInformationHours(),
+                    if (_businessInformationDescription.isNotEmpty) ...[
+                      _informationHeading('About the business'),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                        child: ExpandableProfileDescription(
+                          text: _businessInformationDescription,
+                          collapsedLines: 4,
+                        ),
+                      ),
+                    ],
+                    if (_businessInformationDescription.isNotEmpty)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: _aboutTranslationButton(),
+                      ),
+                    _aboutMetadata(),
+                  ],
+                )
+              else
+                _Section(
+                  title: _isLocalBusiness
+                      ? context.tr('About the business')
+                      : context.tr('About {name}', {'name': _community.name}),
+                  icon: WicchuIcons.article,
+                  trailing: _community.showWeather && _weather != null
+                      ? _aboutWeather()
+                      : null,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_additionalBusinessDescription.isNotEmpty ||
+                          !_isLocalBusiness) ...[
+                        Text(
+                          _additionalBusinessDescription.isEmpty
+                              ? context.tr('No description provided')
+                              : _additionalBusinessDescription,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontSize: 14, height: 19 / 14),
+                        ),
+                        const SizedBox(height: 8),
+                        Divider(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: .08),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      if (_aboutDescription.trim().isNotEmpty ||
+                          _aboutShortDescription.trim().isNotEmpty)
+                        _aboutTranslationButton(),
+                      _aboutMetadata(),
+                    ],
                   ),
                 ),
+              if (!_isLocalBusiness &&
+                  _community.isPublicProfile &&
+                  (_community.myRole == CommunityRole.owner ||
+                      _community.myRole == CommunityRole.admin)) ...[
+                _informationRow(
+                  'Edit profile',
+                  WicchuIcons.pencilSimple,
+                  context.tr('Edit page information and appearance.'),
+                  _editCommunity,
+                  rowKey: const ValueKey('information-edit-page'),
+                ),
+                _informationRow(
+                  'Edit categories',
+                  WicchuIcons.shapes,
+                  context.tr('Add, rename or remove page categories.'),
+                  _editPageCategories,
+                  rowKey: const ValueKey('information-edit-categories'),
+                ),
+              ],
+              FutureBuilder<CommunityHelpfulness>(
+                future: _helpfulness,
+                builder: (context, snapshot) {
+                  final feedback = snapshot.data;
+                  final summary = feedback == null
+                      ? (snapshot.hasError
+                            ? context.tr('Unable to load rating')
+                            : context.tr('Loading…'))
+                      : feedback.isPublic
+                      ? context.tr(
+                          _spaceText(
+                            '{percentage}% of members find this community helpful',
+                          ),
+                          {'percentage': '${feedback.helpfulPercentage ?? 0}'},
+                        )
+                      : context.trCount(
+                          (feedback.minimumResponses - feedback.responseCount)
+                              .clamp(0, feedback.minimumResponses),
+                          singular: _spaceText(
+                            '{count} more response is needed to show the community score.',
+                          ),
+                          plural: _spaceText(
+                            '{count} more responses are needed to show the community score.',
+                          ),
+                        );
+                  return _informationRow(
+                    _spaceText('Community rating'),
+                    WicchuIcons.starFill,
+                    summary,
+                    () => _openInformationSection(CommunityScreen.rating),
+                    iconColor: Colors.amber.shade700,
+                  );
+                },
               ),
-            _Section(
-              title: context.tr('About {name}', {'name': _community.name}),
-              icon: WicchuIcons.article,
-              trailing: _community.showWeather && _weather != null
-                  ? _aboutWeather()
-                  : null,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: Text(
-                      _aboutDescription.trim().isEmpty
-                          ? context.tr('No description provided')
-                          : _aboutDescription,
-                    ),
-                  ),
-                  if (_community.shortDescription.trim().isNotEmpty ||
-                      _community.description.trim().isNotEmpty)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: _aboutTranslationButton(),
-                    ),
-                  Divider(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: .08),
-                  ),
-                  const SizedBox(height: 12),
-                  _aboutMetadata(),
-                ],
-              ),
-            ),
-            if (_community.isPublicProfile &&
-                (_community.myRole == CommunityRole.owner ||
-                    _community.myRole == CommunityRole.admin)) ...[
               _informationRow(
-                _isLocalBusiness ? 'Edit business' : 'Edit profile',
-                WicchuIcons.pencilSimple,
-                context.tr('Edit page information and appearance.'),
-                _editCommunity,
-                rowKey: const ValueKey('information-edit-page'),
+                _community.isPublicProfile ? 'Followers' : 'Members',
+                WicchuIcons.usersThree,
+                _isLocalBusiness
+                    ? ''
+                    : context.trCount(
+                        _community.memberCount,
+                        singular: _community.isPublicProfile
+                            ? '{count} follower'
+                            : '{count} member',
+                        plural: _community.isPublicProfile
+                            ? '{count} followers'
+                            : '{count} members',
+                      ),
+                _openMembers,
+                count: _community.memberCount,
+                rowKey: const ValueKey('information-members-entry'),
+              ),
+              FutureBuilder<CommunityRules>(
+                future: _rules,
+                builder: (context, snapshot) => _informationRow(
+                  _spaceText('Community rules'),
+                  WicchuIcons.shield,
+                  context.tr(
+                    _isLocalBusiness
+                        ? (businessOrderingEnabled
+                              ? 'Ordering, cancellations and service conditions'
+                              : 'Service terms and business policies')
+                        : 'Read the guidelines for a safe and respectful community.',
+                  ),
+                  () => _openInformationSection(CommunityScreen.rules),
+                  count: snapshot.hasData ? snapshot.data!.rules.length : null,
+                ),
               ),
               _informationRow(
-                'Edit categories',
-                WicchuIcons.shapes,
-                context.tr('Add, rename or remove page categories.'),
-                _editPageCategories,
-                rowKey: const ValueKey('information-edit-categories'),
+                'Useful links',
+                WicchuIcons.linkSimple,
+                context.tr('Website, directions and more'),
+                () => _openInformationSection(CommunityScreen.links),
+                count: _community.links.length + 2,
               ),
             ],
-            FutureBuilder<CommunityHelpfulness>(
-              future: _helpfulness,
-              builder: (context, snapshot) {
-                final feedback = snapshot.data;
-                final summary = feedback == null
-                    ? (snapshot.hasError
-                          ? context.tr('Unable to load rating')
-                          : context.tr('Loading…'))
-                    : feedback.isPublic
-                    ? context.tr(
-                        _spaceText(
-                          '{percentage}% of members find this community helpful',
-                        ),
-                        {'percentage': '${feedback.helpfulPercentage ?? 0}'},
-                      )
-                    : context.trCount(
-                        (feedback.minimumResponses - feedback.responseCount)
-                            .clamp(0, feedback.minimumResponses),
-                        singular: _spaceText(
-                          '{count} more response is needed to show the community score.',
-                        ),
-                        plural: _spaceText(
-                          '{count} more responses are needed to show the community score.',
-                        ),
-                      );
-                return _informationRow(
-                  _spaceText('Community rating'),
-                  WicchuIcons.starFill,
-                  summary,
-                  () => _openInformationSection(CommunityScreen.rating),
-                  iconColor: Colors.amber.shade700,
-                );
-              },
-            ),
-            _informationRow(
-              _community.isPublicProfile ? 'Followers' : 'Members',
-              WicchuIcons.usersThree,
-              context.trCount(
-                _community.memberCount,
-                singular: _community.isPublicProfile
-                    ? '{count} follower'
-                    : '{count} member',
-                plural: _community.isPublicProfile
-                    ? '{count} followers'
-                    : '{count} members',
-              ),
-              _openMembers,
-              count: _community.memberCount,
-              rowKey: const ValueKey('information-members-entry'),
-            ),
-            FutureBuilder<CommunityRules>(
-              future: _rules,
-              builder: (context, snapshot) => _informationRow(
-                _spaceText('Community rules'),
-                WicchuIcons.shield,
-                context.tr(
-                  'Read the guidelines for a safe and respectful community.',
-                ),
-                () => _openInformationSection(CommunityScreen.rules),
-                count: snapshot.hasData ? snapshot.data!.rules.length : null,
-              ),
-            ),
-            _informationRow(
-              'Useful links',
-              WicchuIcons.linkSimple,
-              context.tr('Website, directions and more'),
-              () => _openInformationSection(CommunityScreen.links),
-              count: _community.links.length + 2,
-            ),
           ],
         );
 
@@ -4175,24 +4734,62 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     }
   }
 
-  Widget _communityInformation() {
+  Widget _communityInformationIntroduction() {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final style = theme.textTheme.bodySmall!.copyWith(height: 1.4);
+          final painter = TextPainter(
+            text: TextSpan(text: _aboutSummary, style: style),
+            maxLines: 2,
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout(maxWidth: constraints.maxWidth);
+          final overflows = painter.didExceedMaxLines;
+          painter.dispose();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _aboutSummary,
+                maxLines: _descriptionExpanded ? null : 2,
+                overflow: _descriptionExpanded
+                    ? TextOverflow.visible
+                    : TextOverflow.ellipsis,
+                style: style,
+              ),
+              if (overflows)
+                TextButton(
+                  key: const ValueKey('community-description-toggle'),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    alignment: Alignment.centerLeft,
+                  ),
+                  onPressed: () => setState(
+                    () => _descriptionExpanded = !_descriptionExpanded,
+                  ),
+                  child: Text(
+                    context.tr(_descriptionExpanded ? 'See less' : 'See more'),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _communityInformationHeader() {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final location = '${_community.town.name}, ${_community.town.countryCode}';
-    final canInvite = _canInviteToCommunity;
-    Widget card(Widget child, {bool tinted = false}) => Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      color: tinted ? colors.primary.withValues(alpha: .05) : colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: tinted
-            ? BorderSide.none
-            : BorderSide(color: colors.onSurface.withValues(alpha: .08)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: child,
-    );
+    final location = _community.isGlobal
+        ? context.tr('Open to people everywhere')
+        : [
+            _community.town.name,
+            _community.town.countryCode,
+          ].where((part) => part.isNotEmpty).join(', ');
     Widget stat(String value, String label, {VoidCallback? onTap, Key? key}) =>
         Expanded(
           child: InkWell(
@@ -4221,315 +4818,278 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             ),
           ),
         );
+    return Padding(
+      key: const ValueKey('community-information-identity'),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4, bottom: 4),
+                    child: _expandableCommunityImage(
+                      CommunityAvatar(community: _community, radius: 28),
+                      _community.imageUrl,
+                    ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: colors.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: colors.surface, width: 2),
+                      ),
+                      child: Icon(
+                        WicchuIcons.usersThree,
+                        size: 15,
+                        color: colors.onPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _community.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      location,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (_joined)
+                _communityRoleBadge(expanded: true)
+              else
+                TextButton.icon(
+                  onPressed: _savingMembership ? null : _toggleMembership,
+                  icon: const Icon(WicchuIcons.plus, size: 18),
+                  label: Text(context.tr('Join')),
+                ),
+            ],
+          ),
+          if (_aboutSummary.isNotEmpty && _aboutSummary != _aboutDescription)
+            _communityInformationIntroduction(),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              stat(
+                '${_community.memberCount}',
+                'Members',
+                key: const ValueKey('information-members-entry'),
+                onTap: _openMembers,
+              ),
+              if (_joined) ...[
+                SizedBox(
+                  height: 24,
+                  child: VerticalDivider(color: colors.outlineVariant),
+                ),
+                FutureBuilder<List<CommunityPost>>(
+                  future: _posts,
+                  builder: (context, snapshot) => stat(
+                    snapshot.hasData ? '${snapshot.data!.length}' : '—',
+                    'Posts',
+                    onTap: () => _openInformationSection(CommunityScreen.feed),
+                  ),
+                ),
+                SizedBox(
+                  height: 24,
+                  child: VerticalDivider(color: colors.outlineVariant),
+                ),
+                FutureBuilder<List<CommunityMember>>(
+                  future: _members,
+                  builder: (context, snapshot) => stat(
+                    snapshot.hasData
+                        ? '${snapshot.data!.where((m) => m.role != CommunityRole.member).length}'
+                        : '—',
+                    'Administrators',
+                    key: const ValueKey('information-administrators-entry'),
+                    onTap: () => _openMembers(administration: true),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+
+  String get _communityInformationDescription {
+    final description = _aboutDescription.trim();
+    final lines = description.split('\n');
+    if (lines.length < 2) return description;
+    final firstLine = lines.first.trim().replaceFirst(
+      RegExp(r'^[^\p{L}\p{N}]*', unicode: true),
+      '',
+    );
+    if (firstLine.toLowerCase() == _community.name.trim().toLowerCase()) {
+      return lines.skip(1).join('\n').trim();
+    }
+    return description;
+  }
+
+  Widget _communityInformation() {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final location = _community.isGlobal
+        ? context.tr('Open to people everywhere')
+        : [
+            _community.town.name,
+            _community.town.countryCode,
+          ].where((part) => part.isNotEmpty).join(', ');
+    final canInvite = _canInviteToCommunity;
+    Widget card(Widget child, {bool tinted = false}) => Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      color: tinted ? colors.primary.withValues(alpha: .05) : colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: tinted
+            ? BorderSide.none
+            : BorderSide(color: colors.onSurface.withValues(alpha: .08)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
     Widget detail(
       IconData icon,
       String title,
       String? value, {
       VoidCallback? onTap,
-      Widget? extra,
-    }) => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: colors.primary.withValues(alpha: .06),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: colors.primary, size: 21),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                InkWell(
-                  onTap: onTap,
-                  borderRadius: BorderRadius.circular(8),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 44),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                context.tr(title),
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              if (value != null) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  value,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    fontSize: 13,
-                                    color: colors.onSurfaceVariant,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        if (onTap != null)
-                          Icon(
-                            WicchuIcons.caretRight,
-                            size: 18,
-                            color: colors.onSurfaceVariant,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                ?extra,
-              ],
+      Widget? subtitle,
+    }) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          minLeadingWidth: 22,
+          horizontalTitleGap: 16,
+          minTileHeight: 48,
+          minVerticalPadding: 12,
+          visualDensity: VisualDensity.compact,
+          leading: Icon(icon, color: colors.primary, size: 22),
+          title: Text(
+            context.tr(title),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
-      ),
+          subtitle:
+              subtitle ??
+              (value == null
+                  ? null
+                  : Text(
+                      value,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    )),
+          trailing: onTap == null ? null : const Icon(WicchuIcons.caretRight),
+          onTap: onTap,
+        ),
+      ],
     );
     final divider = Divider(
       height: 1,
-      indent: 62,
-      endIndent: 16,
-      color: colors.onSurface.withValues(alpha: .08),
+      thickness: .5,
+      indent: 46,
+      endIndent: 8,
+      color: colors.onSurface.withValues(alpha: .1),
     );
     return ListView(
       key: const ValueKey('community-information-content'),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Stack(
+        if (_communityInformationDescription.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 4, bottom: 4),
-                  child: _expandableCommunityImage(
-                    CommunityAvatar(community: _community, radius: 28),
-                    _community.imageUrl,
+                Text(
+                  context.tr('About {name}', {'name': _community.name}),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: colors.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: colors.surface, width: 2),
-                    ),
-                    child: Icon(
-                      WicchuIcons.usersThree,
-                      size: 15,
-                      color: colors.onPrimary,
-                    ),
-                  ),
+                const SizedBox(height: 8),
+                ExpandableProfileDescription(
+                  text: _communityInformationDescription,
+                  collapsedLines: 5,
                 ),
+                _aboutTranslationButton(),
               ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _community.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    location,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (_joined)
-              _communityRoleBadge(expanded: true)
-            else
-              TextButton.icon(
-                onPressed: _savingMembership ? null : _toggleMembership,
-                icon: const Icon(WicchuIcons.plus, size: 18),
-                label: Text(context.tr('Join')),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
+          ),
+
+        if (_communityInformationDescription.isEmpty &&
+            _aboutSummary.trim().isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _aboutTranslationButton(),
+          ),
+        Column(
           children: [
-            stat(
-              '${_community.memberCount}',
-              'Members',
-              key: const ValueKey('information-members-entry'),
-              onTap: _openMembers,
+            detail(
+              _community.isGlobal ? WicchuIcons.globe : WicchuIcons.mapPin,
+              'Location',
+              location,
+              onTap: _community.isGlobal
+                  ? null
+                  : () => launchUrl(
+                      Uri.https('www.google.com', '/maps/search/', {
+                        'api': '1',
+                        'query': location,
+                      }),
+                      mode: LaunchMode.externalApplication,
+                    ),
+              subtitle: _community.showWeather && _weather != null
+                  ? _aboutWeather(compact: true, inlineLocation: location)
+                  : null,
             ),
-            if (_joined) ...[
-              SizedBox(
-                height: 24,
-                child: VerticalDivider(color: colors.outlineVariant),
-              ),
-              FutureBuilder<List<CommunityPost>>(
-                future: _posts,
-                builder: (context, snapshot) => stat(
-                  snapshot.hasData ? '${snapshot.data!.length}' : '—',
-                  'Posts',
-                  onTap: () => _openInformationSection(CommunityScreen.feed),
-                ),
-              ),
-              SizedBox(
-                height: 24,
-                child: VerticalDivider(color: colors.outlineVariant),
-              ),
-              FutureBuilder<List<CommunityMember>>(
-                future: _members,
-                builder: (context, snapshot) => stat(
-                  snapshot.hasData
-                      ? '${snapshot.data!.where((m) => m.role != CommunityRole.member).length}'
-                      : '—',
-                  'Administration',
-                  onTap: () => _openMembers(administration: true),
-                ),
-              ),
-            ],
+            divider,
+            detail(
+              WicchuIcons.usersThree,
+              _community.visibility == CommunityVisibility.public
+                  ? 'Public community'
+                  : 'Private community',
+              null,
+            ),
+            divider,
+            detail(
+              WicchuIcons.calendarBlank,
+              context.tr('Created {date}', {
+                'date':
+                    '${MaterialLocalizations.of(context).formatShortMonthDay(_community.createdAt.toLocal())} ${_community.createdAt.toLocal().year}',
+              }),
+              null,
+            ),
+            divider,
           ],
-        ),
-        const SizedBox(height: 8),
-        if (_community.profileSummary.isNotEmpty)
-          card(
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final style = theme.textTheme.bodySmall!.copyWith(
-                    height: 1.4,
-                  );
-                  final painter = TextPainter(
-                    text: TextSpan(
-                      text: _community.profileSummary,
-                      style: style,
-                    ),
-                    maxLines: 2,
-                    textDirection: Directionality.of(context),
-                    textScaler: MediaQuery.textScalerOf(context),
-                  )..layout(maxWidth: constraints.maxWidth);
-                  final overflows = painter.didExceedMaxLines;
-                  painter.dispose();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _community.profileSummary,
-                        maxLines: _descriptionExpanded ? null : 2,
-                        overflow: _descriptionExpanded
-                            ? TextOverflow.visible
-                            : TextOverflow.ellipsis,
-                        style: style,
-                      ),
-                      if (overflows)
-                        TextButton(
-                          key: const ValueKey('community-description-toggle'),
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            alignment: Alignment.centerLeft,
-                          ),
-                          onPressed: () => setState(
-                            () => _descriptionExpanded = !_descriptionExpanded,
-                          ),
-                          child: Text(
-                            context.tr(
-                              _descriptionExpanded ? 'See less' : 'See more',
-                            ),
-                          ),
-                        )
-                      else
-                        const SizedBox(height: 6),
-                    ],
-                  );
-                },
-              ),
-            ),
-            tinted: true,
-          ),
-
-        if (_community.description.trim().isNotEmpty)
-          card(
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.tr('About {name}', {'name': _community.name}),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(_aboutDescription),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: _aboutTranslationButton(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-        card(
-          Column(
-            children: [
-              detail(
-                WicchuIcons.mapPin,
-                'Location',
-                location,
-                onTap: () => launchUrl(
-                  Uri.https('www.google.com', '/maps/search/', {
-                    'api': '1',
-                    'query': location,
-                  }),
-                  mode: LaunchMode.externalApplication,
-                ),
-                extra: _community.showWeather && _weather != null
-                    ? _aboutWeather(compact: true)
-                    : null,
-              ),
-              divider,
-              detail(
-                WicchuIcons.usersThree,
-                _community.visibility == CommunityVisibility.public
-                    ? 'Public community'
-                    : 'Private community',
-                null,
-              ),
-              divider,
-              detail(
-                WicchuIcons.calendarBlank,
-                context.tr('Created {date}', {
-                  'date':
-                      '${MaterialLocalizations.of(context).formatShortMonthDay(_community.createdAt.toLocal())} ${_community.createdAt.toLocal().year}',
-                }),
-                null,
-              ),
-            ],
-          ),
         ),
         if (_joined && _canViewMemberDirectory)
           FutureBuilder<List<CommunityMember>>(
@@ -4544,69 +5104,76 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       )
                       .toList() ??
                   <CommunityMember>[];
-              return card(
-                ListTile(
-                  key: const ValueKey('information-administration-entry'),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  minTileHeight: 76,
-                  leading: Icon(
-                    WicchuIcons.shield,
-                    color: colors.primary,
-                    size: 28,
-                  ),
-                  title: Text(
-                    context.tr('Administration'),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+              return Column(
+                children: [
+                  ListTile(
+                    key: const ValueKey('information-administration-entry'),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    minLeadingWidth: 22,
+                    horizontalTitleGap: 16,
+                    minTileHeight: 48,
+                    minVerticalPadding: 12,
+                    visualDensity: VisualDensity.compact,
+                    leading: Icon(
+                      WicchuIcons.shield,
+                      color: colors.primary,
+                      size: 22,
                     ),
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: admins.isEmpty
-                        ? Text(
-                            context.tr(
-                              snapshot.hasError
-                                  ? 'Unable to load members'
-                                  : snapshot.hasData
-                                  ? 'No members found'
-                                  : 'Loading…',
-                            ),
-                          )
-                        : Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              for (final member in admins.take(3))
-                                Tooltip(
-                                  message: member.name,
-                                  child: UserAvatar(
-                                    name: member.name,
-                                    imageUrl: member.avatarUrl,
-                                    radius: 12,
-                                  ),
-                                ),
-                              if (admins.length > 3)
-                                CircleAvatar(
-                                  radius: 12,
-                                  child: Text(
-                                    '+${admins.length - 3}',
-                                    style: theme.textTheme.labelSmall,
-                                  ),
-                                ),
-                              Text(
-                                context.trCount(
-                                  admins.length,
-                                  singular: '{count} administrator',
-                                  plural: '{count} administrators',
-                                ),
+                    title: Text(
+                      context.tr('Administration'),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: admins.isEmpty
+                          ? Text(
+                              context.tr(
+                                snapshot.hasError
+                                    ? 'Unable to load members'
+                                    : snapshot.hasData
+                                    ? 'No members found'
+                                    : 'Loading…',
                               ),
-                            ],
-                          ),
+                            )
+                          : Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                for (final member in admins.take(3))
+                                  Tooltip(
+                                    message: member.name,
+                                    child: UserAvatar(
+                                      name: member.name,
+                                      imageUrl: member.avatarUrl,
+                                      radius: 12,
+                                    ),
+                                  ),
+                                if (admins.length > 3)
+                                  CircleAvatar(
+                                    radius: 12,
+                                    child: Text(
+                                      '+${admins.length - 3}',
+                                      style: theme.textTheme.labelSmall,
+                                    ),
+                                  ),
+                                Text(
+                                  context.trCount(
+                                    admins.length,
+                                    singular: '{count} administrator',
+                                    plural: '{count} administrators',
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                    trailing: const Icon(WicchuIcons.caretRight, size: 20),
+                    onTap: () => _openMembers(administration: true),
                   ),
-                  trailing: const Icon(WicchuIcons.caretRight, size: 20),
-                  onTap: () => _openMembers(administration: true),
-                ),
+                  divider,
+                ],
               );
             },
           ),
@@ -4656,9 +5223,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          context.tr('Invite people from {town}', {
-                            'town': _community.town.name,
-                          }),
+                          _community.isGlobal
+                              ? context.tr('Invite people')
+                              : context.tr('Invite people from {town}', {
+                                  'town': _community.town.name,
+                                }),
                           style: theme.textTheme.bodySmall,
                         ),
                         const SizedBox(height: 8),
@@ -4713,6 +5282,66 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     Key? rowKey,
   }) {
     final theme = Theme.of(context);
+    final flat = _isLocalBusiness || !_community.isPublicProfile;
+    final tile = ListTile(
+      key: rowKey,
+      contentPadding: EdgeInsets.symmetric(horizontal: flat ? 8 : 16),
+      minLeadingWidth: flat ? 22 : null,
+      horizontalTitleGap: flat ? 16 : null,
+      minTileHeight: flat ? 48 : 76,
+      minVerticalPadding: flat ? 12 : null,
+      visualDensity: flat ? VisualDensity.compact : null,
+      leading: Icon(
+        icon,
+        size: flat ? 22 : 28,
+        color: iconColor ?? theme.colorScheme.primary,
+      ),
+      title: Text(
+        context.tr(title),
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: subtitle.isEmpty
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (count != null) ...[
+            Text('$count', style: theme.textTheme.bodyMedium),
+            const SizedBox(width: 8),
+          ],
+          const Icon(WicchuIcons.caretRight),
+        ],
+      ),
+      onTap: onTap,
+    );
+    if (flat) {
+      return Column(
+        children: [
+          tile,
+          Divider(
+            height: 1,
+            thickness: .5,
+            indent: 46,
+            endIndent: 8,
+            color: theme.colorScheme.onSurface.withValues(alpha: .1),
+          ),
+        ],
+      );
+    }
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
@@ -4723,43 +5352,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        key: rowKey,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-        minTileHeight: 76,
-        leading: Icon(
-          icon,
-          size: 28,
-          color: iconColor ?? theme.colorScheme.primary,
-        ),
-        title: Text(
-          context.tr(title),
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 3),
-          child: Text(
-            subtitle,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.4,
-            ),
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (count != null) ...[
-              Text('$count', style: theme.textTheme.bodyMedium),
-              const SizedBox(width: 8),
-            ],
-            const Icon(WicchuIcons.caretRight),
-          ],
-        ),
-        onTap: onTap,
-      ),
+      child: tile,
     );
   }
 
@@ -5207,42 +5800,41 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     future: _rules,
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
-        return _Section(
-          title: context.tr(_spaceText('Community rules')),
-          icon: WicchuIcons.shield,
-          child: const LinearProgressIndicator(),
-        );
+        return const Center(child: CircularProgressIndicator());
       }
       if (snapshot.hasError) {
-        return _Section(
-          title: context.tr(_spaceText('Community rules')),
-          icon: WicchuIcons.shield,
-          child: Text(context.trError(snapshot.error!)),
+        return Column(
+          children: [
+            Text(context.trError(snapshot.error!), textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => setState(() {
+                _rules = widget.repository.listRules(_community.id);
+              }),
+              child: Text(context.tr('Retry')),
+            ),
+          ],
         );
       }
       final rules = snapshot.data?.rules ?? _community.rules;
-      return _Section(
-        title: context.tr(_spaceText('Community rules')),
-        icon: WicchuIcons.shield,
-        child: rules.isEmpty
-            ? Text(
-                context.tr(
-                  _spaceText('No community rules have been added yet.'),
-                ),
-              )
-            : Column(
-                children: [
-                  for (final (index, rule) in rules.indexed)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(child: Text('${index + 1}')),
-                      title: Text(rule.title),
-                      subtitle: rule.description.isEmpty
-                          ? null
-                          : Text(rule.description),
-                    ),
-                ],
-              ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.tr(
+              rules.isEmpty
+                  ? _spaceText('No community rules have been added yet.')
+                  : 'Guidelines for a safe and respectful community.',
+            ),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (rules.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            CommunityRulesList(rules: rules),
+          ],
+        ],
       );
     },
   );
@@ -5301,7 +5893,14 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
       !member.isAnonymous &&
       member.userId.isNotEmpty;
 
-  String _memberRoleLabel(CommunityRole role) => _community.roleLabel(role);
+  String _memberRoleLabel(CommunityRole role) => _community.isPublicProfile
+      ? _community.roleLabel(role)
+      : switch (role) {
+          CommunityRole.owner => 'Owner',
+          CommunityRole.admin => 'Administrator',
+          CommunityRole.moderator => 'Moderator',
+          CommunityRole.member => 'Member',
+        };
 
   String _memberRolePermissionDescription(CommunityRole role) {
     if (_community.isPublicProfile) {
@@ -5328,49 +5927,134 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
     };
   }
 
+  Widget _communityRoleSelector(
+    BuildContext sheetContext,
+    CommunityMember member,
+  ) {
+    var selected = member.role;
+    return StatefulBuilder(
+      builder: (context, update) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(member.name, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Text(
+                context.tr('Current role: {role}', {
+                  'role': context.tr(_memberRoleLabel(member.role)),
+                }),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                context.tr('Change role'),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: RadioGroup<CommunityRole>(
+                    groupValue: selected,
+                    onChanged: (value) {
+                      if (value != null) update(() => selected = value);
+                    },
+                    child: Column(
+                      children: [
+                        for (final role in [
+                          if (_community.myRole == CommunityRole.owner ||
+                              member.role == CommunityRole.admin)
+                            CommunityRole.admin,
+                          CommunityRole.moderator,
+                          CommunityRole.member,
+                        ])
+                          RadioListTile<CommunityRole>(
+                            value: role,
+                            enabled:
+                                role != CommunityRole.admin ||
+                                _community.myRole == CommunityRole.owner,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(context.tr(_memberRoleLabel(role))),
+                            subtitle: Text(
+                              context.tr(switch (role) {
+                                CommunityRole.admin =>
+                                  'Manages the community and its members.',
+                                CommunityRole.moderator =>
+                                  'Moderates posts, comments and reports.',
+                                _ =>
+                                  'Participates according to community rules.',
+                              }),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: selected == member.role
+                    ? null
+                    : () => Navigator.pop(sheetContext, selected),
+                child: Text(context.tr('Save changes')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _changeMemberRole(CommunityMember member) async {
     if (!_canChangeMemberRole(member) || _savingMemberRole) return;
     final role = await showModalBottomSheet<CommunityRole>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text(member.name),
-                subtitle: Text(context.tr('Change role')),
-              ),
-              for (final role in [
-                if (_community.myRole == CommunityRole.owner)
-                  CommunityRole.admin,
-                CommunityRole.moderator,
-                CommunityRole.member,
-              ])
-                ListTile(
-                  title: Text(
-                    context.tr(
-                      role == CommunityRole.admin
-                          ? (_community.isPublicProfile
-                                ? 'Invite as page administrator'
-                                : 'Invite as community administrator')
-                          : _memberRoleLabel(role),
-                    ),
-                  ),
-                  subtitle: Text(
-                    context.tr(_memberRolePermissionDescription(role)),
-                  ),
-                  trailing: role == member.role
-                      ? const Icon(WicchuIcons.check)
-                      : null,
-                  enabled: role != member.role,
-                  onTap: () => Navigator.pop(sheetContext, role),
-                ),
-            ],
-          ),
-        ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * .85,
       ),
+      builder: (sheetContext) => !_community.isPublicProfile
+          ? _communityRoleSelector(sheetContext, member)
+          : SafeArea(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      title: Text(member.name),
+                      subtitle: Text(context.tr('Change role')),
+                    ),
+                    for (final role in [
+                      if (_community.myRole == CommunityRole.owner)
+                        CommunityRole.admin,
+                      CommunityRole.moderator,
+                      CommunityRole.member,
+                    ])
+                      ListTile(
+                        title: Text(
+                          context.tr(
+                            role == CommunityRole.admin
+                                ? (_community.isPublicProfile
+                                      ? 'Invite as page administrator'
+                                      : 'Invite as community administrator')
+                                : _memberRoleLabel(role),
+                          ),
+                        ),
+                        subtitle: Text(
+                          context.tr(_memberRolePermissionDescription(role)),
+                        ),
+                        trailing: role == member.role
+                            ? const Icon(WicchuIcons.check)
+                            : null,
+                        enabled: role != member.role,
+                        onTap: () => Navigator.pop(sheetContext, role),
+                      ),
+                  ],
+                ),
+              ),
+            ),
     );
     if (!mounted || role == null) return;
     final inviteAdmin = role == CommunityRole.admin;
@@ -5393,6 +6077,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                 ? (_community.isPublicProfile
                       ? '{name} will become a page administrator only after accepting the invitation.'
                       : '{name} will become a community administrator only after accepting the invitation.')
+                : !_community.isPublicProfile && role.index > member.role.index
+                ? 'Change {name} to {role}? Permissions from the current role will be removed.'
                 : 'Change {name} to {role}?',
             {'name': member.name, 'role': context.tr(_memberRoleLabel(role))},
           ),
@@ -5457,19 +6143,35 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   Widget _memberRoleControl(CommunityMember member) {
-    if (!_canChangeMemberRole(member)) {
-      return _profileBadge(_memberRoleLabel(member.role));
-    }
-    return TextButton(
-      key: ValueKey('member-role-${member.userId}'),
-      onPressed: _savingMemberRole ? null : () => _changeMemberRole(member),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(context.tr(_memberRoleLabel(member.role))),
-          const SizedBox(width: 4),
-          const Icon(WicchuIcons.caretDown, size: 16),
-        ],
+    final label = [
+      context.tr(_memberRoleLabel(member.role)),
+      ?activityStatusText(
+        context,
+        isOnline: member.isOnline,
+        lastActiveAt: member.lastActiveAt,
+      ),
+    ].join(' · ');
+    if (!_canChangeMemberRole(member)) return Text(label);
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Tooltip(
+        message: context.tr('Change role'),
+        child: InkWell(
+          key: ValueKey('member-role-${member.userId}'),
+          onTap: _savingMemberRole ? null : () => _changeMemberRole(member),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: Text(label)),
+              const SizedBox(width: 4),
+              Icon(
+                WicchuIcons.caretDown,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -5556,55 +6258,23 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       itemBuilder: (context, index) {
                         final member = visible[index];
                         return WicchuListTile.custom(
-                          margin: const EdgeInsets.only(bottom: 9),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 0,
-                              vertical: 6,
-                            ),
+                            contentPadding: EdgeInsets.zero,
                             leading: Badge(
                               isLabelVisible: member.isOnline,
                               backgroundColor: Colors.green,
                               child: UserAvatar(
                                 name: member.name,
                                 imageUrl: member.avatarUrl,
-                                radius: 23,
+                                radius: 22,
                               ),
                             ),
                             title: Text(
                               member.name,
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
                             ),
-                            subtitle:
-                                activityStatusText(
-                                      context,
-                                      isOnline: member.isOnline,
-                                      lastActiveAt: member.lastActiveAt,
-                                    ) ==
-                                    null
-                                ? null
-                                : Text(
-                                    activityStatusText(
-                                      context,
-                                      isOnline: member.isOnline,
-                                      lastActiveAt: member.lastActiveAt,
-                                    )!,
-                                    style: TextStyle(
-                                      color: member.isOnline
-                                          ? Theme.of(
-                                              context,
-                                            ).colorScheme.primary
-                                          : Theme.of(
-                                              context,
-                                            ).colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                            trailing: _memberRoleControl(member),
+                            subtitle: _memberRoleControl(member),
                             onTap: member.isAnonymous || member.userId.isEmpty
                                 ? null
                                 : () => Navigator.push(
