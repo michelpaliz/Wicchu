@@ -10,6 +10,7 @@ import 'pending_posts_page.dart';
 typedef _LocalNewsData = ({
   LocalNewsSettings settings,
   List<LocalNewsSource> sources,
+  Object? sourcesError,
   List<CommunityCategory> categories,
   List<LocalNewsArticle> articles,
 });
@@ -30,6 +31,7 @@ class LocalNewsSettingsPage extends StatefulWidget {
 
 class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
   late Future<_LocalNewsData> _data = _load();
+  int _loadGeneration = 0;
   LocalNewsSettings? _settings;
   Set<String> _sourceIds = {};
   Set<String> _categoryIds = {};
@@ -38,27 +40,40 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
   bool _enabled = false;
   bool _saving = false;
   bool _running = false;
+  String? _activationError;
 
   Future<_LocalNewsData> _load() async {
+    final generation = ++_loadGeneration;
     final values = await Future.wait<Object>([
       widget.repository.getLocalNewsSettings(widget.community.id),
-      widget.repository.listLocalNewsSources(),
+      widget.repository
+          .listLocalNewsSources()
+          .then<Object>((sources) => (sources: sources, error: null))
+          .catchError(
+            (Object error) => (sources: <LocalNewsSource>[], error: error),
+          ),
       widget.repository.listCategories(widget.community.id),
       widget.repository.listLocalNewsArticles(widget.community.id),
     ]);
+    final sourceResult =
+        values[1] as ({List<LocalNewsSource> sources, Object? error});
     final data = (
       settings: values[0] as LocalNewsSettings,
-      sources: values[1] as List<LocalNewsSource>,
+      sources: sourceResult.sources,
+      sourcesError: sourceResult.error,
       categories: values[2] as List<CommunityCategory>,
       articles: values[3] as List<LocalNewsArticle>,
     );
-    _apply(data.settings);
+    if (generation == _loadGeneration && !_saving) _apply(data.settings);
     return data;
   }
 
-  void _reload() => setState(() {
-    _data = _load();
-  });
+  void _reload() {
+    if (_saving) return;
+    setState(() {
+      _data = _load();
+    });
+  }
 
   void _apply(LocalNewsSettings settings) {
     _settings = settings;
@@ -66,7 +81,7 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
     _sourceIds = settings.sourceIds.toSet();
     _categoryIds = settings.categoryIds.toSet();
     _language = settings.language;
-    _approvalMode = settings.approvalMode;
+    _approvalMode = settings.isPilot ? 'manual' : settings.approvalMode;
   }
 
   void _showMessage(String message) {
@@ -75,38 +90,46 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _save() async {
-    if (_enabled) {
-      final data = await _data;
-      if (!mounted) return;
-      if (data.sources.isEmpty) {
-        _showMessage(
-          context.tr(
-            'No news sources are configured yet. Refresh sources to check again.',
-          ),
-        );
-        return;
-      }
-      if (_sourceIds.isEmpty ||
-          !_sourceIds.every(
-            (id) => data.sources.any((source) => source.id == id),
-          )) {
-        _showMessage(context.tr('Select an available approved news source.'));
-        return;
-      }
-      if (_categoryIds.isEmpty ||
-          !_categoryIds.every(
-            (id) => data.categories.any((category) => category.id == id),
-          )) {
-        _showMessage(context.tr('Select an available news category.'));
-        return;
-      }
-    }
+  Future<void> _save() => _persist(_enabled);
+
+  Future<void> _persist(bool enabled) async {
+    if (_saving) return;
     setState(() => _saving = true);
     try {
-      await widget.repository.updateLocalNewsSettings(
+      final data = await _data;
+      if (!mounted) return;
+      if (enabled) {
+        String? error;
+        if (data.sourcesError != null) {
+          error = context.tr(
+            'Could not load news sources. Refresh and try again.',
+          );
+        } else if (data.sources.isEmpty) {
+          error = context.tr(
+            'No news sources are configured yet. Refresh sources to check again.',
+          );
+        } else if (_sourceIds.isEmpty ||
+            !_sourceIds.every(
+              (id) => data.sources.any((source) => source.id == id),
+            )) {
+          error = context.tr('Select an available approved news source.');
+        } else if (_categoryIds.isEmpty ||
+            !_categoryIds.every(
+              (id) => data.categories.any((category) => category.id == id),
+            )) {
+          error = context.tr('Select an available news category.');
+        }
+        if (error != null) {
+          setState(() {
+            _saving = false;
+            _activationError = error;
+          });
+          return;
+        }
+      }
+      final updated = await widget.repository.updateLocalNewsSettings(
         widget.community.id,
-        enabled: _enabled,
+        enabled: enabled,
         sourceIds: _sourceIds.toList(),
         categoryIds: _categoryIds.toList(),
         language: _language,
@@ -115,13 +138,20 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
       if (!mounted) return;
       setState(() {
         _saving = false;
+        _activationError = null;
+        _apply(updated);
         _data = _load();
       });
       _showMessage(context.tr('Local News settings saved.'));
     } catch (error) {
       if (!mounted) return;
-      setState(() => _saving = false);
-      _showMessage(context.trError(error));
+      setState(() {
+        _saving = false;
+        _activationError = context.trError(error);
+        // PUT may have committed even if the follow-up GET failed. Reconcile
+        // with the server instead of trusting the pre-request switch value.
+        _data = _load();
+      });
     }
   }
 
@@ -174,7 +204,7 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
             _settings == null) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError && _settings == null) {
+        if (snapshot.hasError) {
           final error = snapshot.error;
           if (error is ApiException && error.statusCode == 403) {
             return Center(
@@ -238,22 +268,24 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
           ),
         ),
         value: _enabled,
-        onChanged: (value) {
-          if (value && data.sources.isEmpty) {
-            return;
-          }
-          setState(() => _enabled = value);
-        },
+        onChanged: _saving ? null : _persist,
       ),
-      if (data.sources.isEmpty)
+      if (_activationError != null ||
+          data.sourcesError != null ||
+          data.sources.isEmpty)
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Text(
-            context.tr(
-              'No news sources are configured yet. Refresh sources to check again.',
-            ),
+            _activationError ??
+                context.tr(
+                  data.sourcesError != null
+                      ? 'Could not load news sources. Refresh and try again.'
+                      : 'No news sources are configured yet. Refresh sources to check again.',
+                ),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: _activationError != null || data.sourcesError != null
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -265,33 +297,38 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
           ButtonSegment(value: 'en', label: Text(context.tr('English'))),
         ],
         selected: {_language},
-        onSelectionChanged: (values) =>
-            setState(() => _language = values.first),
+        onSelectionChanged: _saving
+            ? null
+            : (values) => setState(() => _language = values.first),
       ),
       const SizedBox(height: 22),
       _title('Publication approval'),
-      RadioGroup<String>(
-        groupValue: _approvalMode,
-        onChanged: (value) => setState(() => _approvalMode = value ?? 'manual'),
-        child: Column(
-          children: [
-            RadioListTile<String>(
-              contentPadding: EdgeInsets.zero,
-              value: 'manual',
-              title: Text(context.tr('Review before publishing')),
-              subtitle: Text(context.tr('Recommended for every new source.')),
-            ),
-            RadioListTile<String>(
-              contentPadding: EdgeInsets.zero,
-              value: 'automatic',
-              title: Text(context.tr('Publish automatically')),
-              subtitle: Text(
-                context.tr(
-                  'Only sources trusted and authorized by Wicchu can publish automatically.',
+      IgnorePointer(
+        ignoring: _saving,
+        child: RadioGroup<String>(
+          groupValue: _approvalMode,
+          onChanged: (value) =>
+              setState(() => _approvalMode = value ?? 'manual'),
+          child: Column(
+            children: [
+              RadioListTile<String>(
+                contentPadding: EdgeInsets.zero,
+                value: 'manual',
+                title: Text(context.tr('Review before publishing')),
+                subtitle: Text(context.tr('Recommended for every new source.')),
+              ),
+              if (!data.settings.isPilot) RadioListTile<String>(
+                contentPadding: EdgeInsets.zero,
+                value: 'automatic',
+                title: Text(context.tr('Publish automatically')),
+                subtitle: Text(
+                  context.tr(
+                    'Only sources trusted and authorized by Wicchu can publish automatically.',
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       const SizedBox(height: 12),
@@ -305,7 +342,9 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
               children: [
                 Text(
                   context.tr(
-                    'No news sources are configured yet. Refresh sources to check again.',
+                    data.sourcesError != null
+                        ? 'Could not load news sources. Refresh and try again.'
+                        : 'No news sources are configured yet. Refresh sources to check again.',
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -330,11 +369,13 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
                   : 'Review required',
             ),
           ),
-          onChanged: (checked) => setState(() {
-            checked == true
-                ? _sourceIds.add(source.id)
-                : _sourceIds.remove(source.id);
-          }),
+          onChanged: _saving
+              ? null
+              : (checked) => setState(() {
+                  checked == true
+                      ? _sourceIds.add(source.id)
+                      : _sourceIds.remove(source.id);
+                }),
         ),
       const SizedBox(height: 12),
       _title('News categories'),
@@ -348,11 +389,13 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
           contentPadding: EdgeInsets.zero,
           value: _categoryIds.contains(category.id),
           title: Text(category.name),
-          onChanged: (checked) => setState(() {
-            checked == true
-                ? _categoryIds.add(category.id)
-                : _categoryIds.remove(category.id);
-          }),
+          onChanged: _saving
+              ? null
+              : (checked) => setState(() {
+                  checked == true
+                      ? _categoryIds.add(category.id)
+                      : _categoryIds.remove(category.id);
+                }),
         ),
       const SizedBox(height: 16),
       FilledButton.icon(
@@ -496,7 +539,11 @@ class _LocalNewsDashboardCard extends StatelessWidget {
               icon: WicchuIcons.calendarBlank,
               label: context.tr('Next review'),
               value: dashboard.nextCollectionAt == null
-                  ? context.tr('Next review not available')
+                  ? context.tr(
+                      dashboard.status == 'configuration_needed'
+                          ? 'Available after configuration'
+                          : 'Next review not available',
+                    )
                   : _dateTime(context, dashboard.nextCollectionAt!),
             ),
             _Row(
@@ -605,28 +652,34 @@ class _LocalNewsDashboardCard extends StatelessWidget {
     _ => 'Scheduled',
   };
 
-  static String _statusDetail(LocalNewsDashboard dashboard) =>
-      switch ((dashboard.status, dashboard.reason)) {
-        ('collecting', _) => 'Wicchu is checking your sources now.',
-        ('awaiting_approval', _) =>
-          'News is waiting for your approval before it is published.',
-        ('daily_limit_reached', _) =>
-          'Today\'s news is used. Wicchu looks again after the daily reset.',
-        ('configuration_needed', 'missing_categories') =>
-          'Select at least one active news category.',
-        ('configuration_needed', _) => 'Select at least one approved source.',
-        ('paused', 'disabled') => 'Automated news is turned off.',
-        ('paused', 'monthly_limit_reached') =>
-          'The monthly limit has been reached.',
-        ('paused', _) =>
-          'News processing is paused by Wicchu. It will resume automatically.',
-        ('error', 'sources_unavailable') =>
-          'The selected news sources could not be read.',
-        ('error', 'configuration_invalid') =>
-          'The last review could not use your sources or categories.',
-        ('error', _) => 'The last review failed. Wicchu will try again.',
-        _ => 'Wicchu will check your sources at the next review.',
-      };
+  static String _statusDetail(LocalNewsDashboard dashboard) => switch ((
+    dashboard.status,
+    dashboard.reason,
+  )) {
+    ('collecting', _) => 'Wicchu is checking your sources now.',
+    ('awaiting_approval', _) =>
+      'News is waiting for your approval before it is published.',
+    ('daily_limit_reached', _) =>
+      'Today\'s news is used. Wicchu looks again after the daily reset.',
+    ('configuration_needed', 'missing_categories') =>
+      'Select at least one active news category.',
+    ('configuration_needed', 'missing_sources') =>
+      'No approved news sources are available for collection.',
+    ('configuration_needed', _) => 'Select at least one approved source.',
+    ('paused', 'disabled') => 'Automated news is turned off.',
+    ('paused', 'monthly_limit_reached') =>
+      'The monthly limit has been reached.',
+    ('paused', _) =>
+      'News processing is paused by Wicchu. It will resume automatically.',
+    ('error', 'sources_unavailable') =>
+      'The selected news sources could not be read.',
+    ('error', 'processing_unavailable') =>
+      'News processing is unavailable. Wicchu needs to check its AI configuration or budget.',
+    ('error', 'configuration_invalid') =>
+      'The last review could not use your sources or categories.',
+    ('error', _) => 'The last review failed. Wicchu will try again.',
+    _ => 'Wicchu will check your sources at the next review.',
+  };
 
   static String _runLabel(LocalNewsLastRun run) => switch (run.status) {
     'success' => 'Completed',

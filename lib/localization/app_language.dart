@@ -1934,6 +1934,17 @@ const _spanish = <String, String>{
       'Solo las fuentes de confianza autorizadas por Wicchu pueden publicar automáticamente.',
   'Approved sources': 'Fuentes aprobadas',
   'Pilot access active': 'Acceso piloto activo',
+  'Publisher: {name}': 'Fuente: {name}',
+  'Read original article': 'Leer noticia original',
+  'Reject post': 'Rechazar publicación',
+  'Could not open the original article.': 'No se pudo abrir la noticia original.',
+  'Could not load news sources. Refresh and try again.':
+      'No se pudieron cargar las fuentes de noticias. Actualiza e inténtalo de nuevo.',
+  'Available after configuration': 'Disponible tras la configuración',
+  'No approved news sources are available for collection.':
+      'No hay fuentes de noticias aprobadas disponibles para la recopilación.',
+  'News processing is unavailable. Wicchu needs to check its AI configuration or budget.':
+      'El procesamiento de noticias no está disponible. Wicchu debe revisar su configuración de IA o su presupuesto.',
   'No news sources are configured yet. Refresh sources to check again.':
       'Todavía no hay fuentes de noticias configuradas. Actualiza las fuentes para comprobarlo de nuevo.',
   'No approved news sources are available.':

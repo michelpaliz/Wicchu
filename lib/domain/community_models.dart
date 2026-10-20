@@ -1232,6 +1232,18 @@ class BusinessPostFeature {
   }
 }
 
+class LocalNewsAttribution {
+  const LocalNewsAttribution({
+    required this.sourceName,
+    required this.articleUrl,
+    this.publishedAt,
+  });
+
+  final String sourceName;
+  final String articleUrl;
+  final DateTime? publishedAt;
+}
+
 class CommunityPost {
   const CommunityPost({
     required this.id,
@@ -1269,6 +1281,7 @@ class CommunityPost {
     this.importantAnnouncement = false,
     this.pinned = false,
     this.canPin = false,
+    this.newsSource,
   });
 
   final String id;
@@ -1309,6 +1322,7 @@ class CommunityPost {
   final bool importantAnnouncement;
   final bool pinned;
   final bool canPin;
+  final LocalNewsAttribution? newsSource;
   bool get isPersonal => destinationType == 'personal';
   String get displayText =>
       shareCaption.trim().isEmpty ? text : '${shareCaption.trim()}\n\n$text';

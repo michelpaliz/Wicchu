@@ -13,6 +13,27 @@ class _PreferenceDefaultsApiClient extends AuthenticatedApiClient {
   };
 }
 
+class _NewsPostApiClient extends AuthenticatedApiClient {
+  @override
+  Future<Map<String, dynamic>> get(String path) async => {
+    'posts': [
+      {
+        '_id': 'news-post-1',
+        'communityId': 'pilot-community',
+        'categoryId': 'category-1',
+        'text': '## Council update\n\nA short factual summary.',
+        'status': 'published',
+        'createdAt': '2026-10-20T08:00:00.000Z',
+        'newsSource': {
+          'sourceName': 'Council',
+          'articleUrl': 'https://publisher.example/article?ref=Original',
+          'publishedAt': '2026-10-19T08:00:00.000Z',
+        },
+      },
+    ],
+  };
+}
+
 class _RecordingApiClient extends AuthenticatedApiClient {
   String? lastPath;
   String? lastMethod;
@@ -976,6 +997,14 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 }
 
 void main() {
+  test('news post parser preserves attribution and original URL', () async {
+    final repository = HttpCommunityRepository(apiClient: _NewsPostApiClient());
+    final posts = await repository.listPosts('pilot-community');
+    expect(posts.single.newsSource?.sourceName, 'Council');
+    expect(posts.single.newsSource?.articleUrl, 'https://publisher.example/article?ref=Original');
+    expect(posts.single.newsSource?.publishedAt, DateTime.utc(2026, 10, 19, 8));
+  });
+
   test(
     'missing community preferences enable all categories without replacing saved choices',
     () async {

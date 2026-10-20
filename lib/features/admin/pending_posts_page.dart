@@ -298,12 +298,16 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
 
   Future<void> _moderate(CommunityPost post, {required bool approve}) async {
     if (_saving.isNotEmpty) return;
+    final reason = approve ? null : await _rejectionReason();
+    if (!approve && reason == null) return;
+    if (!mounted || _saving.isNotEmpty) return;
     setState(() => _saving.add(post.id));
     try {
       await widget.repository.moderatePost(
         widget.community.id,
         post.id,
         approve: approve,
+        reason: reason,
       );
       if (mounted) {
         setState(() {
@@ -318,6 +322,39 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+    }
+  }
+
+  Future<String?> _rejectionReason() async {
+    final controller = TextEditingController();
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: Text(context.tr('Reject post')),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              maxLength: 1000,
+              maxLines: 3,
+              decoration: InputDecoration(labelText: context.tr('Reason')),
+              onChanged: (_) => setDialogState(() {}),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(context.tr('Cancel'))),
+              FilledButton(
+                onPressed: controller.text.trim().isEmpty
+                    ? null
+                    : () => Navigator.pop(dialogContext, controller.text.trim()),
+                child: Text(context.tr('Reject')),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      controller.dispose();
     }
   }
 }

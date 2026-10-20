@@ -3,6 +3,7 @@ import 'package:wicchu/theme/wicchu_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/community_models.dart';
 import '../../theme/wicchu_theme.dart';
@@ -600,6 +601,61 @@ class _PostCardState extends State<PostCard> {
         : '$caption\n\n${_translatedText!}';
   }
 
+  String get _newsCardText => widget.post?.newsSource == null
+      ? _visiblePostText
+      : _visiblePostText.replaceFirst(
+          RegExp(r'\n+Source: [^\n]+\nhttps?://\S+\s*$'),
+          '',
+        ).trim();
+
+  Future<void> _openNewsArticle(String articleUrl) async {
+    final uri = Uri.tryParse(articleUrl);
+    if (uri == null || !{'https', 'http'}.contains(uri.scheme) || uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty) return;
+    bool opened;
+    try {
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      opened = false;
+    }
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Could not open the original article.'))),
+      );
+    }
+  }
+
+  Widget _newsAttribution(LocalNewsAttribution news) {
+    final date = news.publishedAt;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(context.tr('Publisher: {name}', {'name': news.sourceName}),
+              style: Theme.of(context).textTheme.labelLarge),
+            if (date != null) Text(MaterialLocalizations.of(context).formatMediumDate(date.toLocal()),
+              style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 4),
+            OutlinedButton.icon(
+              key: ValueKey('news-original-${widget.post?.id}'),
+              onPressed: () => _openNewsArticle(news.articleUrl),
+              icon: const Icon(WicchuIcons.arrowSquareOut, size: 18),
+              label: Text(context.tr('Read original article')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _translatePost() async {
     final repository = widget.repository;
     final post = widget.post;
@@ -924,7 +980,7 @@ class _PostCardState extends State<PostCard> {
           _BusinessFeatureView(feature: feature),
         ] else if (widget.text.isNotEmpty) ...[
           PostMarkdown(
-            data: _visiblePostText,
+            data: _newsCardText,
             bodyStyle: _poll == null
                 ? null
                 : Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -938,6 +994,7 @@ class _PostCardState extends State<PostCard> {
             onUserTap: widget.onMentionTap,
           ),
         ],
+        if (widget.post?.newsSource case final news?) _newsAttribution(news),
         if (widget.repository != null &&
             widget.post != null &&
             (widget.post!.text.trim().isNotEmpty ||

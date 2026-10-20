@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,6 +102,68 @@ class _NoSourcesRepository extends _DashboardRepository {
   }
 }
 
+class _SwitchRepository extends DemoCommunityRepository {
+  bool enabled = false;
+  bool rejectUpdate = false;
+  bool failSources = false;
+  int updates = 0;
+  Completer<void>? updateGate;
+
+  @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
+      LocalNewsSettings(
+        enabled: enabled,
+        sourceIds: const ['source-1'],
+        categoryIds: const ['category-1'],
+        access: const LocalNewsAccess(
+          entitled: true,
+          source: 'pilot',
+          monthlyLimit: 60,
+        ),
+        dashboard: _dashboard(
+          status: enabled ? 'scheduled' : 'paused',
+          enabled: enabled,
+        ),
+      );
+
+  @override
+  Future<List<LocalNewsSource>> listLocalNewsSources() async {
+    if (failSources) {
+      throw const ApiException('Source registry unavailable', statusCode: 503);
+    }
+    return super.listLocalNewsSources();
+  }
+
+  @override
+  Future<List<CommunityCategory>> listCategories(String communityId) async =>
+      const [
+        CommunityCategory(
+          id: 'category-1',
+          communityId: 'town-x-community',
+          name: 'General',
+          icon: 'article',
+        ),
+      ];
+
+  @override
+  Future<LocalNewsSettings> updateLocalNewsSettings(
+    String communityId, {
+    required bool enabled,
+    required List<String> sourceIds,
+    required List<String> categoryIds,
+    required String language,
+    required String approvalMode,
+  }) async {
+    updates++;
+    if (updateGate != null) await updateGate!.future;
+    if (rejectUpdate) {
+      throw const ApiException('Activation rejected', statusCode: 400);
+    }
+    this.enabled = enabled;
+    return getLocalNewsSettings(communityId);
+  }
+}
+
 Community _community({CommunityRole role = CommunityRole.admin}) => Community(
   id: 'town-x-community',
   name: 'Denia',
@@ -142,6 +206,91 @@ String _localTime(DateTime value) => const DefaultMaterialLocalizations()
     .formatTimeOfDay(TimeOfDay.fromDateTime(value.toLocal()));
 
 void main() {
+  testWidgets('rapid taps do not queue competing setting writes', (
+    tester,
+  ) async {
+    final repository = _SwitchRepository()..updateGate = Completer<void>();
+    await _pump(tester, repository);
+    final tile = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+    tile.onChanged!(true);
+    tile.onChanged!(true);
+    await tester.pump();
+    expect(repository.updates, 1);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
+      isNull,
+    );
+    repository.updateGate!.complete();
+    await tester.pumpAndSettle();
+    expect(repository.enabled, true);
+    expect(repository.updates, 1);
+  });
+
+  testWidgets('switch activates, pauses, and reloads persisted state', (
+    tester,
+  ) async {
+    final repository = _SwitchRepository();
+    await _pump(tester, repository);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      false,
+    );
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    expect(repository.enabled, true);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      true,
+    );
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    expect(repository.enabled, false);
+    expect(repository.updates, 2);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      false,
+    );
+    await _pump(tester, repository);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      false,
+    );
+  });
+
+  testWidgets('rejected activation leaves switch off with the server reason', (
+    tester,
+  ) async {
+    final repository = _SwitchRepository()..rejectUpdate = true;
+    await _pump(tester, repository);
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    expect(repository.enabled, false);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      false,
+    );
+    expect(find.textContaining('Activation rejected'), findsOneWidget);
+  });
+
+  testWidgets('source API failure is not shown as an empty registry', (
+    tester,
+  ) async {
+    final repository = _SwitchRepository()..failSources = true;
+    await _pump(tester, repository);
+    expect(find.textContaining('Could not load news sources'), findsWidgets);
+    expect(
+      find.textContaining('No news sources are configured yet'),
+      findsNothing,
+    );
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    expect(repository.updates, 0);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      false,
+    );
+  });
+
   testWidgets(
     'pilot access is distinct from missing sources and inactive settings still save',
     (tester) async {
@@ -299,7 +448,10 @@ void main() {
     await tester.tap(find.byTooltip('Refresh'));
     await tester.pumpAndSettle();
     expect(find.text('Configuration needed'), findsOneWidget);
-    expect(find.text('Select at least one approved source.'), findsOneWidget);
+    expect(
+      find.text('No approved news sources are available for collection.'),
+      findsOneWidget,
+    );
 
     repository.dashboard = _dashboard(
       status: 'paused',

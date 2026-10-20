@@ -3978,6 +3978,14 @@ class HttpCommunityRepository
       authorName: authorJson['name'] as String? ?? 'Wicchu member',
       authorAvatarUrl: authorJson['avatarUrl'] as String?,
       text: json['text'] as String? ?? '',
+      newsSource: json['newsSource'] is Map<String, dynamic> &&
+              (json['newsSource'] as Map<String, dynamic>)['articleUrl'] is String
+          ? LocalNewsAttribution(
+              sourceName: (json['newsSource'] as Map<String, dynamic>)['sourceName']?.toString() ?? '',
+              articleUrl: (json['newsSource'] as Map<String, dynamic>)['articleUrl'] as String,
+              publishedAt: _optionalDate((json['newsSource'] as Map<String, dynamic>)['publishedAt']),
+            )
+          : null,
       media: (json['media'] as List? ?? const [])
           .whereType<Map<String, dynamic>>()
           .map(
