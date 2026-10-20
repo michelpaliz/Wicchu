@@ -755,9 +755,9 @@ class _LocalNewsStatusSection extends StatelessWidget {
     final metrics = <_MetricData>[
       (
         icon: WicchuIcons.calendarBlank,
-        label: context.tr('Next review'),
+        label: context.tr('Next news check'),
         value: value?.nextCollectionAt == null
-            ? context.tr('Next review not available')
+            ? context.tr('Next news check not available')
             : _dateTime(context, value!.nextCollectionAt!),
       ),
       (
@@ -846,6 +846,23 @@ class _LocalNewsStatusSection extends StatelessWidget {
               ],
             ),
           ),
+        ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(WicchuIcons.newspaper, size: 20),
+          title: Text(context.tr('Next publication')),
+          subtitle: Text(
+            context.tr(
+              value != null && value.pendingApproval > 0
+                  ? 'A news card is awaiting your approval. It will not appear in the community until you approve it.'
+                  : !enabled
+                  ? 'Not scheduled while automated news is off.'
+                  : value?.approvalMode == 'automatic'
+                  ? 'Not scheduled. The next check may not find a relevant article.'
+                  : 'Not scheduled. The next check may not find a relevant article; publication requires your approval.',
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
         const Divider(height: 1),
         ListTile(

@@ -2121,6 +2121,17 @@ const _spanish = <String, String>{
       'Las noticias automáticas no están disponibles para esta comunidad.',
   'Refresh': 'Actualizar',
   'Next review': 'Próxima revisión',
+  'Next news check': 'Próxima búsqueda de noticias',
+  'Next news check not available': 'Próxima búsqueda no disponible',
+  'Next publication': 'Próxima publicación',
+  'A news card is awaiting your approval. It will not appear in the community until you approve it.':
+      'Hay una noticia pendiente de tu aprobación. No aparecerá en la comunidad hasta que la apruebes.',
+  'Not scheduled while automated news is off.':
+      'No programada mientras las noticias automáticas estén desactivadas.',
+  'Not scheduled. The next check may not find a relevant article.':
+      'No programada. La próxima búsqueda puede no encontrar una noticia relevante.',
+  'Not scheduled. The next check may not find a relevant article; publication requires your approval.':
+      'No programada. La próxima búsqueda puede no encontrar una noticia relevante; la publicación requiere tu aprobación.',
   'Last review': 'Última revisión',
   'Published today': 'Publicadas hoy',
   '{used} of {limit}': '{used} de {limit}',

@@ -464,7 +464,12 @@ void main() {
       tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
       isTrue,
     );
-    expect(find.text('Next review not available'), findsNothing);
+    expect(find.text('Next news check not available'), findsNothing);
+    expect(find.text('Next publication'), findsOneWidget);
+    expect(
+      find.text('Not scheduled. The next check may not find a relevant article; publication requires your approval.'),
+      findsOneWidget,
+    );
     expect(find.textContaining(_localTime(_next)), findsOneWidget);
     expect(find.text('Not run yet'), findsOneWidget);
     expect(find.text('0 of 1'), findsOneWidget);
@@ -478,7 +483,7 @@ void main() {
     );
     expect(find.textContaining('Review pending news'), findsNothing);
     expect(
-      tester.getTopLeft(find.text('Next review')).dy,
+      tester.getTopLeft(find.text('Next news check')).dy,
       greaterThan(tester.getTopLeft(find.text('Enable automated news')).dy),
     );
   });
@@ -495,7 +500,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Next review not available'), findsOneWidget);
+    expect(find.text('Next news check not available'), findsOneWidget);
     expect(find.text('Not run yet'), findsOneWidget);
     expect(
       tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
@@ -531,6 +536,10 @@ void main() {
     expect(find.text('Awaiting approval'), findsOneWidget);
     expect(find.text('Pending approvals'), findsOneWidget);
     expect(
+      find.text('A news card is awaiting your approval. It will not appear in the community until you approve it.'),
+      findsOneWidget,
+    );
+    expect(
       find.textContaining('1 waiting for approval already count'),
       findsOneWidget,
     );
@@ -564,7 +573,7 @@ void main() {
     );
     await _pump(tester, repository);
     expect(find.text('Daily limit reached'), findsOneWidget);
-    expect(find.text('Next review not available'), findsOneWidget);
+    expect(find.text('Next news check not available'), findsOneWidget);
 
     repository.dashboard = _dashboard(
       status: 'error',
@@ -613,6 +622,10 @@ void main() {
       isFalse,
     );
     expect(find.text('Automated news is turned off.'), findsOneWidget);
+    expect(
+      find.text('Not scheduled while automated news is off.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Spanish status texts', (tester) async {
@@ -627,7 +640,8 @@ void main() {
     await _pump(tester, repository, language: 'es');
     expect(find.text('Noticias automáticas'), findsWidgets);
     expect(find.text('Límite diario alcanzado'), findsOneWidget);
-    expect(find.text('Próxima revisión no disponible'), findsOneWidget);
+    expect(find.text('Próxima búsqueda no disponible'), findsOneWidget);
+    expect(find.text('Próxima publicación'), findsOneWidget);
     expect(find.text('Aún no se ha ejecutado'), findsOneWidget);
     expect(find.text('Pendientes de aprobación'), findsOneWidget);
     expect(find.text('Publicadas hoy'), findsOneWidget);
@@ -665,7 +679,7 @@ void main() {
       find.text('Automated news is not available for this community.'),
       findsOneWidget,
     );
-    expect(find.text('Next review'), findsNothing);
+    expect(find.text('Next news check'), findsNothing);
     expect(find.text('Save settings'), findsNothing);
   });
 
