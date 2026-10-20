@@ -2062,6 +2062,9 @@ const _spanish = <String, String>{
   'Only sources trusted and authorized by Wicchu can publish automatically.':
       'Solo las fuentes de confianza autorizadas por Wicchu pueden publicar automáticamente.',
   'Approved sources': 'Fuentes aprobadas',
+  'Sources managed by Wicchu': 'Fuentes gestionadas por Wicchu',
+  'No approved sources are assigned to this community.':
+      'Wicchu aún no ha asignado fuentes aprobadas a esta comunidad.',
   'Pilot access active': 'Acceso piloto activo',
   'Publisher: {name}': 'Fuente: {name}',
   'Read original article': 'Leer noticia original',
@@ -2143,6 +2146,16 @@ const _spanish = <String, String>{
       'Selecciona al menos una categoría de noticias activa.',
   'Select at least one approved source.':
       'Selecciona al menos una fuente aprobada.',
+  'Wicchu must assign an approved news source before automated news can be enabled.':
+      'Wicchu debe asignar una fuente de noticias aprobada antes de activar las noticias automáticas.',
+  'Wicchu must assign an approved news source before Local News can be enabled':
+      'Wicchu debe asignar una fuente de noticias aprobada antes de activar las noticias automáticas.',
+  'News sources are unavailable for this community. Wicchu assigns verified sources automatically.':
+      'Fuentes de noticias no disponibles para esta comunidad. Wicchu asigna fuentes verificadas automáticamente.',
+  'Wicchu assigns verified news sources based on your community. No RSS link is needed.':
+      'Wicchu asigna fuentes de noticias verificadas según tu comunidad. No necesitas añadir enlaces RSS.',
+  'Select at least one active category before enabling Local News':
+      'Selecciona al menos una categoría activa antes de activar las noticias automáticas.',
   'Automated news is turned off.':
       'Las noticias automáticas están desactivadas.',
   'The last review could not use your sources or categories.':

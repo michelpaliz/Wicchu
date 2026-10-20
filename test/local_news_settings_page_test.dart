@@ -107,6 +107,17 @@ class _RacingSourcesRepository extends _NoSourcesRepository {
   var sourceLoads = 0;
 
   @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
+      const LocalNewsSettings(
+        access: LocalNewsAccess(
+          entitled: true,
+          source: 'subscription',
+          tier: 'pro',
+          monthlyLimit: 60,
+        ),
+      );
+
+  @override
   Future<List<LocalNewsSource>> listLocalNewsSources() async {
     sourceLoads += 1;
     if (sourceLoads == 1) return const [];
@@ -131,10 +142,10 @@ class _PendingNewsRepository extends DemoCommunityRepository {
   @override
   Future<LocalNewsSettings> getLocalNewsSettings(String id) async =>
       saved ??
-      const LocalNewsSettings(
+      LocalNewsSettings(
         enabled: true,
-        sourceIds: ['source'],
-        categoryIds: ['category'],
+        sourceIds: const ['source-1'],
+        categoryIds: [(await listCategories(id)).first.id],
         subscriptionTier: 'pro',
         monthlyLimit: 60,
       );
@@ -185,6 +196,17 @@ class _RefreshingNewsRepository extends DemoCommunityRepository {
 
 class _SourceTrustRepository extends DemoCommunityRepository {
   @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
+      const LocalNewsSettings(
+        access: LocalNewsAccess(
+          entitled: true,
+          source: 'subscription',
+          tier: 'pro',
+          monthlyLimit: 60,
+        ),
+      );
+
+  @override
   Future<List<LocalNewsSource>> listLocalNewsSources() async => [
     for (final trusted in [false, true])
       for (final authorized in [false, true])
@@ -196,6 +218,20 @@ class _SourceTrustRepository extends DemoCommunityRepository {
           authorizedForAutoPublish: authorized,
         ),
   ];
+}
+
+class _AssignedPilotSourceRepository extends DemoCommunityRepository {
+  @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
+      const LocalNewsSettings(
+        sourceIds: ['source-1'],
+        access: LocalNewsAccess(
+          entitled: true,
+          source: 'pilot',
+          tier: 'pilot',
+          monthlyLimit: 60,
+        ),
+      );
 }
 
 class _NoDashboardRepository extends DemoCommunityRepository {
@@ -287,23 +323,37 @@ Future<void> _expand(WidgetTester tester, String title) async {
 
 void main() {
   testWidgets(
+    'pilot hides source controls but keeps language and manual review',
+    (tester) async {
+      await _pump(tester, _AssignedPilotSourceRepository());
+      expect(find.text('Enable automated news'), findsOneWidget);
+      expect(find.text('Approved sources'), findsNothing);
+      expect(
+        find.text(
+          'Wicchu assigns verified news sources based on your community. No RSS link is needed.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('News language'), findsOneWidget);
+      expect(find.text('Approval mode'), findsOneWidget);
+      await _expand(tester, 'News categories');
+      expect(find.widgetWithText(FilterChip, 'General'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'missing approved sources explains block and saves inactive settings',
     (tester) async {
       final repository = _NoSourcesRepository();
       await _pump(tester, repository);
       expect(find.text('Pilot access active'), findsOneWidget);
 
-      await _expand(tester, 'Approved sources');
-      await tester.scrollUntilVisible(
-        find.text('Refresh approved sources'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
+      expect(find.text('Approved sources'), findsNothing);
       expect(
         find.text(
-          'No news sources are configured yet. Refresh sources to check again.',
+          'News sources are unavailable for this community. Wicchu assigns verified sources automatically.',
         ),
-        findsWidgets,
+        findsOneWidget,
       );
 
       await tester.scrollUntilVisible(
@@ -503,7 +553,12 @@ void main() {
     await tester.tap(find.byTooltip('Refresh'));
     await tester.pumpAndSettle();
     expect(find.text('Configuration needed'), findsOneWidget);
-    expect(find.text('Select at least one approved source.'), findsOneWidget);
+    expect(
+      find.text(
+        'Wicchu must assign an approved news source before automated news can be enabled.',
+      ),
+      findsOneWidget,
+    );
 
     repository.dashboard = _dashboard(
       status: 'paused',
@@ -766,12 +821,6 @@ void main() {
             .onPressed,
         isNull,
       );
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, 1200));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byType(SwitchListTile));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(SwitchListTile));
-      await tester.pumpAndSettle();
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
       expect(find.text('Unsaved changes'), findsOneWidget);
@@ -818,9 +867,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pumpAndSettle();
-
     await _expand(tester, 'News categories');
     final newsCategory = find.widgetWithText(FilterChip, 'News');
     await tester.tap(newsCategory);
@@ -828,7 +874,7 @@ void main() {
 
     expect(
       tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isTrue,
+      isFalse,
     );
     expect(tester.widget<FilterChip>(newsCategory).selected, isTrue);
 
@@ -838,7 +884,7 @@ void main() {
 
     expect(
       tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isTrue,
+      isFalse,
     );
     expect(tester.widget<FilterChip>(newsCategory).selected, isTrue);
     expect(tester.takeException(), isNull);

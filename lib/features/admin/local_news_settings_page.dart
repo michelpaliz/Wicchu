@@ -151,7 +151,9 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
         if (!_dirty) {
           _apply(data.settings);
           // Removed sources/categories must not remain invisible publishing targets.
-          _sourceIds.retainAll(data.sources.map((source) => source.id));
+          if (!data.settings.isPilot) {
+            _sourceIds.retainAll(data.sources.map((source) => source.id));
+          }
           _categoryIds.retainAll(
             data.categories.map((category) => category.id),
           );
@@ -197,18 +199,19 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
       }
       String? error;
       if (enabled) {
-        if (data.sourcesError != null) {
+        if (!data.settings.isPilot && data.sourcesError != null) {
           error = context.tr(
             'Could not load news sources. Refresh and try again.',
           );
-        } else if (data.sources.isEmpty) {
+        } else if (!data.settings.isPilot && data.sources.isEmpty) {
           error = context.tr(
             'No news sources are configured yet. Refresh sources to check again.',
           );
-        } else if (_sourceIds.isEmpty ||
-            !_sourceIds.every(
-              (id) => data.sources.any((source) => source.id == id),
-            )) {
+        } else if (!data.settings.isPilot &&
+            (_sourceIds.isEmpty ||
+                !_sourceIds.every(
+                  (id) => data.sources.any((source) => source.id == id),
+                ))) {
           error = context.tr('Select an available approved news source.');
         } else if (_categoryIds.isEmpty ||
             !_categoryIds.every(
@@ -414,6 +417,7 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
           hasUnsavedChanges: _dirty,
           hasSources: data.sources.isNotEmpty,
           sourcesError: data.sourcesError != null,
+          isPilot: settings.isPilot,
           onEnabledChanged: _persist,
           onReviewPending: _reviewPending,
           onRunNow: _runNow,
@@ -432,6 +436,15 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
             icon: WicchuIcons.shieldWarning,
             text: context.tr(
               'Local News access must be enabled for this community by Wicchu.',
+            ),
+          ),
+        if (settings.isPilot)
+          _noticeCard(
+            icon: WicchuIcons.newspaper,
+            text: context.tr(
+              settings.sourceIds.isEmpty
+                  ? 'News sources are unavailable for this community. Wicchu assigns verified sources automatically.'
+                  : 'Wicchu assigns verified news sources based on your community. No RSS link is needed.',
             ),
           ),
         _title('Configuration'),
@@ -487,74 +500,76 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
             ),
           ),
         ],
-        const SizedBox(height: 16),
-        const Divider(height: 1),
-        _settingsExpansion(
-          icon: WicchuIcons.newspaper,
-          title: 'Approved sources',
-          summary: data.sourcesError != null
-              ? context.tr(
-                  'Could not load news sources. Refresh and try again.',
-                )
-              : data.sources.isEmpty
-              ? context.tr(
-                  'No news sources are configured yet. Refresh sources to check again.',
-                )
-              : context.tr('{selected} of {total} selected', {
-                  'selected': '$selectedSourceCount',
-                  'total': '${data.sources.length}',
-                }),
-          children: [
-            if (data.sourcesError != null) ...[
-              Text(
-                context.tr(
-                  'Could not load news sources. Refresh and try again.',
-                ),
-              ),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
-                  onPressed: _reload,
-                  icon: const Icon(WicchuIcons.arrowsClockwise),
-                  label: Text(context.tr('Refresh approved sources')),
-                ),
-              ),
-            ] else if (data.sources.isEmpty) ...[
-              Text(
-                context.tr(
-                  'No news sources are configured yet. Refresh sources to check again.',
-                ),
-              ),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
-                  onPressed: _reload,
-                  icon: const Icon(WicchuIcons.arrowsClockwise),
-                  label: Text(context.tr('Refresh approved sources')),
-                ),
-              ),
-            ] else
-              for (final source in data.sources)
-                CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  value: _sourceIds.contains(source.id),
-                  title: Text(source.name),
-                  subtitle: Text(
-                    context.tr(
-                      source.trusted && source.authorizedForAutoPublish
-                          ? 'Trusted for automatic publishing'
-                          : 'Review required',
-                    ),
-                  ),
-                  onChanged: (checked) => setState(() {
-                    checked == true
-                        ? _sourceIds.add(source.id)
-                        : _sourceIds.remove(source.id);
+        if (!settings.isPilot) ...[
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          _settingsExpansion(
+            icon: WicchuIcons.newspaper,
+            title: 'Approved sources',
+            summary: data.sourcesError != null
+                ? context.tr(
+                    'Could not load news sources. Refresh and try again.',
+                  )
+                : data.sources.isEmpty
+                ? context.tr(
+                    'No news sources are configured yet. Refresh sources to check again.',
+                  )
+                : context.tr('{selected} of {total} selected', {
+                    'selected': '$selectedSourceCount',
+                    'total': '${data.sources.length}',
                   }),
+            children: [
+              if (data.sourcesError != null) ...[
+                Text(
+                  context.tr(
+                    'Could not load news sources. Refresh and try again.',
+                  ),
                 ),
-          ],
-        ),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    onPressed: _reload,
+                    icon: const Icon(WicchuIcons.arrowsClockwise),
+                    label: Text(context.tr('Refresh approved sources')),
+                  ),
+                ),
+              ] else if (data.sources.isEmpty) ...[
+                Text(
+                  context.tr(
+                    'No news sources are configured yet. Refresh sources to check again.',
+                  ),
+                ),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    onPressed: _reload,
+                    icon: const Icon(WicchuIcons.arrowsClockwise),
+                    label: Text(context.tr('Refresh approved sources')),
+                  ),
+                ),
+              ] else
+                for (final source in data.sources)
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: _sourceIds.contains(source.id),
+                    title: Text(source.name),
+                    subtitle: Text(
+                      context.tr(
+                        source.trusted && source.authorizedForAutoPublish
+                            ? 'Trusted for automatic publishing'
+                            : 'Review required',
+                      ),
+                    ),
+                    onChanged: (bool? checked) => setState(() {
+                      checked == true
+                          ? _sourceIds.add(source.id)
+                          : _sourceIds.remove(source.id);
+                    }),
+                  ),
+            ],
+          ),
+        ],
         const Divider(height: 1),
         _settingsExpansion(
           icon: WicchuIcons.tag,
@@ -684,6 +699,7 @@ class _LocalNewsStatusSection extends StatelessWidget {
     required this.hasUnsavedChanges,
     required this.hasSources,
     required this.sourcesError,
+    required this.isPilot,
     required this.onEnabledChanged,
     required this.onReviewPending,
     required this.onRunNow,
@@ -696,6 +712,7 @@ class _LocalNewsStatusSection extends StatelessWidget {
   final bool hasUnsavedChanges;
   final bool hasSources;
   final bool sourcesError;
+  final bool isPilot;
   final ValueChanged<bool> onEnabledChanged;
   final VoidCallback onReviewPending;
   final VoidCallback onRunNow;
@@ -725,7 +742,7 @@ class _LocalNewsStatusSection extends StatelessWidget {
         : _statusTitle(value.status);
     final statusDetail = value == null
         ? 'Scheduling information is temporarily unavailable. Refresh to try again.'
-        : _statusDetail(value);
+        : _statusDetail(value, isPilot: isPilot);
     final compactMetrics =
         MediaQuery.sizeOf(context).width < 360 ||
         MediaQuery.textScalerOf(context).scale(14) > 18;
@@ -783,7 +800,7 @@ class _LocalNewsStatusSection extends StatelessWidget {
           value: enabled,
           onChanged: entitled ? onEnabledChanged : null,
         ),
-        if (sourcesError || !hasSources)
+        if (!isPilot && (sourcesError || !hasSources))
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
@@ -905,28 +922,33 @@ class _LocalNewsStatusSection extends StatelessWidget {
     _ => 'Scheduled',
   };
 
-  static String _statusDetail(LocalNewsDashboard dashboard) =>
-      switch ((dashboard.status, dashboard.reason)) {
-        ('collecting', _) => 'Wicchu is checking your sources now.',
-        ('awaiting_approval', _) =>
-          'News is waiting for your approval before it is published.',
-        ('daily_limit_reached', _) =>
-          'Today\'s news is used. Wicchu looks again after the daily reset.',
-        ('configuration_needed', 'missing_categories') =>
-          'Select at least one active news category.',
-        ('configuration_needed', _) => 'Select at least one approved source.',
-        ('paused', 'disabled') => 'Automated news is turned off.',
-        ('paused', 'monthly_limit_reached') =>
-          'The monthly limit has been reached.',
-        ('paused', _) =>
-          'News processing is paused by Wicchu. It will resume automatically.',
-        ('error', 'sources_unavailable') =>
-          'The selected news sources could not be read.',
-        ('error', 'configuration_invalid') =>
-          'The last review could not use your sources or categories.',
-        ('error', _) => 'The last review failed. Wicchu will try again.',
-        _ => 'Wicchu will check your sources at the next review.',
-      };
+  static String _statusDetail(
+    LocalNewsDashboard dashboard, {
+    required bool isPilot,
+  }) => switch ((dashboard.status, dashboard.reason)) {
+    ('collecting', _) => 'Wicchu is checking your sources now.',
+    ('awaiting_approval', _) =>
+      'News is waiting for your approval before it is published.',
+    ('daily_limit_reached', _) =>
+      'Today\'s news is used. Wicchu looks again after the daily reset.',
+    ('configuration_needed', 'missing_categories') =>
+      'Select at least one active news category.',
+    ('configuration_needed', _) =>
+      isPilot
+          ? 'Wicchu must assign an approved news source before automated news can be enabled.'
+          : 'Select at least one approved source.',
+    ('paused', 'disabled') => 'Automated news is turned off.',
+    ('paused', 'monthly_limit_reached') =>
+      'The monthly limit has been reached.',
+    ('paused', _) =>
+      'News processing is paused by Wicchu. It will resume automatically.',
+    ('error', 'sources_unavailable') =>
+      'The selected news sources could not be read.',
+    ('error', 'configuration_invalid') =>
+      'The last review could not use your sources or categories.',
+    ('error', _) => 'The last review failed. Wicchu will try again.',
+    _ => 'Wicchu will check your sources at the next review.',
+  };
 
   static String _runLabel(LocalNewsLastRun run) => switch (run.status) {
     'success' => 'Completed',
