@@ -3860,6 +3860,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             CommunityRole.owner => 'You own this community',
             CommunityRole.admin => 'You administer this community',
             CommunityRole.moderator => 'You moderate this community',
+            CommunityRole.contributor => 'You contribute to this community',
             _ => 'You are a member of this community',
           });
     return InkWell(
@@ -5899,6 +5900,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           CommunityRole.owner => 'Owner',
           CommunityRole.admin => 'Administrator',
           CommunityRole.moderator => 'Moderator',
+          CommunityRole.contributor => 'Contributor',
           CommunityRole.member => 'Member',
         };
 
@@ -5911,6 +5913,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
           'Manages page content. The owner separately grants messages, orders, services and analytics.',
         CommunityRole.moderator =>
           'Reviews content, comments and reports. No financial or business access.',
+        CommunityRole.contributor =>
+          'Creates page content and submits it for approval. No management access.',
         CommunityRole.member =>
           'Can follow and interact with the page. No management access.',
       };
@@ -5922,6 +5926,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         'Manages content, members, categories and community settings.',
       CommunityRole.moderator =>
         'Reviews content, comments and reports. No ownership or financial access.',
+      CommunityRole.contributor =>
+        'Creates news, events and community content. Approval is required by default.',
       CommunityRole.member =>
         'Can join, publish and interact according to community rules.',
     };
@@ -5966,6 +5972,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                               member.role == CommunityRole.admin)
                             CommunityRole.admin,
                           CommunityRole.moderator,
+                          CommunityRole.contributor,
                           CommunityRole.member,
                         ])
                           RadioListTile<CommunityRole>(
@@ -5981,6 +5988,8 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                                   'Manages the community and its members.',
                                 CommunityRole.moderator =>
                                   'Moderates posts, comments and reports.',
+                                CommunityRole.contributor =>
+                                  'Creates content and submits it for approval.',
                                 _ =>
                                   'Participates according to community rules.',
                               }),
@@ -6030,6 +6039,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       if (_community.myRole == CommunityRole.owner)
                         CommunityRole.admin,
                       CommunityRole.moderator,
+                      CommunityRole.contributor,
                       CommunityRole.member,
                     ])
                       ListTile(

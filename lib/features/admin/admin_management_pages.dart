@@ -864,6 +864,8 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
           'Manages page content. The owner separately grants messages, orders, services and analytics.',
         CommunityRole.moderator =>
           'Reviews content, comments and reports. No financial or business access.',
+        CommunityRole.contributor =>
+          'Creates page content and submits it for approval. No management access.',
         CommunityRole.member =>
           'Can follow and interact with the page. No management access.',
       };
@@ -875,6 +877,8 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
         'Manages content, members, categories and community settings.',
       CommunityRole.moderator =>
         'Reviews content, comments and reports. No ownership or financial access.',
+      CommunityRole.contributor =>
+        'Creates news, events and content. Approval is required by default.',
       CommunityRole.member =>
         'Can join, publish and interact according to community rules.',
     };
@@ -1022,6 +1026,7 @@ class _MemberManagementPageState extends State<MemberManagementPage> {
                   for (final role in [
                     CommunityRole.admin,
                     CommunityRole.moderator,
+                    CommunityRole.contributor,
                     CommunityRole.member,
                   ])
                     if (role != CommunityRole.admin ||

@@ -20,6 +20,7 @@ class SpaceRoleIcon extends StatelessWidget {
       CommunityRole.owner => WicchuIcons.shield,
       CommunityRole.admin => WicchuIcons.shieldCheck,
       CommunityRole.moderator => WicchuIcons.shieldCheck,
+      CommunityRole.contributor => WicchuIcons.article,
       _ => WicchuIcons.userCheck,
     };
     final colors = Theme.of(context).colorScheme;

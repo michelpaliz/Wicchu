@@ -3865,6 +3865,7 @@ class HttpCommunityRepository
         'owner' => CommunityRole.owner,
         'admin' => CommunityRole.admin,
         'moderator' => CommunityRole.moderator,
+        'contributor' => CommunityRole.contributor,
         'member' => CommunityRole.member,
         _ => null,
       },
@@ -4420,6 +4421,7 @@ class HttpCommunityRepository
     'owner' => CommunityRole.owner,
     'admin' => CommunityRole.admin,
     'moderator' => CommunityRole.moderator,
+    'contributor' => CommunityRole.contributor,
     'member' => CommunityRole.member,
     _ => null,
   };

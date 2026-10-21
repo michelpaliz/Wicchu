@@ -1,6 +1,6 @@
 enum CommunityVisibility { public, private }
 
-enum CommunityRole { owner, admin, moderator, member }
+enum CommunityRole { owner, admin, moderator, contributor, member }
 
 enum MembershipStatus { active, pending, banned }
 
@@ -543,10 +543,12 @@ class Community {
     (true, CommunityRole.owner) => 'Page owner',
     (true, CommunityRole.admin) => 'Page administrator',
     (true, CommunityRole.moderator) => 'Page moderator',
+    (true, CommunityRole.contributor) => 'Page contributor',
     (true, CommunityRole.member) => 'Follower',
     (false, CommunityRole.owner) => 'Community owner',
     (false, CommunityRole.admin) => 'Community administrator',
     (false, CommunityRole.moderator) => 'Community moderator',
+    (false, CommunityRole.contributor) => 'Community contributor',
     (false, CommunityRole.member) => 'Member',
   };
 }
