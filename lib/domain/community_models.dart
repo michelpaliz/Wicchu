@@ -1402,6 +1402,9 @@ class LocalNewsSettings {
     this.lastRun,
     this.application,
     this.dashboard,
+    this.newsRules = const [],
+    this.activationRequested = false,
+    this.sourcePreparationStatus = 'idle',
   });
 
   final bool enabled;
@@ -1420,9 +1423,30 @@ class LocalNewsSettings {
   final LocalNewsLastRun? lastRun;
   final LocalNewsAccessApplication? application;
   final LocalNewsDashboard? dashboard;
+  final List<LocalNewsRule> newsRules;
+  final bool activationRequested;
+  final String sourcePreparationStatus;
 
   bool get entitled => access?.entitled ?? monthlyLimit > 0;
   bool get isPilot => access?.source == 'pilot';
+}
+
+class LocalNewsRule {
+  const LocalNewsRule({
+    required this.categoryId,
+    required this.include,
+    this.exclude = '',
+    this.language = 'es',
+    this.approvalMode = 'manual',
+    this.enabled = true,
+  });
+
+  final String categoryId;
+  final String include;
+  final String exclude;
+  final String language;
+  final String approvalMode;
+  final bool enabled;
 }
 
 class LocalNewsAccess {
@@ -1508,6 +1532,9 @@ class LocalNewsDashboard {
     this.monthlyUsed = 0,
     this.monthlyLimit = 0,
     this.lastRun,
+    this.serviceState = 'not_configured',
+    this.view = 'setup',
+    this.upcomingArticle,
   });
 
   /// `scheduled`, `collecting`, `awaiting_approval`, `daily_limit_reached`,
@@ -1535,8 +1562,27 @@ class LocalNewsDashboard {
   final int monthlyUsed;
   final int monthlyLimit;
   final LocalNewsLastRun? lastRun;
+  final String serviceState;
+  final String view;
+  final LocalNewsUpcomingArticle? upcomingArticle;
 
   bool get dailyLimitReached => todayUsed >= dailyLimit;
+}
+
+class LocalNewsUpcomingArticle {
+  const LocalNewsUpcomingArticle({
+    required this.articleId,
+    required this.title,
+    this.summary = '',
+    this.sourceName = '',
+    this.status = 'pending_approval',
+  });
+
+  final String articleId;
+  final String title;
+  final String summary;
+  final String sourceName;
+  final String status;
 }
 
 class LocalNewsAccessApplication {

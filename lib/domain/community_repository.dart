@@ -1002,7 +1002,10 @@ abstract interface class CommunityRepository {
     required List<String> categoryIds,
     required String language,
     required String approvalMode,
+    List<LocalNewsRule>? newsRules,
   });
+  Future<LocalNewsSettings> pauseLocalNews(String communityId);
+  Future<LocalNewsSettings> resumeLocalNews(String communityId);
   Future<List<LocalNewsArticle>> listLocalNewsArticles(String communityId);
   Future<LocalNewsRunResult> runLocalNewsNow(String communityId);
   Future<LocalNewsAccessApplication> submitLocalNewsAccessApplication(

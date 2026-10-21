@@ -2069,7 +2069,8 @@ const _spanish = <String, String>{
   'Publisher: {name}': 'Fuente: {name}',
   'Read original article': 'Leer noticia original',
   'Reject post': 'Rechazar publicación',
-  'Could not open the original article.': 'No se pudo abrir la noticia original.',
+  'Could not open the original article.':
+      'No se pudo abrir la noticia original.',
   'Could not load news sources. Refresh and try again.':
       'No se pudieron cargar las fuentes de noticias. Actualiza e inténtalo de nuevo.',
   'Available after configuration': 'Disponible tras la configuración',
@@ -2088,8 +2089,7 @@ const _spanish = <String, String>{
   'Scheduling information is temporarily unavailable. Refresh to try again.':
       'La información de programación no está disponible temporalmente. Actualiza para volver a intentarlo.',
   'Pending approvals': 'Pendientes de aprobación',
-  '{selected} of {total} selected':
-      '{selected} de {total} seleccionadas',
+  '{selected} of {total} selected': '{selected} de {total} seleccionadas',
   '{count} recent items': '{count} elementos recientes',
   'Select an available approved news source.':
       'Selecciona una fuente de noticias aprobada y disponible.',
@@ -2122,6 +2122,36 @@ const _spanish = <String, String>{
   'Refresh': 'Actualizar',
   'Next review': 'Próxima revisión',
   'Next news check': 'Próxima búsqueda de noticias',
+  'Verified sources': 'Fuentes verificadas',
+  'To be scheduled': 'Por programar',
+  'Activate automated news': 'Activar noticias automatizadas',
+  'Wicchu will look for relevant content automatically.':
+      'Wicchu buscará contenido relevante automáticamente.',
+  '1. Post category *': '1. Categoría de publicación *',
+  'Select an existing community category.':
+      'Selecciona una categoría existente de la comunidad.',
+  '2. What news should Wicchu look for? *':
+      '2. ¿Qué noticias quieres que busquemos? *',
+  'Be specific about topics that interest your community.':
+      'Especifica los temas que interesan a tu comunidad.',
+  '3. What should Wicchu avoid?': '3. ¿Qué contenido debemos evitar?',
+  '4. Language *': '4. Idioma *',
+  '5. Publication mode *': '5. Modo de publicación *',
+  'Automatic news': 'Noticias automáticas',
+  'Service active': 'Servicio activo',
+  'Service paused': 'Servicio pausado',
+  'No verified sources yet': 'Todavía no hay fuentes verificadas',
+  'Waiting for source approval': 'Esperando aprobación de fuentes',
+  'Preparing your news': 'Estamos preparando tus noticias',
+  'Automatic News is paused': 'Las noticias automáticas están en pausa',
+  'Checking the latest news': 'Estamos revisando las últimas novedades',
+  'Everything is working': 'Todo está funcionando',
+  'News ready for review': 'Tienes una noticia lista para revisar',
+  'Today’s post is published': 'La noticia de hoy ya está publicada',
+  'Some sources are unavailable': 'Algunas fuentes no están disponibles',
+  'Automatic News needs attention':
+      'Las noticias automáticas requieren atención',
+  'Ready to look for news': 'Listo para buscar noticias',
   'Next news check not available': 'Próxima búsqueda no disponible',
   'Next publication': 'Próxima publicación',
   'A news card is awaiting your approval. It will not appear in the community until you approve it.':

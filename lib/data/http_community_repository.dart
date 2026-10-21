@@ -2171,6 +2171,26 @@ class HttpCommunityRepository
         ? body!['dashboard'] as Map<String, dynamic>
         : null;
     return LocalNewsSettings(
+      activationRequested: json['activationRequested'] == true,
+      sourcePreparationStatus: json['sourcePreparation'] is Map<String, dynamic>
+          ? (json['sourcePreparation'] as Map<String, dynamic>)['status']
+                    ?.toString() ??
+                'idle'
+          : 'idle',
+      newsRules: (json['newsRules'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (rule) => LocalNewsRule(
+              categoryId: rule['categoryId']?.toString() ?? '',
+              include: rule['include']?.toString() ?? '',
+              exclude: rule['exclude']?.toString() ?? '',
+              language: rule['language']?.toString() ?? 'es',
+              approvalMode: rule['approvalMode']?.toString() ?? 'manual',
+              enabled: rule['enabled'] != false,
+            ),
+          )
+          .where((rule) => rule.categoryId.isNotEmpty)
+          .toList(growable: false),
       access: access,
       usage: LocalNewsUsage(
         month: usageJson?['month']?.toString() ?? '',
@@ -2211,6 +2231,39 @@ class HttpCommunityRepository
                     ? dashboardJson['lastRun'] as Map<String, dynamic>
                     : null,
               ),
+              serviceState:
+                  dashboardJson['serviceState']?.toString() ?? 'not_configured',
+              view: dashboardJson['view']?.toString() ?? 'setup',
+              upcomingArticle:
+                  dashboardJson['upcomingArticle'] is Map<String, dynamic>
+                  ? LocalNewsUpcomingArticle(
+                      articleId:
+                          (dashboardJson['upcomingArticle']
+                                  as Map<String, dynamic>)['articleId']
+                              ?.toString() ??
+                          '',
+                      title:
+                          (dashboardJson['upcomingArticle']
+                                  as Map<String, dynamic>)['title']
+                              ?.toString() ??
+                          '',
+                      summary:
+                          (dashboardJson['upcomingArticle']
+                                  as Map<String, dynamic>)['summary']
+                              ?.toString() ??
+                          '',
+                      sourceName:
+                          (dashboardJson['upcomingArticle']
+                                  as Map<String, dynamic>)['sourceName']
+                              ?.toString() ??
+                          '',
+                      status:
+                          (dashboardJson['upcomingArticle']
+                                  as Map<String, dynamic>)['status']
+                              ?.toString() ??
+                          'pending_approval',
+                    )
+                  : null,
             ),
       application: _localNewsApplication(body?['application']),
       enabled: json['enabled'] == true,
@@ -2266,6 +2319,7 @@ class HttpCommunityRepository
     required List<String> categoryIds,
     required String language,
     required String approvalMode,
+    List<LocalNewsRule>? newsRules,
   }) async {
     await _api.put(
       '/api/community/v1/communities/$communityId/admin/news-settings',
@@ -2275,7 +2329,36 @@ class HttpCommunityRepository
         'categoryIds': categoryIds,
         'language': language,
         'approvalMode': approvalMode,
+        if (newsRules != null)
+          'newsRules': newsRules
+              .map(
+                (rule) => {
+                  'categoryId': rule.categoryId,
+                  'include': rule.include,
+                  'exclude': rule.exclude,
+                  'language': rule.language,
+                  'approvalMode': rule.approvalMode,
+                  'enabled': rule.enabled,
+                },
+              )
+              .toList(growable: false),
       },
+    );
+    return getLocalNewsSettings(communityId);
+  }
+
+  @override
+  Future<LocalNewsSettings> pauseLocalNews(String communityId) async {
+    await _api.post(
+      '/api/community/v1/communities/$communityId/admin/news-pause',
+    );
+    return getLocalNewsSettings(communityId);
+  }
+
+  @override
+  Future<LocalNewsSettings> resumeLocalNews(String communityId) async {
+    await _api.post(
+      '/api/community/v1/communities/$communityId/admin/news-resume',
     );
     return getLocalNewsSettings(communityId);
   }

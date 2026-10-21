@@ -1124,18 +1124,58 @@ class DemoCommunityRepository
     required List<String> categoryIds,
     required String language,
     required String approvalMode,
+    List<LocalNewsRule>? newsRules,
   }) async {
     final defaults = _defaultLocalNewsSettings();
     return _localNewsSettings[communityId] = LocalNewsSettings(
       enabled: enabled,
-      sourceIds: List.unmodifiable(sourceIds),
-      categoryIds: List.unmodifiable(categoryIds),
-      language: language,
-      approvalMode: approvalMode,
+      activationRequested: enabled,
+      sourceIds: sourceIds.isEmpty ? const ['source-1'] : sourceIds,
+      categoryIds: newsRules == null
+          ? categoryIds
+          : newsRules.map((rule) => rule.categoryId).toList(growable: false),
+      language: newsRules?.firstOrNull?.language ?? language,
+      approvalMode: newsRules?.firstOrNull?.approvalMode ?? approvalMode,
+      newsRules: List.unmodifiable(newsRules ?? const []),
       monthlyLimit: defaults.monthlyLimit,
       access: defaults.access,
       usage: defaults.usage,
       dashboard: defaults.dashboard,
+    );
+  }
+
+  @override
+  Future<LocalNewsSettings> pauseLocalNews(String communityId) async {
+    final current = await getLocalNewsSettings(communityId);
+    return _localNewsSettings[communityId] = LocalNewsSettings(
+      enabled: false,
+      sourceIds: current.sourceIds,
+      categoryIds: current.categoryIds,
+      language: current.language,
+      approvalMode: current.approvalMode,
+      newsRules: current.newsRules,
+      access: current.access,
+      usage: current.usage,
+      monthlyLimit: current.monthlyLimit,
+      dashboard: current.dashboard,
+    );
+  }
+
+  @override
+  Future<LocalNewsSettings> resumeLocalNews(String communityId) async {
+    final current = await getLocalNewsSettings(communityId);
+    return _localNewsSettings[communityId] = LocalNewsSettings(
+      enabled: true,
+      activationRequested: true,
+      sourceIds: current.sourceIds,
+      categoryIds: current.categoryIds,
+      language: current.language,
+      approvalMode: current.approvalMode,
+      newsRules: current.newsRules,
+      access: current.access,
+      usage: current.usage,
+      monthlyLimit: current.monthlyLimit,
+      dashboard: current.dashboard,
     );
   }
 
