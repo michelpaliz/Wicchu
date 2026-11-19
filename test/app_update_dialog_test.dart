@@ -212,4 +212,38 @@ void main() {
     expect(find.text('Later'), findsNothing);
     expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isFalse);
   });
+
+  testWidgets('announcement uses the localized server title and message', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AppUpdateDialog(
+            update: const AppUpdateInfo(
+              available: false,
+              latestVersion: '1.0.1',
+              latestBuild: 31,
+              required: false,
+              updateUrl: 'https://apps.apple.com/app/id6816714140',
+              releaseNotes: '',
+              announcement: AppUpdateAnnouncement(
+                id: 'release-31-es',
+                title: 'Wicchu se ha actualizado',
+                message: 'Descubre las novedades de esta versión.',
+              ),
+            ),
+            onUpdate: () async => true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Wicchu se ha actualizado'), findsOneWidget);
+    expect(
+      find.text('Descubre las novedades de esta versión.'),
+      findsOneWidget,
+    );
+    expect(find.text('A new Wicchu update is available'), findsNothing);
+  });
 }

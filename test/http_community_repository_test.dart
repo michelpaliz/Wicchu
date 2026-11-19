@@ -34,6 +34,29 @@ class _NewsPostApiClient extends AuthenticatedApiClient {
   };
 }
 
+class _LinkPreviewApiClient extends AuthenticatedApiClient {
+  @override
+  Future<Map<String, dynamic>> get(String path) async => {
+    'posts': [
+      {
+        '_id': 'post-with-preview',
+        'communityId': 'pilot-community',
+        'categoryId': 'category-1',
+        'text': 'Read https://news.example/story',
+        'status': 'published',
+        'createdAt': '2026-11-06T08:00:00.000Z',
+        'linkPreview': {
+          'url': 'https://news.example/story',
+          'title': 'A local story',
+          'imageUrl': 'https://news.example/story.jpg',
+          'siteName': 'Local News',
+          'description': 'Existing backend metadata',
+        },
+      },
+    ],
+  };
+}
+
 class _RecordingApiClient extends AuthenticatedApiClient {
   String? lastPath;
   String? lastMethod;
@@ -80,11 +103,23 @@ class _RecordingApiClient extends AuthenticatedApiClient {
       return {
         'settings': {
           'enabled': false,
+          'activationRequested': true,
+          'sourcePreparation': {'status': 'awaiting_approval'},
           'sourceIds': <String>[],
           'categoryIds': <String>[],
           'language': 'es',
           'approvalMode': 'manual',
           'subscriptionTier': 'free',
+          'newsRules': [
+            {
+              'categoryId': 'category-1',
+              'include': 'Local council news and community events',
+              'exclude': 'National celebrity news',
+              'language': 'es',
+              'approvalMode': 'manual',
+              'enabled': true,
+            },
+          ],
         },
         'access': {
           'entitled': true,
@@ -137,6 +172,15 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'monthlyUsed': 5,
           'monthlyLimit': 60,
           'lastRun': null,
+          'serviceState': 'awaiting_source_approval',
+          'view': 'preparation',
+          'upcomingArticle': {
+            'articleId': 'article-upcoming',
+            'title': 'Council announces a new community event',
+            'summary': 'The event takes place this weekend.',
+            'sourceName': 'Local Gazette',
+            'status': 'pending_approval',
+          },
         },
         'tierLimits': {'free': 0, 'pro': 60, 'business': 200},
         'plans': <Map<String, dynamic>>[],
@@ -166,6 +210,21 @@ class _RecordingApiClient extends AuthenticatedApiClient {
           'visibility': 'public',
           'createdBy': 'user-1',
           'myRole': 'admin',
+        },
+      };
+    }
+    if (path == '/api/community/v1/communities/contributor-page') {
+      return {
+        'community': {
+          '_id': 'contributor-page',
+          'town': {'_id': 'town-1', 'name': 'Dénia', 'countryCode': 'ES'},
+          'name': 'Dénia Cultura',
+          'description': '',
+          'visibility': 'public',
+          'type': 'public_profile',
+          'profileCategory': 'organization',
+          'createdBy': 'user-1',
+          'myRole': 'contributor',
         },
       };
     }
@@ -997,6 +1056,16 @@ class _RecordingApiClient extends AuthenticatedApiClient {
 }
 
 void main() {
+  test('owner removal uses the community DELETE endpoint', () async {
+    final api = _RecordingApiClient();
+    final repository = HttpCommunityRepository(apiClient: api);
+
+    await repository.deleteCommunity('community-1');
+
+    expect(api.lastMethod, 'DELETE');
+    expect(api.lastPath, '/api/community/v1/communities/community-1');
+  });
+
   test('news post parser preserves attribution and original URL', () async {
     final repository = HttpCommunityRepository(apiClient: _NewsPostApiClient());
     final posts = await repository.listPosts('pilot-community');
@@ -1006,6 +1075,20 @@ void main() {
       'https://publisher.example/article?ref=Original',
     );
     expect(posts.single.newsSource?.publishedAt, DateTime.utc(2026, 10, 19, 8));
+  });
+
+  test('post parser preserves existing rich link preview metadata', () async {
+    final repository = HttpCommunityRepository(
+      apiClient: _LinkPreviewApiClient(),
+    );
+
+    final post = (await repository.listPosts('pilot-community')).single;
+
+    expect(post.text, contains('https://news.example/story'));
+    expect(post.linkPreview?.url, 'https://news.example/story');
+    expect(post.linkPreview?.title, 'A local story');
+    expect(post.linkPreview?.imageUrl, 'https://news.example/story.jpg');
+    expect(post.linkPreview?.siteName, 'Local News');
   });
 
   test(
@@ -1959,6 +2042,36 @@ void main() {
     expect(community.myRole, CommunityRole.owner);
   });
 
+  test(
+    'community creation omits empty optional fields and null category keys',
+    () async {
+      final api = _RecordingApiClient();
+      final repository = HttpCommunityRepository(apiClient: api);
+
+      await repository.createCommunity(
+        const CreateCommunityInput(
+          name: 'Riverside',
+          description: '',
+          visibility: CommunityVisibility.public,
+          categoryNames: ['General', 'Custom'],
+          categories: [
+            CategorySuggestion(key: 'general', name: 'General'),
+            CategorySuggestion(key: null, name: 'Custom'),
+          ],
+        ),
+      );
+
+      expect(api.lastBody?.containsKey('shortDescription'), isFalse);
+      expect(api.lastBody?.containsKey('description'), isFalse);
+      expect(api.lastBody?.containsKey('subject'), isFalse);
+      expect(api.lastBody?.containsKey('rules'), isFalse);
+      expect(api.lastBody?['categoryNames'], ['General', 'Custom']);
+      expect(api.lastBody?['categories'], [
+        {'key': 'general', 'name': 'General'},
+      ]);
+    },
+  );
+
   test('category suggestions preserve stable keys and language', () async {
     final api = _RecordingApiClient();
     final repository = HttpCommunityRepository(apiClient: api);
@@ -2453,6 +2566,14 @@ void main() {
       expect(dashboard.lastRun, isNull);
       expect(settings.application?.isApproved, isTrue);
       expect(settings.application?.reviewNote, 'Welcome');
+      expect(settings.activationRequested, isTrue);
+      expect(settings.sourcePreparationStatus, 'awaiting_approval');
+      expect(settings.newsRules.single.categoryId, 'category-1');
+      expect(settings.newsRules.single.exclude, 'National celebrity news');
+      expect(dashboard.serviceState, 'awaiting_source_approval');
+      expect(dashboard.view, 'preparation');
+      expect(dashboard.upcomingArticle?.articleId, 'article-upcoming');
+      expect(dashboard.upcomingArticle?.sourceName, 'Local Gazette');
 
       final legacy = await repository.getLocalNewsSettings('community-1');
       expect(legacy.dashboard, isNull);
@@ -2477,6 +2598,21 @@ void main() {
       reason: 'missing flag means hidden',
     );
   });
+
+  test(
+    'contributor role is parsed and can create public page content',
+    () async {
+      final repository = HttpCommunityRepository(
+        apiClient: _RecordingApiClient(),
+      );
+
+      final page = await repository.getCommunity('contributor-page');
+
+      expect(page.myRole, CommunityRole.contributor);
+      expect(page.isPublicProfile, isTrue);
+      expect(page.canPublish, isTrue);
+    },
+  );
 
   test('Local News access applications use owner endpoints', () async {
     final api = _RecordingApiClient();

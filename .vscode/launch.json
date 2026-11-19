@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Wicchu app (iPhone simulator)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "430C0C18-8938-40FF-AB4D-92B5F16435A9"
+    },
+    {
+      "name": "Wicchu app (quick reuse iOS build)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "430C0C18-8938-40FF-AB4D-92B5F16435A9",
+      "toolArgs": [
+        "--no-build"
+      ]
+    },
+    {
+      "name": "Wicchu app (select device)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "debug"
+    }
+  ]
+}

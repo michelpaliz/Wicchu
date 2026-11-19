@@ -7,10 +7,15 @@ import 'package:http_parser/http_parser.dart';
 import 'session_token_store.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.fieldErrors = const {},
+  });
 
   final String message;
   final int? statusCode;
+  final Map<String, String> fieldErrors;
 
   @override
   String toString() => message;
@@ -169,12 +174,26 @@ class AuthenticatedApiClient {
                 ? shareErrors
                 : 'The server could not complete the request.'),
         statusCode: response.statusCode,
+        fieldErrors: _fieldErrors(decoded),
       );
     }
     if (decoded is! Map<String, dynamic>) {
       throw const ApiException('The server returned an invalid response.');
     }
     return decoded;
+  }
+
+  static Map<String, String> _fieldErrors(Object? decoded) {
+    if (decoded is! Map<String, dynamic>) return const {};
+    final value = decoded['fieldErrors'];
+    if (value is! Map) return const {};
+    return {
+      for (final entry in value.entries)
+        if (entry.value != null && entry.value.toString().trim().isNotEmpty)
+          entry.key.toString(): entry.value is List
+              ? (entry.value as List).map((item) => item.toString()).join(' ')
+              : entry.value.toString(),
+    };
   }
 
   Future<bool> _refreshToken() async {

@@ -677,6 +677,7 @@ abstract interface class CommunityRepository {
     String? query,
   });
   Future<Community> createCommunity(CreateCommunityInput input);
+  Future<void> deleteCommunity(String communityId);
   Future<void> joinCommunity(String communityId);
   Future<void> leaveCommunity(String communityId);
   Future<bool> getAdminAnonymity(String communityId);

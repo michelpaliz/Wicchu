@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../widgets/emoji_aware_text.dart';
 import 'wicchu_icons.dart';
 
 abstract final class WicchuColors {
@@ -51,6 +52,8 @@ abstract final class WicchuPostTypography {
 }
 
 abstract final class WicchuTheme {
+  static const fontFamilyFallback = WicchuEmojiFonts.fallback;
+
   static ThemeData get light => _build(Brightness.light);
   static ThemeData get dark => _build(Brightness.dark);
 
@@ -91,6 +94,7 @@ abstract final class WicchuTheme {
 
     return ThemeData(
       fontFamily: 'Plus Jakarta Sans',
+      fontFamilyFallback: fontFamilyFallback,
       actionIconTheme: ActionIconThemeData(
         backButtonIconBuilder: (_) => const Icon(WicchuIcons.arrowLeft),
         closeButtonIconBuilder: (_) => const Icon(WicchuIcons.x),

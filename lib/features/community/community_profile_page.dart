@@ -1,6 +1,7 @@
 import '../../widgets/community_rules_list.dart';
 import '../admin/rule_management_page.dart';
 import '../../widgets/compact_profile_description.dart';
+import '../../widgets/post_empty_state.dart';
 import '../../widgets/blinking_follow_icon.dart';
 import 'category_notifications_sheet.dart';
 import 'community_rating_sheet.dart';
@@ -64,6 +65,7 @@ class CommunityProfilePage extends StatefulWidget {
     this.onSwitchCommunity,
     this.onAccountMenu,
     this.onCommunityUpdated,
+    this.onCommunityDeleted,
     this.screen = CommunityScreen.feed,
     this.showAdministration = false,
   });
@@ -78,6 +80,7 @@ class CommunityProfilePage extends StatefulWidget {
   final VoidCallback? onSwitchCommunity;
   final VoidCallback? onAccountMenu;
   final ValueChanged<Community>? onCommunityUpdated;
+  final VoidCallback? onCommunityDeleted;
 
   @override
   State<CommunityProfilePage> createState() => _CommunityProfilePageState();
@@ -249,17 +252,19 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   bool get _isShowingAboutTranslation =>
       _showAboutTranslation && _hasCurrentAboutTranslation;
 
-  String get _aboutDescription =>
-      _isShowingAboutTranslation &&
-          _aboutTranslation!.translatedDescription.trim().isNotEmpty
-      ? _aboutTranslation!.translatedDescription
-      : _community.description;
+  String get _aboutDescription => sanitizeDisplayText(
+    _isShowingAboutTranslation &&
+            _aboutTranslation!.translatedDescription.trim().isNotEmpty
+        ? _aboutTranslation!.translatedDescription
+        : _community.description,
+  );
 
-  String get _aboutShortDescription =>
-      _isShowingAboutTranslation &&
-          _aboutTranslation!.translatedShortDescription.trim().isNotEmpty
-      ? _aboutTranslation!.translatedShortDescription
-      : _community.shortDescription;
+  String get _aboutShortDescription => sanitizeDisplayText(
+    _isShowingAboutTranslation &&
+            _aboutTranslation!.translatedShortDescription.trim().isNotEmpty
+        ? _aboutTranslation!.translatedShortDescription
+        : _community.shortDescription,
+  );
 
   String get _aboutSummary => _aboutShortDescription.trim().isNotEmpty
       ? _aboutShortDescription
@@ -832,7 +837,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   Future<void> _openManagement() async {
-    final updated = await Navigator.push<Community>(
+    final result = await Navigator.push<Object?>(
       context,
       MaterialPageRoute(
         builder: (_) => AdminDashboardPage(
@@ -841,11 +846,33 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         ),
       ),
     );
+    if (!mounted) return;
+    if (result == CommunitySettingsResult.deleted) {
+      _handleDeleted();
+      return;
+    }
     if (mounted) {
       setState(() {
-        if (updated != null) _community = updated;
+        if (result is Community) _community = result;
         _reload();
       });
+    }
+  }
+
+  void _handleDeleted() {
+    if (!mounted) return;
+    final message = context.tr(
+      _community.isPublicProfile ? 'Page removed' : 'Community removed',
+    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+    if (widget.onCommunityDeleted != null) {
+      widget.onCommunityDeleted!();
+    } else if (widget.onBack != null) {
+      widget.onBack!();
+    } else {
+      Navigator.maybePop(context);
     }
   }
 
@@ -1011,6 +1038,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                         community: _community,
                         repository: widget.repository,
                         embedded: true,
+                        onCommunityDeleted: _handleDeleted,
                         onCommunityChanged: (updated) => setState(() {
                           _community = updated;
                           _reload();
@@ -1419,14 +1447,15 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         }) => ListTile(
           enabled: enabled,
           dense: true,
-          minTileHeight: 52,
+          minTileHeight: 50,
+          visualDensity: const VisualDensity(vertical: -2),
           leading: Icon(
             icon,
             size: 20,
             color: enabled
                 ? (destructive
                       ? Theme.of(sheetContext).colorScheme.error
-                      : Theme.of(sheetContext).colorScheme.primary)
+                      : Theme.of(sheetContext).colorScheme.onSurfaceVariant)
                 : null,
           ),
           title: Text(
@@ -1448,34 +1477,38 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             alignment: AlignmentDirectional.centerStart,
             child: Text(
               sheetContext.tr(label),
-              style: Theme.of(sheetContext).textTheme.labelMedium?.copyWith(
-                color: Theme.of(sheetContext).colorScheme.primary,
+              style: Theme.of(sheetContext).textTheme.labelSmall?.copyWith(
+                color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
+                letterSpacing: .6,
               ),
             ),
           ),
         );
-        const groupDivider = Divider(height: 17, indent: 16, endIndent: 16);
+        const groupDivider = Divider(height: 9, indent: 16, endIndent: 16);
 
         return SafeArea(
           top: false,
-          child: SingleChildScrollView(
-            child: Padding(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetContext).height * .88,
+            ),
+            child: ListView(
+              shrinkWrap: true,
               padding: const EdgeInsets.only(bottom: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: Text(
-                        sheetContext.tr('Community options'),
-                        style: Theme.of(sheetContext).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      sheetContext.tr('Community options'),
+                      style: Theme.of(sheetContext).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                   ),
+                ),
+                if (isCommunity) ...[
                   if (_canPublish)
                     option(
                       'createPost',
@@ -1483,65 +1516,32 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                       WicchuIcons.plus,
                       enabled: !_openingComposer && !_savingMembership,
                     ),
-                  if (isCommunity && _canManage)
-                    option('manage', 'Manage community', WicchuIcons.shield),
                   if (communityMessagingAvailable)
                     option(
                       'communityMessages',
-                      'Community messages',
+                      'Messages',
                       WicchuIcons.chatCircle,
                     ),
-                  option('share', 'Share', WicchuIcons.export),
+                  if (_joined)
+                    option('notifications', 'Notifications', WicchuIcons.bell),
+                  if (_canPublish || communityMessagingAvailable || _joined)
+                    groupDivider,
+                  sectionLabel('Community'),
                   if (_canInviteToCommunity)
                     option('invite', 'Invite people', WicchuIcons.userPlus),
-                  if (isCommunity && _joined)
-                    option('notifications', 'Notifications', WicchuIcons.bell),
-                  if (isCommunity && widget.screen == CommunityScreen.feed) ...[
-                    groupDivider,
-                    option(
-                      'information',
-                      'Community information',
-                      WicchuIcons.info,
-                    ),
-                  ],
-                  if (_isLocalBusiness &&
-                      _joined &&
-                      widget.screen == CommunityScreen.feed)
-                    option(
-                      'search',
-                      'Search posts',
-                      WicchuIcons.magnifyingGlass,
-                    ),
-                  if (!_community.isPublicProfile ||
-                      _community.links.isNotEmpty)
-                    option('links', 'Useful links', WicchuIcons.linkSimple),
+                  option('share', 'Share', WicchuIcons.export),
+                  option('links', 'Useful links', WicchuIcons.linkSimple),
                   option('media', 'Media', WicchuIcons.images),
-                  if (canEdit || _canManage) ...[
+                  if (_canManage) ...[
                     groupDivider,
                     sectionLabel('Administration'),
-                  ],
-                  if (_community.isPublicProfile && _canManage)
-                    option(
-                      'manage',
-                      _isLocalBusiness ? 'Manage business' : 'Manage profile',
-                      WicchuIcons.shield,
-                    ),
-                  if (canEdit)
-                    option(
-                      'edit',
-                      _community.isPublicProfile
-                          ? (_isLocalBusiness
-                                ? 'Edit business'
-                                : 'Edit profile')
-                          : 'Edit community',
-                      WicchuIcons.pencilSimple,
-                    ),
-                  if (_canManage)
+                    option('manage', 'Manage community', WicchuIcons.shield),
                     option(
                       'contactSafety',
                       'Contact Wicchu Safety',
                       WicchuIcons.shieldPlus,
                     ),
+                  ],
                   if (canLeave || canStepDown || canReport) groupDivider,
                   if (canLeave)
                     option(
@@ -1561,14 +1561,62 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                   if (canReport)
                     option(
                       'report',
-                      _community.isPublicProfile
-                          ? 'Report page'
-                          : 'Report community',
+                      'Report community',
+                      WicchuIcons.flag,
+                      destructive: true,
+                    ),
+                ] else ...[
+                  if (_canPublish)
+                    option(
+                      'createPost',
+                      'Create post',
+                      WicchuIcons.plus,
+                      enabled: !_openingComposer && !_savingMembership,
+                    ),
+                  option('share', 'Share', WicchuIcons.export),
+                  if (_isLocalBusiness &&
+                      _joined &&
+                      widget.screen == CommunityScreen.feed)
+                    option(
+                      'search',
+                      'Search posts',
+                      WicchuIcons.magnifyingGlass,
+                    ),
+                  if (_community.links.isNotEmpty)
+                    option('links', 'Useful links', WicchuIcons.linkSimple),
+                  option('media', 'Media', WicchuIcons.images),
+                  if (canEdit || _canManage) ...[
+                    groupDivider,
+                    sectionLabel('Administration'),
+                  ],
+                  if (_canManage)
+                    option(
+                      'manage',
+                      _isLocalBusiness ? 'Manage business' : 'Manage profile',
+                      WicchuIcons.shield,
+                    ),
+                  if (canEdit)
+                    option(
+                      'edit',
+                      _isLocalBusiness ? 'Edit business' : 'Edit profile',
+                      WicchuIcons.pencilSimple,
+                    ),
+                  if (_canManage)
+                    option(
+                      'contactSafety',
+                      'Contact Wicchu Safety',
+                      WicchuIcons.shieldPlus,
+                    ),
+                  if (canReport) groupDivider,
+                  if (canReport)
+                    option(
+                      'report',
+                      'Report page',
                       WicchuIcons.flag,
                       destructive: true,
                     ),
                 ],
-              ),
+              ],
             ),
           ),
         );
@@ -1788,7 +1836,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
   }
 
   Future<void> _editCommunity() async {
-    final updated = await Navigator.push<Community>(
+    final result = await Navigator.push<Object?>(
       context,
       MaterialPageRoute(
         builder: (_) => CommunitySettingsPage(
@@ -1797,13 +1845,18 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         ),
       ),
     );
-    if (updated != null && mounted) {
+    if (!mounted) return;
+    if (result == CommunitySettingsResult.deleted) {
+      _handleDeleted();
+      return;
+    }
+    if (result is Community) {
       setState(() {
-        _community = updated;
-        _joined = updated.isJoined;
+        _community = result;
+        _joined = result.isJoined;
         _reload();
       });
-      widget.onCommunityUpdated?.call(updated);
+      widget.onCommunityUpdated?.call(result);
     }
   }
 
@@ -1997,7 +2050,11 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         ],
         if (!_community.isPublicProfile) ...[
           if (description.isNotEmpty) const SizedBox(height: 8),
-          _communityHeaderMetadata(_community.town.name),
+          _communityHeaderMetadata(
+            context.tr(
+              _community.isGlobal ? 'Everywhere' : _community.town.name,
+            ),
+          ),
         ],
       ],
     );
@@ -2086,7 +2143,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             const SizedBox(width: 7),
             item(
               compact: true,
-              icon: WicchuIcons.mapPin,
+              icon: WicchuIcons.mapPinSimple,
               text: location,
               textKey: const ValueKey('page-header-location'),
             ),
@@ -2694,7 +2751,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             slivers: [
               if (_canPublish)
                 SliverToBoxAdapter(
-                  child: _isLocalBusiness
+                  child: (_isLocalBusiness || !_community.isPublicProfile)
                       ? FutureBuilder<List<CommunityPost>>(
                           future: _posts,
                           builder: (context, snapshot) =>
@@ -2898,10 +2955,26 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
                     }
                   }
                   if (posts.isEmpty) {
-                    return SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(context.tr('No posts found')),
+                    return SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: PostEmptyState(
+                          title: context.tr('No posts yet.'),
+                          description: context.tr(
+                            _canPublish
+                                ? 'Be the first to share news, an event, an offer, or something useful with the community.'
+                                : 'Updates from this community will appear here.',
+                          ),
+                          actionLabel: _canPublish
+                              ? context.tr('Create publication')
+                              : null,
+                          onAction:
+                              _canPublish &&
+                                  !_openingComposer &&
+                                  !_savingMembership
+                              ? _createPost
+                              : null,
+                        ),
                       ),
                     );
                   }
@@ -4151,7 +4224,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         key: const ValueKey('business-information-details'),
         children: [
           _businessInformationRow(
-            WicchuIcons.mapPin,
+            WicchuIcons.mapPinSimple,
             'Location',
             [
               _community.town.name,
@@ -4213,7 +4286,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
             SizedBox(
               width: width,
               child: detail(
-                WicchuIcons.mapPin,
+                WicchuIcons.mapPinSimple,
                 _community.town.name,
                 'Location',
               ),
@@ -5056,7 +5129,9 @@ class _CommunityProfilePageState extends State<CommunityProfilePage>
         Column(
           children: [
             detail(
-              _community.isGlobal ? WicchuIcons.globe : WicchuIcons.mapPin,
+              _community.isGlobal
+                  ? WicchuIcons.globe
+                  : WicchuIcons.mapPinSimple,
               'Location',
               location,
               onTap: _community.isGlobal

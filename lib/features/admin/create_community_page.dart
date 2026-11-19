@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../domain/community_input_limits.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../data/authenticated_api_client.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
@@ -1266,7 +1267,7 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       setState(() => _saving = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(context.trError(error))));
+      ).showSnackBar(SnackBar(content: Text(_creationError(error))));
       return;
     }
     if (!mounted) return;
@@ -1324,6 +1325,46 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
         if (mounted) Navigator.pop(context, community);
       });
     }
+  }
+
+  String _creationError(Object error) {
+    if (error is! ApiException) return context.trError(error);
+    final fields = error.fieldErrors.keys
+        .map((key) => key.toLowerCase())
+        .toSet();
+    if (fields.any((key) => key == 'name' || key.endsWith('.name'))) {
+      return context.tr('Check the community name and try again.');
+    }
+    if (fields.any((key) => key.contains('town'))) {
+      return context.tr('Choose a valid location and try again.');
+    }
+    if (fields.any(
+      (key) => key.contains('category') || key.contains('categories'),
+    )) {
+      return context.tr('Review the selected categories and try again.');
+    }
+    final message = error.message.toLowerCase();
+    if (error.statusCode == 409 ||
+        message.contains('already exists') ||
+        message.contains('duplicate')) {
+      return context.tr('A community with this name already exists.');
+    }
+    if (error.statusCode == 401) return context.trError(error);
+    if (error.statusCode == 403) {
+      return context.tr('You do not have permission to create a community.');
+    }
+    if (error.statusCode == 429) {
+      return context.tr('Too many attempts. Wait a moment and try again.');
+    }
+    if (error.statusCode == 400 || error.statusCode == 422) {
+      return context.tr('Review the community information and try again.');
+    }
+    if ((error.statusCode ?? 0) >= 500) {
+      return context.tr(
+        'Community creation is temporarily unavailable. Try again shortly.',
+      );
+    }
+    return context.trError(error);
   }
 
   Future<void> _loadCategorySuggestions() async {

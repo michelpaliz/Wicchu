@@ -940,6 +940,23 @@ class DemoCommunityRepository
   }
 
   @override
+  Future<void> deleteCommunity(String communityId) async {
+    final community = _communities
+        .where((item) => item.id == communityId)
+        .firstOrNull;
+    if (community?.myRole != CommunityRole.owner) {
+      throw Exception('Only the owner can remove this space.');
+    }
+    _communities.removeWhere((item) => item.id == communityId);
+    _categories.remove(communityId);
+    _categoryOrders.remove(communityId);
+    _rules.remove(communityId);
+    _ruleVersions.remove(communityId);
+    _posts.remove(communityId);
+    _seenPosts.remove(communityId);
+  }
+
+  @override
   Future<CommunityWeather?> getCommunityWeather(String communityId) async =>
       CommunityWeather(
         townName: 'Echeandía',

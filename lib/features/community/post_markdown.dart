@@ -5,8 +5,11 @@ import 'package:markdown/markdown.dart' as md;
 import '../../localization/app_language.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../widgets/compact_profile_description.dart';
+import '../../widgets/emoji_aware_text.dart';
 
 String postPlainText(String source, {bool preserveParagraphs = false}) {
+  source = sanitizeDisplayText(source);
   final document = md.Document(
     encodeHtml: false,
     extensionSet: md.ExtensionSet.gitHubFlavored,
@@ -113,7 +116,9 @@ class _PostMarkdownState extends State<PostMarkdown> {
       extensionSet: md.ExtensionSet.gitHubFlavored,
     );
     InlineSpan render(md.Node node, {TapGestureRecognizer? link}) {
-      if (node is md.Text) return TextSpan(text: node.text, recognizer: link);
+      if (node is md.Text) {
+        return emojiAwareTextSpan(node.text, recognizer: link);
+      }
       if (node is! md.Element) return TextSpan(text: node.textContent);
       if (node.tag == 'br') return const TextSpan(text: '\n');
       if (node.tag == 'img') {
@@ -280,18 +285,22 @@ class _PostMarkdownState extends State<PostMarkdown> {
   // Present a short standalone opening paragraph as a headline without
   // changing the stored post or treating ordinary single-paragraph posts as titles.
   String get _displayMarkdown {
-    final paragraphs = widget.data.trim().split(RegExp(r'\n\s*\n'));
+    final sanitizedData = sanitizeDisplayText(widget.data);
+    final paragraphs = sanitizedData.split(RegExp(r'\n\s*\n'));
     if (paragraphs.length > 1 &&
         paragraphs.first.length <= 120 &&
         !paragraphs.first.contains('\n') &&
         !RegExp(r'^[#>*\-]|^\d+\.').hasMatch(paragraphs.first)) {
       return '### ${paragraphs.first}\n\n${paragraphs.skip(1).join('\n\n')}';
     }
-    return widget.data;
+    return sanitizedData;
   }
 
   Widget _markdown(BuildContext context) {
     final theme = Theme.of(context);
+    if (containsEmoji(_displayMarkdown)) {
+      return Text.rich(_previewSpan(context));
+    }
     return MarkdownBody(
       data: _displayMarkdown,
       // SelectableText captures held drags for selection on mobile, preventing

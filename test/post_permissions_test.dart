@@ -56,8 +56,9 @@ Community space(
 
 Future<void> _openPreview(
   WidgetTester tester,
-  _WizardRepository repository,
-) async {
+  _WizardRepository repository, {
+  String text = 'Test publication',
+}) async {
   final category = CommunityCategory(
     id: 'general',
     communityId: 'space',
@@ -80,12 +81,7 @@ Future<void> _openPreview(
   tester
       .widget<PostRichTextEditor>(find.byType(PostRichTextEditor))
       .controller
-      .replaceText(
-        0,
-        0,
-        'Test publication',
-        const TextSelection.collapsed(offset: 16),
-      );
+      .replaceText(0, 0, text, TextSelection.collapsed(offset: text.length));
   await tester.pump();
   await tester.tap(find.byKey(const ValueKey('next-post-step')));
   await tester.pumpAndSettle();
@@ -94,6 +90,26 @@ Future<void> _openPreview(
 }
 
 void main() {
+  testWidgets('published confirmation hides editor markdown escapes', (
+    tester,
+  ) async {
+    final repository = _WizardRepository(
+      space(CommunityType.community, CommunityRole.owner),
+    );
+    await _openPreview(
+      tester,
+      repository,
+      text: '!!! Bienvenidos a la comunidad MP !!!',
+    );
+    await tester.tap(find.byKey(const ValueKey('publish-post')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('!!! Bienvenidos a la comunidad MP !!!'), findsOneWidget);
+    expect(find.textContaining(r'\!'), findsNothing);
+    expect(repository.createdInput!.text, contains(r'\!'));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'new draft clears important announcement and preview is read only',
     (tester) async {
@@ -331,12 +347,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('only owners/admins can publish on every public page type', () {
+  test('owners, admins and contributors can publish on public pages', () {
     for (final category in ProfileCategory.values) {
       for (final role in [null, ...CommunityRole.values]) {
         expect(
           space(CommunityType.publicProfile, role, category).canPublish,
-          role == CommunityRole.owner || role == CommunityRole.admin,
+          role == CommunityRole.owner ||
+              role == CommunityRole.admin ||
+              role == CommunityRole.contributor,
         );
       }
     }

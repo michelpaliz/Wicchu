@@ -714,6 +714,10 @@ class _ActiveCommunityTabState extends State<_ActiveCommunityTab> {
         repository: widget.repository,
         embedded: true,
         postRequest: widget.postRequest,
+        onCommunityDeleted: () {
+          refresh();
+          widget.onChanged();
+        },
         onSwitchCommunity: () => _choose(communities),
       );
     },

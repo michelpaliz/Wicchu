@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -131,6 +132,11 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(Card), findsNothing);
       expect(find.text('2'), findsOneWidget);
+      final firstCard = find.byKey(const ValueKey('home-pinned-first'));
+      final secondCard = find.byKey(const ValueKey('home-pinned-second'));
+      expect(tester.getTopLeft(firstCard).dx, 16);
+      expect(tester.getTopRight(firstCard).dx, 304);
+      expect(tester.getTopLeft(secondCard).dx, 320);
       await tester.runAsync(() async {
         final image =
             await (key.currentContext!.findRenderObject()
@@ -151,5 +157,81 @@ void main() {
       expect(opened, 'second');
       expect(tester.takeException(), isNull);
     }
+  });
+
+  testWidgets('pinned summaries remove malformed characters', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final post = CommunityPost(
+      id: 'malformed',
+      communityId: 'community',
+      categoryId: 'news',
+      authorId: 'author',
+      text: '\uE000\uFFFD🎉💚 Bienvenidos a Echeandía 🇪🇨 \uFFFC',
+      status: PostStatus.published,
+      createdAt: DateTime.utc(2026, 10, 15),
+      pinned: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: WicchuTheme.light,
+        home: Scaffold(
+          body: HomePinnedPosts(
+            posts: [post],
+            communities: const {},
+            onOpen: (_) {},
+          ),
+        ),
+      ),
+    );
+    debugDefaultTargetPlatformOverride = null;
+
+    expect(find.text('Bienvenidos a Echeandía'), findsOneWidget);
+    expect(find.textContaining('🎉'), findsNothing);
+    expect(find.textContaining('💚'), findsNothing);
+    expect(find.textContaining('🇪🇨'), findsNothing);
+    expect(find.textContaining('\uE000'), findsNothing);
+    expect(find.textContaining('\uFFFD'), findsNothing);
+    expect(find.textContaining('\uFFFC'), findsNothing);
+  });
+
+  testWidgets('two pinned posts fit a phone row without clipping', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 740));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final posts = [
+      for (final id in ['first', 'second'])
+        CommunityPost(
+          id: id,
+          communityId: 'community',
+          categoryId: 'general',
+          authorId: 'author',
+          text: 'Pinned community update',
+          status: PostStatus.published,
+          createdAt: DateTime.utc(2026, 11, 3),
+          pinned: true,
+        ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HomePinnedPosts(
+            posts: posts,
+            communities: const {},
+            onOpen: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    final first = find.byKey(const ValueKey('home-pinned-first'));
+    final second = find.byKey(const ValueKey('home-pinned-second'));
+    expect(tester.getTopLeft(first).dx, 16);
+    expect(tester.getTopRight(first).dx, 189);
+    expect(tester.getTopLeft(second).dx, 201);
+    expect(tester.getTopRight(second).dx, 374);
+    expect(tester.takeException(), isNull);
   });
 }

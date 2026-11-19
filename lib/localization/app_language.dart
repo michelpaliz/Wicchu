@@ -27,6 +27,16 @@ class AppLanguageScope extends InheritedWidget {
 extension AppTranslation on BuildContext {
   bool get isSpanish => Localizations.localeOf(this).languageCode == 'es';
 
+  /// Translates a canonical app string using Wicchu's selected language.
+  ///
+  /// This is useful for data-backed labels (such as built-in categories),
+  /// where the app language is the source of truth while the platform locale
+  /// may still be updating during a language switch.
+  String trForAppLanguage(String english) {
+    final languageCode = AppLanguageScope.of(this).languageCode;
+    return languageCode == 'es' ? (_spanish[english] ?? english) : english;
+  }
+
   String tr(String english, [Map<String, String> values = const {}]) {
     var result = isSpanish ? (_spanish[english] ?? english) : english;
     for (final entry in values.entries) {
@@ -154,6 +164,8 @@ const _spanish = <String, String>{
       'Gestiona el contenido de la página. El propietario concede por separado mensajes, pedidos, servicios y analítica.',
   'Reviews content, comments and reports. No financial or business access.':
       'Revisa contenido, comentarios y reportes. Sin acceso financiero ni comercial.',
+  'Creates page content and submits it for approval. No management access.':
+      'Crea contenido para la página y lo envía para aprobación. Sin acceso de administración.',
   'Can follow and interact with the page. No management access.':
       'Puede seguir e interactuar con la página. Sin acceso de gestión.',
   'Full control, ownership, Community Rewards and administrator access.':
@@ -162,6 +174,12 @@ const _spanish = <String, String>{
       'Gestiona contenido, miembros, categorías y configuración de la comunidad.',
   'Reviews content, comments and reports. No ownership or financial access.':
       'Revisa contenido, comentarios y reportes. Sin acceso a propiedad ni finanzas.',
+  'Creates news, events and content. Approval is required by default.':
+      'Crea noticias, eventos y contenido. La aprobación es obligatoria de forma predeterminada.',
+  'Creates news, events and community content. Approval is required by default.':
+      'Crea noticias, eventos y contenido de la comunidad. La aprobación es obligatoria de forma predeterminada.',
+  'Creates content and submits it for approval.':
+      'Crea contenido y lo envía para aprobación.',
   'Can join, publish and interact according to community rules.':
       'Puede unirse, publicar e interactuar según las reglas de la comunidad.',
   'Page permissions': 'Permisos de la página',
@@ -181,6 +199,7 @@ const _spanish = <String, String>{
   'Page owner': 'Propietario de la página',
   'Page administrator': 'Administrador de la página',
   'Page moderator': 'Moderador de la página',
+  'Page contributor': 'Colaborador de la página',
   'Follower': 'Seguidor',
   'View role permissions': 'Ver permisos del rol',
   'Actions': 'Acciones',
@@ -228,6 +247,7 @@ const _spanish = <String, String>{
   'Community reach': 'Alcance de la comunidad',
   'Location-based': 'Basada en ubicación',
   'Open to people everywhere': 'Abierta a personas de cualquier lugar',
+  'Everywhere': 'En cualquier lugar',
   'Open to people everywhere. No location is required.':
       'Abierta a personas de cualquier lugar. No se requiere ubicación.',
   'Connected to a specific city, town, or area.':
@@ -249,6 +269,7 @@ const _spanish = <String, String>{
   'Community owner': 'Propietario de la comunidad',
   'Community administrator': 'Administrador de la comunidad',
   'Community moderator': 'Moderador de la comunidad',
+  'Community contributor': 'Colaborador de la comunidad',
   'Invite as page administrator': 'Invitar como administrador de la página',
   'Invite as community administrator':
       'Invitar como administrador de la comunidad',
@@ -807,6 +828,7 @@ const _spanish = <String, String>{
   'You own this community': 'Eres propietario de esta comunidad',
   'You administer this community': 'Eres administrador de esta comunidad',
   'You moderate this community': 'Eres moderador de esta comunidad',
+  'You contribute to this community': 'Colaboras en esta comunidad',
   'You are a member of this community': 'Eres miembro de esta comunidad',
   'Leave this community?': '¿Salir de esta comunidad?',
 
@@ -1065,6 +1087,7 @@ const _spanish = <String, String>{
   'Search local posts': 'Buscar publicaciones locales',
   'All': 'Todos',
   'News': 'Noticias',
+  'Bugs': 'Errores',
   'Marketplace': 'Mercado',
   'Jobs': 'Empleos',
   'Events': 'Eventos',
@@ -1087,6 +1110,8 @@ const _spanish = <String, String>{
   'Mark all read': 'Marcar todas como leídas',
   'Additional information': 'Información adicional',
   'Posts and content': 'Publicaciones y contenido',
+  'Posts will need approval before appearing in the community.':
+      'Las publicaciones necesitarán aprobación antes de aparecer en la comunidad.',
   'Remove cover photo': 'Eliminar foto de portada',
   'Shown as a {network} link.': 'Se mostrará como un enlace de {network}.',
   'Clear link': 'Borrar enlace',
@@ -1197,6 +1222,39 @@ const _spanish = <String, String>{
   'Report submitted': 'Denuncia enviada',
   'Report': 'Denunciar',
   'Cancel': 'Cancelar',
+  'Owner actions': 'Acciones del propietario',
+  'Remove page': 'Eliminar página',
+  'Remove community': 'Eliminar comunidad',
+  'Remove this page?': '¿Eliminar esta página?',
+  'Remove this community?': '¿Eliminar esta comunidad?',
+  'Archive this page and remove it from Wicchu.':
+      'Archiva esta página y elimínala de Wicchu.',
+  'Archive this community and remove it from Wicchu.':
+      'Archiva esta comunidad y elimínala de Wicchu.',
+  'The page will be archived, publishing will stop, and people will no longer be able to open it. This action cannot be undone in the app.':
+      'La página se archivará, se detendrán las publicaciones y las personas ya no podrán abrirla. Esta acción no se puede deshacer en la aplicación.',
+  'The community will be archived, publishing and automatic news will stop, and members will no longer be able to open it. This action cannot be undone in the app.':
+      'La comunidad se archivará, se detendrán las publicaciones y las noticias automáticas, y los miembros ya no podrán abrirla. Esta acción no se puede deshacer en la aplicación.',
+  'Page removed': 'Página eliminada',
+  'Community removed': 'Comunidad eliminada',
+  'Check the community name and try again.':
+      'Revisa el nombre de la comunidad e inténtalo de nuevo.',
+  'Choose a valid location and try again.':
+      'Elige una ubicación válida e inténtalo de nuevo.',
+  'Review the selected categories and try again.':
+      'Revisa las categorías seleccionadas e inténtalo de nuevo.',
+  'A community with this name already exists.':
+      'Ya existe una comunidad con este nombre.',
+  'You do not have permission to create a community.':
+      'No tienes permiso para crear una comunidad.',
+  'Too many attempts. Wait a moment and try again.':
+      'Demasiados intentos. Espera un momento e inténtalo de nuevo.',
+  'Review the community information and try again.':
+      'Revisa la información de la comunidad e inténtalo de nuevo.',
+  'Community creation is temporarily unavailable. Try again shortly.':
+      'La creación de comunidades no está disponible temporalmente. Inténtalo de nuevo en unos momentos.',
+  'Only the owner can remove this space.':
+      'Solo el propietario puede eliminar este espacio.',
   'Comments': 'Comentarios',
   'No comments yet': 'Todavía no hay comentarios',
   'Be the first to start the conversation.':
@@ -1631,6 +1689,7 @@ const _spanish = <String, String>{
       '¿Cambiar a {name} a {role}? Se retirarán los permisos de su rol actual.',
   'Administrator': 'Administrador',
   'Moderator': 'Moderador',
+  'Contributor': 'Colaborador',
   'You have no invitations': 'No tienes invitaciones',
   'When someone invites you to a community, the invitation will appear here.':
       'Cuando alguien te invite a una comunidad, la invitación aparecerá aquí.',
@@ -1917,6 +1976,8 @@ const _spanish = <String, String>{
   'Show member list': 'Mostrar lista de miembros',
   'Members can see who belongs to this community.':
       'Los miembros pueden ver quién pertenece a esta comunidad.',
+  'Allows people to see who belongs to this community.':
+      'Permite ver quién pertenece a esta comunidad.',
   'Only administrators and moderators can view the member list.':
       'Solo los administradores y moderadores pueden ver la lista de miembros.',
   'The member list is private.': 'La lista de miembros es privada.',
@@ -2023,6 +2084,7 @@ const _spanish = <String, String>{
   'Active {count} days ago': 'Activo hace {count} días',
   'Active over a week ago': 'Activo hace más de una semana',
   'Automated news': 'Noticias automáticas',
+  'Summary': 'Resumen',
   'Find relevant articles for this community automatically':
       'Encuentra automáticamente artículos relevantes para esta comunidad',
   'News matched to your community': 'Noticias adaptadas a tu comunidad',
@@ -2057,6 +2119,8 @@ const _spanish = <String, String>{
   'Publication approval': 'Aprobación de publicaciones',
   'Approval mode': 'Modo de aprobación',
   'Review before publishing': 'Revisar antes de publicar',
+  'The pilot always reviews news before publishing.':
+      'El piloto siempre revisa las noticias antes de publicarlas.',
   'Recommended for every new source.': 'Recomendado para cada fuente nueva.',
   'Publish automatically': 'Publicar automáticamente',
   'Only sources trusted and authorized by Wicchu can publish automatically.':
@@ -2065,6 +2129,8 @@ const _spanish = <String, String>{
   'Sources managed by Wicchu': 'Fuentes gestionadas por Wicchu',
   'No approved sources are assigned to this community.':
       'Wicchu aún no ha asignado fuentes aprobadas a esta comunidad.',
+  'Wicchu must assign an approved source before automated news can be enabled.':
+      'Wicchu debe asignar una fuente aprobada antes de activar las noticias automáticas.',
   'Pilot access active': 'Acceso piloto activo',
   'Publisher: {name}': 'Fuente: {name}',
   'Read original article': 'Leer noticia original',
@@ -2127,6 +2193,23 @@ const _spanish = <String, String>{
   'Activate automated news': 'Activar noticias automatizadas',
   'Wicchu will look for relevant content automatically.':
       'Wicchu buscará contenido relevante automáticamente.',
+  'Post category *': 'Categoría de publicación *',
+  'Select a category': 'Selecciona una categoría',
+  'News topics *': 'Temas de noticias *',
+  'What should Wicchu look for?': '¿Qué debe buscar Wicchu?',
+  'Excluded content': 'Contenido excluido',
+  'Optional: what should Wicchu avoid?': 'Opcional: ¿qué debe evitar Wicchu?',
+  'Language *': 'Idioma *',
+  'Pilot news always waits for your approval before publication.':
+      'Las noticias piloto siempre esperan tu aprobación antes de publicarse.',
+  'Publication mode *': 'Modo de publicación *',
+  'Select a publication mode': 'Selecciona un modo de publicación',
+  'Select a category for these news posts.':
+      'Selecciona una categoría para estas noticias.',
+  'Describe the news Wicchu should find.':
+      'Describe las noticias que Wicchu debe buscar.',
+  'Add at least 20 characters so Wicchu can find relevant news.':
+      'Añade al menos 20 caracteres para que Wicchu encuentre noticias relevantes.',
   '1. Post category *': '1. Categoría de publicación *',
   'Select an existing community category.':
       'Selecciona una categoría existente de la comunidad.',
@@ -2152,6 +2235,53 @@ const _spanish = <String, String>{
   'Automatic News needs attention':
       'Las noticias automáticas requieren atención',
   'Ready to look for news': 'Listo para buscar noticias',
+  'Describe the news Wicchu should find in at least 20 characters.':
+      'Describe en al menos 20 caracteres las noticias que Wicchu debe buscar.',
+  'Automatic News activated.': 'Noticias automáticas activadas.',
+  'Settings saved.': 'Configuración guardada.',
+  'Automated news is not available':
+      'Las noticias automáticas no están disponibles',
+  'Unable to load Automatic News':
+      'No se pudieron cargar las noticias automáticas',
+  'This feature is not available for this community.':
+      'Esta función no está disponible para esta comunidad.',
+  'Please try again.': 'Inténtalo de nuevo.',
+  'Invite contributors to share reliable local news while Wicchu continues searching.':
+      'Invita a colaboradores a compartir noticias locales fiables mientras Wicchu continúa buscando.',
+  'Invite contributor': 'Invitar a un colaborador',
+  'No pending news': 'No hay noticias pendientes',
+  'When Wicchu prepares an article, it will appear here.':
+      'Cuando Wicchu prepare una noticia, aparecerá aquí.',
+  '{count} news item waiting for review':
+      '{count} noticia pendiente de revisión',
+  'Moderators can also approve these articles from the moderation area.':
+      'Los moderadores también pueden aprobar estas noticias desde el área de moderación.',
+  'Review pending news': 'Revisar noticias pendientes',
+  'We have not found verified sources for this community. Your configuration is saved.':
+      'No hemos encontrado fuentes verificadas para esta comunidad. Tu configuración está guardada.',
+  'Wicchu is verifying sources. This may take time.':
+      'Wicchu está verificando fuentes. Este proceso puede tardar.',
+  'Wicchu is searching for and verifying relevant sources. You can leave this screen.':
+      'Wicchu está buscando y verificando fuentes relevantes. Puedes salir de esta pantalla.',
+  'Your preferences and pending articles are saved.':
+      'Tus preferencias y noticias pendientes están guardadas.',
+  'Wicchu is reviewing approved sources now.':
+      'Wicchu está revisando las fuentes aprobadas.',
+  'We will keep looking for relevant news for your community.':
+      'Seguiremos buscando noticias relevantes para tu comunidad.',
+  'You have a prepared article waiting for approval.':
+      'Tienes una noticia preparada pendiente de aprobación.',
+  'We will keep looking for new articles.':
+      'Seguiremos buscando nuevas noticias.',
+  'Wicchu will try them again automatically.':
+      'Wicchu volverá a intentarlo automáticamente.',
+  'We could not complete the latest check. Wicchu will try again automatically.':
+      'No pudimos completar la última búsqueda. Wicchu volverá a intentarlo automáticamente.',
+  'Wicchu will check verified sources automatically every six hours.':
+      'Wicchu revisará automáticamente las fuentes verificadas cada seis horas.',
+  'No sources found': 'Sin fuentes',
+  'Waiting for approval': 'Esperando aprobación',
+  'Review article': 'Revisar noticia',
   'Next news check not available': 'Próxima búsqueda no disponible',
   'Next publication': 'Próxima publicación',
   'A news card is awaiting your approval. It will not appear in the community until you approve it.':
@@ -2187,6 +2317,8 @@ const _spanish = <String, String>{
       'Selecciona al menos una categoría de noticias activa.',
   'Select at least one approved source.':
       'Selecciona al menos una fuente aprobada.',
+  'Select at least one approved source and active category before enabling Local News':
+      'Selecciona al menos una fuente aprobada y una categoría activa antes de activar las noticias automáticas.',
   'Wicchu must assign an approved news source before automated news can be enabled.':
       'Wicchu debe asignar una fuente de noticias aprobada antes de activar las noticias automáticas.',
   'Waiting for news sources': 'Esperando fuentes de noticias',
@@ -2329,7 +2461,13 @@ const _spanish = <String, String>{
   'Review pending work in community administration.':
       'Revisa las tareas pendientes en la administración de la comunidad.',
   'Recent posts': 'Publicaciones recientes',
+  'No posts yet': 'Aún no hay publicaciones',
   'No posts yet.': 'Aún no hay publicaciones.',
+  'Be the first to share news, an event, an offer, or something useful with the community.':
+      'Sé la primera persona en compartir una noticia, evento, oferta o tema de interés con la comunidad.',
+  'Updates from this community will appear here.':
+      'Las novedades de esta comunidad aparecerán aquí.',
+  'Request a service': 'Solicitar un servicio',
   'Community information': 'Información de la comunidad',
   'Community cover photo': 'Foto de portada de la comunidad',
   'Community profile photo': 'Foto de perfil de la comunidad',
@@ -2482,7 +2620,7 @@ const _spanish = <String, String>{
   'Use at most {count} characters.': 'Usa un máximo de {count} caracteres.',
   'Manage community': 'Administrar comunidad',
   'Open media {number} of {total}': 'Abrir archivo {number} de {total}',
-  'Post options': 'Opciones de la publicación',
+  'Post options': 'Opciones de publicación',
   'Previous media': 'Archivo anterior',
   'Next media': 'Archivo siguiente',
   'Swipe to browse media': 'Desliza para ver más',
@@ -2742,6 +2880,9 @@ const _spanish = <String, String>{
   'People follow a person, business, creator or organization.':
       'Las personas siguen a una persona, negocio, creador u organización.',
   'Profile details': 'Detalles del perfil',
+  'Name, photos and descriptions': 'Nombre, fotos y descripciones',
+  'Privacy and access': 'Privacidad y acceso',
+  'Danger zone': 'Zona de peligro',
   'Tell people what your space is about…': 'Cuenta de qué trata tu espacio…',
   'A clear name and description help people find and join your community.':
       'Un nombre y una descripción claros ayudan a encontrar tu comunidad y unirse a ella.',

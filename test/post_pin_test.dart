@@ -42,7 +42,7 @@ void main() {
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
     expect(find.text('Unpin publication'), findsOneWidget);
-    expect(find.text('Remove it from the top of its category'), findsOneWidget);
+    expect(find.text('Remove it from the top of its category'), findsNothing);
 
     await tester.tap(find.text('Unpin publication'));
     await tester.pumpAndSettle();

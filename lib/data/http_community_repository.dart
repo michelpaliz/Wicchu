@@ -946,6 +946,12 @@ class HttpCommunityRepository
 
   @override
   Future<Community> createCommunity(CreateCommunityInput input) async {
+    final shortDescription = input.shortDescription.trim();
+    final description = input.description.trim();
+    final subject = input.subject.trim();
+    final stableCategories = input.categories
+        .where((item) => item.key?.trim().isNotEmpty == true)
+        .toList(growable: false);
     final body = await _api.post(
       '/api/community/v1/communities',
       body: {
@@ -956,23 +962,27 @@ class HttpCommunityRepository
         if (input.type == CommunityType.publicProfile &&
             input.profileCategory != null)
           'profileCategory': input.profileCategory!.apiValue,
-        'shortDescription': input.shortDescription,
-        'description': input.description,
-        'subject': input.subject,
+        if (shortDescription.isNotEmpty) 'shortDescription': shortDescription,
+        if (description.isNotEmpty) 'description': description,
+        if (subject.isNotEmpty) 'subject': subject,
         'scope': input.scope.name,
         if (input.town != null) 'townId': input.town!.id,
         'visibility': input.visibility.name,
         'categoryNames': input.categoryNames,
-        if (input.categories.isNotEmpty)
-          'categories': input.categories
+        if (stableCategories.isNotEmpty)
+          'categories': stableCategories
               .map((item) => {'key': item.key, 'name': item.name})
               .toList(),
         'approvalRequired': input.approvalRequired,
-        'rules': input.rules
-            .map(
-              (rule) => {'title': rule.title, 'description': rule.description},
-            )
-            .toList(),
+        if (input.rules.isNotEmpty)
+          'rules': input.rules
+              .map(
+                (rule) => {
+                  'title': rule.title,
+                  'description': rule.description,
+                },
+              )
+              .toList(),
       },
     );
     final json = _object(body, 'community');
@@ -1630,6 +1640,11 @@ class HttpCommunityRepository
           membersListVisible ??
           community.membersListVisible,
     });
+  }
+
+  @override
+  Future<void> deleteCommunity(String communityId) async {
+    await _api.delete('/api/community/v1/communities/$communityId');
   }
 
   @override
@@ -4073,6 +4088,27 @@ class HttpCommunityRepository
     final authorJson = author is Map<String, dynamic>
         ? author
         : const <String, dynamic>{};
+    final previewValue =
+        json['linkPreview'] ??
+        ((json['linkPreviews'] is List &&
+                (json['linkPreviews'] as List).isNotEmpty)
+            ? (json['linkPreviews'] as List).first
+            : null);
+    final previewJson = previewValue is Map<String, dynamic>
+        ? previewValue
+        : const <String, dynamic>{};
+    final linkPreview = PostLinkPreview(
+      url:
+          (previewJson['url'] ?? previewJson['canonicalUrl'])?.toString() ?? '',
+      title: previewJson['title']?.toString() ?? '',
+      imageUrl:
+          (previewJson['imageUrl'] ?? previewJson['thumbnailUrl'])
+              ?.toString() ??
+          '',
+      siteName:
+          (previewJson['siteName'] ?? previewJson['domain'])?.toString() ?? '',
+      description: previewJson['description']?.toString() ?? '',
+    );
     return CommunityPost(
       id: _id(json),
       communityId: json['communityId']?.toString() ?? '',
@@ -4082,6 +4118,10 @@ class HttpCommunityRepository
       authorName: authorJson['name'] as String? ?? 'Wicchu member',
       authorAvatarUrl: authorJson['avatarUrl'] as String?,
       text: json['text'] as String? ?? '',
+      language:
+          json['language']?.toString() ??
+          json['languageCode']?.toString() ??
+          '',
       newsSource:
           json['newsSource'] is Map<String, dynamic> &&
               (json['newsSource'] as Map<String, dynamic>)['articleUrl']
@@ -4099,6 +4139,7 @@ class HttpCommunityRepository
               ),
             )
           : null,
+      linkPreview: linkPreview.isRich ? linkPreview : null,
       media: (json['media'] as List? ?? const [])
           .whereType<Map<String, dynamic>>()
           .map(

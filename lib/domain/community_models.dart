@@ -535,7 +535,8 @@ class Community {
       isJoined &&
       (!isPublicProfile ||
           myRole == CommunityRole.owner ||
-          myRole == CommunityRole.admin);
+          myRole == CommunityRole.admin ||
+          myRole == CommunityRole.contributor);
   bool get isPublicProfile => type == CommunityType.publicProfile;
   int get followerCount => memberCount;
 
@@ -1246,6 +1247,36 @@ class LocalNewsAttribution {
   final DateTime? publishedAt;
 }
 
+class PostLinkPreview {
+  const PostLinkPreview({
+    required this.url,
+    required this.title,
+    required this.imageUrl,
+    this.siteName = '',
+    this.description = '',
+  });
+
+  final String url;
+  final String title;
+  final String imageUrl;
+  final String siteName;
+  final String description;
+
+  bool get isRich {
+    final link = Uri.tryParse(url);
+    final image = Uri.tryParse(imageUrl);
+    return link != null &&
+        {'http', 'https'}.contains(link.scheme) &&
+        link.host.isNotEmpty &&
+        link.userInfo.isEmpty &&
+        image != null &&
+        {'http', 'https'}.contains(image.scheme) &&
+        image.host.isNotEmpty &&
+        image.userInfo.isEmpty &&
+        title.trim().isNotEmpty;
+  }
+}
+
 class CommunityPost {
   const CommunityPost({
     required this.id,
@@ -1255,6 +1286,7 @@ class CommunityPost {
     required this.text,
     required this.status,
     required this.createdAt,
+    this.language = '',
     this.media = const [],
     this.authorName = 'Wicchu member',
     this.authorAvatarUrl,
@@ -1284,6 +1316,7 @@ class CommunityPost {
     this.pinned = false,
     this.canPin = false,
     this.newsSource,
+    this.linkPreview,
   });
 
   final String id;
@@ -1294,6 +1327,9 @@ class CommunityPost {
   final List<PostMedia> media;
   final PostStatus status;
   final DateTime createdAt;
+
+  /// Language detected for the original post text, when provided by the API.
+  final String language;
   final String authorName;
   final String? authorAvatarUrl;
   final int reactionCount;
@@ -1325,6 +1361,7 @@ class CommunityPost {
   final bool pinned;
   final bool canPin;
   final LocalNewsAttribution? newsSource;
+  final PostLinkPreview? linkPreview;
   bool get isPersonal => destinationType == 'personal';
   String get displayText =>
       shareCaption.trim().isEmpty ? text : '${shareCaption.trim()}\n\n$text';

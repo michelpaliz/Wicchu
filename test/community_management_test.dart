@@ -1,22 +1,24 @@
 import 'dart:async';
-import 'package:wicchu/features/community/community_invitations_page.dart';
-import 'package:wicchu/domain/community_models.dart';
-import 'package:wicchu/features/community/create_post_page.dart';
-import 'package:wicchu/widgets/feed_filter_bar.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/data/authenticated_api_client.dart';
+import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/data/http_community_repository.dart';
+import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/domain/community_repository.dart';
 import 'package:wicchu/features/admin/admin_dashboard_page.dart';
+import 'package:wicchu/features/admin/admin_management_pages.dart';
 import 'package:wicchu/features/admin/admin_overview_page.dart';
 import 'package:wicchu/features/admin/admin_review_queues.dart';
 import 'package:wicchu/features/admin/rule_management_page.dart';
-import 'package:wicchu/features/admin/admin_management_pages.dart';
+import 'package:wicchu/features/community/community_invitations_page.dart';
 import 'package:wicchu/features/community/community_profile_page.dart';
+import 'package:wicchu/features/community/create_post_page.dart';
 import 'package:wicchu/features/community/post_card.dart';
+import 'package:wicchu/theme/wicchu_theme.dart';
+import 'package:wicchu/widgets/feed_filter_bar.dart';
 
 class InvitationUiRepository extends DemoCommunityRepository {
   @override
@@ -42,6 +44,16 @@ class InvitationUiRepository extends DemoCommunityRepository {
       invitationUrl: 'https://example.com/invite/expired',
     ),
   ];
+}
+
+class _DeletingRepository extends DemoCommunityRepository {
+  String? deletedId;
+
+  @override
+  Future<void> deleteCommunity(String communityId) async {
+    deletedId = communityId;
+    await super.deleteCommunity(communityId);
+  }
 }
 
 class AttentionRepository extends DemoCommunityRepository {
@@ -150,6 +162,182 @@ class _PendingReorderRepository extends DemoCommunityRepository {
 }
 
 void main() {
+  testWidgets('settings starts as a compact administration-style menu', (
+    tester,
+  ) async {
+    final repository = DemoCommunityRepository();
+    final community = (await repository.listJoinedCommunities()).first;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunitySettingsPage(
+          community: community,
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('PROFILE'), findsOneWidget);
+    expect(find.text('Profile details'), findsOneWidget);
+    expect(find.byType(TextFormField), findsNothing);
+    expect(find.text('Edit categories'), findsNothing);
+    expect(find.text('Community rules'), findsNothing);
+    final profileTileContext = tester.element(
+      find.byKey(const ValueKey('settings-profile-details')),
+    );
+    final rowTypography = ListTileTheme.of(profileTileContext);
+    expect(rowTypography.titleTextStyle?.fontSize, 14);
+    expect(rowTypography.titleTextStyle?.fontWeight, FontWeight.w600);
+    expect(rowTypography.subtitleTextStyle?.height, 1.25);
+
+    await tester.tap(find.byKey(const ValueKey('settings-profile-details')));
+    await tester.pumpAndSettle();
+    final shortDescription = find.byKey(
+      const ValueKey('community-short-description'),
+    );
+    final about = find.byKey(const ValueKey('community-about-description'));
+    expect(shortDescription, findsOneWidget);
+    expect(about, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('community-short-description-counter')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('community-about-counter')),
+      findsOneWidget,
+    );
+    expect(find.text('Edit full description'), findsNothing);
+    final shortTextField = tester.widget<TextField>(
+      find.descendant(of: shortDescription, matching: find.byType(TextField)),
+    );
+    final aboutTextField = tester.widget<TextField>(
+      find.descendant(of: about, matching: find.byType(TextField)),
+    );
+    expect(shortTextField.minLines, 1);
+    expect(shortTextField.maxLines, 2);
+    expect(aboutTextField.minLines, 3);
+    expect(aboutTextField.maxLines, 8);
+    expect(
+      tester.getSize(shortDescription).height,
+      inInclusiveRange(48.0, 64.0),
+    );
+    expect(tester.getSize(about).height, inInclusiveRange(80.0, 120.0));
+    await tester.enterText(shortDescription, 'Compact');
+    await tester.pump();
+    expect(find.text('7/160'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'community settings use compact grouped rows and selection sheet',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = DemoCommunityRepository();
+      final community = (await repository.listJoinedCommunities()).first;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WicchuTheme.light,
+          home: CommunitySettingsPage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final section in [
+        'APPEARANCE',
+        'INFORMATION',
+        'POSTS AND CONTENT',
+        'PRIVACY AND ACCESS',
+        'DANGER ZONE',
+      ]) {
+        expect(find.text(section), findsOneWidget);
+      }
+      expect(find.text('GENERAL'), findsNothing);
+      expect(find.text('ADDITIONAL INFORMATION'), findsNothing);
+      expect(find.text('OWNER ACTIONS'), findsNothing);
+      expect(find.byType(Divider), findsNothing);
+      expect(
+        find.text(
+          'Posts will need approval before appearing in the community.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Allows people to see who belongs to this community.'),
+        findsOneWidget,
+      );
+
+      final visibility = find.byKey(
+        const ValueKey('community-visibility-setting'),
+      );
+      expect(tester.getSize(visibility).height, inInclusiveRange(48.0, 56.0));
+      final save = find.byKey(const ValueKey('community-settings-save'));
+      expect(tester.widget<TextButton>(save).onPressed, isNull);
+
+      final approval = find.byKey(const ValueKey('post-approval-setting'));
+      expect(
+        find.descendant(of: approval, matching: find.byType(Switch)),
+        findsOneWidget,
+      );
+      await tester.tap(approval);
+      await tester.pump();
+      expect(tester.widget<TextButton>(save).onPressed, isNotNull);
+
+      await tester.tap(visibility);
+      await tester.pumpAndSettle();
+      expect(find.text('Visibility'), findsNWidgets(2));
+      await tester.tap(find.text('private').last);
+      await tester.pumpAndSettle();
+      expect(find.text('private'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('community settings localize the reorganized sections', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = DemoCommunityRepository();
+    final community = (await repository.listJoinedCommunities()).first;
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('es'),
+        supportedLocales: const [Locale('en'), Locale('es')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        theme: WicchuTheme.light,
+        home: CommunitySettingsPage(
+          community: community,
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final text in [
+      'Ajustes',
+      'APARIENCIA',
+      'INFORMACIÓN',
+      'PUBLICACIONES Y CONTENIDO',
+      'PRIVACIDAD Y ACCESO',
+      'ZONA DE PELIGRO',
+      'Las publicaciones necesitarán aprobación antes de aparecer en la comunidad.',
+      'Permite ver quién pertenece a esta comunidad.',
+    ]) {
+      expect(find.text(text), findsOneWidget);
+    }
+    expect(find.text('GENERAL'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'category reorder blocks concurrent edits and restores controls',
     (tester) async {
@@ -672,29 +860,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('settings opens the shared rule editor and saves a new rule', (
+  testWidgets('administration opens the shared rule editor and saves a rule', (
     tester,
   ) async {
     final repository = DemoCommunityRepository();
     final community = (await repository.listJoinedCommunities()).first;
     await tester.pumpWidget(
       MaterialApp(
-        home: CommunitySettingsPage(
-          community: community,
-          repository: repository,
-        ),
+        home: AdminDashboardPage(community: community, repository: repository),
       ),
     );
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('Community rules'),
+      find.text('Rules'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Community rules'));
+    await tester.ensureVisible(find.text('Rules'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Community rules'));
+    await tester.tap(find.text('Rules'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add rule'));
     await tester.pumpAndSettle();
@@ -716,6 +901,73 @@ void main() {
     expect(updated.rules.last.title, 'Be respectful');
     expect(updated.rules.last.description, 'Respect your neighbors');
   });
+
+  testWidgets('only an owner can remove a community from settings', (
+    tester,
+  ) async {
+    final repository = _DeletingRepository();
+    final ownerCommunity = (await repository.listJoinedCommunities()).first;
+    final adminCommunity = Community(
+      id: ownerCommunity.id,
+      name: ownerCommunity.name,
+      description: ownerCommunity.description,
+      town: ownerCommunity.town,
+      visibility: ownerCommunity.visibility,
+      createdBy: ownerCommunity.createdBy,
+      createdAt: ownerCommunity.createdAt,
+      myRole: CommunityRole.admin,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunitySettingsPage(
+          community: adminCommunity,
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -3000));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('delete-owned-space')), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.push<Object?>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CommunitySettingsPage(
+                    community: ownerCommunity,
+                    repository: repository,
+                  ),
+                ),
+              ),
+              child: const Text('Open owner settings'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open owner settings'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('delete-owned-space')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('delete-owned-space')));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove this community?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Remove community'));
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedId, ownerCommunity.id);
+    expect(find.text('Open owner settings'), findsOneWidget);
+  });
+
   testWidgets('settings protects edits and allows explicit discard', (
     tester,
   ) async {
@@ -745,15 +997,15 @@ void main() {
     );
     await tester.tap(find.text('Open settings'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('settings-profile-details')));
+    await tester.pumpAndSettle();
+    final about = find.byKey(const ValueKey('community-about-description'));
     await tester.scrollUntilVisible(
-      find.widgetWithText(TextFormField, 'About'),
+      about,
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'About'),
-      'Changed description',
-    );
+    await tester.enterText(about, 'Changed description');
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     expect(find.text('Unsaved changes'), findsOneWidget);

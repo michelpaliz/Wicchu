@@ -166,6 +166,10 @@ class _WicchuAppState extends State<WicchuApp> with WidgetsBindingObserver {
           },
         ),
       );
+      final announcement = update.announcement;
+      if (!update.required && announcement != null) {
+        await _appUpdateService.dismissAnnouncement(announcement.id);
+      }
     } on UnsupportedError {
       if (manual) {
         _updateFeedback('Update checks are available on Android and iOS.');

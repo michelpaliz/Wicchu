@@ -71,7 +71,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
   }
 
   Future<void> _settings() async {
-    final updated = await Navigator.push<Community>(
+    final result = await Navigator.push<Object?>(
       context,
       MaterialPageRoute(
         builder: (_) => CommunitySettingsPage(
@@ -81,7 +81,11 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
       ),
     );
     if (!mounted) return;
-    if (updated != null) _community = updated;
+    if (result == CommunitySettingsResult.deleted) {
+      Navigator.pop(context, CommunitySettingsResult.deleted);
+      return;
+    }
+    if (result is Community) _community = result;
     await _refresh();
   }
 

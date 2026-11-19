@@ -258,6 +258,7 @@ class _PendingPostsPageState extends State<PendingPostsPage> {
                                   collapseText: false,
                                   repository: widget.repository,
                                   post: post,
+                                  showNewsAttribution: true,
                                   key: ValueKey('preview-${post.id}'),
                                   category: category?.name ?? 'General',
                                   icon: category?.icon ?? '💬',

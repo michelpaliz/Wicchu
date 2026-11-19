@@ -25,10 +25,12 @@ class AdminDashboardPage extends StatefulWidget {
     required this.repository,
     this.embedded = false,
     this.onCommunityChanged,
+    this.onCommunityDeleted,
   });
 
   final bool embedded;
   final ValueChanged<Community>? onCommunityChanged;
+  final VoidCallback? onCommunityDeleted;
   final Community community;
   final CommunityRepository repository;
 
@@ -364,19 +366,24 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   Future<void> _openOverview() async {
-    final updated = await Navigator.push<Community>(
+    final result = await Navigator.push<Object?>(
       context,
       MaterialPageRoute(
         builder: (_) =>
             AdminOverviewPage(community: community, repository: repository),
       ),
     );
-    if (mounted) {
+    if (!mounted) return;
+    if (result == CommunitySettingsResult.deleted) {
+      _handleDeleted();
+      return;
+    }
+    if (result is Community) {
       setState(() {
-        if (updated != null) _community = updated;
+        _community = result;
         _reload();
       });
-      if (updated != null) widget.onCommunityChanged?.call(updated);
+      widget.onCommunityChanged?.call(result);
     }
   }
 
@@ -397,16 +404,29 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   Future<void> _openSettings() async {
-    final updated = await Navigator.push<Community>(
+    final result = await Navigator.push<Object?>(
       context,
       MaterialPageRoute(
         builder: (_) =>
             CommunitySettingsPage(community: community, repository: repository),
       ),
     );
-    if (updated != null && mounted) {
-      setState(() => _community = updated);
-      widget.onCommunityChanged?.call(updated);
+    if (!mounted) return;
+    if (result == CommunitySettingsResult.deleted) {
+      _handleDeleted();
+      return;
+    }
+    if (result is Community) {
+      setState(() => _community = result);
+      widget.onCommunityChanged?.call(result);
+    }
+  }
+
+  void _handleDeleted() {
+    if (widget.onCommunityDeleted != null) {
+      widget.onCommunityDeleted!();
+    } else {
+      Navigator.maybePop(context, CommunitySettingsResult.deleted);
     }
   }
 }

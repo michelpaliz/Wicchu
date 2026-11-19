@@ -12,6 +12,7 @@ import '../../localization/app_language.dart';
 import '../../widgets/responsive_side_panel.dart';
 import '../../widgets/creation_step_progress.dart';
 import 'post_rich_text_editor.dart';
+import 'post_markdown.dart';
 import 'post_card.dart';
 import 'post_share.dart';
 import 'post_media_gallery.dart';
@@ -1897,7 +1898,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          post.text,
+                          postPlainText(post.text, preserveParagraphs: true),
                           maxLines: 5,
                           overflow: TextOverflow.ellipsis,
                         ),

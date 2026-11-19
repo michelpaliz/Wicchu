@@ -20,15 +20,18 @@ Community _community() => Community(
 
 Future<void> _pump(
   WidgetTester tester,
-  DemoCommunityRepository repository,
-) async {
+  DemoCommunityRepository repository, {
+  String languageCode = 'en',
+}) async {
   await tester.binding.setSurfaceSize(const Size(430, 1200));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
+      locale: Locale(languageCode),
+      supportedLocales: const [Locale('en'), Locale('es')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       builder: (_, child) => AppLanguageScope(
-        languageCode: 'en',
+        languageCode: languageCode,
         onLanguageChanged: (_) {},
         child: child!,
       ),
@@ -48,17 +51,131 @@ class _NewsRepository extends DemoCommunityRepository {
   Future<LocalNewsSettings> getLocalNewsSettings(String _) async => value;
 }
 
+class _CategoryNewsRepository extends _NewsRepository {
+  _CategoryNewsRepository(super.value);
+
+  @override
+  Future<List<CommunityCategory>> listCategories(String communityId) async => [
+    const CommunityCategory(
+      id: 'news',
+      communityId: 'community-1',
+      name: 'News',
+      icon: '📰',
+    ),
+    const CommunityCategory(
+      id: 'businesses',
+      communityId: 'community-1',
+      name: 'Local Businesses',
+      icon: '📍',
+    ),
+  ];
+}
+
 void main() {
+  List<String> categoryLabels(WidgetTester tester) {
+    final field = find.byType(DropdownButtonFormField<String>).first;
+    final dropdown = tester.widget<DropdownButton<String>>(
+      find.descendant(of: field, matching: find.byType(DropdownButton<String>)),
+    );
+    return dropdown.items!
+        .map((item) => (item.child as Text).data ?? '')
+        .toList(growable: false);
+  }
+
+  testWidgets('built-in categories follow the selected app language', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _CategoryNewsRepository(const LocalNewsSettings()),
+      languageCode: 'es',
+    );
+    expect(
+      categoryLabels(tester),
+      containsAll(['Noticias', 'Negocios locales']),
+    );
+    expect(categoryLabels(tester), isNot(contains('News')));
+  });
+
+  testWidgets('category language follows app preference during locale switch', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _CategoryNewsRepository(const LocalNewsSettings()),
+      languageCode: 'es',
+    );
+    expect(categoryLabels(tester), contains('Noticias'));
+
+    // The app preference remains authoritative while Flutter is still using
+    // the previous platform locale during a language transition.
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        supportedLocales: const [Locale('en'), Locale('es')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        builder: (_, child) => AppLanguageScope(
+          languageCode: 'es',
+          onLanguageChanged: (_) {},
+          child: child!,
+        ),
+        home: LocalNewsSettingsPage(
+          community: _community(),
+          repository: _CategoryNewsRepository(const LocalNewsSettings()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(categoryLabels(tester), contains('Noticias'));
+    expect(categoryLabels(tester), isNot(contains('News')));
+  });
+
   testWidgets('first use displays the required activation form', (
     tester,
   ) async {
-    await _pump(tester, _NewsRepository(const LocalNewsSettings()));
+    await _pump(
+      tester,
+      _NewsRepository(
+        const LocalNewsSettings(
+          access: LocalNewsAccess(
+            entitled: true,
+            source: 'pilot',
+            tier: 'pilot',
+          ),
+        ),
+      ),
+    );
     expect(find.text('Activate automated news'), findsOneWidget);
-    expect(find.text('1. Post category *'), findsOneWidget);
-    expect(find.text('2. What news should Wicchu look for? *'), findsOneWidget);
-    expect(find.text('5. Publication mode *'), findsOneWidget);
+    expect(find.text('Post category *'), findsOneWidget);
+    expect(find.text('News topics *'), findsOneWidget);
+    expect(find.text('Publication approval'), findsOneWidget);
+    expect(find.text('Publication mode *'), findsNothing);
     expect(find.text('Continue'), findsOneWidget);
     expect(find.text('Approved sources'), findsNothing);
+  });
+
+  testWidgets('first use shows concise validation before activation', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _NewsRepository(
+        const LocalNewsSettings(
+          access: LocalNewsAccess(
+            entitled: true,
+            source: 'pilot',
+            tier: 'pilot',
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Select a category for these news posts.'),
+      findsOneWidget,
+    );
+    expect(find.text('Describe the news Wicchu should find.'), findsOneWidget);
   });
 
   testWidgets(

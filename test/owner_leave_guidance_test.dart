@@ -82,9 +82,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('community-profile-menu')));
     await tester.pumpAndSettle();
     expect(find.text('Manage community'), findsOneWidget);
-    expect(find.text('Community messages'), findsOneWidget);
+    expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Notifications'), findsOneWidget);
-    await tester.tap(find.text('Community messages'));
+    await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();
     expect(find.byType(ConversationListPage), findsOneWidget);
     expect(repository.inboxPageId, repository.community.id);
@@ -112,14 +112,13 @@ void main() {
         find.descendant(of: sheet, matching: find.text(text));
 
     expect(inSheet('Community options'), findsOneWidget);
+    expect(inSheet('Community'), findsOneWidget);
     expect(inSheet('Administration'), findsOneWidget);
     expect(inSheet('Manage community'), findsOneWidget);
-    expect(inSheet('Community messages'), findsOneWidget);
+    expect(inSheet('Messages'), findsOneWidget);
     expect(inSheet('Notifications'), findsOneWidget);
-    expect(inSheet('Edit community'), findsOneWidget);
+    expect(inSheet('Edit community'), findsNothing);
     expect(inSheet('Contact Wicchu Safety'), findsOneWidget);
-    expect(inSheet('Leave community'), findsOneWidget);
-    expect(inSheet('Step down as administrator'), findsOneWidget);
     expect(inSheet('Report community'), findsNothing);
 
     await tester.scrollUntilVisible(
@@ -129,6 +128,8 @@ void main() {
           .descendant(of: sheet, matching: find.byType(Scrollable))
           .first,
     );
+    expect(inSheet('Leave community'), findsOneWidget);
+    expect(inSheet('Step down as administrator'), findsOneWidget);
     await tester.tap(inSheet('Step down as administrator'));
     await tester.pumpAndSettle();
     expect(find.text('Step down as administrator?'), findsOneWidget);

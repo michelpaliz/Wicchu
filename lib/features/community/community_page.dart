@@ -1,6 +1,7 @@
 import '../../widgets/category_symbol.dart';
 import 'package:wicchu/theme/wicchu_icons.dart';
 import '../../widgets/block_visibility_listener.dart';
+import '../../widgets/post_empty_state.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
@@ -8,6 +9,7 @@ import '../../domain/community_repository.dart';
 import '../../localization/app_language.dart';
 import '../../localization/activity_status.dart';
 import '../admin/admin_dashboard_page.dart';
+import '../admin/admin_management_pages.dart';
 import 'category_page.dart';
 import 'comments_sheet.dart';
 import 'create_post_page.dart';
@@ -54,7 +56,10 @@ class _CommunityPageState extends State<CommunityPage>
       community.myRole == CommunityRole.owner ||
       community.myRole == CommunityRole.admin;
   bool get _canPublish =>
-      _isJoined && (!community.isPublicProfile || _canManage);
+      _isJoined &&
+      (!community.isPublicProfile ||
+          _canManage ||
+          community.myRole == CommunityRole.contributor);
 
   @override
   void initState() {
@@ -156,14 +161,19 @@ class _CommunityPageState extends State<CommunityPage>
   }
 
   Future<void> _openManagement() async {
-    final updated = await Navigator.push<Community>(
+    final result = await Navigator.push<Object?>(
       context,
       MaterialPageRoute(
         builder: (_) =>
             AdminDashboardPage(community: community, repository: repository),
       ),
     );
-    if (updated != null && mounted) setState(() => _community = updated);
+    if (!mounted) return;
+    if (result == CommunitySettingsResult.deleted) {
+      Navigator.maybePop(context);
+      return;
+    }
+    if (result is Community) setState(() => _community = result);
   }
 
   Future<void> _openProfile() async {
@@ -372,13 +382,7 @@ class _CommunityPageState extends State<CommunityPage>
                         ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _openProfile,
-                    icon: const Icon(WicchuIcons.info),
-                    label: Text(context.tr('View community profile')),
-                  ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   if (community.myRole != CommunityRole.owner)
                     SizedBox(
                       width: double.infinity,
@@ -401,23 +405,68 @@ class _CommunityPageState extends State<CommunityPage>
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
+                        key: const ValueKey('new-community-post-action'),
                         onPressed: _createPost,
-                        icon: const Icon(WicchuIcons.plus),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                        icon: const Icon(WicchuIcons.plus, size: 20),
                         label: Text(context.tr('New post')),
                       ),
                     ),
-                  if (_canManage) ...[
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _openManagement,
-                        icon: const Icon(WicchuIcons.shieldCheck),
-                        label: Text(context.tr('Community management')),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Semantics(
+                          label: context.tr('View community profile'),
+                          button: true,
+                          excludeSemantics: true,
+                          child: OutlinedButton.icon(
+                            key: const ValueKey(
+                              'view-community-profile-action',
+                            ),
+                            onPressed: _openProfile,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(44),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                            ),
+                            icon: const Icon(WicchuIcons.info, size: 18),
+                            label: Text(context.tr('View profile')),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 28),
+                      if (_canManage) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Semantics(
+                            label: context.tr('Community management'),
+                            button: true,
+                            excludeSemantics: true,
+                            child: OutlinedButton.icon(
+                              key: const ValueKey('manage-community-action'),
+                              onPressed: _openManagement,
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(44),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                              ),
+                              icon: const Icon(
+                                WicchuIcons.shieldCheck,
+                                size: 18,
+                              ),
+                              label: Text(context.tr('Manage')),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                   Text(
                     context.tr('Categories'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -519,7 +568,18 @@ class _CommunityPageState extends State<CommunityPage>
                       }
                       final posts = snapshot.data ?? const [];
                       if (posts.isEmpty) {
-                        return Text(context.tr('No posts found'));
+                        return PostEmptyState(
+                          title: context.tr('No posts yet.'),
+                          description: context.tr(
+                            _canPublish
+                                ? 'Be the first to share news, an event, an offer, or something useful with the community.'
+                                : 'Updates from this community will appear here.',
+                          ),
+                          actionLabel: _canPublish
+                              ? context.tr('Create publication')
+                              : null,
+                          onAction: _canPublish ? _createPost : null,
+                        );
                       }
                       return Column(
                         children: [

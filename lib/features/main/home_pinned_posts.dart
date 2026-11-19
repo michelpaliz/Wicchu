@@ -1,11 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../domain/community_models.dart';
 import '../../localization/app_language.dart';
 import '../../theme/wicchu_icons.dart';
 import '../../theme/wicchu_theme.dart';
+import '../../widgets/emoji_aware_text.dart';
 import '../../widgets/wicchu_network_image.dart';
 import '../community/post_card.dart';
+import '../community/post_markdown.dart';
 
 /// Home-only summaries; individual spaces retain their full pinned posts.
 class HomePinnedPosts extends StatelessWidget {
@@ -20,10 +24,15 @@ class HomePinnedPosts extends StatelessWidget {
   final Map<String, Community> communities;
   final ValueChanged<CommunityPost> onOpen;
 
-  Widget _preview(BuildContext context, CommunityPost post) {
+  Widget _preview(
+    BuildContext context,
+    CommunityPost post, {
+    double width = 240,
+  }) {
     final theme = Theme.of(context);
+    final previewText = postPlainText(post.displayText);
     return SizedBox(
-      width: 240,
+      width: width,
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
@@ -62,13 +71,13 @@ class HomePinnedPosts extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
               ],
-              Text(
-                post.displayText.trim().isEmpty
-                    ? context.tr('Publication')
-                    : post.displayText,
+              Text.rich(
+                emojiAwareTextSpan(
+                  previewText.isEmpty ? context.tr('Publication') : previewText,
+                  style: WicchuPostTypography.title(context),
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: WicchuPostTypography.title(context),
               ),
               const SizedBox(height: 4),
               Text(
@@ -135,19 +144,34 @@ class HomePinnedPosts extends StatelessWidget {
             child: _preview(context, posts.single),
           )
         else
-          SingleChildScrollView(
-            key: const ValueKey('home-pinned-carousel'),
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final (index, post) in posts.indexed) ...[
-                  if (index > 0) const SizedBox(width: 12),
-                  _preview(context, post),
-                ],
-              ],
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const compactGap = 12.0;
+              const minimumCompactCardWidth = 160.0;
+              final twoColumnWidth =
+                  (constraints.maxWidth - 32 - compactGap) / 2;
+              final showsTwoCompleteCards =
+                  twoColumnWidth >= minimumCompactCardWidth &&
+                  constraints.maxWidth < 600;
+              final cardWidth = showsTwoCompleteCards
+                  ? twoColumnWidth
+                  : math.min(360.0, math.max(0.0, constraints.maxWidth - 32));
+              final gap = showsTwoCompleteCards ? compactGap : 16.0;
+              return SingleChildScrollView(
+                key: const ValueKey('home-pinned-carousel'),
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final (index, post) in posts.indexed) ...[
+                      if (index > 0) SizedBox(width: gap),
+                      _preview(context, post, width: cardWidth),
+                    ],
+                  ],
+                ),
+              );
+            },
           ),
       ],
     );

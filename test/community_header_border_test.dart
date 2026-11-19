@@ -57,6 +57,10 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('settings-profile-details')),
+        );
+        await tester.pumpAndSettle();
         final save = find.byKey(const ValueKey('community-settings-save'));
         expect(tester.widget<TextButton>(save).onPressed, isNull);
         expect(find.byType(Card), findsNothing);
@@ -65,7 +69,13 @@ void main() {
         expect(find.text('Change cover photo'), findsOneWidget);
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
-        final description = find.widgetWithText(TextFormField, 'About');
+        final description = find.byKey(
+          const ValueKey('community-about-description'),
+        );
+        expect(
+          find.byKey(const ValueKey('community-about-counter')),
+          findsOneWidget,
+        );
         await tester.scrollUntilVisible(
           description,
           180,
@@ -79,18 +89,9 @@ void main() {
         final field = tester.widget<TextField>(
           find.descendant(of: description, matching: find.byType(TextField)),
         );
-        expect(field.maxLines, 5);
-        final fullEditor = find.text('Edit full description');
-        await tester.ensureVisible(fullEditor);
-        await tester.tap(fullEditor);
-        await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byKey(const ValueKey('community-full-description')),
-          'Edited in full screen',
-        );
-        await tester.tap(find.text('Done'));
-        await tester.pumpAndSettle();
-        expect(find.text('Edited in full screen'), findsOneWidget);
+        expect(field.minLines, 3);
+        expect(field.maxLines, 8);
+        expect(find.text('Edit full description'), findsNothing);
 
         expect(tester.widget<TextButton>(save).onPressed, isNotNull);
         expect(save.hitTestable(), findsOneWidget);
@@ -194,6 +195,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('settings-profile-details')));
+      await tester.pumpAndSettle();
       final row = find.byKey(const ValueKey('appearance-color'));
       await tester.scrollUntilVisible(
         row,
@@ -207,7 +210,9 @@ void main() {
       expect(find.text('Decorative border'), findsNothing);
       final save = find.byKey(const ValueKey('community-settings-save'));
       expect(tester.widget<TextButton>(save).onPressed, isNull);
-      final description = find.widgetWithText(TextFormField, 'About');
+      final description = find.byKey(
+        const ValueKey('community-about-description'),
+      );
       await tester.scrollUntilVisible(
         description,
         -180,

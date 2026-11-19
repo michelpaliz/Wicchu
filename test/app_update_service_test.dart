@@ -209,6 +209,52 @@ void main() {
     expect(update.latestBuild, 20);
   });
 
+  test(
+    'sends installed app details and suppresses a dismissed announcement',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      Uri? requestedUri;
+      final service = AppUpdateService(
+        client: MockClient((request) async {
+          requestedUri = request.url;
+          return http.Response(
+            jsonEncode({
+              'updateAvailable': false,
+              'updateRequired': false,
+              'updateUrl': 'https://apps.apple.com/app/id6816714140',
+              'releaseNotes': 'Mejoras de estabilidad.',
+              'announcement': {
+                'id': 'release-31-es',
+                'title': 'Wicchu se ha actualizado',
+                'message': 'Descubre las novedades de esta versión.',
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final result = await service.check(languageCode: 'es', force: true);
+
+      expect(
+        requestedUri.toString(),
+        startsWith('https://wicchu.com/app-update?'),
+      );
+      expect(requestedUri?.queryParameters, {
+        'platform': 'ios',
+        'version': '1.0.1',
+        'build': '28',
+        'language': 'es',
+      });
+      expect(result?.available, isFalse);
+      expect(result?.announcement?.id, 'release-31-es');
+      expect(result?.announcement?.title, 'Wicchu se ha actualizado');
+
+      await service.dismissAnnouncement('release-31-es');
+      expect(await service.check(languageCode: 'es', force: true), isNull);
+    },
+  );
+
   test('rejects unavailable updates and unsafe links', () {
     expect(
       AppUpdateInfo.fromJson({

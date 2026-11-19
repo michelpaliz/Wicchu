@@ -58,23 +58,25 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
         scrollable: true,
         icon: const Icon(WicchuIcons.downloadSimple),
         title: Text(
-          context.tr(
-            update.required
-                ? 'Update Wicchu to continue'
-                : 'A new Wicchu update is available',
-          ),
+          update.required
+              ? context.tr('Update Wicchu to continue')
+              : update.announcement?.title ??
+                    context.tr('A new Wicchu update is available'),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              update.latestVersion.isEmpty
-                  ? context.tr('A new version is ready to install.')
-                  : context.tr('Version {version} is ready to install.', {
-                      'version': update.latestVersion,
-                    }),
-            ),
+            if (update.announcement case final announcement?)
+              Text(announcement.message)
+            else
+              Text(
+                update.latestVersion.isEmpty
+                    ? context.tr('A new version is ready to install.')
+                    : context.tr('Version {version} is ready to install.', {
+                        'version': update.latestVersion,
+                      }),
+              ),
             if (update.releaseNotes.trim().isNotEmpty) ...[
               const SizedBox(height: 16),
               Text(context.tr("What's new"), style: theme.textTheme.titleSmall),

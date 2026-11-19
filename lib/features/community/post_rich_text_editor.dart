@@ -8,24 +8,41 @@ import 'package:markdown_quill/markdown_quill.dart';
 
 import '../../localization/app_language.dart';
 import 'post_format_toolbar.dart';
+import '../../widgets/facebook_post_embed.dart';
+import '../../widgets/youtube_post_embed.dart';
+
+final _youtubeIframePattern = RegExp(
+  r'''<iframe\b[^>]*\bsrc=["']([^"']+)["'][^>]*>.*?</iframe>''',
+  caseSensitive: false,
+  dotAll: true,
+);
+
+String normalizeYoutubeIframeText(String value) =>
+    value.replaceAllMapped(_youtubeIframePattern, (match) => match.group(1)!);
 
 /// Keeps visual editing separate from the Markdown API contract.
-class PostTextController extends quill.QuillController {
-  PostTextController(this.originalText)
-    : super(
-        document: originalText.isEmpty
-            ? quill.Document()
-            : quill.Document.fromDelta(
-                MarkdownToDelta(
-                  markdownDocument: md.Document(
-                    encodeHtml: false,
-                    extensionSet: md.ExtensionSet.gitHubFlavored,
-                  ),
-                ).convert(originalText),
+class PostTextController extends ChangeNotifier {
+  PostTextController(this.originalText) {
+    final normalizedText = normalizeYoutubeIframeText(originalText);
+    final document = normalizedText.isEmpty
+        ? quill.Document()
+        : quill.Document.fromDelta(
+            MarkdownToDelta(
+              markdownDocument: md.Document(
+                encodeHtml: false,
+                extensionSet: md.ExtensionSet.gitHubFlavored,
               ),
-        selection: const TextSelection.collapsed(offset: 0),
-      ) {
-    _originalDelta = jsonEncode(document.toDelta().toJson());
+            ).convert(normalizedText),
+          );
+    quillController = quill.QuillController.basic()
+      ..document = document
+      ..updateSelection(
+        const TextSelection.collapsed(offset: 0),
+        quill.ChangeSource.local,
+      );
+    quillController.addListener(_normalizeYoutubeIframes);
+    quillController.addListener(notifyListeners);
+    _originalDelta = jsonEncode(quillController.document.toDelta().toJson());
   }
 
   static const maxCharacters = 2000;
@@ -42,12 +59,18 @@ class PostTextController extends quill.QuillController {
   bool get exceedsCharacterLimit => characterCount > maxCharacters;
 
   final String originalText;
+  late final quill.QuillController quillController;
   late final String _originalDelta;
+
+  quill.Document get document => quillController.document;
+  TextSelection get selection => quillController.selection;
 
   String get text {
     final delta = document.toDelta();
     // Editing another field must not rewrite a post's existing Markdown.
-    if (jsonEncode(delta.toJson()) == _originalDelta) return originalText;
+    if (jsonEncode(delta.toJson()) == _originalDelta) {
+      return normalizeYoutubeIframeText(originalText);
+    }
     if (document.toPlainText().trim().isEmpty) return '';
     return DeltaToMarkdown().convert(delta).trimRight();
   }
@@ -56,15 +79,61 @@ class PostTextController extends quill.QuillController {
     final offset = selection.baseOffset.clamp(0, document.length - 1);
     final label = '@$name';
     document.insert(offset, '$label ');
-    formatText(
+    quillController.formatText(
       offset,
       label.length,
       quill.LinkAttribute('wicchu://user/$userId'),
     );
-    updateSelection(
+    quillController.updateSelection(
       TextSelection.collapsed(offset: offset + label.length + 1),
       quill.ChangeSource.local,
     );
+  }
+
+  void replaceText(
+    int index,
+    int len,
+    Object? data,
+    TextSelection? textSelection, {
+    bool ignoreFocus = false,
+  }) => quillController.replaceText(
+    index,
+    len,
+    data,
+    textSelection,
+    ignoreFocus: ignoreFocus,
+  );
+
+  void formatText(int index, int len, quill.Attribute attribute) =>
+      quillController.formatText(index, len, attribute);
+
+  void updateSelection(TextSelection value, quill.ChangeSource source) =>
+      quillController.updateSelection(value, source);
+
+  quill.Style getSelectionStyle() => quillController.getSelectionStyle();
+
+  void _normalizeYoutubeIframes() {
+    final plainText = quillController.document.toPlainText();
+    final normalized = normalizeYoutubeIframeText(plainText);
+    if (normalized == plainText) return;
+    final contentLength = quillController.document.length - 1;
+    quillController.replaceText(
+      0,
+      contentLength,
+      normalized,
+      TextSelection.collapsed(offset: normalized.length),
+      ignoreFocus: true,
+    );
+  }
+
+  void clear() => quillController.clear();
+
+  @override
+  void dispose() {
+    quillController.removeListener(_normalizeYoutubeIframes);
+    quillController.removeListener(notifyListeners);
+    quillController.dispose();
+    super.dispose();
   }
 }
 
@@ -82,6 +151,21 @@ class _PostRichTextEditorState extends State<PostRichTextEditor> {
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
   PostTextController get controller => widget.controller;
+
+  Widget _videoPreview(BuildContext context) {
+    final youtube = extractYoutubePostLinks(controller.text).firstOrNull;
+    final facebook = extractFacebookPostLinks(controller.text).firstOrNull;
+    final video = youtube != null
+        ? YoutubePostEmbed(link: youtube)
+        : facebook != null
+        ? FacebookPostEmbed(link: facebook)
+        : null;
+    if (video == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      child: video,
+    );
+  }
 
   @override
   void dispose() {
@@ -108,7 +192,7 @@ class _PostRichTextEditorState extends State<PostRichTextEditor> {
         child: Column(
           children: [
             quill.QuillEditor.basic(
-              controller: controller,
+              controller: controller.quillController,
               focusNode: _focusNode,
               scrollController: _scrollController,
               config: quill.QuillEditorConfig(
@@ -133,6 +217,10 @@ class _PostRichTextEditorState extends State<PostRichTextEditor> {
                 embedBuilders: const [_PostImageEmbed()],
               ),
             ),
+            ListenableBuilder(
+              listenable: controller,
+              builder: (context, _) => _videoPreview(context),
+            ),
             Divider(
               height: 1,
               color: Theme.of(
@@ -141,10 +229,10 @@ class _PostRichTextEditorState extends State<PostRichTextEditor> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 2, 8, 0),
-              child: PostFormatToolbar(controller: controller),
+              child: PostFormatToolbar(controller: controller.quillController),
             ),
             ListenableBuilder(
-              listenable: controller,
+              listenable: controller.quillController,
               builder: (context, _) => Padding(
                 padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
                 child: Row(

@@ -94,6 +94,39 @@ class _AboutTranslationRepository extends DemoCommunityRepository {
 
 void main() {
   testWidgets(
+    'community information removes malformed replacement characters',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _PreviewRepository();
+      final community = Community(
+        id: 'malformed-summary',
+        name: 'Denia',
+        shortDescription: '\uFFFD\uFFFDConecta con Dénia',
+        description: 'Información de la comunidad',
+        town: const Town(id: 'town-1', name: 'Dénia', countryCode: 'ES'),
+        visibility: CommunityVisibility.public,
+        createdBy: 'owner',
+        createdAt: DateTime(2026),
+        myRole: CommunityRole.member,
+      );
+      repository.previewCommunity = community;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CommunityProfilePage(
+            community: community,
+            repository: repository,
+            screen: CommunityScreen.information,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('\uFFFD'), findsNothing);
+      expect(find.textContaining('Conecta con Dénia'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'About ignores stale language responses and preserves untranslated fields',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(430, 900));

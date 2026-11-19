@@ -281,6 +281,7 @@ class PagesHubPageState extends State<PagesHubPage> {
         repository: widget.repository,
         embedded: true,
         onBack: _backToPages,
+        onCommunityDeleted: _backToPages,
         onSwitchCommunity: showPageSwitcher,
         onCommunityUpdated: (page) {
           setState(() => _selectedPage = page);

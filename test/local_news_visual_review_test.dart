@@ -7,9 +7,52 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
+import 'package:wicchu/domain/community_models.dart';
 import 'package:wicchu/features/admin/local_news_settings_page.dart';
 import 'package:wicchu/localization/app_language.dart';
 import 'package:wicchu/theme/wicchu_theme.dart';
+
+class _VisualNewsRepository extends DemoCommunityRepository {
+  @override
+  Future<LocalNewsSettings> getLocalNewsSettings(String communityId) async =>
+      LocalNewsSettings(
+        enabled: true,
+        activationRequested: true,
+        sourceIds: const ['source-1'],
+        categoryIds: const ['general'],
+        language: 'es',
+        approvalMode: 'manual',
+        newsRules: const [
+          LocalNewsRule(
+            categoryId: 'general',
+            include: 'Noticias locales, eventos y servicios de la comunidad.',
+          ),
+        ],
+        access: const LocalNewsAccess(
+          entitled: true,
+          source: 'pilot',
+          tier: 'pilot',
+          monthlyLimit: 60,
+          dailyLimit: 1,
+        ),
+        dashboard: LocalNewsDashboard(
+          status: 'awaiting_approval',
+          enabled: true,
+          serviceState: 'active',
+          view: 'dashboard',
+          nextCollectionAt: DateTime.utc(2026, 10, 22, 12),
+          quotaResetsAt: DateTime.utc(2026, 10, 23),
+          pendingApproval: 1,
+          publishedToday: 0,
+          dailyLimit: 1,
+          upcomingArticle: const LocalNewsUpcomingArticle(
+            articleId: 'news-1',
+            title: 'Nueva actividad para las familias de Echeandía',
+            sourceName: 'Municipio de Echeandía',
+          ),
+        ),
+      );
+}
 
 void main() {
   testWidgets('news screens in Spanish, both themes and accessible sizes', (
@@ -25,7 +68,7 @@ void main() {
       await loader.load();
     }
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final repository = DemoCommunityRepository();
+    final repository = _VisualNewsRepository();
     final community = await repository.getCommunity('town-x-community');
     for (final narrow in [false, true]) {
       await tester.binding.setSurfaceSize(
@@ -80,21 +123,23 @@ void main() {
           });
         }
 
-        await capture('overview');
-        await tester.scrollUntilVisible(
-          find.text('Configuración'),
-          220,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await capture('configuration');
-        await tester.scrollUntilVisible(
-          find.text('Fuentes aprobadas'),
-          220,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.tap(find.text('Fuentes aprobadas'));
+        final summaryTab = find.widgetWithText(Tab, 'Resumen');
+        final pendingTab = find.widgetWithText(Tab, 'Pendiente');
+        final settingsTab = find.widgetWithText(Tab, 'Ajustes');
+        expect(summaryTab, findsOneWidget);
+        expect(pendingTab, findsOneWidget);
+        expect(settingsTab, findsOneWidget);
+        await capture('summary');
+
+        await tester.tap(pendingTab);
         await tester.pumpAndSettle();
-        await capture('sources');
+        expect(find.text('Revisar noticias pendientes'), findsOneWidget);
+        await capture('pending');
+
+        await tester.tap(settingsTab);
+        await tester.pumpAndSettle();
+        expect(find.text('Categoría de publicación *'), findsOneWidget);
+        await capture('settings');
       }
     }
   });

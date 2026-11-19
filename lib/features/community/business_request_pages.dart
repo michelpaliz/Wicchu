@@ -1,14 +1,14 @@
-import 'business_dialog.dart';
-import '../../services/post_image_preparation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../config/business_features.dart';
 import '../../domain/community_models.dart';
 import '../../domain/community_repository.dart';
-import '../../config/business_features.dart';
 import '../../localization/app_language.dart';
+import '../../services/post_image_preparation.dart';
 import '../../theme/wicchu_icons.dart';
 import '../../widgets/wicchu_network_image.dart';
+import 'business_dialog.dart';
 import 'business_order_pages.dart';
 
 String _requestMoney(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';

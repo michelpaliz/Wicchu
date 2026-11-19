@@ -18,6 +18,9 @@ import 'user_avatar.dart';
 import 'report_dialog.dart';
 import 'community_profile_page.dart';
 import 'category_page.dart';
+import '../../widgets/youtube_post_embed.dart';
+import '../../widgets/facebook_post_embed.dart';
+import '../../widgets/post_link_preview.dart';
 
 String formatPostTime(BuildContext context, DateTime createdAt) {
   final difference = DateTime.now().difference(createdAt.toLocal());
@@ -33,6 +36,64 @@ String formatPostTime(BuildContext context, DateTime createdAt) {
     return context.tr('{count} days ago', {'count': '${difference.inDays}'});
   }
   return MaterialLocalizations.of(context).formatShortDate(createdAt.toLocal());
+}
+
+String? _detectedPostLanguage(String text) {
+  final words = RegExp(
+    r"[a-záéíóúüñ]+",
+    caseSensitive: false,
+  ).allMatches(text.toLowerCase()).map((match) => match.group(0)!).toSet();
+  const spanish = {
+    'el',
+    'la',
+    'los',
+    'las',
+    'un',
+    'una',
+    'de',
+    'del',
+    'en',
+    'que',
+    'para',
+    'con',
+    'por',
+    'como',
+    'grupo',
+    'publicación',
+    'publicaciones',
+    'compartir',
+    'bienvenidos',
+    'experiencia',
+    'actualización',
+    'último',
+  };
+  const english = {
+    'the',
+    'a',
+    'an',
+    'of',
+    'in',
+    'on',
+    'and',
+    'to',
+    'for',
+    'with',
+    'this',
+    'that',
+    'upcoming',
+    'update',
+    'log',
+    'away',
+    'share',
+    'post',
+    'experience',
+  };
+  final spanishScore = words.intersection(spanish).length;
+  final englishScore = words.intersection(english).length;
+  if (spanishScore < 2 && englishScore < 2) return null;
+  if (spanishScore > englishScore) return 'es';
+  if (englishScore > spanishScore) return 'en';
+  return null;
 }
 
 /// Adds 4dp per side to PostCard's 8dp padding for 12dp around the line.
@@ -102,6 +163,7 @@ class PostCard extends StatefulWidget {
     this.onMentionTap,
     this.repository,
     this.post,
+    this.showNewsAttribution = false,
     this.viewerContent = false,
     this.onHide,
     this.onUnhide,
@@ -109,6 +171,9 @@ class PostCard extends StatefulWidget {
 
   final CommunityRepository? repository;
   final CommunityPost? post;
+
+  /// Source details are review metadata and stay out of the public feed.
+  final bool showNewsAttribution;
   final bool viewerContent;
   final Future<void> Function()? onHide;
   final Future<void> Function()? onUnhide;
@@ -366,6 +431,7 @@ class _PostCardState extends State<PostCard> {
   String? _translatedText;
   String? _translationLanguage;
   bool _showTranslation = false;
+  bool _translationNotNeeded = false;
 
   Future<({Community? publisher, PublicMemberProfile? author})>? _postIdentity;
 
@@ -619,6 +685,7 @@ class _PostCardState extends State<PostCard> {
       _translatedText = null;
       _translationLanguage = null;
       _showTranslation = false;
+      _translationNotNeeded = false;
     }
   }
 
@@ -630,11 +697,121 @@ class _PostCardState extends State<PostCard> {
         : '$caption\n\n${_translatedText!}';
   }
 
+  bool _matchesAppLanguage(BuildContext context) {
+    final explicitSource = widget.post?.language
+        .toLowerCase()
+        .split(RegExp('[-_]'))
+        .first;
+    final target =
+        (context
+                    .dependOnInheritedWidgetOfExactType<AppLanguageScope>()
+                    ?.languageCode ??
+                Localizations.localeOf(context).languageCode)
+            .toLowerCase()
+            .split(RegExp('[-_]'))
+            .first;
+    final source = explicitSource == null || explicitSource.isEmpty
+        ? _detectedPostLanguage(widget.text)
+        : explicitSource;
+    if (source == null || source.isEmpty) return false;
+    return source == target;
+  }
+
   String get _newsCardText => widget.post?.newsSource == null
       ? _visiblePostText
       : _visiblePostText
             .replaceFirst(RegExp(r'\n+Source: [^\n]+\nhttps?://\S+\s*$'), '')
             .trim();
+
+  PostLinkPreview? get _richLinkPreview {
+    final preview = widget.post?.linkPreview;
+    if (preview == null || !preview.isRich) return null;
+    final previewUri = Uri.tryParse(preview.url);
+    if (previewUri == null) return null;
+    if (detectPostUrls(
+      widget.text,
+    ).any((link) => postUrlsMatch(link.uri, previewUri))) {
+      return preview;
+    }
+    final previewYoutube = extractYoutubePostLinks(preview.url).firstOrNull;
+    if (previewYoutube != null &&
+        extractYoutubePostLinks(
+          widget.text,
+        ).any((link) => link.videoId == previewYoutube.videoId)) {
+      return preview;
+    }
+    return null;
+  }
+
+  ({Uri url, Widget preview})? _inlinePreview() {
+    final metadata = _richLinkPreview;
+    final metadataUri = Uri.tryParse(metadata?.url ?? '');
+    final youtubeLinks = extractYoutubePostLinks(widget.text);
+    final facebookLinks = extractFacebookPostLinks(widget.text);
+    final metadataYoutube = metadata == null
+        ? null
+        : extractYoutubePostLinks(metadata.url).firstOrNull;
+    final youtube = metadata == null
+        ? youtubeLinks.firstOrNull
+        : metadataYoutube == null
+        ? null
+        : youtubeLinks
+              .where((link) => link.videoId == metadataYoutube.videoId)
+              .firstOrNull;
+    if (youtube != null) {
+      final matchingMetadata = metadataYoutube?.videoId == youtube.videoId
+          ? metadata
+          : null;
+      return (
+        url: youtube.url,
+        preview: YoutubePostEmbed(
+          key: ValueKey('youtube-post-${widget.post?.id}-${youtube.videoId}'),
+          link: youtube,
+          title: matchingMetadata?.title,
+          siteName: matchingMetadata?.siteName.trim().isNotEmpty == true
+              ? matchingMetadata!.siteName
+              : 'youtube.com',
+        ),
+      );
+    }
+    final metadataFacebook = metadataUri == null
+        ? null
+        : facebookLinks
+              .where((link) => postUrlsMatch(link.url, metadataUri))
+              .firstOrNull;
+    final facebook =
+        metadataFacebook ??
+        (metadata == null ? facebookLinks.firstOrNull : null);
+    if (facebook != null) {
+      return (
+        url: facebook.url,
+        preview: FacebookPostEmbed(
+          key: ValueKey('facebook-post-${widget.post?.id}'),
+          link: facebook,
+          title: metadataFacebook == null ? null : metadata?.title,
+          siteName:
+              metadataFacebook != null &&
+                  metadata?.siteName.trim().isNotEmpty == true
+              ? metadata!.siteName
+              : 'facebook.com',
+        ),
+      );
+    }
+    if (metadata != null && metadataUri != null) {
+      return (
+        url: metadataUri,
+        preview: PostLinkPreviewCard(
+          key: ValueKey('post-link-preview-${widget.post?.id}'),
+          preview: metadata,
+        ),
+      );
+    }
+    return null;
+  }
+
+  bool get _containsInlineVideo =>
+      extractYoutubePostLinks(widget.text).isNotEmpty ||
+      extractFacebookPostLinks(widget.text).isNotEmpty;
 
   Future<void> _openNewsArticle(String articleUrl) async {
     final uri = Uri.tryParse(articleUrl);
@@ -701,9 +878,12 @@ class _PostCardState extends State<PostCard> {
     final repository = widget.repository;
     final post = widget.post;
     if (repository == null || post == null || _translating) return;
-    const targetLanguage = 'auto';
-    if (_translatedText != null &&
-        (targetLanguage == 'auto' || _translationLanguage == targetLanguage)) {
+    final targetLanguage =
+        context
+            .dependOnInheritedWidgetOfExactType<AppLanguageScope>()
+            ?.languageCode ??
+        Localizations.localeOf(context).languageCode;
+    if (_translatedText != null && _translationLanguage == targetLanguage) {
       setState(() => _showTranslation = true);
       return;
     }
@@ -718,7 +898,22 @@ class _PostCardState extends State<PostCard> {
       if (result.translatedText.trim().isEmpty) {
         throw Exception('Translation is temporarily unavailable');
       }
+      final sourceLanguage = result.sourceLanguage
+          .toLowerCase()
+          .split(RegExp('[-_]'))
+          .first;
+      final target = targetLanguage.toLowerCase().split(RegExp('[-_]')).first;
+      if (sourceLanguage.isNotEmpty && sourceLanguage == target) {
+        setState(() {
+          _translationNotNeeded = true;
+          _translatedText = null;
+          _translationLanguage = null;
+          _showTranslation = false;
+        });
+        return;
+      }
       setState(() {
+        _translationNotNeeded = false;
         _translatedText = result.translatedText;
         _translationLanguage = result.targetLanguage;
         _showTranslation = true;
@@ -1023,73 +1218,89 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
-  Widget _postContent() => DefaultTextStyle.merge(
-    style: WicchuPostTypography.body(context),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.post?.todayMenu case final menu?) ...[
-          if (_showTranslation && _translatedText != null) ...[
-            PostMarkdown(data: _translatedText!, compact: true),
-            const SizedBox(height: 8),
-          ],
-          _TodayMenuView(menu: menu),
-        ] else if (widget.post?.businessFeature case final feature?) ...[
-          if (_showTranslation && _translatedText != null) ...[
-            PostMarkdown(data: _translatedText!, compact: true),
-            const SizedBox(height: 8),
-          ],
-          _BusinessFeatureView(feature: feature),
-        ] else if (widget.text.isNotEmpty) ...[
-          PostMarkdown(
-            data: _newsCardText,
-            bodyStyle: _poll == null
-                ? null
-                : Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    height: 19 / 15,
-                  ),
-            collapsible: widget.collapseText,
-            compact: true,
-            previewLines: 3,
-            onUserTap: widget.onMentionTap,
-          ),
-        ],
-        if (widget.post?.newsSource case final news?) _newsAttribution(news),
-        if (widget.repository != null &&
-            widget.post != null &&
-            (widget.post!.text.trim().isNotEmpty ||
-                widget.post!.todayMenu != null ||
-                widget.post!.businessFeature != null)) ...[
-          const SizedBox(height: 2),
-          Wrap(
-            spacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              TranslationAction(
-                key: ValueKey('translate-post-${widget.post!.id}'),
-                translating: _translating,
-                translated: _showTranslation,
-                onPressed: _showTranslation
-                    ? () => setState(() => _showTranslation = false)
-                    : _translatePost,
-              ),
-              if (_showTranslation)
-                TranslationAttribution(languageCode: _translationLanguage),
+  Widget _postContent() {
+    final inlinePreview = _inlinePreview();
+    final displayText = displayTextWithoutPreviewUrl(
+      _newsCardText,
+      inlinePreview?.url,
+    );
+    return DefaultTextStyle.merge(
+      style: WicchuPostTypography.body(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.post?.todayMenu case final menu?) ...[
+            if (_showTranslation && _translatedText != null) ...[
+              PostMarkdown(data: _translatedText!, compact: true),
+              const SizedBox(height: 8),
             ],
-          ),
+            _TodayMenuView(menu: menu),
+          ] else if (widget.post?.businessFeature case final feature?) ...[
+            if (_showTranslation && _translatedText != null) ...[
+              PostMarkdown(data: _translatedText!, compact: true),
+              const SizedBox(height: 8),
+            ],
+            _BusinessFeatureView(feature: feature),
+          ] else if (displayText.isNotEmpty) ...[
+            PostMarkdown(
+              data: displayText,
+              bodyStyle: _poll == null
+                  ? null
+                  : Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      height: 19 / 15,
+                    ),
+              collapsible: widget.collapseText,
+              compact: true,
+              previewLines: 3,
+              onUserTap: widget.onMentionTap,
+            ),
+          ],
+          if (inlinePreview case final preview?) ...[
+            const SizedBox(height: 10),
+            preview.preview,
+          ],
+          if (widget.showNewsAttribution)
+            if (widget.post?.newsSource case final news?)
+              _newsAttribution(news),
+          if (!_translationNotNeeded &&
+              !_containsInlineVideo &&
+              !_matchesAppLanguage(context) &&
+              widget.repository != null &&
+              widget.post != null &&
+              (widget.post!.text.trim().isNotEmpty ||
+                  widget.post!.todayMenu != null ||
+                  widget.post!.businessFeature != null)) ...[
+            const SizedBox(height: 2),
+            Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                TranslationAction(
+                  key: ValueKey('translate-post-${widget.post!.id}'),
+                  translating: _translating,
+                  translated: _showTranslation,
+                  onPressed: _showTranslation
+                      ? () => setState(() => _showTranslation = false)
+                      : _translatePost,
+                ),
+                if (_showTranslation)
+                  TranslationAttribution(languageCode: _translationLanguage),
+              ],
+            ),
+          ],
+          if (widget.post?.todayMenu != null ||
+              widget.post?.businessFeature != null)
+            _businessFooter(),
+          if (widget.price != null) ...[
+            const SizedBox(height: 4),
+            Text(widget.price!, style: WicchuPostTypography.title(context)),
+          ],
         ],
-        if (widget.post?.todayMenu != null ||
-            widget.post?.businessFeature != null)
-          _businessFooter(),
-        if (widget.price != null) ...[
-          const SizedBox(height: 4),
-          Text(widget.price!, style: WicchuPostTypography.title(context)),
-        ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 
   Widget _engagementActions({bool compact = false}) => Row(
     children: [
@@ -1141,7 +1352,6 @@ class _PostCardState extends State<PostCard> {
     return _PostMenu(
       category: widget.category,
       categoryIcon: widget.icon,
-      media: widget.media,
       ownedByMe: ownedByMe,
       onShare: widget.onShare,
       saved: _saved,
@@ -1152,7 +1362,6 @@ class _PostCardState extends State<PostCard> {
       onEdit: widget.onEdit,
       onDelete: widget.onDelete == null ? null : _deletePost,
       pinned: _pinned,
-      personalPin: widget.post?.isPersonal == true,
       onPin: widget.onPinnedChanged == null ? null : _togglePinned,
       onModerationRemove: widget.onModerationRemove == null
           ? null
@@ -1853,7 +2062,6 @@ class _PostMenu extends StatelessWidget {
     required this.categoryIcon,
     required this.saved,
     required this.saving,
-    this.media = const [],
     required this.ownedByMe,
     this.onShare,
     this.onSave,
@@ -1862,12 +2070,10 @@ class _PostMenu extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     required this.pinned,
-    required this.personalPin,
     this.onPin,
     this.onModerationRemove,
   });
 
-  final List<PostMedia> media;
   final bool ownedByMe;
   final Future<void> Function()? onShare;
   final String category;
@@ -1880,14 +2086,13 @@ class _PostMenu extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final bool pinned;
-  final bool personalPin;
   final VoidCallback? onPin;
   final VoidCallback? onModerationRemove;
 
   Future<void> _open(BuildContext context) async {
     final action = await showModalBottomSheet<_PostMenuAction>(
       context: context,
-      showDragHandle: true,
+      showDragHandle: false,
       useSafeArea: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1896,143 +2101,91 @@ class _PostMenu extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       builder: (sheetContext) {
         final colors = Theme.of(sheetContext).colorScheme;
-        final preview = media
-            .where(
-              (item) =>
-                  item.type != 'video' ||
-                  (item.thumbnailUrl?.isNotEmpty ?? false),
-            )
-            .firstOrNull;
-        Widget fallback() => Container(
-          color: colors.primary.withValues(alpha: .08),
-          alignment: Alignment.center,
-          child: CategorySymbol(categoryIcon, size: 24),
-        );
         Widget option(
           _PostMenuAction action,
           IconData icon,
-          String label,
-          String subtitle, {
-          Color? tint,
+          String label, {
+          String? subtitle,
           bool destructive = false,
-        }) {
-          final color = tint ?? colors.primary;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Material(
-              color: destructive
-                  ? colors.error.withValues(alpha: .045)
-                  : colors.onSurface.withValues(alpha: .025),
-              borderRadius: BorderRadius.circular(18),
-              clipBehavior: Clip.antiAlias,
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                leading: Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: .11),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: color, size: 24),
-                ),
-                title: Text(
-                  sheetContext.tr(label),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: destructive ? colors.error : colors.onSurface,
-                  ),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    sheetContext.tr(subtitle),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                trailing: Icon(
-                  WicchuIcons.caretRight,
-                  size: 20,
-                  color: destructive ? colors.error : colors.onSurfaceVariant,
-                ),
-                onTap: () => Navigator.pop(sheetContext, action),
-              ),
+        }) => ListTile(
+          key: ValueKey('post-menu-${action.name}'),
+          minTileHeight: subtitle == null ? 50 : null,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          minLeadingWidth: 22,
+          horizontalTitleGap: 12,
+          leading: Icon(
+            icon,
+            size: 21,
+            color: destructive ? colors.error : colors.onSurfaceVariant,
+          ),
+          title: Text(
+            sheetContext.tr(label),
+            style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: destructive ? colors.error : colors.onSurface,
             ),
-          );
-        }
+          ),
+          subtitle: subtitle == null
+              ? null
+              : Text(
+                  sheetContext.tr(subtitle),
+                  style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+          onTap: () => Navigator.pop(sheetContext, action),
+        );
 
+        final hasDestructiveAction =
+            onModerationRemove != null || (ownedByMe && onDelete != null);
         return SafeArea(
           top: false,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.only(left: 4, bottom: 6),
                   child: Row(
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: SizedBox(
-                          width: 50,
-                          height: 50,
-                          child: preview == null
-                              ? fallback()
-                              : Image.network(
-                                  preview.previewUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => fallback(),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               sheetContext.tr('Post options'),
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: Theme.of(sheetContext)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              sheetContext.tr('Manage this post'),
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: colors.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                CategorySymbol(
-                                  categoryIcon,
-                                  size: 14,
-                                  color: colors.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    sheetContext.tr(category),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: colors.onSurfaceVariant,
+                            if (category.trim().isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  CategorySymbol(
+                                    categoryIcon,
+                                    size: 14,
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      sheetContext.tr(category),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(sheetContext)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: colors.onSurfaceVariant,
+                                          ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -2040,13 +2193,12 @@ class _PostMenu extends StatelessWidget {
                         tooltip: MaterialLocalizations.of(
                           sheetContext,
                         ).closeButtonTooltip,
-                        style: IconButton.styleFrom(
-                          backgroundColor: colors.onSurface.withValues(
-                            alpha: .04,
-                          ),
+                        constraints: const BoxConstraints.tightFor(
+                          width: 44,
+                          height: 44,
                         ),
                         onPressed: () => Navigator.pop(sheetContext),
-                        icon: const Icon(WicchuIcons.x, size: 22),
+                        icon: const Icon(WicchuIcons.x, size: 20),
                       ),
                     ],
                   ),
@@ -2056,50 +2208,45 @@ class _PostMenu extends StatelessWidget {
                     _PostMenuAction.save,
                     saved ? WicchuIcons.bookmarkFill : WicchuIcons.bookmark,
                     saved ? 'Unsave post' : 'Save post',
-                    saved
-                        ? 'Remove it from your saved posts'
-                        : 'Save it to view later',
                   ),
                 if (onShare != null)
                   option(
                     _PostMenuAction.share,
                     WicchuIcons.export,
                     'Share post',
-                    'Share it in other apps',
                   ),
                 if (onPin != null)
                   option(
                     _PostMenuAction.pin,
                     pinned ? WicchuIcons.pushPinFill : WicchuIcons.pushPin,
                     pinned ? 'Unpin publication' : 'Pin publication',
-                    personalPin
-                        ? (pinned
-                              ? 'Remove it from the top of your profile'
-                              : 'Keep it at the top of your profile')
-                        : (pinned
-                              ? 'Remove it from the top of its category'
-                              : 'Keep it at the top of its category'),
                   ),
                 if (ownedByMe && onEdit != null)
                   option(
                     _PostMenuAction.edit,
                     WicchuIcons.pencilSimple,
                     'Edit post',
-                    'Update your post',
-                    tint: const Color(0xff1769aa),
                   ),
-                if ((ownedByMe && onDelete != null) ||
-                    onModerationRemove != null ||
-                    (!ownedByMe && onHide != null) ||
-                    (!ownedByMe && onReport != null))
-                  const Divider(height: 24),
+                if (!ownedByMe && onHide != null)
+                  option(
+                    _PostMenuAction.hide,
+                    WicchuIcons.eyeSlash,
+                    'Hide post',
+                  ),
+                if (!ownedByMe && onReport != null)
+                  option(
+                    _PostMenuAction.report,
+                    WicchuIcons.flag,
+                    'Report post',
+                  ),
+                if (hasDestructiveAction)
+                  const Divider(height: 9, thickness: .5),
                 if (onModerationRemove != null)
                   option(
                     _PostMenuAction.moderationRemove,
                     WicchuIcons.trash,
                     'Remove from community',
-                    'The original stays on its source page',
-                    tint: colors.error,
+                    subtitle: 'The original stays on its source page',
                     destructive: true,
                   ),
                 if (ownedByMe && onDelete != null)
@@ -2107,24 +2254,7 @@ class _PostMenu extends StatelessWidget {
                     _PostMenuAction.delete,
                     WicchuIcons.trash,
                     'Delete publication',
-                    'It will be permanently deleted',
-                    tint: colors.error,
                     destructive: true,
-                  ),
-                if (!ownedByMe && onHide != null)
-                  option(
-                    _PostMenuAction.hide,
-                    WicchuIcons.eyeSlash,
-                    'Hide post',
-                    'You will no longer see this post',
-                  ),
-                if (!ownedByMe && onReport != null)
-                  option(
-                    _PostMenuAction.report,
-                    WicchuIcons.flag,
-                    'Report post',
-                    'Report inappropriate content',
-                    tint: const Color(0xffbf510d),
                   ),
               ],
             ),

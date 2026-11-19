@@ -112,6 +112,7 @@ abstract final class WicchuIcons {
   static const magnifyingGlass = PhosphorIconsRegular.magnifyingGlass;
   static const magnifyingGlassMinus = PhosphorIconsRegular.magnifyingGlassMinus;
   static const mapPin = PhosphorIconsRegular.mapPin;
+  static const mapPinSimple = PhosphorIconsRegular.mapPinSimple;
   static const mapPinSlash = PhosphorIconsRegular.mapPinLine;
   static const mapTrifold = PhosphorIconsRegular.mapTrifold;
   static const megaphone = PhosphorIconsRegular.megaphone;

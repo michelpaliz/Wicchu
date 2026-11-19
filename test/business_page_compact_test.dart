@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/data/demo_community_repository.dart';
 import 'package:wicchu/domain/community_models.dart';
@@ -189,6 +190,33 @@ void main() {
     await tester.tap(find.text('See less'));
     await tester.pumpAndSettle();
     expect(tester.widget<Text>(text).maxLines, 3);
+  });
+
+  testWidgets('Apple profile descriptions omit unsupported emoji boxes', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => compactProfileDescription(
+              context,
+              '🏖️ Conecta con Dénia y la Marina Alta. 🌍',
+            ),
+          ),
+        ),
+      ),
+    );
+    debugDefaultTargetPlatformOverride = null;
+
+    expect(
+      find.text('Conecta con Dénia y la Marina Alta.', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.textContaining('🏖️', findRichText: true), findsNothing);
+    expect(find.textContaining('🌍', findRichText: true), findsNothing);
   });
 }
 

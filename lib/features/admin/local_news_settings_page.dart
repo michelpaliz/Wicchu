@@ -28,6 +28,8 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
   String? _categoryId;
   String _language = 'es';
   String _approvalMode = 'manual';
+  String? _categoryError;
+  String? _includeError;
   final _include = TextEditingController();
   final _exclude = TextEditingController();
 
@@ -68,11 +70,12 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
         _loading = false;
       });
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error;
           _loading = false;
         });
+      }
     }
   }
 
@@ -90,13 +93,20 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
   }
 
   Future<void> _activateOrSave() async {
-    final rule = _draftRule;
-    if (rule == null || rule.include.length < 20) {
-      _message(
-        'Describe the news Wicchu should find in at least 20 characters.',
-      );
-      return;
-    }
+    final categoryError = _categoryId == null
+        ? 'Select a category for these news posts.'
+        : null;
+    final include = _include.text.trim();
+    final includeError = include.isEmpty
+        ? 'Describe the news Wicchu should find.'
+        : include.length < 20
+        ? 'Add at least 20 characters so Wicchu can find relevant news.'
+        : null;
+    setState(() {
+      _categoryError = categoryError;
+      _includeError = includeError;
+    });
+    if (categoryError != null || includeError != null) return;
     await _save(enabled: true);
   }
 
@@ -184,8 +194,9 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
   );
 
   Widget _body() {
-    if (_loading && _settings == null)
+    if (_loading && _settings == null) {
       return const Center(child: CircularProgressIndicator());
+    }
     if (_error != null) {
       final unavailable =
           _error is ApiException && (_error as ApiException).statusCode == 403;
@@ -209,11 +220,14 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
         children: [
           Material(
             color: Theme.of(context).colorScheme.surface,
-            child: const TabBar(
+            child: TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
               tabs: [
-                Tab(text: 'Resumen'),
-                Tab(text: 'Pendientes'),
-                Tab(text: 'Ajustes'),
+                Tab(text: context.tr('Summary')),
+                Tab(text: context.tr('Pending')),
+                Tab(text: context.tr('Settings')),
               ],
             ),
           ),
@@ -231,29 +245,58 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
     );
   }
 
-  Widget _setup(LocalNewsSettings settings) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      Text(
-        context.tr('Activate automated news'),
-        style: Theme.of(context).textTheme.headlineSmall,
-      ),
-      const SizedBox(height: 8),
-      Text(context.tr('Wicchu will look for relevant content automatically.')),
-      const SizedBox(height: 24),
-      _formFields(settings),
-      const SizedBox(height: 20),
-      FilledButton(
-        onPressed: _saving ? null : _activateOrSave,
-        child: _saving
-            ? const SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Text(context.tr('Continue')),
-      ),
-    ],
-  );
+  Widget _setup(LocalNewsSettings settings) {
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            children: [
+              Text(
+                context.tr('Activate automated news'),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                context.tr(
+                  'Wicchu will look for relevant content automatically.',
+                ),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _formFields(settings),
+            ],
+          ),
+        ),
+        if (!keyboardOpen)
+          SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                onPressed: _saving ? null : _activateOrSave,
+                child: _saving
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(context.tr('Continue')),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
   Widget _overview(LocalNewsSettings settings) {
     final dashboard = settings.dashboard;
@@ -373,61 +416,81 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
     ],
   );
 
+  Widget _fieldLabel(String label) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      context.tr(label),
+      style: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 14),
+    ),
+  );
+
   Widget _formFields(LocalNewsSettings settings) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
+      _fieldLabel('Post category *'),
       DropdownButtonFormField<String>(
+        key: ValueKey(_categoryId),
         isExpanded: true,
-        value: _categories.any((category) => category.id == _categoryId)
+        initialValue: _categories.any((category) => category.id == _categoryId)
             ? _categoryId
             : null,
         decoration: InputDecoration(
-          labelText: context.tr('1. Post category *'),
-          helperText: context.tr('Select an existing community category.'),
+          hintText: context.tr('Select a category'),
+          errorText: _categoryError == null
+              ? null
+              : context.tr(_categoryError!),
         ),
         items: _categories
             .map(
               (category) => DropdownMenuItem(
                 value: category.id,
-                child: Text(category.name),
+                child: Text(context.trForAppLanguage(category.name)),
               ),
             )
             .toList(growable: false),
         onChanged: _saving
             ? null
-            : (value) => setState(() => _categoryId = value),
+            : (value) => setState(() {
+                _categoryId = value;
+                _categoryError = null;
+              }),
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 14),
+      _fieldLabel('News topics *'),
       TextField(
         controller: _include,
         maxLength: 500,
         minLines: 3,
         maxLines: 5,
-        onChanged: (_) => setState(() {}),
+        onChanged: (_) => setState(() => _includeError = null),
         decoration: InputDecoration(
-          labelText: context.tr('2. What news should Wicchu look for? *'),
+          hintText: context.tr('What should Wicchu look for?'),
           helperText: context.tr(
             'Be specific about topics that interest your community.',
           ),
+          errorText: _includeError == null ? null : context.tr(_includeError!),
         ),
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 10),
+      _fieldLabel('Excluded content'),
       TextField(
         controller: _exclude,
         maxLength: 300,
-        minLines: 2,
-        maxLines: 4,
+        minLines: 1,
+        maxLines: 2,
         decoration: InputDecoration(
-          labelText: context.tr('3. What should Wicchu avoid?'),
+          hintText: context.tr('Optional: what should Wicchu avoid?'),
         ),
       ),
-      const SizedBox(height: 12),
-      Text(
-        context.tr('4. Language *'),
-        style: Theme.of(context).textTheme.labelLarge,
-      ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 14),
+      _fieldLabel('Language *'),
       SegmentedButton<String>(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(0, 42)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 16),
+          ),
+        ),
         segments: const [
           ButtonSegment(value: 'es', label: Text('Español')),
           ButtonSegment(value: 'en', label: Text('English')),
@@ -437,28 +500,67 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
             ? null
             : (value) => setState(() => _language = value.first),
       ),
-      const SizedBox(height: 16),
-      DropdownButtonFormField<String>(
-        isExpanded: true,
-        value: _approvalMode,
-        decoration: InputDecoration(
-          labelText: context.tr('5. Publication mode *'),
-        ),
-        items: [
-          DropdownMenuItem(
-            value: 'manual',
-            child: Text(context.tr('Review before publishing')),
+      const SizedBox(height: 14),
+      if (settings.isPilot) ...[
+        _fieldLabel('Publication approval'),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
           ),
-          if (!settings.isPilot)
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.fact_check_outlined,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.tr('Review before publishing')),
+                    const SizedBox(height: 2),
+                    Text(
+                      context.tr(
+                        'Pilot news always waits for your approval before publication.',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ] else ...[
+        _fieldLabel('Publication mode *'),
+        DropdownButtonFormField<String>(
+          key: ValueKey(_approvalMode),
+          isExpanded: true,
+          initialValue: _approvalMode,
+          decoration: InputDecoration(
+            hintText: context.tr('Select a publication mode'),
+          ),
+          items: [
+            DropdownMenuItem(
+              value: 'manual',
+              child: Text(context.tr('Review before publishing')),
+            ),
             DropdownMenuItem(
               value: 'automatic',
               child: Text(context.tr('Publish automatically')),
             ),
-        ],
-        onChanged: _saving || settings.isPilot
-            ? null
-            : (value) => setState(() => _approvalMode = value ?? 'manual'),
-      ),
+          ],
+          onChanged: _saving
+              ? null
+              : (value) => setState(() => _approvalMode = value ?? 'manual'),
+        ),
+      ],
     ],
   );
 
@@ -471,69 +573,79 @@ class _LocalNewsSettingsPageState extends State<LocalNewsSettingsPage> {
     String preparation,
     String? dashboardStatus,
   ) {
-    if (state == 'no_sources' || preparation == 'no_sources')
+    if (state == 'no_sources' || preparation == 'no_sources') {
       return (
         'No verified sources yet',
         'We have not found verified sources for this community. Your configuration is saved.',
         Icons.rss_feed_outlined,
       );
+    }
     if (state == 'awaiting_source_approval' ||
-        preparation == 'awaiting_approval')
+        preparation == 'awaiting_approval') {
       return (
         'Waiting for source approval',
         'Wicchu is verifying sources. This may take time.',
         Icons.verified_outlined,
       );
+    }
     if (state == 'discovering_sources' ||
         preparation == 'queued' ||
-        preparation == 'searching')
+        preparation == 'searching') {
       return (
         'Preparing your news',
         'Wicchu is searching for and verifying relevant sources. You can leave this screen.',
         Icons.travel_explore_outlined,
       );
-    if (state == 'paused')
+    }
+    if (state == 'paused') {
       return (
         'Automatic News is paused',
         'Your preferences and pending articles are saved.',
         Icons.pause_circle_outline,
       );
-    if (dashboardStatus == 'collecting')
+    }
+    if (dashboardStatus == 'collecting') {
       return (
         'Checking the latest news',
         'Wicchu is reviewing approved sources now.',
         Icons.sync_outlined,
       );
-    if (dashboardStatus == 'no_news_found')
+    }
+    if (dashboardStatus == 'no_news_found') {
       return (
         'Everything is working',
         'We will keep looking for relevant news for your community.',
         Icons.check_circle_outline,
       );
-    if (dashboardStatus == 'awaiting_approval')
+    }
+    if (dashboardStatus == 'awaiting_approval') {
       return (
         'News ready for review',
         'You have a prepared article waiting for approval.',
         Icons.fact_check_outlined,
       );
-    if (dashboardStatus == 'daily_limit_reached')
+    }
+    if (dashboardStatus == 'daily_limit_reached') {
       return (
         'Today’s post is published',
         'We will keep looking for new articles.',
         Icons.today_outlined,
       );
-    if (dashboardStatus == 'source_error')
+    }
+    if (dashboardStatus == 'source_error') {
       return (
         'Some sources are unavailable',
         'Wicchu will try them again automatically.',
         Icons.warning_amber_outlined,
       );
-    if (state == 'error' || dashboardStatus == 'error')
+    }
+    if (state == 'error' || dashboardStatus == 'error') {
       return (
         'Automatic News needs attention',
         'We could not complete the latest check. Wicchu will try again automatically.',
         Icons.error_outline,
       );
+    }
     return (
       'Ready to look for news',
       'Wicchu will check verified sources automatically every six hours.',
@@ -603,45 +715,50 @@ class _MetricGrid extends StatelessWidget {
   const _MetricGrid({required this.items});
   final List<(String, String, IconData)> items;
   @override
-  Widget build(BuildContext context) => GridView.count(
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    crossAxisCount: 2,
-    childAspectRatio: 1.8,
-    mainAxisSpacing: 8,
-    crossAxisSpacing: 8,
-    children: items
-        .map(
-          (item) => Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      const spacing = 8.0;
+      final itemWidth = (constraints.maxWidth - spacing) / 2;
+      return Wrap(
+        spacing: spacing,
+        runSpacing: spacing,
+        children: items
+            .map(
+              (item) => SizedBox(
+                width: itemWidth,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(item.$3, size: 18),
+                      const SizedBox(height: 12),
+                      Text(
+                        context.tr(item.$2),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        context.tr(item.$1),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(item.$3, size: 18),
-                const Spacer(),
-                Text(
-                  context.tr(item.$2),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  context.tr(item.$1),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-        )
-        .toList(growable: false),
+            )
+            .toList(growable: false),
+      );
+    },
   );
 }
 

@@ -26,6 +26,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
       return AdminDashboardPage(
         community: community,
         repository: widget.repository,
+        onCommunityDeleted: () => setState(() => _community = null),
       );
     }
     return Scaffold(

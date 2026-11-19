@@ -10,38 +10,77 @@ enum NativeUpdateMode { none, flexible, immediate }
 
 enum AppUpdateActionResult { success, cancelled, failed, notNative }
 
+class AppUpdateAnnouncement {
+  const AppUpdateAnnouncement({
+    required this.id,
+    required this.title,
+    required this.message,
+  });
+
+  final String id;
+  final String title;
+  final String message;
+
+  static AppUpdateAnnouncement? fromJson(Object? value) {
+    if (value is! Map<String, dynamic>) return null;
+    final id = value['id']?.toString().trim() ?? '';
+    final title = value['title']?.toString().trim() ?? '';
+    final message = value['message']?.toString().trim() ?? '';
+    if (id.isEmpty || title.isEmpty || message.isEmpty) return null;
+    return AppUpdateAnnouncement(id: id, title: title, message: message);
+  }
+}
+
 class AppUpdateInfo {
   const AppUpdateInfo({
+    this.available = true,
     required this.latestVersion,
     required this.latestBuild,
     required this.required,
     required this.updateUrl,
     required this.releaseNotes,
+    this.announcement,
     this.nativeMode = NativeUpdateMode.none,
   });
 
+  final bool available;
   final String latestVersion;
   final int latestBuild;
   final bool required;
   final String updateUrl;
   final String releaseNotes;
+  final AppUpdateAnnouncement? announcement;
   final NativeUpdateMode nativeMode;
 
   bool get usesGooglePlay => nativeMode != NativeUpdateMode.none;
 
   static AppUpdateInfo? fromJson(Map<String, dynamic> json) {
-    if (json['updateAvailable'] != true) return null;
+    final available = json['updateAvailable'] == true;
+    final announcement = AppUpdateAnnouncement.fromJson(json['announcement']);
+    if (!available && announcement == null) return null;
     final updateUrl = json['updateUrl']?.toString() ?? '';
     final uri = Uri.tryParse(updateUrl);
     if (uri == null || uri.scheme != 'https') return null;
     return AppUpdateInfo(
+      available: available,
       latestVersion: json['latestVersion']?.toString() ?? '',
       latestBuild: (json['latestBuild'] as num?)?.toInt() ?? 0,
       required: json['updateRequired'] == true,
       updateUrl: updateUrl,
       releaseNotes: json['releaseNotes']?.toString() ?? '',
+      announcement: announcement,
     );
   }
+
+  AppUpdateInfo withoutAnnouncement() => AppUpdateInfo(
+    available: available,
+    latestVersion: latestVersion,
+    latestBuild: latestBuild,
+    required: required,
+    updateUrl: updateUrl,
+    releaseNotes: releaseNotes,
+    nativeMode: nativeMode,
+  );
 }
 
 class AppUpdateService {
@@ -57,10 +96,29 @@ class AppUpdateService {
   static const _lastCheckKey = 'app_update_last_check';
   static const _cachedPolicyKey = 'app_update_cached_policy';
   static const _checkedPackageKey = 'app_update_checked_package';
-  static const _apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://hexora.dev',
+  static const _dismissedAnnouncementKey = 'app_update_dismissed_announcement';
+  static const _endpoint = String.fromEnvironment(
+    'APP_UPDATE_URL',
+    defaultValue: 'https://wicchu.com/app-update',
   );
+
+  AppUpdateInfo? _withoutDismissedAnnouncement(
+    AppUpdateInfo? info,
+    SharedPreferences preferences,
+  ) {
+    if (info == null || info.required || info.announcement == null) return info;
+    if (preferences.getString(_dismissedAnnouncementKey) !=
+        info.announcement!.id) {
+      return info;
+    }
+    return info.available ? info.withoutAnnouncement() : null;
+  }
+
+  Future<void> dismissAnnouncement(String id) async {
+    if (id.trim().isEmpty) return;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_dismissedAnnouncementKey, id);
+  }
 
   Future<AppUpdateInfo?> check({
     required String languageCode,
@@ -78,8 +136,9 @@ class AppUpdateService {
 
     final preferences = await SharedPreferences.getInstance();
     final package = await PackageInfo.fromPlatform();
+    final language = languageCode == 'es' ? 'es' : 'en';
     final checkedPackage =
-        '$platform:${package.version}:${package.buildNumber}';
+        '$platform:${package.version}:${package.buildNumber}:$language';
     final now = DateTime.now();
     final lastCheck = DateTime.tryParse(
       preferences.getString(_lastCheckKey) ?? '',
@@ -96,7 +155,10 @@ class AppUpdateService {
         if (decoded is Map<String, dynamic>) {
           final info = AppUpdateInfo.fromJson(decoded);
           if (decoded['updateAvailable'] == false || info != null) {
-            return info?.required == true ? info : null;
+            final visible = _withoutDismissedAnnouncement(info, preferences);
+            return visible?.required == true || visible?.announcement != null
+                ? visible
+                : null;
           }
         }
       } on FormatException {
@@ -104,12 +166,12 @@ class AppUpdateService {
       }
     }
 
-    final uri = Uri.parse('$_apiBaseUrl/wicchu/app-update').replace(
+    final uri = Uri.parse(_endpoint).replace(
       queryParameters: {
         'platform': platform,
         'version': package.version,
         'build': package.buildNumber,
-        'language': languageCode == 'es' ? 'es' : 'en',
+        'language': language,
       },
     );
     Map<String, dynamic>? decoded;
@@ -158,6 +220,7 @@ class AppUpdateService {
               ? NativeUpdateMode.immediate
               : NativeUpdateMode.none;
           playUpdate = AppUpdateInfo(
+            available: true,
             latestVersion: '',
             latestBuild: info.availableVersionCode ?? 0,
             required: required,
@@ -165,6 +228,7 @@ class AppUpdateService {
                 serverUpdate?.updateUrl ??
                 'https://play.google.com/store/apps/details?id=com.wicchu.wicchu',
             releaseNotes: serverUpdate?.releaseNotes ?? '',
+            announcement: serverUpdate?.announcement,
             nativeMode: mode,
           );
         }
@@ -185,7 +249,10 @@ class AppUpdateService {
     } else {
       await preferences.remove(_cachedPolicyKey);
     }
-    return playUpdate ?? serverUpdate;
+    return _withoutDismissedAnnouncement(
+      playUpdate ?? serverUpdate,
+      preferences,
+    );
   }
 
   Future<AppUpdateActionResult> install(AppUpdateInfo update) async {

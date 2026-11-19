@@ -1,9 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wicchu/features/community/post_markdown.dart';
 
 void main() {
+  testWidgets('Apple post copy omits unsupported emoji glyph boxes', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: PostMarkdown(data: '🎉💚 Noticias de Echeandía 🇪🇨'),
+        ),
+      ),
+    );
+    debugDefaultTargetPlatformOverride = null;
+
+    expect(find.text('Noticias de Echeandía'), findsOneWidget);
+    expect(find.textContaining('🎉'), findsNothing);
+    expect(find.textContaining('💚'), findsNothing);
+    expect(find.textContaining('🇪🇨'), findsNothing);
+  });
+
   testWidgets(
     'rich preview preserves nested mention links at large text scale',
     (tester) async {
@@ -182,6 +203,32 @@ void main() {
     final text = preview.textSpan!.toPlainText();
     expect(text, contains(r'Perfecto. Hola *literal* C:\temp'));
     expect(text, isNot(contains(r'Perfecto\.')));
+  });
+
+  testWidgets('post display removes malformed replacement characters', (
+    tester,
+  ) async {
+    const content =
+        '\uFFFD\uE000\uFFFDBienvenidos a Echeandía 🏘️ \uFFFC\u0085\n\n'
+        'Noticias y eventos locales.';
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: PostMarkdown(data: content)),
+      ),
+    );
+
+    expect(find.textContaining('\uFFFD', findRichText: true), findsNothing);
+    expect(find.textContaining('\uE000', findRichText: true), findsNothing);
+    expect(find.textContaining('\uFFFC', findRichText: true), findsNothing);
+    expect(
+      find.textContaining('Bienvenidos a Echeandía 🏘️', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      postPlainText(content),
+      'Bienvenidos a Echeandía 🏘️\nNoticias y eventos locales.',
+    );
   });
 
   testWidgets('short posts do not have an expansion button', (tester) async {
